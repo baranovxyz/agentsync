@@ -8,7 +8,7 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 import prompts from 'prompts';
 import picocolors from 'picocolors';
-import { ConfigError, FileSystemError } from '../core/errors.js';
+import { ConfigError, FileSystemError, ErrorCategory, ErrorSeverity } from '../core/errors.js';
 import AuditLogger, { AuditEventType } from '../core/audit.js';
 import type { InitOptions, ToolName } from '../types/index.js';
 
@@ -87,8 +87,8 @@ export class InitCommand {
     } catch (error) {
       await this.audit.logError(
         error as Error,
-        'CONFIG',
-        'HIGH',
+        ErrorCategory.CONFIG,
+        ErrorSeverity.HIGH,
         { command: 'init', options }
       );
       throw error;
@@ -114,11 +114,11 @@ export class InitCommand {
       };
     }
 
-    const questions = [];
+    const questions: prompts.PromptObject[] = [];
 
     if (!options.template) {
       questions.push({
-        type: 'select',
+        type: 'select' as const,
         name: 'template',
         message: 'Select a template:',
         choices: [
@@ -132,7 +132,7 @@ export class InitCommand {
 
     if (!options.tools || options.tools.length === 0) {
       questions.push({
-        type: 'multiselect',
+        type: 'multiselect' as const,
         name: 'tools',
         message: 'Which AI tools do you use?',
         choices: [
@@ -147,14 +147,14 @@ export class InitCommand {
     }
 
     questions.push({
-      type: 'confirm',
+      type: 'confirm' as const,
       name: 'useSymlinks',
       message: 'Use symlinks for tool configurations? (recommended)',
       initial: true,
     });
 
     questions.push({
-      type: 'confirm',
+      type: 'confirm' as const,
       name: 'updateGitignore',
       message: 'Add AgentSync entries to .gitignore?',
       initial: true,

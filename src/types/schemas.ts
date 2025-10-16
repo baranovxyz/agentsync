@@ -39,7 +39,7 @@ export const McpServerSchema = z.object({
   name: z.string(),
   command: z.string(),
   args: z.array(z.string()).optional(),
-  env: z.record(z.string()).optional(),
+  env: z.record(z.string(), z.string()).optional(),
   description: z.string().optional(),
 });
 

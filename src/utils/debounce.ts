@@ -77,11 +77,12 @@ export function debounce<T extends (...args: any[]) => any>(
     );
   };
 
-  const timerExpired = () => {
+  const timerExpired = (): void => {
     const time = Date.now();
 
     if (shouldInvoke(time)) {
-      return trailingEdge(time);
+      trailingEdge(time);
+      return;
     }
 
     timeoutId = setTimeout(timerExpired, remainingWait(time));

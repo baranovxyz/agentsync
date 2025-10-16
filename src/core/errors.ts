@@ -408,7 +408,7 @@ export class RetryStrategy implements RecoveryStrategy {
              .includes(error.metadata.category);
   }
 
-  async recover(error: AgentSyncError): Promise<void> {
+  async recover(_error: AgentSyncError): Promise<void> {
     let delay = this.delayMs;
 
     for (let i = 0; i < this.maxRetries; i++) {

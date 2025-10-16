@@ -170,11 +170,11 @@ export class AgentsMdWatcher extends EventEmitter {
     });
 
     // Error handling
-    this.watcher.on('error', (error: Error) => {
+    this.watcher.on('error', (error: unknown) => {
       this.emit('error', new FileSystemError(
         'File watcher error',
         undefined,
-        error
+        error as Error
       ));
     });
   }

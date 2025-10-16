@@ -3,7 +3,7 @@
  * Detects secrets, API keys, and sensitive information in AGENTS.md files
  */
 
-import { SecurityError } from '@/core/errors';
+// SecurityError imported but not used yet - will be used for throwing errors
 
 // Common secret patterns
 const SECRET_PATTERNS = {
@@ -99,6 +99,7 @@ function calculateEntropy(str: string): number {
 export interface ScanResult {
   hasSensitiveData: boolean;
   findings: SecurityFinding[];
+  findingsCount?: number;
   stats: ScanStats;
 }
 
@@ -128,7 +129,7 @@ export class SecurityScanner {
   /**
    * Scan content for sensitive information
    */
-  async scan(content: string, filePath?: string): Promise<ScanResult> {
+  async scan(content: string, _filePath?: string): Promise<ScanResult> {
     const startTime = Date.now();
     const lines = content.split('\n');
     const findings: SecurityFinding[] = [];
@@ -190,9 +191,11 @@ export class SecurityScanner {
       scanDuration: Date.now() - startTime,
     };
 
+    const dedupedFindings = this.deduplicateFindings(findings);
     return {
-      hasSensitiveData: findings.length > 0,
-      findings: this.deduplicateFindings(findings),
+      hasSensitiveData: dedupedFindings.length > 0,
+      findings: dedupedFindings,
+      findingsCount: dedupedFindings.length,
       stats,
     };
   }

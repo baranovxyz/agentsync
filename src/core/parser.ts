@@ -7,7 +7,6 @@ import { unified } from 'unified';
 import remarkParse from 'remark-parse';
 import remarkStringify from 'remark-stringify';
 import grayMatter from 'gray-matter';
-import { z } from 'zod';
 import { ParseError, ValidationError } from './errors.js';
 import {
   AgentsMdSchema,
@@ -116,8 +115,8 @@ export class AgentsMdParser {
     }
 
     // Save last section
-    if (currentSection) {
-      currentSection.content = currentContent.join('\n').trim();
+    if (currentSection !== null) {
+      (currentSection as ParsedSection).content = currentContent.join('\n').trim();
       sections.push(currentSection);
     }
 
