@@ -48,9 +48,8 @@ program
   .option('-f, --force', 'Overwrite existing configuration')
   .action(async (options) => {
     try {
-      // TODO: Implement init command
-      console.log(pc.yellow('⚠️  Init command not yet implemented'));
-      console.log('Options:', options);
+      const { init } = await import('./commands/init.js');
+      await init(options);
     } catch (error) {
       handleError(error as Error);
     }
