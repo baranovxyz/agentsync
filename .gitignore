@@ -59,10 +59,3 @@ desktop.ini
 *.temp
 .tmp/
 .temp/
-
-# Documentation/Context files (moved to separate repo or docs)
-context/
-IMPLEMENTATION_PLAN.md
-REQUIREMENTS.md
-SECURITY_IMPLEMENTATION.md
-PRODUCT_IMPROVEMENTS.md
