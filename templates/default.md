@@ -51,6 +51,7 @@ Describe your project here. What does it do? What problem does it solve?
 ## Permissions
 
 ### Allowed Without Prompt
+
 - Read all project files
 - Run build commands
 - Run test commands
@@ -58,6 +59,7 @@ Describe your project here. What does it do? What problem does it solve?
 - Format code with prettier/eslint
 
 ### Require Approval
+
 - Modify package.json dependencies
 - Create or delete files
 - Modify configuration files
@@ -65,6 +67,7 @@ Describe your project here. What does it do? What problem does it solve?
 - Access environment variables
 
 ### Blocked
+
 - Access files outside project directory
 - Modify .git directory
 - Access system files
@@ -84,4 +87,4 @@ Example:
 
 ---
 
-*Generated with [AgentSync](https://github.com/yourusername/agentsync)*
+_Generated with [AgentSync](https://github.com/baranovxyz/agentsync)_

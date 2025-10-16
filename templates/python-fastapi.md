@@ -25,6 +25,7 @@ Python FastAPI application with async support, type hints, and modern Python pra
 ## Code Style
 
 ### Python Standards
+
 - Follow PEP 8
 - Use Python 3.10+ features
 - Type hints for all functions
@@ -32,6 +33,7 @@ Python FastAPI application with async support, type hints, and modern Python pra
 - Maximum line length: 88 characters (Black default)
 
 ### FastAPI Patterns
+
 - Use dependency injection
 - Pydantic models for request/response
 - Async functions where beneficial
@@ -39,12 +41,14 @@ Python FastAPI application with async support, type hints, and modern Python pra
 - OpenAPI documentation via docstrings
 
 ### File Organization
+
 - One class per file for models
 - Group related endpoints in routers
 - Separate business logic from routes
 - Use services layer for complex operations
 
 ### Import Order (isort)
+
 1. Standard library imports
 2. Related third party imports
 3. Local application imports
@@ -79,18 +83,21 @@ Python FastAPI application with async support, type hints, and modern Python pra
 ## Git Workflow
 
 ### Branch Strategy
+
 - `main` - Production ready code
 - `develop` - Development branch
 - `feature/*` - Feature branches
 - `hotfix/*` - Emergency fixes
 
 ### Commit Standards
+
 - Use conventional commits
 - Reference issue numbers
 - Keep commits atomic
 - Write meaningful messages
 
 ### Pre-commit Hooks
+
 - Black for formatting
 - isort for imports
 - mypy for type checking
@@ -100,6 +107,7 @@ Python FastAPI application with async support, type hints, and modern Python pra
 ## Permissions
 
 ### Allowed Without Prompt
+
 - Read all Python files
 - Run tests
 - Install from requirements.txt
@@ -109,6 +117,7 @@ Python FastAPI application with async support, type hints, and modern Python pra
 - Generate API documentation
 
 ### Require Approval
+
 - Modify dependencies
 - Change database schema
 - Modify .env files
@@ -118,6 +127,7 @@ Python FastAPI application with async support, type hints, and modern Python pra
 - Delete files
 
 ### Blocked
+
 - Access production secrets
 - Direct database modifications
 - System-level operations
@@ -136,6 +146,7 @@ Python FastAPI application with async support, type hints, and modern Python pra
 ## API Design Principles
 
 ### RESTful Conventions
+
 - GET for reading
 - POST for creating
 - PUT for full updates
@@ -143,6 +154,7 @@ Python FastAPI application with async support, type hints, and modern Python pra
 - DELETE for removal
 
 ### Response Format
+
 ```json
 {
   "data": {},
@@ -153,6 +165,7 @@ Python FastAPI application with async support, type hints, and modern Python pra
 ```
 
 ### Error Handling
+
 ```json
 {
   "error": {
@@ -165,6 +178,7 @@ Python FastAPI application with async support, type hints, and modern Python pra
 ```
 
 ### Pagination
+
 - Use limit/offset or cursor-based
 - Default limit: 20, max: 100
 - Include total count in response
@@ -200,4 +214,4 @@ Python FastAPI application with async support, type hints, and modern Python pra
 
 ---
 
-*Generated with [AgentSync](https://github.com/yourusername/agentsync)*
+_Generated with [AgentSync](https://github.com/baranovxyz/agentsync)_

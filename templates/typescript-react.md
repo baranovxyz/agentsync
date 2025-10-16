@@ -25,6 +25,7 @@ TypeScript React application using modern best practices and tooling.
 ## Code Style
 
 ### TypeScript Rules
+
 - Strict mode enabled
 - No implicit any
 - Prefer const over let
@@ -32,6 +33,7 @@ TypeScript React application using modern best practices and tooling.
 - Export types separately from implementations
 
 ### React Patterns
+
 - Functional components only (no class components)
 - Use hooks for state and side effects
 - Custom hooks should start with "use"
@@ -39,6 +41,7 @@ TypeScript React application using modern best practices and tooling.
 - Prefer composition over inheritance
 
 ### File Naming
+
 - Components: PascalCase (e.g., `UserProfile.tsx`)
 - Hooks: camelCase starting with "use" (e.g., `useAuth.ts`)
 - Utilities: camelCase (e.g., `formatDate.ts`)
@@ -46,6 +49,7 @@ TypeScript React application using modern best practices and tooling.
 - Tests: Same name with `.test.tsx` or `.spec.tsx`
 
 ### Import Order
+
 1. React imports
 2. Third-party libraries
 3. Absolute imports (@/ alias)
@@ -72,13 +76,16 @@ TypeScript React application using modern best practices and tooling.
 ## Git Workflow
 
 ### Branch Naming
+
 - Feature: `feat/description`
 - Bug fix: `fix/description`
 - Chore: `chore/description`
 - Hotfix: `hotfix/description`
 
 ### Commit Messages
+
 Follow conventional commits:
+
 - `feat:` New feature
 - `fix:` Bug fix
 - `docs:` Documentation changes
@@ -88,6 +95,7 @@ Follow conventional commits:
 - `chore:` Build process or auxiliary tool changes
 
 ### PR Process
+
 1. Create feature branch from `main`
 2. Make changes and commit
 3. Run tests locally
@@ -99,6 +107,7 @@ Follow conventional commits:
 ## Permissions
 
 ### Allowed Without Prompt
+
 - Read all project files
 - Run dev server
 - Run tests
@@ -108,6 +117,7 @@ Follow conventional commits:
 - Modify styles
 
 ### Require Approval
+
 - Modify package.json
 - Change configuration files (vite.config, tsconfig)
 - Add new routes/pages
@@ -116,6 +126,7 @@ Follow conventional commits:
 - Change build scripts
 
 ### Blocked
+
 - Access parent directories
 - Modify node_modules
 - Access .env files directly (use process.env)
@@ -143,4 +154,4 @@ Follow conventional commits:
 
 ---
 
-*Generated with [AgentSync](https://github.com/yourusername/agentsync)*
+_Generated with [AgentSync](https://github.com/baranovxyz/agentsync)_

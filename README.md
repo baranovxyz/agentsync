@@ -11,12 +11,14 @@ This project is currently under active development. Phase 1 (Foundation + Securi
 ### ✅ Completed Components
 
 #### Security Layer (Phase 1)
+
 - **Secret Scanner** - Detects API keys, tokens, and credentials
 - **Unicode Attack Detector** - Prevents hidden instruction attacks (CVE-2021-42574)
 - **Audit Logger** - Immutable JSONL logs for compliance
 - **Error Handler** - Centralized error handling with actionable messages
 
 #### Infrastructure
+
 - **TypeScript Configuration** - Strict mode enabled
 - **Vite Build Setup** - Fast CLI builds
 - **Vitest Testing** - Unit and integration tests
@@ -36,7 +38,7 @@ This project is currently under active development. Phase 1 (Foundation + Securi
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/agentsync
+git clone https://github.com/baranovxyz/agentsync
 cd agentsync
 
 # Install dependencies
@@ -75,7 +77,9 @@ agentsync/
 ## Security Features
 
 ### Secret Detection
+
 Detects and blocks high-severity secrets:
+
 - OpenAI, Anthropic API keys
 - GitHub tokens
 - AWS credentials
@@ -84,13 +88,16 @@ Detects and blocks high-severity secrets:
 - And more...
 
 ### Unicode Attack Protection
+
 Prevents malicious hidden instructions using:
+
 - Zero-width character detection
 - Trojan Source prevention (CVE-2021-42574)
 - Homoglyph attack detection
 - Suspicious sequence analysis
 
 ### Audit Logging
+
 - JSONL format for easy parsing
 - Automatic log rotation at 10MB
 - 90-day retention with compression
@@ -141,6 +148,7 @@ AgentSync uses `.agentsync/config.json` for configuration:
 ## Contributing
 
 This project follows Apple engineering standards:
+
 - "It Just Works" - zero data loss
 - "Sweat the Details" - quality over speed
 - Test coverage >80%
