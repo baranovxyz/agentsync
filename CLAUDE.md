@@ -1,0 +1,336 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+**AgentSync** is the missing infrastructure layer for AI coding agent configuration management. It syncs a unified `AGENTS.md` file to all AI coding tools (Cursor, Claude, Cline, Windsurf, GitHub Copilot) while maintaining security, validation, and atomic operations.
+
+**Current Status**: Phase 1 (Foundation + Security) complete. CLI scaffolded with 9 commands, only `init` command fully implemented. Security layer operational with secret scanner and Unicode attack detector.
+
+## Common Commands
+
+### Development
+```bash
+# Start development with hot reload
+pnpm dev
+
+# Build for production (creates dist/cli.js)
+pnpm build
+
+# Run CLI directly in TypeScript
+pnpm cli --help
+
+# Type checking only (no emit)
+pnpm lint
+
+# Format code with Prettier
+pnpm lint:fix
+```
+
+### Testing
+```bash
+# Run all tests
+pnpm test
+
+# Watch mode for TDD
+pnpm test:watch
+
+# Generate coverage report (target: >80%)
+pnpm test:coverage
+
+# Run e2e tests only
+pnpm test:e2e
+
+# Run specific test file
+pnpm test src/security/scanner.test.ts
+```
+
+### CLI Commands (via pnpm cli)
+```bash
+# Initialize AgentSync in a project (fully implemented)
+pnpm cli init
+pnpm cli init --template typescript-react --tools cursor claude
+
+# Future commands (scaffolded but not implemented)
+pnpm cli sync --dry-run           # One-time sync
+pnpm cli watch                     # Auto-sync on changes
+pnpm cli validate --strict         # Validate AGENTS.md
+pnpm cli audit --limit 10          # View audit logs
+pnpm cli doctor                    # Diagnose issues
+pnpm cli status                    # Check sync status
+pnpm cli diff                      # Show pending changes
+pnpm cli migrate                   # Migrate configs
+pnpm cli tree                      # Show workspace tree
+```
+
+## Architecture Overview
+
+### Core Implementation Structure
+
+```
+src/
+├── cli.ts                        # Commander.js entry (9 commands defined)
+├── commands/
+│   └── init.ts                   # ✅ COMPLETE: Interactive setup wizard
+│   └── [others].ts               # 🔨 TODO: 8 other commands scaffolded
+├── core/
+│   ├── parser.ts                 # ✅ COMPLETE: Remark-based AGENTS.md parser
+│   ├── errors.ts                 # ✅ COMPLETE: Typed error hierarchy
+│   ├── audit.ts                  # ✅ COMPLETE: JSONL audit logger
+│   ├── watcher.ts                # ✅ COMPLETE: Chokidar file watcher
+│   └── error-handler.ts          # Deprecated, use errors.ts
+├── security/
+│   ├── scanner.ts                # ✅ COMPLETE: 25+ secret patterns
+│   └── unicode-detector.ts       # ✅ COMPLETE: CVE-2021-42574 protection
+├── translators/                  # 🔨 TODO: Tool-specific converters
+├── utils/
+│   └── debounce.ts               # ✅ COMPLETE: Advanced debouncer
+├── types/
+│   ├── index.ts                  # Core interfaces and types
+│   └── schemas.ts                # Zod validation schemas
+└── templates/                    # AGENTS.md templates
+    ├── default.md
+    ├── typescript-react.md
+    └── python-fastapi.md
+```
+
+### Key Modules Explained
+
+#### 1. **Parser Module** (`src/core/parser.ts`)
+- **Class**: `AgentsMdParser`
+- **Dependencies**: unified, remark-parse, gray-matter
+- **Key Methods**:
+  - `parse(content, filePath)`: Parses AGENTS.md to AST
+  - `extractSections(ast)`: Extracts hierarchical sections
+  - `sectionsToAgentsMd(sections)`: Converts to typed structure
+  - `validate(agentsMd)`: Validates against Zod schema
+- **Section Recognition**: Detects overview, build/test commands, code style, structure, git workflow, permissions, MCP servers
+
+#### 2. **Secret Scanner** (`src/security/scanner.ts`)
+- **Patterns**: 25+ regex patterns for API keys, tokens, passwords
+- **Entropy Detection**: Shannon entropy threshold of 4.5
+- **False Positive Filtering**: Ignores "example", "test", "demo", "<", ">"
+- **Severity Levels**: critical > high > medium > low
+- **Key Patterns**:
+  - AWS: `AKIA*`, `AGPA*`, AWS secret keys
+  - GitHub: `gh[ps]_*`, 40-char tokens
+  - Google: `AIza*` API keys, OAuth client IDs
+  - Database: MongoDB, PostgreSQL, MySQL connection strings
+  - JWT tokens, private keys, OAuth tokens
+
+#### 3. **Unicode Detector** (`src/security/unicode-detector.ts`)
+- **CVE-2021-42574 Protection**: Trojan Source attacks
+- **Dangerous Patterns**:
+  - Zero-width characters: U+200B, U+200C, U+200D, U+FEFF
+  - Bidirectional overrides: U+202A-E, U+2066-9
+  - Homoglyphs: Cyrillic lookalikes (а, е, о, р, с, х, у)
+- **Detection Logic**:
+  - Suspicious sequences: 10+ zero-width chars
+  - Mixed scripts in single line
+  - Context extraction: 50 chars before/after
+
+#### 4. **Audit Logger** (`src/core/audit.ts`)
+- **Singleton Pattern**: Single instance per process
+- **Format**: JSONL (one JSON per line)
+- **Rotation**: 10MB files, 90-day retention
+- **Event Types**:
+  - INIT_WORKSPACE, CONFIG_CHANGE
+  - FILE_CREATE, FILE_MODIFY, FILE_DELETE
+  - SECURITY_SCAN, UNICODE_DETECTION
+  - SYNC_START, SYNC_COMPLETE, SYNC_ERROR
+- **Session Tracking**: UUID per CLI session
+
+#### 5. **Init Command** (`src/commands/init.ts`)
+- **Interactive Flow**:
+  1. Template selection (default, typescript-react, python-fastapi)
+  2. Tool selection (multi-select: cursor, claude, cline, windsurf, copilot)
+  3. Symlink vs copy option
+  4. .gitignore update prompt
+- **Creates**:
+  - AGENTS.md from template
+  - .agentsync/config.json
+  - .agentsync/{logs,backups,cache}/ directories
+  - Tool-specific symlinks/copies
+- **Tool Paths**:
+  - Cursor: `.cursor/agents.md`, `.cursor/AGENTS.md`
+  - Claude: `.claude/AGENTS.md`, `claude_project.md`
+  - Cline: `.cline/AGENTS.md`, `.cline/instructions.md`
+  - Windsurf: `.windsurf/AGENTS.md`, `.windsurf/instructions.md`
+  - Copilot: `.github/copilot/AGENTS.md`, `.github/copilot-instructions.md`
+
+#### 6. **Error System** (`src/core/errors.ts`)
+- **Base Class**: `AgentSyncError` with metadata
+- **Specialized Classes**:
+  - `SecurityError`: Secret/Unicode violations
+  - `ValidationError`: Schema/format issues
+  - `FileSystemError`: File operations
+  - `ParseError`: Markdown parsing
+  - `ConfigError`: Configuration problems
+  - `SyncError`: Sync operations
+- **Error Recovery**: `RetryStrategy` with exponential backoff
+
+#### 7. **Type System** (`src/types/`)
+- **Tool Types**: `'cursor' | 'claude' | 'cline' | 'windsurf' | 'copilot'`
+- **Core Interfaces**:
+  - `AgentsMd`: Main data structure
+  - `Translator`: Tool converter interface
+  - `SyncOperation`: File operation tracking
+  - `ParseResult`: Parser output
+- **Zod Schemas**: Runtime validation for all data structures
+- **Workspace Types**: Monorepo support (nx, turborepo, pnpm, npm, yarn)
+
+## Development Patterns
+
+### Adding a New Command
+1. Create handler in `src/commands/[name].ts`
+2. Export class implementing command pattern
+3. Add command registration in `src/cli.ts`:
+   ```typescript
+   program.command('name')
+     .description('...')
+     .option(...)
+     .action(async (options) => {
+       const { handler } = await import('./commands/name.js');
+       await handler(options);
+     });
+   ```
+4. Add types to `src/types/index.ts`
+5. Write tests in `tests/unit/commands/`
+
+### Adding Security Patterns
+1. Add to `SECRET_PATTERNS` in `src/security/scanner.ts`
+2. Set severity and confidence levels
+3. Add test cases with false positive checks
+4. Update documentation
+
+### Extending AGENTS.md Parser
+1. Add section detection in `sectionsToAgentsMd()` method
+2. Create parsing method like `parseNewSection()`
+3. Update `AgentsMdSchema` in `src/types/schemas.ts`
+4. Add to templates
+
+### Implementing a Translator
+1. Create `src/translators/[tool].ts`
+2. Implement `Translator` interface:
+   ```typescript
+   export class CursorTranslator implements Translator {
+     async translate(agentsMd: AgentsMd): Promise<FileOperation[]> {
+       // Convert AgentsMd to tool-specific format
+     }
+     async validate(operations: FileOperation[]): Promise<void> {
+       // Validate operations
+     }
+   }
+   ```
+3. Handle tool-specific config format
+4. Test with dry-run mode
+
+## Configuration
+
+### Project Configuration (`.agentsync/config.json`)
+```json
+{
+  "version": "1.0",
+  "tools": ["cursor", "claude", "cline"],
+  "useSymlinks": true,
+  "security": {
+    "secretScanning": {
+      "enabled": true,
+      "blockOnHighSeverity": true,
+      "entropyThreshold": 4.5
+    },
+    "unicodeDetection": {
+      "enabled": true,
+      "blockOnHighRisk": true
+    },
+    "auditLogging": {
+      "enabled": true,
+      "retentionDays": 90,
+      "maxFileSize": 10485760
+    }
+  }
+}
+```
+
+### Build Configuration
+- **TypeScript**: Strict mode, ES2022 target, path aliases (`@/*`)
+- **Vite**: ESM-only, Node 18+, no minification for debugging
+- **Vitest**: Node environment, v8 coverage, 80% target
+
+## Code Standards
+
+### TypeScript
+- Strict mode enabled (`strict: true`)
+- No implicit any (`noImplicitAny: true`)
+- Use type-only imports when possible
+- Prefer interfaces over types for objects
+- Use const assertions for literals
+
+### Error Handling
+- Always use typed error classes
+- Include context and recovery suggestions
+- Log errors to audit before throwing
+- Never throw plain strings
+
+### Security
+- All inputs validated with Zod
+- Secrets scanned before any file operation
+- Unicode attacks detected and blocked
+- File operations use atomic writes
+
+### Testing
+- Unit tests for all public APIs
+- Integration tests for command flows
+- Coverage target: >80%
+- Use test fixtures in `tests/fixtures/`
+
+## Current Limitations
+
+### Not Implemented Yet
+- ✅ Complete: init, parser, security, audit, errors, watcher
+- ❌ TODO: sync, watch, validate, diff, migrate, doctor, status, audit CLI, tree commands
+- ❌ TODO: All 5 translator implementations
+- ❌ TODO: Atomic sync with rollback
+- ❌ TODO: Conflict detection/resolution
+- ❌ TODO: Remote audit shipping
+- ❌ TODO: Monorepo workspace resolution
+
+### Known Issues
+- Parser handles basic markdown only (no complex nested structures)
+- Unicode sanitization not integrated into main flow
+- Secret scanner doesn't persist findings between runs
+- No actual file syncing occurs yet (only init creates files)
+
+## Debug Tips
+
+1. **Verbose Output**: Set `DEBUG=true` environment variable
+2. **Audit Logs**: Check `~/.agentsync/logs/audit-*.log` (JSONL format)
+3. **Test Specific Module**: `pnpm test src/path/to/module.test.ts`
+4. **Check Config**: Inspect `.agentsync/config.json` for issues
+5. **Dry Run**: Always use `--dry-run` flag when testing sync
+6. **Parser Testing**: Use `pnpm cli validate` to test parsing
+
+## Important Files & Paths
+
+### Configuration
+- `.agentsync/config.json` - Project configuration
+- `AGENTS.md` - Source of truth
+- Tool configs - `.cursor/`, `.claude/`, etc.
+
+### Logs & Data
+- `~/.agentsync/logs/audit-*.log` - Global audit logs
+- `.agentsync/backups/` - Pre-sync backups
+- `.agentsync/cache/` - Temporary files
+
+### Source Entry Points
+- `src/cli.ts` - Main CLI application
+- `src/commands/init.ts` - Init command implementation
+- `src/core/parser.ts` - AGENTS.md parser
+- `src/security/scanner.ts` - Secret detection
+
+## References
+
+- [AGENTS.md Spec](https://github.com/orgs/OpenAI/discussions/156)
+- [CVE-2021-42574](https://trojansource.codes/) - Unicode vulnerability
+- Package manager: Use `pnpm` (not npm/yarn)

@@ -76,7 +76,7 @@ Describe your project here. What does it do? What problem does it solve?
 
 ## MCP Servers
 
-_Optional: List any MCP (Model Context Protocol) servers if using Claude Desktop or similar_
+_Optional: List any MCP (Model Context Protocol) servers if using Claude Code or similar_
 
 <!--
 Example:

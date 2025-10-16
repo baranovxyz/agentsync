@@ -137,7 +137,7 @@ export class InitCommand {
         message: 'Which AI tools do you use?',
         choices: [
           { title: 'Cursor', value: 'cursor', selected: true },
-          { title: 'Claude Desktop', value: 'claude', selected: true },
+          { title: 'Claude Code', value: 'claude', selected: true },
           { title: 'Cline', value: 'cline' },
           { title: 'Windsurf', value: 'windsurf' },
           { title: 'GitHub Copilot', value: 'copilot' },
