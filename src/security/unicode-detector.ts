@@ -200,7 +200,7 @@ export const DANGEROUS_UNICODE_PATTERNS: DangerousUnicodePattern[] = [
   },
 ];
 
-export class UnicodeAttackDetector {
+export class UnicodeDetector {
   private dangerousPatterns: DangerousUnicodePattern[];
   private codePointToPattern: Map<number, DangerousUnicodePattern>;
   private dangerousCodePoints: Set<number>;
