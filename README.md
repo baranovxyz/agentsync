@@ -4,6 +4,24 @@
 
 **Sync your AGENTS.md to all your AI coding tools** - Cursor, Claude Code, Cline, Windsurf, GitHub Copilot - from a single source of truth.
 
+## ⚠️ Alpha Release Warning
+
+**This is an early alpha release (v0.1.0-alpha.1).** Only the `init` command is fully functional. Other commands are scaffolded but not yet implemented.
+
+### Working Commands
+- ✅ `init` - Initialize AgentSync in your project
+
+### Not Yet Implemented
+- ❌ `sync` - One-time sync to all tools
+- ❌ `watch` - Watch for changes and auto-sync
+- ❌ `validate` - Validate AGENTS.md format
+- ❌ `diff` - Show differences between current and proposed sync
+- ❌ `migrate` - Migrate existing tool configs to AGENTS.md
+- ❌ `doctor` - Diagnose and fix common issues
+- ❌ `status` - Show sync status for all tools
+- ❌ `audit` - View audit logs
+- ❌ `tree` - Show workspace configuration tree
+
 ## 🚧 Development Status
 
 This project is currently under active development. Phase 1 (Foundation + Security) is complete.
@@ -36,6 +54,21 @@ This project is currently under active development. Phase 1 (Foundation + Securi
 
 ## Installation
 
+### From npm (Recommended)
+
+```bash
+# Install globally
+npm install -g agentsync
+
+# Or with pnpm
+pnpm add -g agentsync
+
+# Or with yarn
+yarn global add agentsync
+```
+
+### From Source (Development)
+
 ```bash
 # Clone the repository
 git clone https://github.com/baranovxyz/agentsync
@@ -46,6 +79,23 @@ pnpm install
 
 # Run in development
 pnpm dev
+```
+
+## Quick Start
+
+```bash
+# Initialize AgentSync in your project
+agentsync init
+
+# Follow the interactive prompts to:
+# 1. Choose a template (default, typescript-react, python-fastapi)
+# 2. Select which AI tools you use
+# 3. Configure sync preferences
+
+# This creates:
+# - AGENTS.md in your project root
+# - .agentsync/config.json configuration
+# - Symlinks to tool-specific directories
 ```
 
 ## Architecture

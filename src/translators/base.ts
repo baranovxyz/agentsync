@@ -5,15 +5,15 @@
 
 import * as fs from 'fs-extra';
 import * as path from 'path';
-import { FileSystemError, ValidationError } from '../core/errors.js';
+import { FileSystemError, ValidationError, ErrorCategory, ErrorSeverity } from '../core/errors.js';
 import type {
   Translator,
   ToolName,
   FileOperation,
   SyncOperation,
-  TranslateResult,
   AgentsMd,
 } from '../types/index.js';
+import type { TranslateResult } from '../types/schemas.js';
 import AuditLogger, { AuditEventType } from '../core/audit.js';
 
 /**
@@ -102,16 +102,14 @@ export abstract class BaseTranslator implements Translator {
     for (const file of files) {
       try {
         await fs.remove(file);
-        await this.audit.logEvent(
-          AuditEventType.FILE_DELETE,
-          { tool: this.name, file },
-          'success'
-        );
+        await this.audit.logFileOperation('delete', file, true, {
+          tool: this.name
+        });
       } catch (error) {
         await this.audit.logError(
           error as Error,
-          'FILE_SYSTEM',
-          'MEDIUM',
+          ErrorCategory.FILE_SYSTEM,
+          ErrorSeverity.MEDIUM,
           { tool: this.name, file }
         );
         throw new FileSystemError(
@@ -151,17 +149,19 @@ export abstract class BaseTranslator implements Translator {
           `Please refer to ${path.relative(path.dirname(target), source)} for the actual configuration.`;
         await fs.writeFile(target, pointerContent);
 
-        await this.audit.logEvent(
-          AuditEventType.CONFIG_CHANGE,
-          {
+        await this.audit.log({
+          type: AuditEventType.CONFIG_UPDATE,
+          severity: 'warning',
+          category: 'config',
+          message: `Symlink fallback: created pointer file instead`,
+          metadata: {
             tool: this.name,
             action: 'symlink_fallback',
             source,
             target,
             reason: (symlinkError as Error).message
-          },
-          'warning'
-        );
+          }
+        });
       }
     } catch (error) {
       throw new FileSystemError(
@@ -187,11 +187,9 @@ export abstract class BaseTranslator implements Translator {
       // Rename atomically
       await fs.rename(tempPath, filePath);
 
-      await this.audit.logEvent(
-        AuditEventType.FILE_MODIFY,
-        { tool: this.name, file: filePath },
-        'success'
-      );
+      await this.audit.logFileOperation('write', filePath, true, {
+        tool: this.name
+      });
     } catch (error) {
       throw new FileSystemError(
         `Failed to write file ${filePath}`,
@@ -226,7 +224,8 @@ export abstract class BaseTranslator implements Translator {
       if (paths.has(op.path)) {
         throw new ValidationError(
           `Duplicate operation on path: ${op.path}`,
-          `Remove duplicate operations for ${op.path}`
+          undefined,
+          { suggestion: `Remove duplicate operations for ${op.path}` }
         );
       }
       paths.add(op.path);
@@ -237,7 +236,8 @@ export abstract class BaseTranslator implements Translator {
       if (!['create', 'write', 'modify', 'delete', 'symlink', 'create_dir'].includes(op.type)) {
         throw new ValidationError(
           `Invalid operation type: ${op.type}`,
-          'Use a valid operation type'
+          undefined,
+          { suggestion: 'Use a valid operation type' }
         );
       }
 
@@ -246,7 +246,8 @@ export abstract class BaseTranslator implements Translator {
         if (!op.content) {
           throw new ValidationError(
             `Operation ${op.type} requires content for ${op.path}`,
-            'Provide content for write operations'
+            undefined,
+            { suggestion: 'Provide content for write operations' }
           );
         }
       }
@@ -254,7 +255,8 @@ export abstract class BaseTranslator implements Translator {
       if (op.type === 'symlink' && !op.target) {
         throw new ValidationError(
           `Symlink operation requires target for ${op.path}`,
-          'Provide target for symlink operations'
+          undefined,
+          { suggestion: 'Provide target for symlink operations' }
         );
       }
     }

@@ -24,7 +24,6 @@ import type {
   ToolName,
   AgentsMd,
   Translator,
-  TranslateResult,
 } from '../types/index.js';
 import { validateAgentsMd } from '../types/schemas.js';
 
@@ -102,7 +101,9 @@ export class AtomicSyncEngine extends EventEmitter {
     if (targetTools.length === 0) {
       throw new SyncError(
         'No tools configured for sync',
-        'Configure at least one tool in .agentsync/config.json'
+        undefined,
+        undefined,
+        new Error('Configure at least one tool in .agentsync/config.json')
       );
     }
 
@@ -143,7 +144,9 @@ export class AtomicSyncEngine extends EventEmitter {
           } else if (!result.success) {
             errors.push(new SyncError(
               `Translation failed for ${tool}`,
-              `Check ${tool} translator configuration`
+              undefined,
+              undefined,
+              new Error(`Check ${tool} translator configuration`)
             ));
           }
         } catch (error) {
@@ -174,17 +177,19 @@ export class AtomicSyncEngine extends EventEmitter {
       };
 
       // Log audit event
-      await this.audit.logEvent(
-        AuditEventType.SYNC_COMPLETE,
-        {
+      await this.audit.log({
+        type: AuditEventType.SYNC_SUCCESS,
+        severity: errors.length > 0 ? 'warning' : 'info',
+        category: 'sync',
+        message: `Sync completed with ${errors.length} errors`,
+        metadata: {
           tools: targetTools,
           dryRun: options.dryRun,
           stats,
           errors: errors.map(e => e.message),
           warnings,
         },
-        errors.length > 0 ? 'partial' : 'success'
-      );
+      });
 
       this.emit('sync:complete', { stats });
 
@@ -213,7 +218,8 @@ export class AtomicSyncEngine extends EventEmitter {
 
       throw new SyncError(
         'Sync failed and was rolled back',
-        'Review the error and try again',
+        undefined,
+        undefined,
         error as Error
       );
     }
@@ -230,8 +236,8 @@ export class AtomicSyncEngine extends EventEmitter {
       } catch (error) {
         throw new ValidationError(
           'AGENTS.md validation failed',
-          'Fix validation errors or use --skip-validation flag',
-          { error: (error as Error).message }
+          undefined,
+          { error: (error as Error).message, suggestion: 'Fix validation errors or use --skip-validation flag' }
         );
       }
     }
@@ -245,19 +251,19 @@ export class AtomicSyncEngine extends EventEmitter {
       if (scanResult.hasSensitiveData) {
         throw new SecurityError(
           `Found ${scanResult.findingsCount} potential security issues`,
-          'Remove sensitive data before syncing',
-          { findings: scanResult.findings.slice(0, 5) }
+          ErrorSeverity.HIGH,
+          { findings: scanResult.findings.slice(0, 5), suggestion: 'Remove sensitive data before syncing' }
         );
       }
 
       // Check for Unicode attacks
-      const unicodeResult = await this.unicodeDetector.detect(content);
+      const unicodeResult = await this.unicodeDetector.detect(content, 'AGENTS.md');
 
-      if (unicodeResult.hasUnicodeAttacks) {
+      if (unicodeResult.length > 0) {
         throw new SecurityError(
           'Detected potential Unicode attacks',
-          'Remove suspicious Unicode characters',
-          { findings: unicodeResult.findings.slice(0, 5) }
+          ErrorSeverity.HIGH,
+          { findings: unicodeResult.slice(0, 5), suggestion: 'Remove suspicious Unicode characters' }
         );
       }
     }
@@ -334,14 +340,16 @@ export class AtomicSyncEngine extends EventEmitter {
       { spaces: 2 }
     );
 
-    await this.audit.logEvent(
-      AuditEventType.SYNC_START,
-      {
+    await this.audit.log({
+      type: AuditEventType.SYNC_START,
+      severity: 'info',
+      category: 'sync',
+      message: `Sync started with backup to ${this.backupDir}`,
+      metadata: {
         backupDir: this.backupDir,
         filesBackedUp: manifest.files.length,
       },
-      'success'
-    );
+    });
   }
 
   /**
@@ -406,7 +414,7 @@ export class AtomicSyncEngine extends EventEmitter {
    */
   private async postValidate(
     operations: SyncOperation[],
-    options: SyncOptions
+    _options: SyncOptions
   ): Promise<void> {
     const errors: string[] = [];
 
@@ -423,8 +431,8 @@ export class AtomicSyncEngine extends EventEmitter {
     if (errors.length > 0) {
       throw new ValidationError(
         'Post-validation failed',
-        'Some files were not created successfully',
-        { errors }
+        undefined,
+        { errors, suggestion: 'Some files were not created successfully' }
       );
     }
   }
@@ -465,15 +473,17 @@ export class AtomicSyncEngine extends EventEmitter {
       }
     }
 
-    await this.audit.logEvent(
-      AuditEventType.SYNC_ERROR,
-      {
+    await this.audit.log({
+      type: AuditEventType.SYNC_FAILURE,
+      severity: 'warning',
+      category: 'sync',
+      message: `Rollback completed for ${this.backupManifest.files.length} files`,
+      metadata: {
         action: 'rollback',
         backupDir: this.backupDir,
         filesRestored: this.backupManifest.files.length,
       },
-      'warning'
-    );
+    });
 
     this.emit('rollback:complete', { backupDir: this.backupDir });
   }

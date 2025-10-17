@@ -46,6 +46,13 @@ lerna-debug.log*
 .agentsync/backups/
 *.backup
 
+# Tool configuration directories (local development)
+.claude/
+.cursor/
+.cline/
+.windsurf/
+.github/copilot/
+
 # Test artifacts
 tests/fixtures/output/
 tests/e2e/tmp/
