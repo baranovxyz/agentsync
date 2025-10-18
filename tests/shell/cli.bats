@@ -1,0 +1,338 @@
+#!/usr/bin/env bats
+# BATS (Bash Automated Testing System) tests for AgentSync CLI
+# Run with: bats tests/shell/cli.bats
+# Install BATS: npm install -g bats or brew install bats-core
+
+# Setup runs before each test
+setup() {
+  # Get the directory of this test file
+  DIR="$( cd "$( dirname "$BATS_TEST_FILENAME" )" >/dev/null 2>&1 && pwd )"
+  ROOT="$(cd "$DIR/../.." && pwd)"
+
+  # CLI path
+  export CLI="$ROOT/dist/cli.js"
+
+  # Create temp directory for each test
+  export TEST_TEMP_DIR="$(mktemp -d)"
+  export ORIGINAL_PWD="$PWD"
+  cd "$TEST_TEMP_DIR"
+
+  # Create temp home
+  export ORIGINAL_HOME="$HOME"
+  export HOME="$(mktemp -d)"
+
+  # Setup global MCP registry
+  mkdir -p "$HOME/.agentsync"
+  cat > "$HOME/.agentsync/mcp.json" <<EOF
+{
+  "github": {
+    "command": "npx",
+    "args": ["-y", "@modelcontextprotocol/server-github"],
+    "env": {
+      "GITHUB_TOKEN": "{GITHUB_TOKEN}"
+    }
+  },
+  "postgres": {
+    "command": "npx",
+    "args": ["-y", "@modelcontextprotocol/server-postgres"],
+    "env": {
+      "POSTGRES_URL": "{DATABASE_URL}"
+    }
+  }
+}
+EOF
+
+  # Setup environment
+  export GITHUB_TOKEN="ghp_bats_test_token"
+  export DATABASE_URL="postgresql://localhost:5432/bats_test"
+
+  # Create target directories
+  mkdir -p .cursor .claude
+}
+
+# Teardown runs after each test
+teardown() {
+  cd "$ORIGINAL_PWD"
+  export HOME="$ORIGINAL_HOME"
+  rm -rf "$TEST_TEMP_DIR"
+}
+
+# Helper function to check if CLI is built
+check_cli_built() {
+  if [ ! -f "$CLI" ]; then
+    skip "CLI not built. Run 'pnpm build' first."
+  fi
+}
+
+# ==================== Basic CLI Tests ====================
+
+@test "CLI shows version" {
+  check_cli_built
+  run node "$CLI" --version
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]
+}
+
+@test "CLI shows help" {
+  check_cli_built
+  run node "$CLI" --help
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "Usage:" ]]
+  [[ "$output" =~ "agentsync" ]]
+}
+
+@test "CLI fails on unknown command" {
+  check_cli_built
+  run node "$CLI" nonexistent-command
+  [ "$status" -ne 0 ]
+}
+
+@test "CLI executes via shebang (Unix only)" {
+  if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]; then
+    skip "Shebang test not applicable on Windows"
+  fi
+
+  check_cli_built
+  run "$CLI" --version
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]
+}
+
+# ==================== MCP List Tests ====================
+
+@test "mcp list shows available MCPs" {
+  check_cli_built
+  run node "$CLI" mcp list
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "github" ]]
+  [[ "$output" =~ "postgres" ]]
+}
+
+@test "mcp list fails without registry" {
+  check_cli_built
+  rm -f "$HOME/.agentsync/mcp.json"
+  run node "$CLI" mcp list
+  [ "$status" -ne 0 ]
+}
+
+# ==================== MCP Add Tests ====================
+
+@test "mcp add creates config file" {
+  check_cli_built
+  run node "$CLI" mcp add github
+  [ "$status" -eq 0 ]
+  [ -f ".agentsync.json" ]
+
+  # Check config contains github
+  run cat .agentsync.json
+  [[ "$output" =~ "github" ]]
+}
+
+@test "mcp add handles duplicate gracefully" {
+  check_cli_built
+  node "$CLI" mcp add github
+  run node "$CLI" mcp add github
+  [ "$status" -eq 0 ]
+
+  # Should only appear once in config
+  count=$(grep -o "github" .agentsync.json | wc -l)
+  [ "$count" -eq 1 ]
+}
+
+@test "mcp add fails on invalid MCP name" {
+  check_cli_built
+  run node "$CLI" mcp add nonexistent-mcp
+  [ "$status" -ne 0 ]
+}
+
+# ==================== MCP Sync Tests ====================
+
+@test "mcp sync creates target configs" {
+  check_cli_built
+  node "$CLI" mcp add github
+  run node "$CLI" mcp sync
+  [ "$status" -eq 0 ]
+
+  # At least one target should be created
+  [ -f ".cursor/mcp.json" ] || [ -f ".claude/mcp.json" ]
+}
+
+@test "mcp sync with --dry-run doesn't create files" {
+  check_cli_built
+  node "$CLI" mcp add github
+  run node "$CLI" mcp sync --dry-run
+  [ "$status" -eq 0 ]
+
+  # No files should be created
+  [ ! -f ".cursor/mcp.json" ]
+  [ ! -f ".claude/mcp.json" ]
+}
+
+@test "mcp sync with --tool creates only specified target" {
+  check_cli_built
+  node "$CLI" mcp add github
+  run node "$CLI" mcp sync --tool cursor
+  [ "$status" -eq 0 ]
+
+  [ -f ".cursor/mcp.json" ]
+  [ ! -f ".claude/mcp.json" ]
+}
+
+@test "mcp sync substitutes environment variables" {
+  check_cli_built
+  node "$CLI" mcp add github
+  node "$CLI" mcp sync
+
+  # Check if GITHUB_TOKEN was substituted
+  if [ -f ".cursor/mcp.json" ]; then
+    run cat .cursor/mcp.json
+    [[ "$output" =~ "ghp_bats_test_token" ]]
+    [[ ! "$output" =~ "{GITHUB_TOKEN}" ]]
+  fi
+}
+
+@test "mcp sync fails without environment variables" {
+  check_cli_built
+  unset GITHUB_TOKEN
+  node "$CLI" mcp add github
+  run node "$CLI" mcp sync
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "GITHUB_TOKEN" ]] || [[ "$output" =~ "environment" ]]
+}
+
+# ==================== MCP Remove Tests ====================
+
+@test "mcp remove updates config" {
+  check_cli_built
+  # Add two MCPs so we can remove one
+  node "$CLI" mcp add github
+  node "$CLI" mcp add postgres
+  run node "$CLI" mcp remove github
+  [ "$status" -eq 0 ]
+
+  # Check github removed but postgres remains
+  run cat .agentsync.json
+  [[ ! "$output" =~ "github" ]]
+  [[ "$output" =~ "postgres" ]]
+}
+
+@test "mcp remove fails on non-existent MCP" {
+  check_cli_built
+  run node "$CLI" mcp remove nonexistent
+  [ "$status" -ne 0 ]
+}
+
+# ==================== Error Handling Tests ====================
+
+@test "handles invalid JSON config gracefully" {
+  check_cli_built
+  echo "{invalid json}" > .agentsync.json
+  run node "$CLI" mcp list
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "JSON" ]] || [[ "$output" =~ "parse" ]]
+}
+
+@test "handles missing permissions gracefully (Unix only)" {
+  if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]; then
+    skip "Permission test not applicable on Windows"
+  fi
+
+  check_cli_built
+  chmod 444 .cursor
+  node "$CLI" mcp add github
+  run node "$CLI" mcp sync
+  [ "$status" -ne 0 ]
+  chmod 755 .cursor  # Restore for cleanup
+}
+
+@test "handles spaces in paths" {
+  check_cli_built
+  mkdir "folder with spaces"
+  cd "folder with spaces"
+  run node "$CLI" --version
+  [ "$status" -eq 0 ]
+}
+
+# ==================== Exit Code Tests ====================
+
+@test "exits with 0 on success" {
+  check_cli_built
+  run node "$CLI" --version
+  [ "$status" -eq 0 ]
+}
+
+@test "exits with non-zero on error" {
+  check_cli_built
+  run node "$CLI" invalid-command
+  [ "$status" -ne 0 ]
+}
+
+@test "exits with non-zero on missing arguments" {
+  check_cli_built
+  run node "$CLI" mcp add
+  [ "$status" -ne 0 ]
+}
+
+# ==================== Output Tests ====================
+
+@test "outputs version to stdout" {
+  check_cli_built
+  run node "$CLI" --version
+  [ "$status" -eq 0 ]
+  [ -n "$output" ]
+}
+
+@test "outputs help to stdout" {
+  check_cli_built
+  run node "$CLI" --help
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "Usage:" ]]
+}
+
+# ==================== Integration Workflow Tests ====================
+
+@test "full workflow: add → sync → remove" {
+  check_cli_built
+
+  # Add two MCPs
+  run node "$CLI" mcp add github
+  [ "$status" -eq 0 ]
+  run node "$CLI" mcp add postgres
+  [ "$status" -eq 0 ]
+
+  # Sync to targets
+  run node "$CLI" mcp sync
+  [ "$status" -eq 0 ]
+
+  # List should show both as active
+  run node "$CLI" mcp list
+  [[ "$output" =~ "github" ]]
+  [[ "$output" =~ "postgres" ]]
+
+  # Remove one MCP
+  run node "$CLI" mcp remove github
+  [ "$status" -eq 0 ]
+
+  # Sync again to update targets
+  run node "$CLI" mcp sync
+  [ "$status" -eq 0 ]
+}
+
+@test "supports multiple MCPs" {
+  check_cli_built
+
+  # Add two MCPs
+  node "$CLI" mcp add github
+  node "$CLI" mcp add postgres
+
+  # Sync
+  run node "$CLI" mcp sync
+  [ "$status" -eq 0 ]
+
+  # Check both are in target config
+  if [ -f ".cursor/mcp.json" ]; then
+    run cat .cursor/mcp.json
+    [[ "$output" =~ "github" ]]
+    [[ "$output" =~ "postgres" ]]
+  fi
+}
