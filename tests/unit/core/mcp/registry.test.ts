@@ -12,17 +12,30 @@ import * as os from 'os';
 describe('loadGlobalRegistry', () => {
   let tempHomeDir: string;
   let originalHome: string | undefined;
+  let originalUserProfile: string | undefined;
 
   beforeEach(async () => {
     // Create temp home directory
     tempHomeDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agentsync-test-'));
     originalHome = process.env.HOME;
     process.env.HOME = tempHomeDir;
+
+    // On Windows, also set USERPROFILE (os.homedir() uses this on Windows)
+    if (process.platform === 'win32') {
+      originalUserProfile = process.env.USERPROFILE;
+      process.env.USERPROFILE = tempHomeDir;
+    }
   });
 
   afterEach(async () => {
     // Restore original HOME
     process.env.HOME = originalHome;
+
+    // Restore USERPROFILE on Windows
+    if (originalUserProfile !== undefined) {
+      process.env.USERPROFILE = originalUserProfile;
+    }
+
     // Cleanup temp directory
     await fs.remove(tempHomeDir);
   });
