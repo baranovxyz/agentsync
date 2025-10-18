@@ -15,6 +15,7 @@ describe('CLI Shell Execution', () => {
   let tempHomeDir: string;
   let originalCwd: string;
   let originalHome: string | undefined;
+  let originalUserProfile: string | undefined;
   const cliPath = path.resolve(process.cwd(), 'dist/cli.js');
 
   /**
@@ -30,6 +31,11 @@ describe('CLI Shell Execution', () => {
       // Restore HOME environment variable
       if (originalHome !== undefined) {
         process.env.HOME = originalHome;
+      }
+
+      // Restore USERPROFILE on Windows
+      if (originalUserProfile !== undefined) {
+        process.env.USERPROFILE = originalUserProfile;
       }
 
       // Remove temp directories with retry logic
@@ -72,6 +78,12 @@ describe('CLI Shell Execution', () => {
       tempHomeDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agentsync-home-'));
       originalHome = process.env.HOME;
       process.env.HOME = tempHomeDir;
+
+      // On Windows, also set USERPROFILE (os.homedir() uses this on Windows)
+      if (process.platform === 'win32') {
+        originalUserProfile = process.env.USERPROFILE;
+        process.env.USERPROFILE = tempHomeDir;
+      }
 
       // Ensure CLI is built
       if (!await fs.pathExists(cliPath)) {
