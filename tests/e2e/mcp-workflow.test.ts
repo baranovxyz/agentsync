@@ -17,6 +17,7 @@ describe('MCP E2E Workflow', () => {
   let tempHomeDir: string;
   let originalCwd: string;
   let originalHome: string | undefined;
+  let originalUserProfile: string | undefined;
 
   beforeEach(async () => {
     // Setup temp directories
@@ -27,6 +28,12 @@ describe('MCP E2E Workflow', () => {
     tempHomeDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agentsync-home-'));
     originalHome = process.env.HOME;
     process.env.HOME = tempHomeDir;
+
+    // On Windows, also set USERPROFILE (os.homedir() uses this on Windows)
+    if (process.platform === 'win32') {
+      originalUserProfile = process.env.USERPROFILE;
+      process.env.USERPROFILE = tempHomeDir;
+    }
 
     // Setup global registry with 3 MCPs
     const globalRegistry = {
@@ -70,6 +77,12 @@ describe('MCP E2E Workflow', () => {
   afterEach(async () => {
     process.chdir(originalCwd);
     process.env.HOME = originalHome;
+
+    // Restore USERPROFILE on Windows
+    if (originalUserProfile !== undefined) {
+      process.env.USERPROFILE = originalUserProfile;
+    }
+
     await fs.remove(tempDir);
     await fs.remove(tempHomeDir);
   });

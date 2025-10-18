@@ -30,7 +30,7 @@ if (!content.startsWith('#!/usr/bin/env node')) {
   fs.writeFileSync(cliPath, content);
 
   // Make executable
-  fs.chmodSync(cliPath, '755');
+  fs.chmodSync(cliPath, 0o755);
 
   console.log('✅ Shebang added to dist/cli.js');
 } else {
@@ -38,4 +38,4 @@ if (!content.startsWith('#!/usr/bin/env node')) {
 }
 
 // Ensure executable
-fs.chmodSync(cliPath, '755');
+fs.chmodSync(cliPath, 0o755);
