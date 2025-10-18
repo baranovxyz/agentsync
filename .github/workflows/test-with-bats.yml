@@ -21,6 +21,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Debug - List files
+        run: |
+          echo "Files in root:"
+          ls -la
+          echo "Looking for pnpm-lock.yaml:"
+          find . -name "pnpm-lock.yaml" -maxdepth 2
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
