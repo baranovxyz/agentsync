@@ -47,7 +47,8 @@ lerna-debug.log*
 *.backup
 
 # Tool configuration directories (local development)
-.claude/
+.claude/*
+!.claude/agents/
 .cursor/
 .cline/
 .windsurf/
