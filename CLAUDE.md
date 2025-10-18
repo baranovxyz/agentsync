@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 2. **AGENTS.md Sync** (Phase 2 ⏳) - Unified AGENTS.md sync to all AI coding tools
 
 **Current Status**:
-- **Phase 1 (MCP)**: COMPLETE - 87 tests passing, >90% coverage, production-ready
+- **Phase 1 (MCP)**: ✅ COMPLETE - 125 tests passing, >90% coverage, CI validated on 9 platforms, production-ready
 - **Phase 2 (AGENTS.md)**: Foundation + Security complete, only `init` command fully implemented
 
 ## Common Commands
@@ -49,6 +49,14 @@ pnpm test:e2e
 
 # Run specific test file
 pnpm test src/security/scanner.test.ts
+```
+
+### CI/CD
+```bash
+# GitHub Actions tests on 9 platforms: Ubuntu/macOS/Windows × Node 18/20/22
+# Hierarchical timeouts: 5s unit tests, 10s hooks (2x multiplier on CI)
+# Windows requires both HOME and USERPROFILE env vars for os.homedir()
+# Coverage target: >80% (Phase 1 achieved 90%+)
 ```
 
 ### CLI Commands (via pnpm cli)
@@ -374,6 +382,12 @@ Total: 87 MCP tests passing, >90% coverage
 - Coverage target: >80%
 - Use test fixtures in `tests/fixtures/`
 
+### Cross-Platform Testing
+- Set both `process.env.HOME` and `process.env.USERPROFILE` (Windows uses USERPROFILE)
+- Use retry logic in cleanup (3 retries with 100ms delay for Windows file locking)
+- Add trap handlers in BATS tests: `trap 'cleanup_trap' EXIT INT TERM`
+- Skip file permission tests on CI (permissions don't persist through build)
+
 ## Current Limitations
 
 ### Phase 1 (MCP) - COMPLETE ✅
@@ -399,6 +413,11 @@ Total: 87 MCP tests passing, >90% coverage
 - Unicode sanitization not integrated into main flow
 - Secret scanner doesn't persist findings between runs
 - No actual AGENTS.md syncing occurs yet (only init creates files)
+
+### Known Issues (CI/CD)
+- Coverage thresholds disabled (caused false failures on some platforms - use Codecov instead)
+- ShellCheck runs only on Linux (apt-get unavailable on macOS/Windows)
+- Shebang tests skipped on CI (file permissions don't persist through pnpm build)
 
 ## Debug Tips
 
