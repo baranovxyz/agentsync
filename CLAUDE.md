@@ -4,9 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**AgentSync** is the missing infrastructure layer for AI coding agent configuration management. It syncs a unified `AGENTS.md` file to all AI coding tools (Cursor, Claude, Cline, Windsurf, GitHub Copilot) while maintaining security, validation, and atomic operations.
+**AgentSync** is the missing infrastructure layer for AI coding agent configuration management with two main features:
 
-**Current Status**: Phase 1 (Foundation + Security) complete. CLI scaffolded with 9 commands, only `init` command fully implemented. Security layer operational with secret scanner and Unicode attack detector.
+1. **MCP Context Optimizer** (Phase 1 ✅) - Project-specific MCP server selection to reduce AI context bloat
+2. **AGENTS.md Sync** (Phase 2 ⏳) - Unified AGENTS.md sync to all AI coding tools
+
+**Current Status**:
+- **Phase 1 (MCP)**: COMPLETE - 87 tests passing, >90% coverage, production-ready
+- **Phase 2 (AGENTS.md)**: Foundation + Security complete, only `init` command fully implemented
 
 ## Common Commands
 
@@ -48,20 +53,25 @@ pnpm test src/security/scanner.test.ts
 
 ### CLI Commands (via pnpm cli)
 ```bash
-# Initialize AgentSync in a project (fully implemented)
-pnpm cli init
-pnpm cli init --template typescript-react --tools cursor claude
+# MCP Commands (Phase 1 - FULLY IMPLEMENTED)
+pnpm cli mcp sync                  # Sync MCPs to tools
+pnpm cli mcp sync --dry-run        # Preview without applying
+pnpm cli mcp sync --tool cursor    # Sync only to Cursor
+pnpm cli mcp list                  # Show available/active MCPs
+pnpm cli mcp add github            # Add MCP to project
+pnpm cli mcp remove postgres       # Remove MCP from project
 
-# Future commands (scaffolded but not implemented)
-pnpm cli sync --dry-run           # One-time sync
-pnpm cli watch                     # Auto-sync on changes
-pnpm cli validate --strict         # Validate AGENTS.md
-pnpm cli audit --limit 10          # View audit logs
-pnpm cli doctor                    # Diagnose issues
-pnpm cli status                    # Check sync status
-pnpm cli diff                      # Show pending changes
-pnpm cli migrate                   # Migrate configs
-pnpm cli tree                      # Show workspace tree
+# AGENTS.md Commands (Phase 2 - IN PROGRESS)
+pnpm cli init                      # ✅ Initialize with template
+pnpm cli sync --dry-run            # ⏳ One-time sync (TODO)
+pnpm cli watch                     # ⏳ Auto-sync on changes (TODO)
+pnpm cli validate --strict         # ⏳ Validate AGENTS.md (TODO)
+pnpm cli audit --limit 10          # ⏳ View audit logs (TODO)
+pnpm cli doctor                    # ⏳ Diagnose issues (TODO)
+pnpm cli status                    # ⏳ Check sync status (TODO)
+pnpm cli diff                      # ⏳ Show pending changes (TODO)
+pnpm cli migrate                   # ⏳ Migrate configs (TODO)
+pnpm cli tree                      # ⏳ Show workspace tree (TODO)
 ```
 
 ## Architecture Overview
@@ -70,22 +80,37 @@ pnpm cli tree                      # Show workspace tree
 
 ```
 src/
-├── cli.ts                        # Commander.js entry (9 commands defined)
+├── cli.ts                        # Commander.js entry
 ├── commands/
-│   └── init.ts                   # ✅ COMPLETE: Interactive setup wizard
-│   └── [others].ts               # 🔨 TODO: 8 other commands scaffolded
+│   ├── init.ts                   # ✅ AGENTS.md: Interactive setup wizard
+│   ├── mcp/                      # ✅ MCP: All commands (Phase 1 COMPLETE)
+│   │   ├── sync.ts               # ✅ Sync MCPs to tools
+│   │   ├── list.ts               # ✅ List available/active MCPs
+│   │   ├── add.ts                # ✅ Add MCP to project
+│   │   └── remove.ts             # ✅ Remove MCP from project
+│   └── [others].ts               # 🔨 AGENTS.md commands (TODO)
 ├── core/
-│   ├── parser.ts                 # ✅ COMPLETE: Remark-based AGENTS.md parser
-│   ├── errors.ts                 # ✅ COMPLETE: Typed error hierarchy
-│   ├── audit.ts                  # ✅ COMPLETE: JSONL audit logger
-│   ├── watcher.ts                # ✅ COMPLETE: Chokidar file watcher
+│   ├── mcp/                      # ✅ MCP engine (Phase 1 COMPLETE)
+│   │   ├── registry.ts           # ✅ Load ~/.agentsync/mcp.json
+│   │   ├── config.ts             # ✅ Load .agentsync.json
+│   │   ├── tokens.ts             # ✅ Token substitution
+│   │   └── env.ts                # ✅ .env file loader
+│   ├── parser.ts                 # ✅ AGENTS.md: Remark-based parser
+│   ├── errors.ts                 # ✅ Typed error hierarchy
+│   ├── audit.ts                  # ✅ JSONL audit logger
+│   ├── watcher.ts                # ✅ Chokidar file watcher
 │   └── error-handler.ts          # Deprecated, use errors.ts
 ├── security/
-│   ├── scanner.ts                # ✅ COMPLETE: 25+ secret patterns
-│   └── unicode-detector.ts       # ✅ COMPLETE: CVE-2021-42574 protection
-├── translators/                  # 🔨 TODO: Tool-specific converters
+│   ├── scanner.ts                # ✅ 25+ secret patterns
+│   └── unicode-detector.ts       # ✅ CVE-2021-42574 protection
+├── targets/                      # ✅ MCP targets (Phase 1 COMPLETE)
+│   ├── mcp-base.ts               # ✅ Target interface
+│   ├── cursor.ts                 # ✅ Cursor implementation
+│   ├── claude.ts                 # ✅ Claude Code implementation
+│   └── mcp-index.ts              # ✅ Target registry
+├── translators/                  # 🔨 AGENTS.md translators (TODO)
 ├── utils/
-│   └── debounce.ts               # ✅ COMPLETE: Advanced debouncer
+│   └── debounce.ts               # ✅ Advanced debouncer
 ├── types/
 │   ├── index.ts                  # Core interfaces and types
 │   └── schemas.ts                # Zod validation schemas
@@ -93,6 +118,13 @@ src/
     ├── default.md
     ├── typescript-react.md
     └── python-fastapi.md
+
+tests/
+├── unit/core/mcp/                # ✅ 38 tests
+├── integration/targets/          # ✅ 16 tests
+├── unit/commands/mcp/            # ✅ 28 tests
+└── e2e/                          # ✅ 5 tests
+Total: 87 MCP tests passing, >90% coverage
 ```
 
 ### Key Modules Explained
@@ -179,6 +211,63 @@ src/
   - `ParseResult`: Parser output
 - **Zod Schemas**: Runtime validation for all data structures
 - **Workspace Types**: Monorepo support (nx, turborepo, pnpm, npm, yarn)
+
+### MCP Modules (Phase 1 - COMPLETE)
+
+#### 8. **MCP Registry Loader** (`src/core/mcp/registry.ts`)
+- **Purpose**: Load global MCP server registry from `~/.agentsync/mcp.json`
+- **Key Functions**:
+  - `loadGlobalRegistry()`: Loads and validates global registry
+  - `getGlobalRegistryPath()`: Returns path to registry file
+- **Validation**: Ensures each MCP has `command` and `args` fields
+- **Error Handling**: Helpful error messages with examples if registry missing
+
+#### 9. **MCP Config Loader** (`src/core/mcp/config.ts`)
+- **Purpose**: Load project MCP configuration and filter selected servers
+- **Key Functions**:
+  - `loadProjectConfig()`: Loads `.agentsync.json`
+  - `filterSelectedMCPs()`: Filters global registry to selected servers
+- **Supports Two Formats**:
+  - Array: `{"mcpServers": ["github", "postgres"]}`
+  - Object: `{"mcpServers": {"github": true, "postgres": {...}}}`
+- **Override Support**: Project-specific env var overrides
+
+#### 10. **Token Substitution** (`src/core/mcp/tokens.ts`)
+- **Purpose**: Replace `{VAR}` placeholders with actual environment values
+- **Key Functions**:
+  - `substituteTokens()`: Replaces tokens in single MCP
+  - `substituteAllMCPs()`: Replaces tokens in all MCPs
+  - `validateTokens()`: Ensures no tokens remain unsubstituted
+- **Security**: Deep cloning to prevent mutations, never commits actual tokens
+- **Pattern**: `/\{([A-Z_][A-Z0-9_]*)\}/g` for uppercase env vars
+
+#### 11. **Environment Loader** (`src/core/mcp/env.ts`)
+- **Purpose**: Load environment variables from `.env` file
+- **Key Functions**:
+  - `loadEnv()`: Parses .env and merges with process.env
+- **Format**: Simple `KEY=value` format
+- **Priority**: .env values override process.env
+
+#### 12. **MCP Targets** (`src/targets/`)
+- **Cursor Target** (`cursor.ts`):
+  - Writes `.cursor/mcp.json`
+  - Format: `{"mcpServers": {...}}` wrapper
+- **Claude Target** (`claude.ts`):
+  - Writes `.claude/mcp.json`
+  - Format: Direct object (no wrapper)
+- **Target Registry** (`mcp-index.ts`):
+  - `detectMCPTargets()`: Auto-detect available tools
+  - `getMCPTarget()`: Get target by name
+- **Interface** (`mcp-base.ts`):
+  - `detect()`: Check if tool is available
+  - `syncMCP()`: Write MCP config to tool
+
+#### 13. **MCP Commands** (`src/commands/mcp/`)
+- **sync.ts**: Main sync workflow (load → filter → substitute → validate → sync)
+- **list.ts**: Show available vs active MCPs
+- **add.ts**: Add MCP to project config
+- **remove.ts**: Remove MCP from project config
+- **Test Coverage**: 90.28% with 28 unit tests + 5 E2E tests
 
 ## Development Patterns
 
@@ -287,20 +376,29 @@ src/
 
 ## Current Limitations
 
-### Not Implemented Yet
-- ✅ Complete: init, parser, security, audit, errors, watcher
-- ❌ TODO: sync, watch, validate, diff, migrate, doctor, status, audit CLI, tree commands
-- ❌ TODO: All 5 translator implementations
-- ❌ TODO: Atomic sync with rollback
-- ❌ TODO: Conflict detection/resolution
-- ❌ TODO: Remote audit shipping
-- ❌ TODO: Monorepo workspace resolution
+### Phase 1 (MCP) - COMPLETE ✅
+- ✅ All 4 MCP commands implemented and tested
+- ✅ Token substitution and validation
+- ✅ Cursor and Claude Code targets
+- ✅ 87 tests passing, >90% coverage
 
-### Known Issues
+### Phase 2 (AGENTS.md) - IN PROGRESS ⏳
+**Completed:**
+- ✅ init command, parser, security, audit, errors, watcher
+
+**Not Implemented Yet:**
+- ❌ sync, watch, validate, diff, migrate, doctor, status, audit CLI, tree commands
+- ❌ All 5 translator implementations (Cursor, Claude, Cline, Windsurf, Copilot)
+- ❌ Atomic sync with rollback
+- ❌ Conflict detection/resolution
+- ❌ Remote audit shipping
+- ❌ Monorepo workspace resolution
+
+### Known Issues (AGENTS.md)
 - Parser handles basic markdown only (no complex nested structures)
 - Unicode sanitization not integrated into main flow
 - Secret scanner doesn't persist findings between runs
-- No actual file syncing occurs yet (only init creates files)
+- No actual AGENTS.md syncing occurs yet (only init creates files)
 
 ## Debug Tips
 
@@ -314,9 +412,14 @@ src/
 ## Important Files & Paths
 
 ### Configuration
-- `.agentsync/config.json` - Project configuration
-- `AGENTS.md` - Source of truth
-- Tool configs - `.cursor/`, `.claude/`, etc.
+- **MCP (Phase 1)**:
+  - `~/.agentsync/mcp.json` - Global MCP registry
+  - `.agentsync.json` - Project MCP selection
+  - `.env` - Environment variables (gitignored)
+- **AGENTS.md (Phase 2)**:
+  - `.agentsync/config.json` - Project configuration
+  - `AGENTS.md` - Source of truth
+  - Tool configs - `.cursor/`, `.claude/`, etc.
 
 ### Logs & Data
 - `~/.agentsync/logs/audit-*.log` - Global audit logs
@@ -324,10 +427,18 @@ src/
 - `.agentsync/cache/` - Temporary files
 
 ### Source Entry Points
-- `src/cli.ts` - Main CLI application
-- `src/commands/init.ts` - Init command implementation
-- `src/core/parser.ts` - AGENTS.md parser
-- `src/security/scanner.ts` - Secret detection
+- **MCP (Phase 1)**:
+  - `src/commands/mcp/sync.ts` - MCP sync command
+  - `src/core/mcp/registry.ts` - Global registry loader
+  - `src/core/mcp/tokens.ts` - Token substitution
+  - `src/targets/cursor.ts` - Cursor target
+- **AGENTS.md (Phase 2)**:
+  - `src/cli.ts` - Main CLI application
+  - `src/commands/init.ts` - Init command implementation
+  - `src/core/parser.ts` - AGENTS.md parser
+- **Shared**:
+  - `src/security/scanner.ts` - Secret detection
+  - `src/core/errors.ts` - Error handling
 
 ## References
 
