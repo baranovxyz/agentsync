@@ -382,9 +382,13 @@ describe('CLI Shell Execution', () => {
       await fs.ensureDir(path.join(customHome, '.agentsync'));
       await fs.writeJson(path.join(customHome, '.agentsync', 'mcp.json'), globalRegistry);
 
-      const { stdout, exitCode } = await execa('node', [cliPath, 'mcp', 'list'], {
-        env: { ...process.env, HOME: customHome },
-      });
+      // On Windows, os.homedir() uses USERPROFILE, not HOME
+      const env = { ...process.env, HOME: customHome };
+      if (process.platform === 'win32') {
+        env.USERPROFILE = customHome;
+      }
+
+      const { stdout, exitCode } = await execa('node', [cliPath, 'mcp', 'list'], { env });
 
       expect(exitCode).toBe(0);
       expect(stdout).toContain('github');
