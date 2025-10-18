@@ -1,0 +1,51 @@
+# Source files
+src/
+tests/
+coverage/
+
+# Config files
+*.config.ts
+tsconfig.json
+vitest.config.ts
+vite.config.ts
+biome.json
+
+# Development files
+.git*
+.vscode/
+.DS_Store
+*.log
+pnpm-debug.log*
+npm-debug.log*
+yarn-debug.log*
+
+# Research and documentation
+research/
+analysis/
+context/
+CLAUDE.md
+
+# Scripts
+scripts/
+
+# Environment files
+.env*
+!.env.example
+
+# Temporary files
+*.tmp
+*.temp
+.tmp/
+.temp/
+
+# Build artifacts
+*.tsbuildinfo
+.nyc_output/
+
+# Keep only:
+# - dist/
+# - templates/
+# - README.md
+# - CHANGELOG.md
+# - LICENSE
+# - .npmrc (for registry config)
