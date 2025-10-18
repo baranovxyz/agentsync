@@ -3,6 +3,30 @@
 # Run with: bats tests/shell/cli.bats
 # Install BATS: npm install -g bats or brew install bats-core
 
+# Cleanup helper function
+cleanup_trap() {
+  # Kill any background processes spawned by this test
+  pkill -P $$ 2>/dev/null || true
+
+  # Restore directory
+  if [ -n "$ORIGINAL_PWD" ]; then
+    cd "$ORIGINAL_PWD" 2>/dev/null || true
+  fi
+
+  # Restore HOME
+  if [ -n "$ORIGINAL_HOME" ]; then
+    export HOME="$ORIGINAL_HOME"
+  fi
+
+  # Remove temp directories
+  if [ -n "$TEST_TEMP_DIR" ]; then
+    rm -rf "$TEST_TEMP_DIR" 2>/dev/null || true
+  fi
+  if [ -n "$TEST_HOME_DIR" ]; then
+    rm -rf "$TEST_HOME_DIR" 2>/dev/null || true
+  fi
+}
+
 # Setup runs before each test
 setup() {
   # Get the directory of this test file
@@ -19,7 +43,11 @@ setup() {
 
   # Create temp home
   export ORIGINAL_HOME="$HOME"
-  export HOME="$(mktemp -d)"
+  export TEST_HOME_DIR="$(mktemp -d)"
+  export HOME="$TEST_HOME_DIR"
+
+  # Setup trap for cleanup on ANY exit (success, failure, or signal)
+  trap 'cleanup_trap' EXIT INT TERM
 
   # Setup global MCP registry
   mkdir -p "$HOME/.agentsync"
@@ -52,9 +80,11 @@ EOF
 
 # Teardown runs after each test
 teardown() {
-  cd "$ORIGINAL_PWD"
-  export HOME="$ORIGINAL_HOME"
-  rm -rf "$TEST_TEMP_DIR"
+  # Remove trap to prevent double-cleanup
+  trap - EXIT INT TERM
+
+  # Run cleanup
+  cleanup_trap
 }
 
 # Helper function to check if CLI is built
