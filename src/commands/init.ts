@@ -114,6 +114,16 @@ export class InitCommand {
       };
     }
 
+    // Check if we're in an interactive environment
+    const isInteractive = process.stdin.isTTY;
+    if (!isInteractive && (!options.template || !options.tools)) {
+      throw new ConfigError(
+        'Non-interactive environment detected',
+        '',
+        'Please provide all required options: --template <name> --tools <tool1,tool2>'
+      );
+    }
+
     const questions: prompts.PromptObject[] = [];
 
     if (!options.template) {
@@ -160,12 +170,11 @@ export class InitCommand {
       initial: true,
     });
 
-    const response = await prompts(questions);
-
-    // User cancelled
-    if (!response.template && !options.template) {
-      throw new ConfigError('Setup cancelled', '', 'Run "agentsync init" again to start over');
-    }
+    const response = await prompts(questions, {
+      onCancel: () => {
+        throw new ConfigError('Setup cancelled', '', 'Run "agentsync init" again to start over');
+      }
+    });
 
     return {
       template: options.template || response.template,
@@ -182,7 +191,18 @@ export class InitCommand {
     console.log(pc.gray(`  Creating AGENTS.md from ${templateName} template...`));
 
     const templateFile = TEMPLATES[templateName as keyof typeof TEMPLATES] || TEMPLATES.default;
-    const templatePath = path.join(__dirname, '../../templates', templateFile);
+
+    // Find templates directory relative to the bundled code location
+    // In production: dist/init-*.js -> ../../templates
+    // The __dirname is the directory of the bundled init file
+    let templatePath = path.join(__dirname, '../../templates', templateFile);
+
+    // Fallback: try relative to cli.js location
+    if (!await fs.pathExists(templatePath)) {
+      // Go up from dist/ to root
+      templatePath = path.join(path.dirname(process.argv[1]), '../templates', templateFile);
+    }
+
     const targetPath = path.join(process.cwd(), 'AGENTS.md');
 
     try {

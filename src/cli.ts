@@ -59,10 +59,113 @@ program
     }
   });
 
-// Sync command
+// MCP Commands (Phase 1)
+const mcpCommand = program
+  .command("mcp")
+  .description("Manage MCP (Model Context Protocol) servers");
+
+mcpCommand
+  .command("sync")
+  .description("Sync selected MCPs to AI coding tools")
+  .option("--tool <name>", "Sync only to specific tool (cursor, claude)")
+  .option("--dry-run", "Preview changes without applying them")
+  .action(async (options) => {
+    try {
+      const { syncMCP } = await import("./commands/mcp/sync.js");
+      await syncMCP(options);
+      console.log(pc.green("✅ MCP sync complete!"));
+    } catch (error) {
+      handleError(error as Error);
+    }
+  });
+
+mcpCommand
+  .command("list")
+  .description("List available and active MCP servers")
+  .action(async () => {
+    try {
+      const { listMCP } = await import("./commands/mcp/list.js");
+      const result = await listMCP();
+
+      console.log(pc.cyan(`\nGlobal MCP Registry (${result.total} servers):\n`));
+
+      if (result.active.length > 0) {
+        console.log(pc.green(`✓ Active in this project (${result.active.length}):`));
+        for (const name of result.active) {
+          const mcp = result.mcps[name];
+          console.log(pc.green(`  ${name}`) + pc.gray(` - ${mcp.args.join(' ')}`));
+        }
+        console.log();
+      }
+
+      if (result.inactive.length > 0) {
+        console.log(pc.gray(`○ Available but not active (${result.inactive.length}):`));
+        for (const name of result.inactive) {
+          const mcp = result.mcps[name];
+          console.log(pc.gray(`  ${name} - ${mcp.args.join(' ')}`));
+        }
+        console.log();
+      }
+
+      console.log(pc.gray("To add an MCP: agentsync mcp add <name>"));
+      console.log(pc.gray("To sync: agentsync mcp sync"));
+    } catch (error) {
+      handleError(error as Error);
+    }
+  });
+
+mcpCommand
+  .command("add <server>")
+  .description("Add MCP server to project")
+  .action(async (server: string) => {
+    try {
+      const { addMCP } = await import("./commands/mcp/add.js");
+      const result = await addMCP(server);
+
+      if (result.added) {
+        console.log(pc.green(`✓ Added '${server}' to .agentsync.json`));
+
+        if (result.requiredEnv.length > 0) {
+          console.log(pc.yellow(`\nMCP '${server}' requires environment variables:`));
+          for (const varName of result.requiredEnv) {
+            console.log(pc.yellow(`  - ${varName}`));
+          }
+          console.log(pc.gray("\nAdd to .env file:"));
+          console.log(pc.gray(`  echo "${result.requiredEnv[0]}=your_token_here" >> .env`));
+        }
+
+        console.log(pc.gray("\nRun 'agentsync mcp sync' to apply changes."));
+      } else {
+        console.log(pc.yellow(`⚠️  '${server}' already in project config`));
+      }
+    } catch (error) {
+      handleError(error as Error);
+    }
+  });
+
+mcpCommand
+  .command("remove <server>")
+  .description("Remove MCP server from project")
+  .action(async (server: string) => {
+    try {
+      const { removeMCP } = await import("./commands/mcp/remove.js");
+      const result = await removeMCP(server);
+
+      if (result.removed) {
+        console.log(pc.green(`✓ Removed '${server}' from .agentsync.json`));
+        console.log(pc.gray("\nRun 'agentsync mcp sync' to apply changes."));
+      } else {
+        console.log(pc.yellow(`⚠️  '${server}' not found in project config`));
+      }
+    } catch (error) {
+      handleError(error as Error);
+    }
+  });
+
+// Sync command (AGENTS.md sync - existing functionality)
 program
   .command("sync")
-  .description("One-time sync to all configured tools")
+  .description("One-time sync of AGENTS.md to all configured tools")
   .option(
     "--tool <name>",
     "Sync only specific tool (cursor, claude, cline, windsurf, copilot)"
