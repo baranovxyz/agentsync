@@ -38,10 +38,12 @@ jobs:
       - name: Type check
         run: pnpm lint
 
-      - name: Install ShellCheck
+      - name: Install ShellCheck (Ubuntu only)
+        if: runner.os == 'Linux'
         run: sudo apt-get install -y shellcheck
 
-      - name: Lint shell scripts
+      - name: Lint shell scripts (Ubuntu only)
+        if: runner.os == 'Linux'
         run: |
           echo "Checking shell scripts with ShellCheck..."
           # Find all .sh files (excluding node_modules)
