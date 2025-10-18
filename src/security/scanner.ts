@@ -103,14 +103,17 @@ export interface ScanResult {
   stats: ScanStats;
 }
 
+export type SeverityLevel = 'low' | 'medium' | 'high' | 'critical';
+export type ConfidenceLevel = 'low' | 'medium' | 'high';
+
 export interface SecurityFinding {
   type: string;
   pattern: string;
   match: string;
   line: number;
   column: number;
-  severity: 'low' | 'medium' | 'high' | 'critical';
-  confidence: 'low' | 'medium' | 'high';
+  severity: SeverityLevel;
+  confidence: ConfidenceLevel;
   suggestion: string;
 }
 
@@ -386,7 +389,7 @@ export class SecurityScanner {
 
       for (const [severity, findings] of Object.entries(bySeverity)) {
         if (findings.length > 0) {
-          lines.push(`${this.getSeverityEmoji(severity as any)} ${severity.toUpperCase()}: ${findings.length} issue(s)`);
+          lines.push(`${this.getSeverityEmoji(severity as SeverityLevel)} ${severity.toUpperCase()}: ${findings.length} issue(s)`);
 
           for (const finding of findings.slice(0, 5)) { // Show max 5 per severity
             lines.push(`  Line ${finding.line}: ${finding.type}`);
