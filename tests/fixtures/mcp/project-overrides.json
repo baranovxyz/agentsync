@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "github": true,
+    "postgres": {
+      "env": {
+        "POSTGRES_URL": "postgresql://localhost/custom_db"
+      }
+    }
+  }
+}

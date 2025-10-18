@@ -1,0 +1,23 @@
+{
+  "github": {
+    "command": "npx",
+    "args": ["-y", "@modelcontextprotocol/server-github"],
+    "env": {
+      "GITHUB_TOKEN": "{GITHUB_TOKEN}"
+    }
+  },
+  "postgres": {
+    "command": "npx",
+    "args": ["-y", "@modelcontextprotocol/server-postgres"],
+    "env": {
+      "POSTGRES_URL": "{DATABASE_URL}"
+    }
+  },
+  "linear": {
+    "command": "npx",
+    "args": ["-y", "@modelcontextprotocol/server-linear"],
+    "env": {
+      "LINEAR_API_KEY": "{LINEAR_API_KEY}"
+    }
+  }
+}
