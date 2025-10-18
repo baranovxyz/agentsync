@@ -333,11 +333,17 @@ Prevents malicious hidden instructions using:
 ## Development
 
 ```bash
-# Run tests
+# Build the CLI
+pnpm build
+
+# Run all tests (125 tests)
 pnpm test
 
 # Run with coverage
 pnpm test:coverage
+
+# Run shell tests (tests real CLI execution)
+pnpm test:shell
 
 # Test MCP modules specifically
 pnpm test tests/unit/core/mcp/ tests/integration/targets/ tests/unit/commands/mcp/
@@ -349,6 +355,13 @@ pnpm lint
 pnpm cli --help
 pnpm cli mcp --help
 ```
+
+**Test Coverage:**
+- **223 tests** total (125 Vitest, 24 Shell, 26 BATS, 48 Manual)
+- **>90% code coverage** for MCP functionality
+- **Real CLI testing** in bash/zsh environments
+
+**See:** [TESTING.md](TESTING.md) for complete testing strategy and guides.
 
 ## Configuration
 
