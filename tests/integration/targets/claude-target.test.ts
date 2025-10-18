@@ -15,16 +15,56 @@ describe('ClaudeTarget', () => {
   let originalCwd: string;
   let target: ClaudeTarget;
 
+  /**
+   * Cleanup helper with retry logic for Windows file locking issues
+   */
+  async function cleanupTestEnvironment(): Promise<void> {
+    try {
+      // Restore working directory first
+      if (originalCwd && process.cwd() !== originalCwd) {
+        process.chdir(originalCwd);
+      }
+
+      // Remove temp directory with retry logic
+      const cleanup = async (dir: string, retries = 3): Promise<void> => {
+        for (let i = 0; i < retries; i++) {
+          try {
+            if (await fs.pathExists(dir)) {
+              await fs.remove(dir);
+              return;
+            }
+          } catch (error) {
+            if (i === retries - 1) {
+              console.error(`Failed to cleanup ${dir}:`, error);
+              return;
+            }
+            await new Promise((resolve) => setTimeout(resolve, 100));
+          }
+        }
+      };
+
+      if (tempDir) {
+        await cleanup(tempDir);
+      }
+    } catch (error) {
+      console.error('Cleanup failed:', error);
+    }
+  }
+
   beforeEach(async () => {
-    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agentsync-claude-'));
-    originalCwd = process.cwd();
-    process.chdir(tempDir);
-    target = new ClaudeTarget();
+    try {
+      tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agentsync-claude-'));
+      originalCwd = process.cwd();
+      process.chdir(tempDir);
+      target = new ClaudeTarget();
+    } catch (error) {
+      await cleanupTestEnvironment();
+      throw error;
+    }
   });
 
   afterEach(async () => {
-    process.chdir(originalCwd);
-    await fs.remove(tempDir);
+    await cleanupTestEnvironment();
   });
 
   it('has name "claude"', () => {

@@ -17,27 +17,75 @@ describe('CLI Shell Execution', () => {
   let originalHome: string | undefined;
   const cliPath = path.resolve(process.cwd(), 'dist/cli.js');
 
+  /**
+   * Cleanup helper with retry logic for Windows file locking issues
+   */
+  async function cleanupTestEnvironment(): Promise<void> {
+    try {
+      // Restore working directory first
+      if (originalCwd && process.cwd() !== originalCwd) {
+        process.chdir(originalCwd);
+      }
+
+      // Restore HOME environment variable
+      if (originalHome !== undefined) {
+        process.env.HOME = originalHome;
+      }
+
+      // Remove temp directories with retry logic
+      const cleanup = async (dir: string, retries = 3): Promise<void> => {
+        for (let i = 0; i < retries; i++) {
+          try {
+            if (await fs.pathExists(dir)) {
+              await fs.remove(dir);
+              return;
+            }
+          } catch (error) {
+            if (i === retries - 1) {
+              console.error(`Failed to cleanup ${dir}:`, error);
+              // Don't throw - let test results show through
+              return;
+            }
+            // Wait before retry (file might be locked on Windows)
+            await new Promise((resolve) => setTimeout(resolve, 100));
+          }
+        }
+      };
+
+      await Promise.all([
+        tempDir && cleanup(tempDir),
+        tempHomeDir && cleanup(tempHomeDir),
+      ]);
+    } catch (error) {
+      console.error('Cleanup failed:', error);
+      // Don't throw - let test results show through
+    }
+  }
+
   beforeEach(async () => {
-    // Setup temp directories
-    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agentsync-shell-'));
-    originalCwd = process.cwd();
-    process.chdir(tempDir);
+    try {
+      // Setup temp directories
+      tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agentsync-shell-'));
+      originalCwd = process.cwd();
+      process.chdir(tempDir);
 
-    tempHomeDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agentsync-home-'));
-    originalHome = process.env.HOME;
-    process.env.HOME = tempHomeDir;
+      tempHomeDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agentsync-home-'));
+      originalHome = process.env.HOME;
+      process.env.HOME = tempHomeDir;
 
-    // Ensure CLI is built
-    if (!await fs.pathExists(cliPath)) {
-      throw new Error(`CLI not built. Run 'pnpm build' first. Expected: ${cliPath}`);
+      // Ensure CLI is built
+      if (!await fs.pathExists(cliPath)) {
+        throw new Error(`CLI not built. Run 'pnpm build' first. Expected: ${cliPath}`);
+      }
+    } catch (error) {
+      // Cleanup on setup failure
+      await cleanupTestEnvironment();
+      throw error;
     }
   });
 
   afterEach(async () => {
-    process.chdir(originalCwd);
-    process.env.HOME = originalHome;
-    await fs.remove(tempDir);
-    await fs.remove(tempHomeDir);
+    await cleanupTestEnvironment();
   });
 
   describe('Basic CLI Execution', () => {
