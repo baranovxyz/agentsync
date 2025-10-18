@@ -18,6 +18,7 @@ import {
   type FileMapping
 } from '../types/schemas.js';
 import type { ParsedSection, ParseResult } from '../types/index.js';
+import type { Root, RootContent } from 'mdast';
 
 /**
  * Parser for AGENTS.md files
@@ -75,12 +76,12 @@ export class AgentsMdParser {
   /**
    * Extract sections from markdown AST
    */
-  private extractSections(ast: any): ParsedSection[] {
+  private extractSections(ast: Root): ParsedSection[] {
     const sections: ParsedSection[] = [];
     let currentSection: ParsedSection | null = null;
     let currentContent: string[] = [];
 
-    const processNode = (node: any, depth: number = 0) => {
+    const processNode = (node: RootContent, depth: number = 0) => {
       if (node.type === 'heading') {
         // Save previous section if exists
         if (currentSection) {
@@ -105,13 +106,13 @@ export class AgentsMdParser {
       }
 
       // Process children
-      if (node.children) {
-        node.children.forEach((child: any) => processNode(child, depth + 1));
+      if ('children' in node && node.children) {
+        node.children.forEach((child) => processNode(child, depth + 1));
       }
     };
 
     if (ast.children) {
-      ast.children.forEach((node: any) => processNode(node));
+      ast.children.forEach((node) => processNode(node));
     }
 
     // Save last section
@@ -418,12 +419,12 @@ export class AgentsMdParser {
   /**
    * Extract text from a node
    */
-  private extractText(node: any): string {
+  private extractText(node: RootContent): string {
     if (node.type === 'text') {
       return node.value;
     }
-    if (node.children) {
-      return node.children.map((child: any) => this.extractText(child)).join('');
+    if ('children' in node && node.children) {
+      return node.children.map((child) => this.extractText(child)).join('');
     }
     return '';
   }
@@ -431,8 +432,13 @@ export class AgentsMdParser {
   /**
    * Convert node back to markdown
    */
-  private nodeToMarkdown(node: any): string {
-    return this.processor.stringify(node);
+  private nodeToMarkdown(node: RootContent): string {
+    // Wrap single node in a root node for stringify
+    const rootNode: Root = {
+      type: 'root',
+      children: [node]
+    };
+    return this.processor.stringify(rootNode);
   }
 
   /**
