@@ -4,6 +4,7 @@
  */
 
 import * as fs from 'fs-extra';
+import { readFile, symlink } from 'node:fs/promises';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'node:module';
@@ -85,7 +86,6 @@ export class InitCommand {
     let mcpCount = 0;
     if (mcpConfigExists && mcpConfigPath) {
       try {
-        const { readFile } = await import('node:fs/promises');
         const content = await readFile(mcpConfigPath, 'utf-8');
         const config = JSON.parse(content);
         if (Array.isArray(config.mcpServers)) {
@@ -101,7 +101,6 @@ export class InitCommand {
     const configPath = path.join(process.cwd(), '.agentsync', 'config.json');
     let tools: string[] = [];
     try {
-      const { readFile } = await import('node:fs/promises');
       const content = await readFile(configPath, 'utf-8');
       const config = JSON.parse(content);
       tools = config.tools || [];
@@ -341,12 +340,23 @@ export class InitCommand {
     const targetPath = path.join(process.cwd(), 'AGENTS.md');
 
     try {
-      const templateContent = await fs.readFile(templatePath, 'utf-8');
-      await fs.writeFile(targetPath, templateContent);
+      // Use native Node.js readFile (fs-extra v11+ removed readFile/writeFile)
+      const templateContent = await readFile(templatePath, 'utf-8');
+      // Use fs-extra's outputFile to ensure parent directory exists
+      await fs.outputFile(targetPath, templateContent);
       console.log(pc.green('  ✓ Created AGENTS.md'));
     } catch (error) {
-      throw new FileSystemError(
+      // Enhanced error message with debugging info
+      const errorMessage = [
         `Failed to create AGENTS.md from template`,
+        `  Template path: ${templatePath}`,
+        `  Package root: ${packageRoot}`,
+        `  Template exists: ${await fs.pathExists(templatePath)}`,
+        `  Error: ${(error as Error).message}`,
+      ].join('\n');
+
+      throw new FileSystemError(
+        errorMessage,
         templatePath,
         error as Error
       );
@@ -423,7 +433,8 @@ export class InitCommand {
             // Check if symlink already exists
             const exists = await fs.pathExists(fullPath);
             if (!exists) {
-              await fs.symlink(
+              // Use native Node.js symlink (fs-extra v11+ removed symlink)
+              await symlink(
                 path.relative(dir, agentsPath),
                 fullPath
               );
@@ -461,13 +472,14 @@ export class InitCommand {
     try {
       let content = '';
       if (await fs.pathExists(gitignorePath)) {
-        content = await fs.readFile(gitignorePath, 'utf-8');
+        content = await readFile(gitignorePath, 'utf-8');
       }
 
       // Check if already has AgentSync section
       if (!content.includes('# AgentSync')) {
         content += '\n' + entries.join('\n') + '\n';
-        await fs.writeFile(gitignorePath, content);
+        // Use fs.outputFile for consistency (creates parent dirs if needed)
+        await fs.outputFile(gitignorePath, content);
         console.log(pc.green('  ✓ Updated .gitignore'));
       } else {
         console.log(pc.gray('  ✓ .gitignore already contains AgentSync entries'));

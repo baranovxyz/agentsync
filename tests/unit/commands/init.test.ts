@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs-extra';
+import * as fsPromises from 'node:fs/promises';
 import { InitCommand } from '../../../src/commands/init.js';
 import { ConfigError } from '../../../src/core/errors.js';
 import type { InitOptions } from '../../../src/types/index.js';
@@ -10,27 +11,22 @@ import type { InitOptions } from '../../../src/types/index.js';
 vi.mock('fs-extra', () => ({
   default: {
     pathExists: vi.fn(),
-    readFile: vi.fn(),
-    writeFile: vi.fn(),
     outputFile: vi.fn(),
     ensureDir: vi.fn(),
     writeJson: vi.fn(),
-    symlink: vi.fn(),
     copy: vi.fn(),
   },
   pathExists: vi.fn(),
-  readFile: vi.fn(),
-  writeFile: vi.fn(),
   outputFile: vi.fn(),
   ensureDir: vi.fn(),
   writeJson: vi.fn(),
-  symlink: vi.fn(),
   copy: vi.fn(),
 }));
 
-// Mock node:fs/promises (for new status check code)
+// Mock node:fs/promises (now used for readFile and symlink)
 vi.mock('node:fs/promises', () => ({
   readFile: vi.fn().mockResolvedValue('{"tools": []}'),
+  symlink: vi.fn(),
 }));
 
 // Mock @inquirer/prompts
@@ -86,8 +82,8 @@ describe('InitCommand', () => {
         // Return false for AGENTS.md (doesn't exist yet), true for package.json search
         return String(path).includes('package.json');
       });
-      vi.mocked(fs.readFile).mockResolvedValue('# Template');
-      vi.mocked(fs.writeFile).mockResolvedValue();
+      vi.mocked(fsPromises.readFile).mockResolvedValue('# Template' as any);
+      vi.mocked(fs.outputFile).mockResolvedValue();
       vi.mocked(fs.ensureDir).mockResolvedValue();
       vi.mocked(fs.writeJson).mockResolvedValue();
 
@@ -122,8 +118,8 @@ describe('InitCommand', () => {
       vi.mocked(fs.pathExists).mockImplementation(async (path: string) => {
         return String(path).includes('package.json');
       });
-      vi.mocked(fs.readFile).mockResolvedValue('# Template');
-      vi.mocked(fs.writeFile).mockResolvedValue();
+      vi.mocked(fsPromises.readFile).mockResolvedValue('# Template' as any);
+      vi.mocked(fs.outputFile).mockResolvedValue();
       vi.mocked(fs.ensureDir).mockResolvedValue();
       vi.mocked(fs.writeJson).mockResolvedValue();
 
@@ -147,8 +143,8 @@ describe('InitCommand', () => {
       vi.mocked(fs.pathExists).mockImplementation(async (path: string) => {
         return String(path).includes('package.json');
       });
-      vi.mocked(fs.readFile).mockResolvedValue('# Template');
-      vi.mocked(fs.writeFile).mockResolvedValue();
+      vi.mocked(fsPromises.readFile).mockResolvedValue('# Template' as any);
+      vi.mocked(fs.outputFile).mockResolvedValue();
       vi.mocked(fs.ensureDir).mockResolvedValue();
       vi.mocked(fs.writeJson).mockResolvedValue();
 
@@ -187,8 +183,8 @@ describe('InitCommand', () => {
         if (pathStr.includes('package.json')) return true;
         return false;
       });
-      vi.mocked(fs.readFile).mockResolvedValue('# Template');
-      vi.mocked(fs.writeFile).mockResolvedValue();
+      vi.mocked(fsPromises.readFile).mockResolvedValue('# Template' as any);
+      vi.mocked(fs.outputFile).mockResolvedValue();
       vi.mocked(fs.ensureDir).mockResolvedValue();
 
       const options: InitOptions = {
@@ -215,13 +211,13 @@ describe('InitCommand', () => {
         return false;
       });
 
-      // Mock readFile for config.json
-      vi.mocked(fs.readFile).mockImplementation(async (path: string) => {
+      // Mock readFile for config.json (uses fsPromises now)
+      vi.mocked(fsPromises.readFile).mockImplementation(async (path: string) => {
         const pathStr = String(path);
         if (pathStr.includes('.agentsync/config.json') || pathStr.includes('.agentsync\\config.json')) {
-          return JSON.stringify({ tools: ['cursor', 'claude'] });
+          return JSON.stringify({ tools: ['cursor', 'claude'] }) as any;
         }
-        return '# Template';
+        return '# Template' as any;
       });
 
       const options: InitOptions = {
@@ -245,8 +241,8 @@ describe('InitCommand', () => {
         if (pathStr.includes('package.json')) return true;
         return false;
       });
-      vi.mocked(fs.readFile).mockResolvedValue('# Template');
-      vi.mocked(fs.writeFile).mockResolvedValue();
+      vi.mocked(fsPromises.readFile).mockResolvedValue('# Template' as any);
+      vi.mocked(fs.outputFile).mockResolvedValue();
       vi.mocked(fs.ensureDir).mockResolvedValue();
 
       const options: InitOptions = {
@@ -257,7 +253,7 @@ describe('InitCommand', () => {
       await initCommand.execute(options);
 
       // Should NOT write AGENTS.md (only reads template, doesn't write)
-      const agentsMdWrites = vi.mocked(fs.writeFile).mock.calls.filter(call =>
+      const agentsMdWrites = vi.mocked(fs.outputFile).mock.calls.filter(call =>
         call[0].toString().includes('AGENTS.md')
       );
       expect(agentsMdWrites).toHaveLength(0);
@@ -271,8 +267,8 @@ describe('InitCommand', () => {
         if (pathStr.includes('package.json')) return true;
         return false;
       });
-      vi.mocked(fs.readFile).mockResolvedValue('# Template');
-      vi.mocked(fs.writeFile).mockResolvedValue();
+      vi.mocked(fsPromises.readFile).mockResolvedValue('# Template' as any);
+      vi.mocked(fs.outputFile).mockResolvedValue();
       vi.mocked(fs.ensureDir).mockResolvedValue();
 
       const options: InitOptions = {
@@ -284,7 +280,7 @@ describe('InitCommand', () => {
       await initCommand.execute(options);
 
       // Should write AGENTS.md even though it exists
-      const agentsMdWrites = vi.mocked(fs.writeFile).mock.calls.filter(call =>
+      const agentsMdWrites = vi.mocked(fs.outputFile).mock.calls.filter(call =>
         call[0].toString().includes('AGENTS.md')
       );
       expect(agentsMdWrites).toHaveLength(1);
@@ -296,8 +292,8 @@ describe('InitCommand', () => {
       vi.mocked(fs.pathExists).mockImplementation(async (path: string) => {
         return String(path).includes('package.json');
       });
-      vi.mocked(fs.readFile).mockResolvedValue('# Default Template');
-      vi.mocked(fs.writeFile).mockResolvedValue();
+      vi.mocked(fsPromises.readFile).mockResolvedValue('# Default Template' as any);
+      vi.mocked(fs.outputFile).mockResolvedValue();
       vi.mocked(fs.ensureDir).mockResolvedValue();
       vi.mocked(fs.writeJson).mockResolvedValue();
 
@@ -308,7 +304,7 @@ describe('InitCommand', () => {
 
       await initCommand.execute(options);
 
-      expect(fs.readFile).toHaveBeenCalledWith(
+      expect(fsPromises.readFile).toHaveBeenCalledWith(
         expect.stringContaining('default.md'),
         'utf-8'
       );
@@ -318,8 +314,8 @@ describe('InitCommand', () => {
       vi.mocked(fs.pathExists).mockImplementation(async (path: string) => {
         return String(path).includes('package.json');
       });
-      vi.mocked(fs.readFile).mockResolvedValue('# TypeScript React Template');
-      vi.mocked(fs.writeFile).mockResolvedValue();
+      vi.mocked(fsPromises.readFile).mockResolvedValue('# TypeScript React Template' as any);
+      vi.mocked(fs.outputFile).mockResolvedValue();
       vi.mocked(fs.ensureDir).mockResolvedValue();
       vi.mocked(fs.writeJson).mockResolvedValue();
 
@@ -330,7 +326,7 @@ describe('InitCommand', () => {
 
       await initCommand.execute(options);
 
-      expect(fs.readFile).toHaveBeenCalledWith(
+      expect(fsPromises.readFile).toHaveBeenCalledWith(
         expect.stringContaining('typescript-react.md'),
         'utf-8'
       );
@@ -342,11 +338,11 @@ describe('InitCommand', () => {
       vi.mocked(fs.pathExists).mockImplementation(async (path: string) => {
         return String(path).includes('package.json');
       });
-      vi.mocked(fs.readFile).mockResolvedValue('# Template');
-      vi.mocked(fs.writeFile).mockResolvedValue();
+      vi.mocked(fsPromises.readFile).mockResolvedValue('# Template' as any);
+      vi.mocked(fs.outputFile).mockResolvedValue();
       vi.mocked(fs.ensureDir).mockResolvedValue();
       vi.mocked(fs.writeJson).mockResolvedValue();
-      vi.mocked(fs.symlink).mockResolvedValue();
+      vi.mocked(fsPromises.symlink).mockResolvedValue();
       vi.mocked(fs.copy).mockResolvedValue();
     });
 
@@ -359,7 +355,7 @@ describe('InitCommand', () => {
 
       await initCommand.execute(options);
 
-      expect(fs.symlink).toHaveBeenCalled();
+      expect(fsPromises.symlink).toHaveBeenCalled();
       expect(fs.copy).not.toHaveBeenCalled();
     });
 
@@ -373,7 +369,7 @@ describe('InitCommand', () => {
       await initCommand.execute(options);
 
       expect(fs.copy).toHaveBeenCalled();
-      expect(fs.symlink).not.toHaveBeenCalled();
+      expect(fsPromises.symlink).not.toHaveBeenCalled();
     });
 
     it('should setup multiple tools', async () => {
@@ -386,14 +382,14 @@ describe('InitCommand', () => {
       await initCommand.execute(options);
 
       // Each tool has 2 config paths, so 6 symlinks total
-      expect(fs.symlink).toHaveBeenCalledTimes(6);
+      expect(fsPromises.symlink).toHaveBeenCalledTimes(6);
     });
   });
 
   describe('gitignore update', () => {
     beforeEach(() => {
-      vi.mocked(fs.readFile).mockResolvedValue('# Template');
-      vi.mocked(fs.writeFile).mockResolvedValue();
+      vi.mocked(fsPromises.readFile).mockResolvedValue('# Template' as any);
+      vi.mocked(fs.outputFile).mockResolvedValue();
       vi.mocked(fs.ensureDir).mockResolvedValue();
       vi.mocked(fs.writeJson).mockResolvedValue();
     });
@@ -405,9 +401,9 @@ describe('InitCommand', () => {
         return false;
       });
 
-      vi.mocked(fs.readFile).mockImplementation(async (path: string) => {
-        if (path.toString().includes('.gitignore')) return '# Existing content\n';
-        return '# Template';
+      vi.mocked(fsPromises.readFile).mockImplementation(async (path: string) => {
+        if (path.toString().includes('.gitignore')) return '# Existing content\n' as any;
+        return '# Template' as any;
       });
 
       const options: InitOptions = {
@@ -417,7 +413,7 @@ describe('InitCommand', () => {
 
       await initCommand.execute(options);
 
-      expect(fs.writeFile).toHaveBeenCalledWith(
+      expect(fs.outputFile).toHaveBeenCalledWith(
         expect.stringContaining('.gitignore'),
         expect.stringContaining('# AgentSync')
       );
@@ -430,14 +426,14 @@ describe('InitCommand', () => {
         return false;
       });
 
-      vi.mocked(fs.readFile).mockImplementation(async (path: string) => {
+      vi.mocked(fsPromises.readFile).mockImplementation(async (path: string) => {
         if (path.toString().includes('.gitignore')) {
-          return '# Existing content\n# AgentSync\n.agentsync/logs/\n';
+          return '# Existing content\n# AgentSync\n.agentsync/logs/\n' as any;
         }
-        return '# Template';
+        return '# Template' as any;
       });
 
-      const writeFileSpy = vi.mocked(fs.writeFile);
+      const outputFileSpy = vi.mocked(fs.outputFile);
 
       const options: InitOptions = {
         template: 'default',
@@ -447,7 +443,7 @@ describe('InitCommand', () => {
       await initCommand.execute(options);
 
       // Should write AGENTS.md but not .gitignore
-      const gitignoreWrites = writeFileSpy.mock.calls.filter(call =>
+      const gitignoreWrites = outputFileSpy.mock.calls.filter(call =>
         call[0].toString().includes('.gitignore')
       );
       expect(gitignoreWrites).toHaveLength(0);
