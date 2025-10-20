@@ -174,8 +174,39 @@ describe('InitCommand', () => {
       expect(confirm).toHaveBeenCalledTimes(2);
     });
 
-    it('should throw ConfigError when AGENTS.md exists without force flag', async () => {
-      vi.mocked(fs.pathExists).mockResolvedValue(true);
+    it('should succeed when AGENTS.md exists but .agentsync/config.json does not', async () => {
+      vi.mocked(fs.pathExists).mockImplementation(async (path: string) => {
+        const pathStr = String(path);
+        // AGENTS.md exists, but config.json doesn't, package.json exists for lookup
+        if (pathStr.includes('AGENTS.md') && !pathStr.includes('.agentsync')) return true;
+        if (pathStr.includes('package.json')) return true;
+        return false;
+      });
+      vi.mocked(fs.readFile).mockResolvedValue('# Template');
+      vi.mocked(fs.writeFile).mockResolvedValue();
+      vi.mocked(fs.ensureDir).mockResolvedValue();
+
+      const options: InitOptions = {
+        template: 'default',
+        tools: ['cursor'],
+        force: false,
+      };
+
+      // Should not throw - AGENTS.md existence is fine
+      await initCommand.execute(options);
+
+      // Should have created .agentsync directory
+      expect(fs.ensureDir).toHaveBeenCalled();
+    });
+
+    it('should throw ConfigError when .agentsync/config.json exists without force flag', async () => {
+      vi.mocked(fs.pathExists).mockImplementation(async (path: string) => {
+        const pathStr = String(path);
+        // .agentsync/config.json exists
+        if (pathStr.includes('.agentsync/config.json') || pathStr.includes('.agentsync\\config.json')) return true;
+        if (pathStr.includes('package.json')) return true;
+        return false;
+      });
 
       const options: InitOptions = {
         template: 'default',
@@ -184,18 +215,46 @@ describe('InitCommand', () => {
       };
 
       await expect(initCommand.execute(options)).rejects.toThrow(ConfigError);
-      await expect(initCommand.execute(options)).rejects.toThrow('AGENTS.md already exists');
+      await expect(initCommand.execute(options)).rejects.toThrow('AgentSync is already initialized');
     });
 
-    it('should overwrite AGENTS.md when force flag is set', async () => {
+    it('should skip AGENTS.md creation when it already exists', async () => {
       vi.mocked(fs.pathExists).mockImplementation(async (path: string) => {
-        // AGENTS.md exists, package.json exists
-        return String(path).includes('AGENTS.md') || String(path).includes('package.json');
+        const pathStr = String(path);
+        // AGENTS.md exists, config.json doesn't, package.json exists
+        if (pathStr.includes('AGENTS.md') && !pathStr.includes('.agentsync')) return true;
+        if (pathStr.includes('package.json')) return true;
+        return false;
       });
       vi.mocked(fs.readFile).mockResolvedValue('# Template');
       vi.mocked(fs.writeFile).mockResolvedValue();
       vi.mocked(fs.ensureDir).mockResolvedValue();
-      vi.mocked(fs.writeJson).mockResolvedValue();
+
+      const options: InitOptions = {
+        template: 'default',
+        tools: ['cursor'],
+      };
+
+      await initCommand.execute(options);
+
+      // Should NOT write AGENTS.md (only reads template, doesn't write)
+      const agentsMdWrites = vi.mocked(fs.writeFile).mock.calls.filter(call =>
+        call[0].toString().includes('AGENTS.md')
+      );
+      expect(agentsMdWrites).toHaveLength(0);
+    });
+
+    it('should overwrite AGENTS.md when force flag is set', async () => {
+      vi.mocked(fs.pathExists).mockImplementation(async (path: string) => {
+        const pathStr = String(path);
+        // Both AGENTS.md and config.json exist, package.json exists
+        if (pathStr.includes('AGENTS.md') || pathStr.includes('.agentsync/config.json') || pathStr.includes('.agentsync\\config.json')) return true;
+        if (pathStr.includes('package.json')) return true;
+        return false;
+      });
+      vi.mocked(fs.readFile).mockResolvedValue('# Template');
+      vi.mocked(fs.writeFile).mockResolvedValue();
+      vi.mocked(fs.ensureDir).mockResolvedValue();
 
       const options: InitOptions = {
         template: 'default',
@@ -205,7 +264,11 @@ describe('InitCommand', () => {
 
       await initCommand.execute(options);
 
-      expect(fs.writeFile).toHaveBeenCalled();
+      // Should write AGENTS.md even though it exists
+      const agentsMdWrites = vi.mocked(fs.writeFile).mock.calls.filter(call =>
+        call[0].toString().includes('AGENTS.md')
+      );
+      expect(agentsMdWrites).toHaveLength(1);
     });
   });
 
