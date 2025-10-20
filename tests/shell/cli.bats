@@ -145,10 +145,10 @@ check_cli_built() {
   check_cli_built
   run node "$CLI" mcp add github
   [ "$status" -eq 0 ]
-  [ -f ".agentsync.json" ]
+  [ -f "agentsync.local.json" ]
 
   # Check config contains github
-  run cat .agentsync.json
+  run cat agentsync.local.json
   [[ "$output" =~ "github" ]]
 }
 
@@ -159,7 +159,7 @@ check_cli_built() {
   [ "$status" -eq 0 ]
 
   # Should only appear once in config
-  count=$(grep -o "github" .agentsync.json | wc -l)
+  count=$(grep -o "github" agentsync.local.json | wc -l)
   [ "$count" -eq 1 ]
 }
 
@@ -235,7 +235,7 @@ check_cli_built() {
   [ "$status" -eq 0 ]
 
   # Check github removed but postgres remains
-  run cat .agentsync.json
+  run cat agentsync.local.json
   [[ ! "$output" =~ "github" ]]
   [[ "$output" =~ "postgres" ]]
 }
@@ -250,7 +250,7 @@ check_cli_built() {
 
 @test "handles invalid JSON config gracefully" {
   check_cli_built
-  echo "{invalid json}" > .agentsync.json
+  echo "{invalid json}" > agentsync.local.json
   run node "$CLI" mcp list
   [ "$status" -ne 0 ]
   [[ "$output" =~ "JSON" ]] || [[ "$output" =~ "parse" ]]

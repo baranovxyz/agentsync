@@ -7,9 +7,17 @@ Available MCPs: github"
 `;
 
 exports[`CLI Output Snapshots > Error Messages > mcp sync without project config error matches snapshot 1`] = `
-"❌ Error: Project configuration not found at: /tmp/snapshot-project-XXXXXX/.agentsync.json
+"❌ Error: MCP configuration not found.
 
-Run 'agentsync mcp init' to create it."
+Expected one of:
+  - agentsync.local.json (local, gitignored)
+  - .agentsync/config.local.json (backup location)
+  - .agentsync/config.json (team-shared, optional)
+
+Create agentsync.local.json with:
+  {"mcpServers": []}
+
+Then use 'agentsync mcp add <server>' to select MCPs."
 `;
 
 exports[`CLI Output Snapshots > Error Messages > missing MCP registry error matches snapshot 1`] = `
@@ -148,7 +156,7 @@ Commands:
   help [command]      display help for command
 
   ╔═══════════════════════════════════════╗
-  ║     AgentSync v0.2.0-alpha.4              ║
+  ║     AgentSync v0.2.0-alpha.5              ║
   ║  The missing infrastructure layer     ║
   ║  for AI agent configuration sync      ║
   ╚═══════════════════════════════════════╝

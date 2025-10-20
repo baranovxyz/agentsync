@@ -101,7 +101,7 @@ src/
 ├── core/
 │   ├── mcp/                      # ✅ MCP engine (Phase 1 COMPLETE)
 │   │   ├── registry.ts           # ✅ Load ~/.agentsync/mcp.json
-│   │   ├── config.ts             # ✅ Load .agentsync.json
+│   │   ├── config.ts             # ✅ Load agentsync.local.json
 │   │   ├── tokens.ts             # ✅ Token substitution
 │   │   └── env.ts                # ✅ .env file loader
 │   ├── parser.ts                 # ✅ AGENTS.md: Remark-based parser
@@ -239,7 +239,7 @@ Total: 87 MCP tests passing, >90% coverage
 #### 9. **MCP Config Loader** (`src/core/mcp/config.ts`)
 - **Purpose**: Load project MCP configuration and filter selected servers
 - **Key Functions**:
-  - `loadProjectConfig()`: Loads `.agentsync.json`
+  - `loadProjectConfig()`: Loads `agentsync.local.json`
   - `filterSelectedMCPs()`: Filters global registry to selected servers
 - **Supports Two Formats**:
   - Array: `{"mcpServers": ["github", "postgres"]}`
@@ -364,7 +364,7 @@ Total: 87 MCP tests passing, >90% coverage
 }
 ```
 
-### MCP Configuration (`.agentsync.json`)
+### MCP Configuration (`agentsync.local.json`)
 The MCP configuration supports both array and object formats, and **empty configs are valid**:
 
 ```json
@@ -579,7 +579,7 @@ Note: Pre-release versions like `0.2.0-alpha.5` don't need `--tag alpha` - the v
 ### Configuration
 - **MCP (Phase 1)**:
   - `~/.agentsync/mcp.json` - Global MCP registry
-  - `.agentsync.json` - Project MCP selection
+  - `agentsync.local.json` - Project MCP selection
   - `.env` - Environment variables (gitignored)
 - **AGENTS.md (Phase 2)**:
   - `.agentsync/config.json` - Project configuration
