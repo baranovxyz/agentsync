@@ -309,7 +309,7 @@ Total: 87 MCP tests passing, >90% coverage
 2. Update both implementation and tests simultaneously
 3. Convert error tests to success tests when relaxing restrictions
 4. Document use cases in CLAUDE.md, not just API changes
-5. Update manual tests in `manual-tests/` to match new behavior
+5. Add E2E tests to cover new behavior (all tests automated)
 
 ### Extending AGENTS.md Parser
 1. Add section detection in `sectionsToAgentsMd()` method
@@ -485,11 +485,12 @@ The MCP configuration supports both array and object formats, and **empty config
 - ✅ Token substitution and validation
 - ✅ Cursor and Claude Code targets
 - ✅ Empty MCP configs supported (allows 0 servers for fresh start/cleanup)
-- ✅ 166 Vitest tests: >90% coverage
-- ✅ 21 Install tests: Production validation (includes init command with all templates)
+- ✅ Apple-like UX: Helpful status messages, auto-recovery, guided workflows
+- ✅ 166 Vitest unit tests: >90% coverage
+- ✅ 22 Install tests: Production validation (includes init command + new UX)
 - ✅ 26 BATS tests: Shell validation
-- ✅ 48 Manual tests: Optional UX validation (mostly replaced by install test)
-- ✅ 244 total automated tests
+- ✅ 11 Error scenario tests: Edge cases and error handling
+- ✅ 207 total automated tests (no manual tests - all automated)
 
 ### Phase 2 (AGENTS.md) - IN PROGRESS ⏳
 **Completed:**
