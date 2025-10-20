@@ -70,17 +70,13 @@ pnpm cli mcp list                  # Show available/active MCPs
 pnpm cli mcp add github            # Add MCP to project
 pnpm cli mcp remove postgres       # Remove MCP (can remove all)
 
-# AGENTS.md Commands (Phase 2 - IN PROGRESS)
+# Init Command (Phase 2 - PARTIALLY IMPLEMENTED)
 pnpm cli init                      # ✅ Initialize with template
-pnpm cli sync --dry-run            # ⏳ One-time sync (TODO)
-pnpm cli watch                     # ⏳ Auto-sync on changes (TODO)
-pnpm cli validate --strict         # ⏳ Validate AGENTS.md (TODO)
-pnpm cli audit --limit 10          # ⏳ View audit logs (TODO)
-pnpm cli doctor                    # ⏳ Diagnose issues (TODO)
-pnpm cli status                    # ⏳ Check sync status (TODO)
-pnpm cli diff                      # ⏳ Show pending changes (TODO)
-pnpm cli migrate                   # ⏳ Migrate configs (TODO)
-pnpm cli tree                      # ⏳ Show workspace tree (TODO)
+
+# Phase 2 Commands (NOT IMPLEMENTED - Hidden from CLI help)
+# The following commands are planned but not yet available:
+# - sync, watch, validate, diff, migrate, doctor, status, audit, tree
+# These were removed from CLI help to avoid user confusion
 ```
 
 ## Architecture Overview

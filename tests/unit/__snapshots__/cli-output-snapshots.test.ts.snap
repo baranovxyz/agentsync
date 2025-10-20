@@ -43,22 +43,13 @@ Sync your AGENTS.md to all your AI coding tools - Cursor, Claude Code, Cline,
 Windsurf, GitHub Copilot
 
 Options:
-  -V, --version       output the version number
-  -h, --help          display help for command
+  -V, --version   output the version number
+  -h, --help      display help for command
 
 Commands:
-  init [options]      Initialize AgentSync with interactive setup wizard
-  mcp                 Manage MCP (Model Context Protocol) servers
-  sync [options]      One-time sync of AGENTS.md to all configured tools
-  watch [options]     Watch mode with auto-sync (<5s latency)
-  validate [options]  Validate AGENTS.md against specification
-  diff [options]      Preview changes before syncing
-  migrate [options]   Import from existing tool configs
-  doctor [options]    Health check with actionable fixes
-  status              Show sync state and configuration
-  tree                Visualize monorepo config structure
-  audit [options]     Query audit logs
-  help [command]      display help for command"
+  init [options]  Initialize AgentSync with interactive setup wizard
+  mcp             Manage MCP (Model Context Protocol) servers
+  help [command]  display help for command"
 `;
 
 exports[`CLI Output Snapshots > Init Command Help > init --help output matches snapshot 1`] = `
@@ -138,22 +129,13 @@ Sync your AGENTS.md to all your AI coding tools - Cursor, Claude Code, Cline,
 Windsurf, GitHub Copilot
 
 Options:
-  -V, --version       output the version number
-  -h, --help          display help for command
+  -V, --version   output the version number
+  -h, --help      display help for command
 
 Commands:
-  init [options]      Initialize AgentSync with interactive setup wizard
-  mcp                 Manage MCP (Model Context Protocol) servers
-  sync [options]      One-time sync of AGENTS.md to all configured tools
-  watch [options]     Watch mode with auto-sync (<5s latency)
-  validate [options]  Validate AGENTS.md against specification
-  diff [options]      Preview changes before syncing
-  migrate [options]   Import from existing tool configs
-  doctor [options]    Health check with actionable fixes
-  status              Show sync state and configuration
-  tree                Visualize monorepo config structure
-  audit [options]     Query audit logs
-  help [command]      display help for command
+  init [options]  Initialize AgentSync with interactive setup wizard
+  mcp             Manage MCP (Model Context Protocol) servers
+  help [command]  display help for command
 
   ╔═══════════════════════════════════════╗
   ║     AgentSync v0.2.0-alpha.6              ║
@@ -163,12 +145,12 @@ Commands:
   
 
 Examples:
-  $ agentsync init                    # Interactive setup wizard
-  $ agentsync sync                    # Sync to all tools
-  $ agentsync sync --dry-run          # Preview changes
-  $ agentsync watch                   # Enable auto-sync
-  $ agentsync validate --strict       # Check AGENTS.md
-  $ agentsync doctor                  # Health check
+  $ agentsync init                      # Interactive setup wizard
+  $ agentsync mcp list                  # List available MCPs
+  $ agentsync mcp add github            # Add MCP server
+  $ agentsync mcp sync                  # Sync MCPs to tools
+  $ agentsync mcp sync --dry-run        # Preview MCP changes
+  $ agentsync mcp remove github         # Remove MCP server
 
 Documentation:
   https://github.com/baranovxyz/agentsync"
