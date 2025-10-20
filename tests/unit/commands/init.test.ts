@@ -28,6 +28,11 @@ vi.mock('fs-extra', () => ({
   copy: vi.fn(),
 }));
 
+// Mock node:fs/promises (for new status check code)
+vi.mock('node:fs/promises', () => ({
+  readFile: vi.fn().mockResolvedValue('{"tools": []}'),
+}));
+
 // Mock @inquirer/prompts
 vi.mock('@inquirer/prompts', () => ({
   select: vi.fn(),
@@ -170,8 +175,8 @@ describe('InitCommand', () => {
         })
       );
 
-      // Should have called confirm twice (symlinks and gitignore)
-      expect(confirm).toHaveBeenCalledTimes(2);
+      // Should have called confirm 3 times (symlinks, gitignore, and MCP setup)
+      expect(confirm).toHaveBeenCalledTimes(3);
     });
 
     it('should succeed when AGENTS.md exists but .agentsync/config.json does not', async () => {
@@ -199,13 +204,24 @@ describe('InitCommand', () => {
       expect(fs.ensureDir).toHaveBeenCalled();
     });
 
-    it('should throw ConfigError when .agentsync/config.json exists without force flag', async () => {
+    it('should show status when .agentsync/config.json exists without force flag', async () => {
       vi.mocked(fs.pathExists).mockImplementation(async (path: string) => {
         const pathStr = String(path);
         // .agentsync/config.json exists
         if (pathStr.includes('.agentsync/config.json') || pathStr.includes('.agentsync\\config.json')) return true;
         if (pathStr.includes('package.json')) return true;
+        // AGENTS.md exists
+        if (pathStr.includes('AGENTS.md')) return true;
         return false;
+      });
+
+      // Mock readFile for config.json
+      vi.mocked(fs.readFile).mockImplementation(async (path: string) => {
+        const pathStr = String(path);
+        if (pathStr.includes('.agentsync/config.json') || pathStr.includes('.agentsync\\config.json')) {
+          return JSON.stringify({ tools: ['cursor', 'claude'] });
+        }
+        return '# Template';
       });
 
       const options: InitOptions = {
@@ -214,8 +230,11 @@ describe('InitCommand', () => {
         force: false,
       };
 
-      await expect(initCommand.execute(options)).rejects.toThrow(ConfigError);
-      await expect(initCommand.execute(options)).rejects.toThrow('AgentSync is already initialized');
+      // Should not throw - should return silently with status message
+      await expect(initCommand.execute(options)).resolves.toBeUndefined();
+
+      // Console should have logged status
+      // (Can't easily assert console.log in tests, but behavior changed from throw to status)
     });
 
     it('should skip AGENTS.md creation when it already exists', async () => {

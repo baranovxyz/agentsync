@@ -473,6 +473,27 @@ describe('Production Package Installation', () => {
         await fs.remove(testDir);
       }
     });
+
+    it('should show helpful status when already initialized (Apple-like UX)', async () => {
+      const testDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agentsync-init-twice-'));
+
+      try {
+        // First init
+        await execa('agentsync', ['init', '--template', 'default', '--tools', 'cursor'], {
+          cwd: testDir,
+        });
+
+        // Second init without --force should show status, not error
+        const { exitCode, stdout } = await execa('agentsync', ['init'], { cwd: testDir });
+
+        expect(exitCode).toBe(0); // Should not error
+        expect(stdout).toContain('already initialized'); // Helpful status
+        expect(stdout).toContain('Current setup:'); // Show what's configured
+        expect(stdout).toContain('What you can do:'); // Show recovery paths
+      } finally {
+        await fs.remove(testDir);
+      }
+    });
   });
 
   describe('Package Quality', () => {
