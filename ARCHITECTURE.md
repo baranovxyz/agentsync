@@ -238,7 +238,7 @@ tests/
 - Tool-specific symlinks/copies
 
 **Does NOT Create:**
-- `agentsync.local.json` - This is user-created (either manually or via `agentsync mcp add`)
+- `agentsync.local.json` - User creates manually (v0.3.0) or via `--scope local` (v0.4.0+)
 
 **Tool Paths**:
 - Cursor: `.cursor/agents.md`, `.cursor/AGENTS.md`
