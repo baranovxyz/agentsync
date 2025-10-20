@@ -405,6 +405,76 @@ describe('Production Package Installation', () => {
     });
   });
 
+  describe('Init Command - Production Package', () => {
+    it('should initialize project with all templates', async () => {
+      const templates = ['default', 'typescript-react', 'python-fastapi'];
+
+      for (const template of templates) {
+        const testDir = await fs.mkdtemp(path.join(os.tmpdir(), `agentsync-init-${template}-`));
+
+        try {
+          // Run init command with template (non-interactive)
+          const { exitCode, stdout } = await execa(
+            'agentsync',
+            ['init', '--template', template, '--tools', 'cursor'],
+            { cwd: testDir }
+          );
+
+          expect(exitCode).toBe(0);
+          expect(stdout).toContain('✓ Created AGENTS.md');
+          expect(stdout).toContain('✅ AgentSync initialized successfully!');
+
+          // Verify AGENTS.md was actually created with correct content
+          const agentsPath = path.join(testDir, 'AGENTS.md');
+          expect(await fs.pathExists(agentsPath)).toBe(true);
+
+          const content = await fs.readFile(agentsPath, 'utf-8');
+          expect(content).toContain('# AGENTS.md');
+          expect(content.length).toBeGreaterThan(100); // Real template, not empty/mock
+
+          // Verify template-specific content
+          if (template === 'typescript-react') {
+            expect(content).toContain('TypeScript React');
+            expect(content).toContain('pnpm');
+          } else if (template === 'python-fastapi') {
+            expect(content).toContain('FastAPI');
+            expect(content).toContain('poetry');
+          }
+
+          // Verify tool configurations were created
+          expect(await fs.pathExists(path.join(testDir, '.cursor'))).toBe(true);
+          expect(await fs.pathExists(path.join(testDir, '.agentsync'))).toBe(true);
+
+          console.log(`✓ Template '${template}' validated successfully`);
+        } finally {
+          // Cleanup test directory
+          await fs.remove(testDir);
+        }
+      }
+    });
+
+    it('should handle missing template gracefully', async () => {
+      const testDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agentsync-init-invalid-'));
+
+      try {
+        // Try to init with non-existent template (should fall back to default)
+        const { exitCode } = await execa(
+          'agentsync',
+          ['init', '--template', 'nonexistent', '--tools', 'cursor'],
+          { cwd: testDir }
+        );
+
+        expect(exitCode).toBe(0);
+
+        // Should still create AGENTS.md (using default template as fallback)
+        const agentsPath = path.join(testDir, 'AGENTS.md');
+        expect(await fs.pathExists(agentsPath)).toBe(true);
+      } finally {
+        await fs.remove(testDir);
+      }
+    });
+  });
+
   describe('Package Quality', () => {
     it('should have reasonable tarball size', async () => {
       const fullTarballPath = path.join(process.cwd(), tarballPath);
