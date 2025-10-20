@@ -7,6 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-alpha.3] - 2025-10-20
+
+### Added
+- **Install Test** - Automated production package validation (17 E2E tests)
+  - Validates complete `pnpm pack` → `npm install -g` workflow
+  - Tests tarball creation, bin linking, template inclusion, shebang
+  - Runs weekly in CI + before releases
+  - Replaces manual QA agent testing
+- **CLI Snapshot Testing** - Prevent UX regressions (12 tests)
+  - Captures `--help`, `--version`, and command output
+  - Automatically detects unintended CLI output changes
+- **Process Tracker Utility** - Prevent zombie processes (12 tests)
+  - Tracks all spawned processes in E2E tests
+  - Automatic cleanup in `afterEach` hooks
+  - Prevents resource leaks
+- **Prompt Testing** - Interactive CLI validation (14 tests)
+  - Tests all init command prompts
+  - Validates user input handling
+- **Empty MCP Config Support** - Fresh start and cleanup workflows
+  - Both `{"mcpServers": []}` and `{"mcpServers": {}}` now valid
+  - Use cases: new projects, templates, cleanup, testing
+  - Running `mcp sync` with empty config clears all MCPs (idempotent)
+
+### Fixed
+- **fs-extra v11 Migration** - Migrate from deprecated methods
+  - Replaced `readJson`/`writeJson` with native Node.js `fs/promises`
+  - Use `fs.outputFile` for atomic writes with directory creation
+  - All source files and tests updated
+  - No breaking changes to public API
+
+### Changed
+- **CI/CD Improvements**
+  - Add ShellCheck configuration and proper error handling
+  - BATS test warnings now informational (non-blocking)
+  - Better cross-platform test isolation
+  - Add weekly install-test.yml workflow
+- **Testing Infrastructure**
+  - Total tests: 240 (166 Vitest + 17 Install + 26 BATS + 31 Manual)
+  - Coverage: >90% for Vitest tests
+  - Manual testing now optional (mostly replaced by install test)
+- **Documentation**
+  - Add fs-extra v11 migration patterns
+  - Document install test and its role
+  - Add test isolation best practices
+  - Document when to use automated tests vs agents
+  - Update test counts throughout
+
+### Removed
+- **Manual Tester Subagent** - Replaced by automated install test
+  - `.claude/agents/manual-tester.md` removed
+  - Install test provides same validation automatically
+  - Manual testing still available but optional
+
 ## [0.2.0-alpha.2] - 2025-01-18
 
 ### Fixed
