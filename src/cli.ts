@@ -96,10 +96,12 @@ mcpCommand
           console.log(pc.green(`  ${name}`) + pc.gray(` - ${mcp.args.join(' ')}`));
         }
         console.log();
+      } else {
+        console.log(pc.yellow('No MCP servers configured yet\n'));
       }
 
       if (result.inactive.length > 0) {
-        console.log(pc.gray(`○ Available but not active (${result.inactive.length}):`));
+        console.log(pc.gray(`○ Available (${result.inactive.length}):`));
         for (const name of result.inactive) {
           const mcp = result.mcps[name];
           console.log(pc.gray(`  ${name} - ${mcp.args.join(' ')}`));
@@ -107,8 +109,14 @@ mcpCommand
         console.log();
       }
 
-      console.log(pc.gray("To add an MCP: agentsync mcp add <name>"));
-      console.log(pc.gray("To sync: agentsync mcp sync"));
+      if (result.active.length === 0) {
+        console.log(pc.bold('Get started:'));
+        console.log(pc.gray('  1. Add an MCP:   ') + pc.cyan('agentsync mcp add github'));
+        console.log(pc.gray('  2. Sync to tools: ') + pc.cyan('agentsync mcp sync'));
+      } else {
+        console.log(pc.gray('To add an MCP: ') + pc.cyan('agentsync mcp add <name>'));
+        console.log(pc.gray('To sync:       ') + pc.cyan('agentsync mcp sync'));
+      }
     } catch (error) {
       handleError(error as Error);
     }
