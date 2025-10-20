@@ -21,7 +21,7 @@ describe("CLI Output Snapshots", () => {
   describe("Version and Help", () => {
     it("--version output matches snapshot", async () => {
       const { stdout } = await execa("node", [cliPath, "--version"]);
-      expect(stdout).toMatchInlineSnapshot(`"0.2.0-alpha.8"`);
+      expect(stdout).toMatchInlineSnapshot(`"0.2.0-alpha.9"`);
     });
 
     it("--help output matches snapshot", async () => {

@@ -4,14 +4,30 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**AgentSync** is the missing infrastructure layer for AI coding agent configuration management with two main features:
+**AgentSync** is the missing infrastructure layer for AI coding agent configuration management with three main features:
 
 1. **MCP Context Optimizer** (Phase 1 ✅) - Project-specific MCP server selection to reduce AI context bloat
-2. **AGENTS.md Sync** (Phase 2 ⏳) - Unified AGENTS.md sync to all AI coding tools
+2. **GitHub Library System** (v0.3.0-beta 🚧) - Share rules, commands, and MCPs via GitHub repositories
+3. **AGENTS.md Sync** (Phase 2 ⏳) - Unified AGENTS.md sync to all AI coding tools
 
 **Current Status**:
 - **Phase 1 (MCP)**: ✅ COMPLETE - 125 tests passing, >90% coverage, CI validated on 9 platforms, production-ready
+- **v0.3.0-beta (GitHub Libraries)**: 🚧 IN PROGRESS - Core registry system complete, 29 unit tests passing
 - **Phase 2 (AGENTS.md)**: Foundation + Security complete, only `init` command fully implemented
+
+**v0.3.0-beta Progress**:
+- ✅ Config schema updated with `extends` and `mcpServers` fields
+- ✅ GitHub source parser (github:org/repo format)
+- ✅ Cache manager for cloned repos
+- ✅ GitHub resolver with SSH/HTTPS fallback
+- ✅ Library loader (rules/commands/MCPs)
+- ✅ Namespace-based merger
+- ✅ Registry orchestrator
+- ✅ Init command creates new config format
+- ⏳ Rules sync to Cursor/Claude
+- ⏳ Commands sync to Cursor/Claude
+- ⏳ Main sync command
+- ⏳ Documentation and examples
 
 ## Common Commands
 
@@ -57,6 +73,18 @@ pnpm test src/security/scanner.test.ts
 # Hierarchical timeouts: 5s unit tests, 10s hooks (2x multiplier on CI)
 # Windows requires both HOME and USERPROFILE env vars for os.homedir()
 # Coverage target: >80% (Phase 1 achieved 90%+)
+
+# E2E Test Strategy (install-test.yml):
+# - Runs ONLY on-demand (manual trigger + weekly cron)
+# - NOT triggered on push (saves ~90% CI minutes for E2E tests)
+# - Cost: ~5-9 CI minutes per run (9 platforms × 30-60s)
+# - Trigger manually: gh workflow run "Install Test"
+# - Use regular tests (test-with-bats.yml) for push validation
+
+# Lockfile Policy:
+# - ALL workflows use --frozen-lockfile (no exceptions)
+# - Ensures pnpm-lock.yaml matches package.json
+# - Prevents dependency drift between local/CI
 ```
 
 ### CLI Commands (via pnpm cli)
@@ -78,6 +106,129 @@ pnpm cli init                      # ✅ Initialize with template
 # - sync, watch, validate, diff, migrate, doctor, status, audit, tree
 # These were removed from CLI help to avoid user confusion
 ```
+
+### Available Slash Commands
+```bash
+/smart-commit        # Intelligent atomic commits grouped by type
+/extract-learnings   # Document session insights to CLAUDE.md
+/release             # Complete release workflow (PR → publish → GitHub release)
+/adapt-command       # Adapt commands for repo context
+```
+
+## Git Workflow - CRITICAL RULES
+
+### NEVER Push to Main
+**This is an absolute rule with NO exceptions:**
+
+- ❌ NEVER `git push origin main`
+- ❌ NEVER commit directly on main branch
+- ❌ NEVER merge without PR review
+
+**Correct workflow:**
+1. Create feature/fix/release branch
+2. Make changes and commit
+3. Push branch to origin
+4. Create PR for review
+5. Merge PR on GitHub (not locally)
+6. Pull merged main
+
+**Why this matters:**
+- Ensures code review on all changes
+- Maintains clean git history
+- Prevents accidental production updates
+- Allows CI/CD validation before merge
+
+**What I did wrong in session (2025-10-20):**
+- Pushed commits directly to main (init fix + docs)
+- Should have created `fix/init-local-config` branch first
+- Should have created PR before merging
+
+**Use `/release` command for releases** - it enforces this workflow automatically.
+
+## v0.3.0-beta: GitHub Library System
+
+### Overview
+
+The GitHub library system allows teams to share rules, commands, and MCPs via GitHub repositories. Libraries are cloned to `~/.agentsync/cache/` and merged using namespace-based conflict prevention.
+
+### Core Components
+
+```
+src/core/registry/
+├── github-source.ts          # Parse github:org/repo[@ref] format
+├── cache-manager.ts          # Manage cloned repos in ~/.agentsync/cache/
+├── github-resolver.ts        # Clone repos (SSH/HTTPS fallback)
+├── library-loader.ts         # Load rules/commands/MCPs from repos
+├── merger.ts                 # Namespace-based merging
+└── registry-orchestrator.ts  # End-to-end workflow orchestration
+```
+
+### Config Format (v0.3.0-beta)
+
+```json
+{
+  "version": "1.0",
+  "extends": [
+    "github:company/standards",
+    {
+      "source": "github:team/backend-rules",
+      "namespace": "backend",
+      "include": ["rules/*.md"],
+      "exclude": ["rules/deprecated/**"]
+    }
+  ],
+  "mcpServers": ["github", "postgres"],
+  "tools": ["cursor", "claude"],
+  "useSymlinks": true,
+  "createdAt": "..."
+}
+```
+
+### Library Repository Structure
+
+```
+github:company/standards/
+├── .agentsync/
+│   └── library.json          # Optional metadata
+├── commands/
+│   ├── commit.md             # Generate commit messages
+│   ├── review.md             # Code review checklist
+│   └── test.md               # Run tests
+├── rules/
+│   ├── typescript.md         # TypeScript rules
+│   ├── testing.md            # Testing guidelines
+│   └── security.md           # Security patterns
+├── mcp.json                  # Recommended MCPs for this library
+└── README.md
+```
+
+### Namespace-Based Merging
+
+Libraries are merged with namespace prefixes to prevent collisions:
+
+```
+company:commit.md    → .cursor/commands/company:commit.md
+team:commit.md       → .cursor/commands/team:commit.md
+company:typescript.md → .cursor/rules/company:typescript.mdc
+```
+
+MCPs are merged without namespaces (last-wins):
+- If two libraries define `github` MCP, last library wins
+- Project-level `mcpServers` in config override library MCPs
+
+### Key Design Decisions
+
+1. **@main only**: Version tags deferred to v0.4.0
+2. **GitHub only**: No npm, no URLs (simplest for v0.3.0-beta)
+3. **Namespace required**: Extracted from org name by default
+4. **Cache reuse**: Clones stored in ~/.agentsync/cache/ for speed
+5. **SSH/HTTPS fallback**: Try SSH first, fall back to HTTPS
+
+### Test Coverage
+
+- 29 unit tests (github-source, cache-manager, merger)
+- Integration tests pending
+- E2E tests pending
 
 ## Architecture Overview
 
