@@ -12,13 +12,13 @@
 2. **GitHub Library System** (v0.3.0-beta 🚧) - Share rules, commands, and MCPs via GitHub repositories
 3. **AGENTS.md Sync** (Phase 2 ⏳) - Sync unified AGENTS.md to all AI coding tools
 
-## v0.3.0-beta: GitHub Library System ✅ ~95% COMPLETE
+## v0.3.0-beta: GitHub Library System ✅ COMPLETE
 
-Share team coding standards, commands, and MCPs via GitHub repositories. **Fully functional** - main implementation complete, targeting stable release in early 2025.
+Share team coding standards, commands, and MCPs via GitHub repositories. **Production-ready** - all features implemented and tested with real GitHub repository, ready for release.
 
 ### Features
 
-**✅ Complete:**
+**✅ All Features Complete:**
 - GitHub library loading & merging (namespace-based collision prevention)
 - Rules sync to Cursor (`.mdc`) & Claude (`.md`)
 - Commands sync to Cursor & Claude
@@ -26,12 +26,8 @@ Share team coding standards, commands, and MCPs via GitHub repositories. **Fully
 - Library management: `list`, `cache-clear`
 - SSH/HTTPS fallback for private repos
 - Smart MCP detection and integration
-- 82 tests passing (61 existing + 21 new)
-
-**⏳ Coming Soon:**
-- Example library repositories
-- Integration tests with real GitHub repos
-- Migration guide from v0.2.0-alpha
+- Example library published: `@agentsync/example-typescript`
+- 86 tests passing (82 unit/integration + 4 E2E with real GitHub repo)
 
 ### Quick Start
 
