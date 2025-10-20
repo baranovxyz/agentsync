@@ -32,7 +32,21 @@ export default defineConfig({
         'vm',
         'process',
         'module',
-        /^node:/
+        /^node:/,
+        // External packages (to avoid bundling issues)
+        'ora',
+        'npm-run-path',
+        'unicorn-magic',
+        'picocolors',
+        'commander',
+        '@inquirer/prompts',
+        'chokidar',
+        'fs-extra',
+        'zod',
+        'remark',
+        'remark-parse',
+        'unified',
+        'gray-matter'
       ]
     },
     target: 'node18',
