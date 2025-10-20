@@ -150,21 +150,24 @@ agentsync mcp remove linear
 }
 ```
 
-#### Project MCP Config (`agentsync.local.json`)
-**Purpose:** Select which MCPs this project needs
-**Created by:** `agentsync mcp add` command OR user manually
+#### User MCP Overrides (`agentsync.local.json`)
+**Purpose:** Personal MCP selections that override project config
+**Created by:** User manually (v0.3.0) or `agentsync mcp add --scope local` (v0.4.0+)
 **Git:** NOT committed (in .gitignore)
 **User-specific:** Each developer has their own
 
 ```json
 {
-  "mcpServers": ["github", "postgres"]
+  "mcpServers": ["github", "postgres", "linear"]
 }
 ```
 
-**How to create:**
-- Recommended: `agentsync mcp add github` (auto-creates file)
+**How to create (v0.3.0):**
 - Manual: `echo '{"mcpServers": []}' > agentsync.local.json`
+- Then edit to add personal MCPs that differ from team config
+
+**Future (v0.4.0):**
+- `agentsync mcp add linear --scope local` (creates file automatically)
 
 #### Project Settings (`.agentsync/config.json`)
 **Purpose:** Team-shared project configuration

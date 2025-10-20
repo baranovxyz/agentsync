@@ -335,7 +335,28 @@ Total: 87 MCP tests passing, >90% coverage
 
 ## Configuration
 
-AgentSync uses two separate configuration files with distinct purposes:
+### Config File Responsibilities
+
+AgentSync uses separate config files with distinct purposes:
+
+**`.agentsync/config.json`** (Project-level, committed):
+- Created by: `agentsync init`
+- Modified by: `agentsync mcp add/remove` (v0.3.0+)
+- Purpose: Team-shared settings (tools, MCP servers, extends, security)
+- Git: Committed to repository
+
+**`agentsync.local.json`** (User-level, gitignored):
+- Created by: User manually (v0.3.0) or `--scope local` (v0.4.0+)
+- Modified by: User manually (v0.3.0) or MCP commands with `--scope local` (v0.4.0+)
+- Purpose: Personal MCP overrides that differ from team config
+- Git: NOT committed (in .gitignore)
+
+**Loading Priority**: Project config loads first, then local file overrides `mcpServers` field if present.
+
+**Use Case Example**:
+- Team config has: `["github", "postgres"]`
+- Developer adds locally: `["github", "postgres", "linear"]` (personal tool)
+- Result: Developer gets all three, team only sees two in git
 
 ### 1. Project Configuration (`.agentsync/config.json`) - COMMITTED
 **Created by:** `agentsync init` command
@@ -369,7 +390,7 @@ AgentSync uses two separate configuration files with distinct purposes:
 This file is committed to git and shared with the team.
 
 ### 2. MCP Configuration (`agentsync.local.json`) - GITIGNORED
-**Created by:** User manually OR `agentsync mcp add` command
+**Created by:** User manually (v0.3.0) or `agentsync mcp add --scope local` (v0.4.0+)
 **Purpose:** User-specific/machine-specific MCP selections
 **Git:** NOT committed (in .gitignore)
 
@@ -599,8 +620,13 @@ Note: Pre-release versions like `0.2.0-alpha.5` don't need `--tag alpha` - the v
 ### Configuration
 - **MCP (Phase 1)**:
   - `~/.agentsync/mcp.json` - Global MCP registry
-  - `agentsync.local.json` - Project MCP selection
+  - `.agentsync/config.json` - Project config (team-shared, committed)
+  - `agentsync.local.json` - User overrides (personal, gitignored)
   - `.env` - Environment variables (gitignored)
+- **Configuration Loading**:
+  - Reading priority: `.agentsync/config.json` → `agentsync.local.json` → `.agentsync/config.local.json`
+  - Writing (v0.3.0): CLI always writes to `.agentsync/config.json`
+  - Writing (v0.4.0+): CLI respects `--scope` flag (local|user|project)
 - **AGENTS.md (Phase 2)**:
   - `.agentsync/config.json` - Project configuration
   - `AGENTS.md` - Source of truth
