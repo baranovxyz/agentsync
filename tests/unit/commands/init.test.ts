@@ -76,7 +76,11 @@ describe('InitCommand', () => {
         configurable: true,
       });
 
-      vi.mocked(fs.pathExists).mockResolvedValue(false);
+      // Mock fs methods with implementation that returns different values
+      vi.mocked(fs.pathExists).mockImplementation(async (path: string) => {
+        // Return false for AGENTS.md (doesn't exist yet), true for package.json search
+        return String(path).includes('package.json');
+      });
       vi.mocked(fs.readFile).mockResolvedValue('# Template');
       vi.mocked(fs.writeFile).mockResolvedValue();
       vi.mocked(fs.ensureDir).mockResolvedValue();
@@ -110,7 +114,9 @@ describe('InitCommand', () => {
     });
 
     it('should skip interactive setup when all options provided', async () => {
-      vi.mocked(fs.pathExists).mockResolvedValue(false);
+      vi.mocked(fs.pathExists).mockImplementation(async (path: string) => {
+        return String(path).includes('package.json');
+      });
       vi.mocked(fs.readFile).mockResolvedValue('# Template');
       vi.mocked(fs.writeFile).mockResolvedValue();
       vi.mocked(fs.ensureDir).mockResolvedValue();
@@ -133,7 +139,9 @@ describe('InitCommand', () => {
     it('should use prompts when options are not provided', async () => {
       const { select, checkbox, confirm } = await import('@inquirer/prompts');
 
-      vi.mocked(fs.pathExists).mockResolvedValue(false);
+      vi.mocked(fs.pathExists).mockImplementation(async (path: string) => {
+        return String(path).includes('package.json');
+      });
       vi.mocked(fs.readFile).mockResolvedValue('# Template');
       vi.mocked(fs.writeFile).mockResolvedValue();
       vi.mocked(fs.ensureDir).mockResolvedValue();
@@ -180,7 +188,10 @@ describe('InitCommand', () => {
     });
 
     it('should overwrite AGENTS.md when force flag is set', async () => {
-      vi.mocked(fs.pathExists).mockResolvedValue(true);
+      vi.mocked(fs.pathExists).mockImplementation(async (path: string) => {
+        // AGENTS.md exists, package.json exists
+        return String(path).includes('AGENTS.md') || String(path).includes('package.json');
+      });
       vi.mocked(fs.readFile).mockResolvedValue('# Template');
       vi.mocked(fs.writeFile).mockResolvedValue();
       vi.mocked(fs.ensureDir).mockResolvedValue();
@@ -200,7 +211,9 @@ describe('InitCommand', () => {
 
   describe('template selection', () => {
     it('should use default template when specified', async () => {
-      vi.mocked(fs.pathExists).mockResolvedValue(false);
+      vi.mocked(fs.pathExists).mockImplementation(async (path: string) => {
+        return String(path).includes('package.json');
+      });
       vi.mocked(fs.readFile).mockResolvedValue('# Default Template');
       vi.mocked(fs.writeFile).mockResolvedValue();
       vi.mocked(fs.ensureDir).mockResolvedValue();
@@ -220,7 +233,9 @@ describe('InitCommand', () => {
     });
 
     it('should use typescript-react template when specified', async () => {
-      vi.mocked(fs.pathExists).mockResolvedValue(false);
+      vi.mocked(fs.pathExists).mockImplementation(async (path: string) => {
+        return String(path).includes('package.json');
+      });
       vi.mocked(fs.readFile).mockResolvedValue('# TypeScript React Template');
       vi.mocked(fs.writeFile).mockResolvedValue();
       vi.mocked(fs.ensureDir).mockResolvedValue();
@@ -242,7 +257,9 @@ describe('InitCommand', () => {
 
   describe('tool setup', () => {
     beforeEach(() => {
-      vi.mocked(fs.pathExists).mockResolvedValue(false);
+      vi.mocked(fs.pathExists).mockImplementation(async (path: string) => {
+        return String(path).includes('package.json');
+      });
       vi.mocked(fs.readFile).mockResolvedValue('# Template');
       vi.mocked(fs.writeFile).mockResolvedValue();
       vi.mocked(fs.ensureDir).mockResolvedValue();
@@ -301,7 +318,8 @@ describe('InitCommand', () => {
 
     it('should add AgentSync entries to .gitignore', async () => {
       vi.mocked(fs.pathExists).mockImplementation(async (path: string) => {
-        if (path.toString().includes('.gitignore')) return true;
+        const pathStr = String(path);
+        if (pathStr.includes('.gitignore') || pathStr.includes('package.json')) return true;
         return false;
       });
 
@@ -325,7 +343,8 @@ describe('InitCommand', () => {
 
     it('should skip updating .gitignore if already has AgentSync section', async () => {
       vi.mocked(fs.pathExists).mockImplementation(async (path: string) => {
-        if (path.toString().includes('.gitignore')) return true;
+        const pathStr = String(path);
+        if (pathStr.includes('.gitignore') || pathStr.includes('package.json')) return true;
         return false;
       });
 
