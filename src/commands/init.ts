@@ -121,9 +121,10 @@ export class InitCommand {
       console.log(pc.green('\n✅ AgentSync initialized successfully!\n'));
       console.log(pc.gray('Next steps:'));
       console.log(pc.gray('  1. Edit AGENTS.md to match your project'));
-      console.log(pc.gray('  2. Run "agentsync validate" to check configuration'));
-      console.log(pc.gray('  3. Run "agentsync sync" to sync with your tools'));
-      console.log(pc.gray('  4. Run "agentsync watch" to enable auto-sync'));
+      console.log(pc.gray('  2. (Optional) Set up MCP servers:'));
+      console.log(pc.gray('     - Create agentsync.local.json with {"mcpServers": []}'));
+      console.log(pc.gray('     - Run "agentsync mcp add <server>" to select MCPs'));
+      console.log(pc.gray('     - Run "agentsync mcp sync" to sync to your tools'));
     } catch (error) {
       await this.audit.logError(
         error as Error,
@@ -356,6 +357,8 @@ export class InitCommand {
       '.agentsync/cache/',
       '.agentsync/backups/',
       '*.backup',
+      'agentsync.local.json',
+      '.agentsync/config.local.json',
     ];
 
     try {

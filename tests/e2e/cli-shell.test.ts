@@ -251,10 +251,10 @@ describe('CLI Shell Execution', () => {
       expect(stdout).toContain('github');
 
       // Verify config file created
-      const configExists = await fs.pathExists('.agentsync.json');
+      const configExists = await fs.pathExists('agentsync.local.json');
       expect(configExists).toBe(true);
 
-      const config = await fs.readJson('.agentsync.json');
+      const config = await fs.readJson('agentsync.local.json');
       expect(config.mcpServers).toContain('github');
     });
 
@@ -313,7 +313,7 @@ describe('CLI Shell Execution', () => {
       expect(stdout).toContain('github');
 
       // Verify removed from config but postgres remains
-      const config = await fs.readJson('.agentsync.json');
+      const config = await fs.readJson('agentsync.local.json');
       expect(config.mcpServers).not.toContain('github');
       expect(config.mcpServers).toContain('postgres');
     });
@@ -355,7 +355,7 @@ describe('CLI Shell Execution', () => {
         tools: ['cursor'],
         useSymlinks: false,
       };
-      await writeJson('.agentsync.json', config);
+      await writeJson('agentsync.local.json', config);
 
       // Note: Interactive prompts can't be tested without a TTY
       // We'd need a library like 'expect' or 'inquirer-test' for that
@@ -367,7 +367,7 @@ describe('CLI Shell Execution', () => {
 
   describe('Error Handling', () => {
     it('shows friendly error for invalid JSON config', async () => {
-      await fs.writeFile('.agentsync.json', '{invalid json}');
+      await fs.writeFile('agentsync.local.json', '{invalid json}');
 
       try {
         await execa('node', [tempCliPath, 'mcp', 'list']);

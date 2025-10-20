@@ -25,7 +25,7 @@ mkdir -p .cursor .claude
 
 ```bash
 agentsync mcp add github
-cat .agentsync.json
+cat agentsync.local.json
 ```
 
 **Expected**: Config created with `["github"]`
@@ -38,7 +38,7 @@ cat .agentsync.json
 
 ```bash
 agentsync mcp add filesystem
-cat .agentsync.json
+cat agentsync.local.json
 ```
 
 **Expected**: Config shows `["github", "filesystem"]`
@@ -136,7 +136,7 @@ ls -la .cursor/ .claude/
 
 ```bash
 agentsync mcp remove github
-cat .agentsync.json
+cat agentsync.local.json
 ```
 
 **Expected**: Config shows only `["filesystem"]`

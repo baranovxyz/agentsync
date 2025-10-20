@@ -26,7 +26,7 @@ export interface RemoveMCPResult {
 export async function removeMCP(serverName: string): Promise<RemoveMCPResult> {
   // 1. Load project config
   const projectConfig = await loadProjectConfig();
-  const configPath = path.join(process.cwd(), '.agentsync.json');
+  const configPath = path.join(process.cwd(), 'agentsync.local.json');
 
   let removed = false;
 
