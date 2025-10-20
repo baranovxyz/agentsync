@@ -1,23 +1,18 @@
 name: Install Test
 
-# Run weekly or manually to validate production package
+# Run on-demand to validate production package
 # This test validates the tarball → npm install -g workflow
-# It's slower (~1-2 min) so we don't run it on every PR
+# It's expensive (~5-9 CI minutes across 9 platforms), so we only run:
+# 1. Manually via workflow_dispatch (for pre-release validation)
+# 2. Weekly via cron (automated quality check)
+#
+# NOT triggered on push to save CI minutes - use regular tests for that
 
 on:
   schedule:
     # Run every Sunday at midnight UTC
     - cron: '0 0 * * 0'
-  workflow_dispatch: # Allow manual trigger
-  push:
-    # Run on main branch pushes (after merge)
-    branches:
-      - main
-    paths:
-      - 'package.json'
-      - 'src/**'
-      - 'templates/**'
-      - '.github/workflows/install-test.yml'
+  workflow_dispatch: # Manual trigger (recommended before releases)
 
 jobs:
   install-test:

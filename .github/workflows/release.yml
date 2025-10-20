@@ -40,7 +40,25 @@ permissions:
   id-token: write       # OIDC token for npm provenance (CRITICAL)
 
 jobs:
-  # Job 1: Pre-Release Validation
+  # Job 1: Trigger E2E Install Tests (runs in parallel with pre-release checks)
+  trigger-install-tests:
+    name: Trigger E2E Install Tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Trigger Install Test workflow
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "🧪 Triggering E2E install tests before release..."
+          gh workflow run "Install Test" \
+            --repo ${{ github.repository }} \
+            --ref ${{ github.ref_name }}
+          echo "✅ E2E tests triggered (will run in background)"
+          echo "⚠️  Check install test results before merging release PR"
+
+  # Job 2: Pre-Release Validation
   pre-release-checks:
     name: Pre-Release Security & Quality Checks
     runs-on: ubuntu-latest
@@ -203,7 +221,7 @@ jobs:
             templates/
           retention-days: 1
 
-  # Job 2: Create Release PR (if workflow_dispatch)
+  # Job 3: Create Release PR (if workflow_dispatch)
   create-release-pr:
     name: Create Release PR
     needs: pre-release-checks
@@ -299,7 +317,7 @@ jobs:
           echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
           echo "✅ Created PR: $PR_URL"
 
-  # Job 3: Publish to npm (after PR merge or tag push)
+  # Job 4: Publish to npm (after PR merge or tag push)
   publish-npm:
     name: Publish to npm with Provenance
     needs: pre-release-checks
@@ -381,7 +399,7 @@ jobs:
             exit 1
           fi
 
-  # Job 4: Create GitHub Release
+  # Job 5: Create GitHub Release
   create-github-release:
     name: Create GitHub Release
     needs: [pre-release-checks, publish-npm]
@@ -435,7 +453,7 @@ jobs:
 
           echo "✅ Created GitHub release: $VERSION"
 
-  # Job 5: Cleanup
+  # Job 6: Cleanup
   cleanup:
     name: Post-Release Cleanup
     needs: [create-release-pr, create-github-release]

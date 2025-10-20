@@ -73,6 +73,18 @@ pnpm test src/security/scanner.test.ts
 # Hierarchical timeouts: 5s unit tests, 10s hooks (2x multiplier on CI)
 # Windows requires both HOME and USERPROFILE env vars for os.homedir()
 # Coverage target: >80% (Phase 1 achieved 90%+)
+
+# E2E Test Strategy (install-test.yml):
+# - Runs ONLY on-demand (manual trigger + weekly cron)
+# - NOT triggered on push (saves ~90% CI minutes for E2E tests)
+# - Cost: ~5-9 CI minutes per run (9 platforms × 30-60s)
+# - Trigger manually: gh workflow run "Install Test"
+# - Use regular tests (test-with-bats.yml) for push validation
+
+# Lockfile Policy:
+# - ALL workflows use --frozen-lockfile (no exceptions)
+# - Ensures pnpm-lock.yaml matches package.json
+# - Prevents dependency drift between local/CI
 ```
 
 ### CLI Commands (via pnpm cli)
