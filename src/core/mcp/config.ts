@@ -100,8 +100,14 @@ export async function loadProjectConfig(configPath?: string): Promise<ProjectMCP
   // Check for mcpServers field
   if (!configObj.mcpServers) {
     throw new Error(
-      `MCP configuration missing 'mcpServers' field at ${filepath}\n\n` +
-      `Expected format: {"mcpServers": []}`
+      `MCP configuration missing 'mcpServers' field\n\n` +
+      `File: ${filepath}\n\n` +
+      `Expected format:\n` +
+      `  {"mcpServers": []}\n\n` +
+      `Fix it:\n` +
+      `  echo '{"mcpServers": []}' > ${filepath}\n\n` +
+      `Or delete the file and run:\n` +
+      `  agentsync mcp list`
     );
   }
 
@@ -110,7 +116,14 @@ export async function loadProjectConfig(configPath?: string): Promise<ProjectMCP
     !Array.isArray(configObj.mcpServers) &&
     (typeof configObj.mcpServers !== 'object' || configObj.mcpServers === null)
   ) {
-    throw new Error(`'mcpServers' must be an array or object at ${filepath}`);
+    throw new Error(
+      `Invalid 'mcpServers' type\n\n` +
+      `File: ${filepath}\n\n` +
+      `Expected array or object:\n` +
+      `  {"mcpServers": []} or {"mcpServers": {}}\n\n` +
+      `Fix it:\n` +
+      `  echo '{"mcpServers": []}' > ${filepath}`
+    );
   }
 
   return config as ProjectMCPConfig;
