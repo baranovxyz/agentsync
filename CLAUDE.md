@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Current Status**:
 - **Phase 1 (MCP)**: ✅ COMPLETE - 125 tests passing, >90% coverage, CI validated on 9 platforms, production-ready
-- **v0.3.0-beta (GitHub Libraries)**: ✅ ~95% COMPLETE - Main sync command implemented, 82 unit+integration tests passing (61 existing + 21 new sync tests)
+- **v0.3.0-beta (GitHub Libraries)**: ✅ 100% COMPLETE - 86 tests passing (82 unit/integration + 4 E2E), example library published, production-ready
 - **Phase 2 (AGENTS.md)**: Foundation + Security complete, only `init` command fully implemented
 
 **v0.3.0-beta Progress**:
@@ -28,8 +28,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - ✅ Commands sync to Cursor/Claude
 - ✅ Main sync command
 - ✅ Library list and cache-clear commands
-- ⏳ Documentation and examples (in progress)
-- ⏳ Integration tests with real GitHub repos
+- ✅ Documentation and examples (7 comprehensive examples)
+- ✅ E2E tests with real GitHub repo (@agentsync/example-typescript)
 
 ## Common Commands
 
