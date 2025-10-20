@@ -225,11 +225,171 @@ MCPs are merged without namespaces (last-wins):
 4. **Cache reuse**: Clones stored in ~/.agentsync/cache/ for speed
 5. **SSH/HTTPS fallback**: Try SSH first, fall back to HTTPS
 
+### Usage Examples
+
+#### Example 1: Company-Wide Standards Library
+
+**Scenario**: Your company has TypeScript coding standards you want all teams to use.
+
+**Step 1: Create library repo** `github:acme/coding-standards`
+```
+acme/coding-standards/
+├── rules/
+│   ├── typescript.md      # TypeScript style guide
+│   ├── testing.md         # Testing requirements
+│   └── security.md        # Security best practices
+├── commands/
+│   ├── commit.md          # Conventional commit helper
+│   └── review.md          # PR checklist
+└── README.md
+```
+
+**Step 2: Teams extend in their projects**
+```json
+// .agentsync/config.json
+{
+  "version": "1.0",
+  "extends": ["github:acme/coding-standards"],
+  "tools": ["cursor", "claude"]
+}
+```
+
+**Step 3: Sync to tools**
+```bash
+agentsync sync
+# Rules appear in .cursor/rules/acme:typescript.mdc
+# Commands appear in .cursor/commands/acme:commit.md
+```
+
+#### Example 2: Multiple Libraries with Filtering
+
+**Scenario**: Use company standards + team-specific backend rules, but filter out deprecated content.
+
+```json
+{
+  "version": "1.0",
+  "extends": [
+    "github:acme/coding-standards",
+    {
+      "source": "github:acme/backend-team",
+      "namespace": "backend",
+      "include": ["rules/*.md", "commands/*.md"],
+      "exclude": ["rules/deprecated/**", "commands/old-*.md"]
+    }
+  ],
+  "tools": ["cursor", "claude"]
+}
+```
+
+**Result**:
+```
+.cursor/rules/
+├── acme:typescript.mdc        # From coding-standards
+├── acme:testing.mdc           # From coding-standards
+└── backend:api-design.mdc     # From backend-team (filtered)
+
+.cursor/commands/
+├── acme:commit.md             # From coding-standards
+└── backend:deploy.md          # From backend-team (filtered)
+```
+
+#### Example 3: Preview Changes Before Applying
+
+**Scenario**: You want to see what will be synced before actually writing files.
+
+```bash
+# Dry run shows what would happen
+agentsync sync --dry-run
+
+# Output:
+📋 Dry run mode - no files will be written
+
+Tools to sync: cursor, claude
+Libraries: 2
+MCP servers: 0
+
+  Rules: 5
+  Commands: 3
+
+Would sync 5 rules
+Would sync 3 commands
+
+✓ Dry run complete - no files were written
+```
+
+#### Example 4: Update Library Caches
+
+**Scenario**: Libraries have been updated on GitHub, pull latest changes.
+
+```bash
+# Update all library caches and sync
+agentsync sync --update
+
+# Output:
+Loading configuration...
+✔ Configuration loaded
+Loading GitHub libraries...
+✔ Loaded 2 libraries  # Re-cloned from GitHub
+  Rules: 5
+  Commands: 3
+
+Syncing rules...
+✔ Synced 5 rules
+Syncing commands...
+✔ Synced 3 commands
+
+✅ Sync complete!
+```
+
+#### Example 5: Sync Only to Specific Tool
+
+**Scenario**: You use both Cursor and Claude, but only want to update Cursor.
+
+```bash
+agentsync sync --tool cursor
+# Only updates .cursor/ directory, not .claude/
+```
+
+#### Example 6: View Configured Libraries
+
+**Scenario**: Check what libraries are extended and their cache status.
+
+```bash
+agentsync library list
+
+# Output:
+📚 Extended Libraries
+
+github:acme/coding-standards
+  Namespace: acme
+  ✓ Cached (2.4MB, last updated: 1/15/2025)
+
+github:acme/backend-team
+  Namespace: backend
+  Include: rules/*.md, commands/*.md
+  Exclude: rules/deprecated/**, commands/old-*.md
+  ✓ Cached (1.8MB, last updated: 1/15/2025)
+```
+
+#### Example 7: Clear Library Caches
+
+**Scenario**: Free up disk space by clearing cached libraries.
+
+```bash
+# Clear only current project's library caches
+agentsync library cache-clear
+
+# Clear all library caches system-wide
+agentsync library cache-clear --all
+```
+
 ### Test Coverage
 
-- 29 unit tests (github-source, cache-manager, merger)
-- Integration tests pending
-- E2E tests pending
+- 82 total tests (61 existing + 21 new)
+- 12 unit tests for sync command
+- 9 integration tests for sync workflow
+- 29 unit tests for registry system (github-source, cache-manager, merger)
+- All tests passing
 
 ## Architecture Overview
 
