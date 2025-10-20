@@ -138,7 +138,7 @@ Commands:
   help [command]  display help for command
 
   ╔═══════════════════════════════════════╗
-  ║     AgentSync v0.2.0-alpha.8              ║
+  ║     AgentSync v0.2.0-alpha.9              ║
   ║  The missing infrastructure layer     ║
   ║  for AI agent configuration sync      ║
   ╚═══════════════════════════════════════╝
