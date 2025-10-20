@@ -79,6 +79,44 @@ pnpm cli init                      # ✅ Initialize with template
 # These were removed from CLI help to avoid user confusion
 ```
 
+### Available Slash Commands
+```bash
+/smart-commit        # Intelligent atomic commits grouped by type
+/extract-learnings   # Document session insights to CLAUDE.md
+/release             # Complete release workflow (PR → publish → GitHub release)
+/adapt-command       # Adapt commands for repo context
+```
+
+## Git Workflow - CRITICAL RULES
+
+### NEVER Push to Main
+**This is an absolute rule with NO exceptions:**
+
+- ❌ NEVER `git push origin main`
+- ❌ NEVER commit directly on main branch
+- ❌ NEVER merge without PR review
+
+**Correct workflow:**
+1. Create feature/fix/release branch
+2. Make changes and commit
+3. Push branch to origin
+4. Create PR for review
+5. Merge PR on GitHub (not locally)
+6. Pull merged main
+
+**Why this matters:**
+- Ensures code review on all changes
+- Maintains clean git history
+- Prevents accidental production updates
+- Allows CI/CD validation before merge
+
+**What I did wrong in session (2025-10-20):**
+- Pushed commits directly to main (init fix + docs)
+- Should have created `fix/init-local-config` branch first
+- Should have created PR before merging
+
+**Use `/release` command for releases** - it enforces this workflow automatically.
+
 ## Architecture Overview
 
 ### Core Implementation Structure
