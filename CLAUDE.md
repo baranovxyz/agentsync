@@ -430,7 +430,11 @@ The MCP configuration supports both array and object formats, and **empty config
 
 #### Install Test (Production Package Validation)
 - New E2E test validates `pnpm pack` → `npm install -g` workflow
-- 17 tests covering tarball creation, global install, full MCP workflow
+- 21 tests covering:
+  - Tarball creation and global install
+  - Full MCP workflow (add, sync, remove)
+  - Init command with all 3 templates (validates template path resolution)
+  - Production package quality checks
 - Replaces manual QA agent testing
 - Runs weekly in CI + before releases (not every PR due to ~30-60s runtime)
 - File: `tests/e2e/install-test.test.ts`
@@ -481,10 +485,10 @@ The MCP configuration supports both array and object formats, and **empty config
 - ✅ Cursor and Claude Code targets
 - ✅ Empty MCP configs supported (allows 0 servers for fresh start/cleanup)
 - ✅ 166 Vitest tests: >90% coverage
-- ✅ 17 Install tests: Production validation
+- ✅ 21 Install tests: Production validation (includes init command with all templates)
 - ✅ 26 BATS tests: Shell validation
 - ✅ 48 Manual tests: Optional UX validation (mostly replaced by install test)
-- ✅ 240 total automated tests
+- ✅ 244 total automated tests
 
 ### Phase 2 (AGENTS.md) - IN PROGRESS ⏳
 **Completed:**
