@@ -88,13 +88,26 @@ describe('loadProjectConfig', () => {
     await expect(loadProjectConfig()).rejects.toThrow(/missing 'mcpServers'/);
   });
 
-  it('throws error if mcpServers is empty array', async () => {
+  it('accepts empty array as valid mcpServers', async () => {
     const config = {
       mcpServers: [],
     };
     await fs.writeJson('.agentsync.json', config);
 
-    await expect(loadProjectConfig()).rejects.toThrow(/mcpServers' cannot be empty/);
+    const result = await loadProjectConfig();
+
+    expect(result.mcpServers).toEqual([]);
+  });
+
+  it('accepts empty object as valid mcpServers', async () => {
+    const config = {
+      mcpServers: {},
+    };
+    await fs.writeJson('.agentsync.json', config);
+
+    const result = await loadProjectConfig();
+
+    expect(result.mcpServers).toEqual({});
   });
 
   it('supports custom config path', async () => {
@@ -235,5 +248,27 @@ describe('filterSelectedMCPs', () => {
       expect(errorMsg).toContain('postgres');
       expect(errorMsg).toContain('linear');
     }
+  });
+
+  it('returns empty object for empty array config', () => {
+    const config: ProjectMCPConfig = {
+      mcpServers: [],
+    };
+
+    const result = filterSelectedMCPs(globalRegistry, config);
+
+    expect(result).toEqual({});
+    expect(Object.keys(result)).toHaveLength(0);
+  });
+
+  it('returns empty object for empty object config', () => {
+    const config: ProjectMCPConfig = {
+      mcpServers: {},
+    };
+
+    const result = filterSelectedMCPs(globalRegistry, config);
+
+    expect(result).toEqual({});
+    expect(Object.keys(result)).toHaveLength(0);
   });
 });

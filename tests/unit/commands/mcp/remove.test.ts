@@ -52,15 +52,19 @@ describe('removeMCP', () => {
     await expect(removeMCP('github')).rejects.toThrow(/Project configuration not found/);
   });
 
-  it('throws error if trying to remove last MCP', async () => {
+  it('allows removing last MCP, resulting in empty array', async () => {
     const projectConfig = {
       mcpServers: ['github'],
     };
     await fs.writeJson('.agentsync.json', projectConfig);
 
-    await expect(removeMCP('github')).rejects.toThrow(
-      /Cannot remove last MCP server/
-    );
+    const result = await removeMCP('github');
+
+    expect(result.removed).toBe(true);
+    expect(result.serverName).toBe('github');
+
+    const updated = await fs.readJson('.agentsync.json');
+    expect(updated.mcpServers).toEqual([]);
   });
 
   it('handles object format config', async () => {
@@ -89,5 +93,22 @@ describe('removeMCP', () => {
 
     expect(result.removed).toBe(true);
     expect(result.serverName).toBe('postgres');
+  });
+
+  it('allows removing last MCP in object format, resulting in empty object', async () => {
+    const projectConfig = {
+      mcpServers: {
+        github: true,
+      },
+    };
+    await fs.writeJson('.agentsync.json', projectConfig);
+
+    const result = await removeMCP('github');
+
+    expect(result.removed).toBe(true);
+    expect(result.serverName).toBe('github');
+
+    const updated = await fs.readJson('.agentsync.json');
+    expect(updated.mcpServers).toEqual({});
   });
 });
