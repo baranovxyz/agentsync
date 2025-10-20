@@ -4,8 +4,12 @@ import stripAnsi from "strip-ansi";
 import * as path from "path";
 import * as fs from "fs-extra";
 import * as os from "os";
+import { readFile } from "node:fs/promises";
 
 const cliPath = path.resolve(__dirname, "../../dist/cli.js");
+
+// Read version from package.json dynamically
+let packageVersion: string;
 
 describe("CLI Output Snapshots", () => {
   beforeAll(async () => {
@@ -16,17 +20,24 @@ describe("CLI Output Snapshots", () => {
         `CLI not built. Run 'pnpm build' first. Expected: ${cliPath}`
       );
     }
+
+    // Load package version
+    const packageJsonPath = path.resolve(__dirname, "../../package.json");
+    const packageJson = JSON.parse(await readFile(packageJsonPath, "utf-8"));
+    packageVersion = packageJson.version;
   });
 
   describe("Version and Help", () => {
-    it("--version output matches snapshot", async () => {
+    it("--version output matches package.json version", async () => {
       const { stdout } = await execa("node", [cliPath, "--version"]);
-      expect(stdout).toMatchInlineSnapshot(`"0.2.0-alpha.9"`);
+      expect(stdout).toBe(packageVersion);
     });
 
-    it("--help output matches snapshot", async () => {
+    it("--help output matches snapshot (version-agnostic)", async () => {
       const { stdout } = await execa("node", [cliPath, "--help"]);
-      const clean = stripAnsi(stdout);
+      let clean = stripAnsi(stdout);
+      // Replace version number with placeholder to make test version-agnostic
+      clean = clean.replace(/AgentSync v\d+\.\d+\.\d+(-[a-z]+\.\d+)?/g, "AgentSync vX.Y.Z");
       expect(clean).toMatchSnapshot();
     });
   });
