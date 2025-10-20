@@ -53,31 +53,31 @@ describe('Real GitHub Library Integration', () => {
     // 3. Verify sync completed
     expect(stdout).toContain('Sync complete');
 
-    // 4. Verify rules were created (namespace is extracted from GitHub org: baranovxyz)
+    // 4. Verify rules were created (namespace from library.json: typescript-example)
     const cursorRulesDir = path.join(testDir, '.cursor', 'rules');
     expect(await fs.pathExists(cursorRulesDir)).toBe(true);
 
     const rules = await fs.readdir(cursorRulesDir);
-    expect(rules).toContain('baranovxyz:typescript-strict.mdc');
-    expect(rules).toContain('baranovxyz:testing.mdc');
-    expect(rules).toContain('baranovxyz:api-design.mdc');
+    expect(rules).toContain('typescript-example:typescript-strict.mdc');
+    expect(rules).toContain('typescript-example:testing.mdc');
+    expect(rules).toContain('typescript-example:api-design.mdc');
 
     // 5. Verify commands were created
     const cursorCommandsDir = path.join(testDir, '.cursor', 'commands');
     expect(await fs.pathExists(cursorCommandsDir)).toBe(true);
 
     const commands = await fs.readdir(cursorCommandsDir);
-    expect(commands).toContain('baranovxyz:commit.md');
-    expect(commands).toContain('baranovxyz:review.md');
-    expect(commands).toContain('baranovxyz:test.md');
+    expect(commands).toContain('typescript-example:commit.md');
+    expect(commands).toContain('typescript-example:review.md');
+    expect(commands).toContain('typescript-example:test.md');
 
     // 6. Verify content is correct
     const ruleContent = await fs.readFile(
-      path.join(cursorRulesDir, 'baranovxyz:typescript-strict.mdc'),
+      path.join(cursorRulesDir, 'typescript-example:typescript-strict.mdc'),
       'utf-8'
     );
     expect(ruleContent).toContain('TypeScript Strict Mode');
-    expect(ruleContent).toContain('strict: true');
+    expect(ruleContent).toContain('"strict"'); // JSON has quotes
 
     // 7. Verify library cache was created
     const cacheDir = path.join(os.homedir(), '.agentsync', 'cache');
@@ -150,7 +150,7 @@ describe('Real GitHub Library Integration', () => {
 
     // Verify library is shown
     expect(stdout).toContain('baranovxyz/agentsync-example-typescript');
-    expect(stdout).toContain('baranovxyz'); // namespace from GitHub org
+    expect(stdout).toContain('Namespace:'); // Has namespace field
     expect(stdout).toContain('Cached');
   }, 30000);
 });

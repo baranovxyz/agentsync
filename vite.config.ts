@@ -18,9 +18,9 @@ export default defineConfig({
         ].includes(id)) {
           return true;
         }
-        // Bundle fs-extra (we use it extensively)
+        // Externalize fs-extra (bundling causes issues with methods like fs.stat)
         if (id === 'fs-extra' || id.startsWith('fs-extra/')) {
-          return false;
+          return true;
         }
         // Externalize all other node_modules
         return !id.startsWith('.') && !id.startsWith('/');
