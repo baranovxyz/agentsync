@@ -7,9 +7,17 @@ Available MCPs: github"
 `;
 
 exports[`CLI Output Snapshots > Error Messages > mcp sync without project config error matches snapshot 1`] = `
-"❌ Error: Project configuration not found at: /tmp/snapshot-project-XXXXXX/.agentsync.json
+"❌ Error: MCP configuration not found.
 
-Run 'agentsync mcp init' to create it."
+Expected one of:
+  - agentsync.local.json (local, gitignored)
+  - .agentsync/config.local.json (backup location)
+  - .agentsync/config.json (team-shared, optional)
+
+Create agentsync.local.json with:
+  {"mcpServers": []}
+
+Then use 'agentsync mcp add <server>' to select MCPs."
 `;
 
 exports[`CLI Output Snapshots > Error Messages > missing MCP registry error matches snapshot 1`] = `
@@ -35,22 +43,13 @@ Sync your AGENTS.md to all your AI coding tools - Cursor, Claude Code, Cline,
 Windsurf, GitHub Copilot
 
 Options:
-  -V, --version       output the version number
-  -h, --help          display help for command
+  -V, --version   output the version number
+  -h, --help      display help for command
 
 Commands:
-  init [options]      Initialize AgentSync with interactive setup wizard
-  mcp                 Manage MCP (Model Context Protocol) servers
-  sync [options]      One-time sync of AGENTS.md to all configured tools
-  watch [options]     Watch mode with auto-sync (<5s latency)
-  validate [options]  Validate AGENTS.md against specification
-  diff [options]      Preview changes before syncing
-  migrate [options]   Import from existing tool configs
-  doctor [options]    Health check with actionable fixes
-  status              Show sync state and configuration
-  tree                Visualize monorepo config structure
-  audit [options]     Query audit logs
-  help [command]      display help for command"
+  init [options]  Initialize AgentSync with interactive setup wizard
+  mcp             Manage MCP (Model Context Protocol) servers
+  help [command]  display help for command"
 `;
 
 exports[`CLI Output Snapshots > Init Command Help > init --help output matches snapshot 1`] = `
@@ -130,37 +129,28 @@ Sync your AGENTS.md to all your AI coding tools - Cursor, Claude Code, Cline,
 Windsurf, GitHub Copilot
 
 Options:
-  -V, --version       output the version number
-  -h, --help          display help for command
+  -V, --version   output the version number
+  -h, --help      display help for command
 
 Commands:
-  init [options]      Initialize AgentSync with interactive setup wizard
-  mcp                 Manage MCP (Model Context Protocol) servers
-  sync [options]      One-time sync of AGENTS.md to all configured tools
-  watch [options]     Watch mode with auto-sync (<5s latency)
-  validate [options]  Validate AGENTS.md against specification
-  diff [options]      Preview changes before syncing
-  migrate [options]   Import from existing tool configs
-  doctor [options]    Health check with actionable fixes
-  status              Show sync state and configuration
-  tree                Visualize monorepo config structure
-  audit [options]     Query audit logs
-  help [command]      display help for command
+  init [options]  Initialize AgentSync with interactive setup wizard
+  mcp             Manage MCP (Model Context Protocol) servers
+  help [command]  display help for command
 
   ╔═══════════════════════════════════════╗
-  ║     AgentSync v0.2.0-alpha.4              ║
+  ║     AgentSync v0.2.0-alpha.7              ║
   ║  The missing infrastructure layer     ║
   ║  for AI agent configuration sync      ║
   ╚═══════════════════════════════════════╝
   
 
 Examples:
-  $ agentsync init                    # Interactive setup wizard
-  $ agentsync sync                    # Sync to all tools
-  $ agentsync sync --dry-run          # Preview changes
-  $ agentsync watch                   # Enable auto-sync
-  $ agentsync validate --strict       # Check AGENTS.md
-  $ agentsync doctor                  # Health check
+  $ agentsync init                      # Interactive setup wizard
+  $ agentsync mcp list                  # List available MCPs
+  $ agentsync mcp add github            # Add MCP server
+  $ agentsync mcp sync                  # Sync MCPs to tools
+  $ agentsync mcp sync --dry-run        # Preview MCP changes
+  $ agentsync mcp remove github         # Remove MCP server
 
 Documentation:
   https://github.com/baranovxyz/agentsync"

@@ -70,17 +70,13 @@ pnpm cli mcp list                  # Show available/active MCPs
 pnpm cli mcp add github            # Add MCP to project
 pnpm cli mcp remove postgres       # Remove MCP (can remove all)
 
-# AGENTS.md Commands (Phase 2 - IN PROGRESS)
+# Init Command (Phase 2 - PARTIALLY IMPLEMENTED)
 pnpm cli init                      # ✅ Initialize with template
-pnpm cli sync --dry-run            # ⏳ One-time sync (TODO)
-pnpm cli watch                     # ⏳ Auto-sync on changes (TODO)
-pnpm cli validate --strict         # ⏳ Validate AGENTS.md (TODO)
-pnpm cli audit --limit 10          # ⏳ View audit logs (TODO)
-pnpm cli doctor                    # ⏳ Diagnose issues (TODO)
-pnpm cli status                    # ⏳ Check sync status (TODO)
-pnpm cli diff                      # ⏳ Show pending changes (TODO)
-pnpm cli migrate                   # ⏳ Migrate configs (TODO)
-pnpm cli tree                      # ⏳ Show workspace tree (TODO)
+
+# Phase 2 Commands (NOT IMPLEMENTED - Hidden from CLI help)
+# The following commands are planned but not yet available:
+# - sync, watch, validate, diff, migrate, doctor, status, audit, tree
+# These were removed from CLI help to avoid user confusion
 ```
 
 ## Architecture Overview
@@ -101,7 +97,7 @@ src/
 ├── core/
 │   ├── mcp/                      # ✅ MCP engine (Phase 1 COMPLETE)
 │   │   ├── registry.ts           # ✅ Load ~/.agentsync/mcp.json
-│   │   ├── config.ts             # ✅ Load .agentsync.json
+│   │   ├── config.ts             # ✅ Load agentsync.local.json
 │   │   ├── tokens.ts             # ✅ Token substitution
 │   │   └── env.ts                # ✅ .env file loader
 │   ├── parser.ts                 # ✅ AGENTS.md: Remark-based parser
@@ -239,7 +235,7 @@ Total: 87 MCP tests passing, >90% coverage
 #### 9. **MCP Config Loader** (`src/core/mcp/config.ts`)
 - **Purpose**: Load project MCP configuration and filter selected servers
 - **Key Functions**:
-  - `loadProjectConfig()`: Loads `.agentsync.json`
+  - `loadProjectConfig()`: Loads `agentsync.local.json`
   - `filterSelectedMCPs()`: Filters global registry to selected servers
 - **Supports Two Formats**:
   - Array: `{"mcpServers": ["github", "postgres"]}`
@@ -364,7 +360,7 @@ Total: 87 MCP tests passing, >90% coverage
 }
 ```
 
-### MCP Configuration (`.agentsync.json`)
+### MCP Configuration (`agentsync.local.json`)
 The MCP configuration supports both array and object formats, and **empty configs are valid**:
 
 ```json
@@ -579,7 +575,7 @@ Note: Pre-release versions like `0.2.0-alpha.5` don't need `--tag alpha` - the v
 ### Configuration
 - **MCP (Phase 1)**:
   - `~/.agentsync/mcp.json` - Global MCP registry
-  - `.agentsync.json` - Project MCP selection
+  - `agentsync.local.json` - Project MCP selection
   - `.env` - Environment variables (gitignored)
 - **AGENTS.md (Phase 2)**:
   - `.agentsync/config.json` - Project configuration

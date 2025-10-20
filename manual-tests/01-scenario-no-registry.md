@@ -303,7 +303,7 @@ ls: ~/.agentsync/mcp.json: No such file or directory
 
 ### Pass Criteria
 
-- ✅ No .agentsync.json created in project
+- ✅ No agentsync.local.json created in project
 - ✅ No global registry created
 - ✅ Only .cursor and .claude directories exist
 
