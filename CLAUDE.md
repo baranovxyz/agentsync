@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Current Status**:
 - **Phase 1 (MCP)**: ✅ COMPLETE - 125 tests passing, >90% coverage, CI validated on 9 platforms, production-ready
-- **v0.3.0-beta (GitHub Libraries)**: 🚧 IN PROGRESS - Core registry system complete, 29 unit tests passing
+- **v0.3.0-beta (GitHub Libraries)**: ✅ ~95% COMPLETE - Main sync command implemented, 82 unit+integration tests passing (61 existing + 21 new sync tests)
 - **Phase 2 (AGENTS.md)**: Foundation + Security complete, only `init` command fully implemented
 
 **v0.3.0-beta Progress**:
@@ -24,10 +24,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - ✅ Namespace-based merger
 - ✅ Registry orchestrator
 - ✅ Init command creates new config format
-- ⏳ Rules sync to Cursor/Claude
-- ⏳ Commands sync to Cursor/Claude
-- ⏳ Main sync command
-- ⏳ Documentation and examples
+- ✅ Rules sync to Cursor/Claude
+- ✅ Commands sync to Cursor/Claude
+- ✅ Main sync command
+- ✅ Library list and cache-clear commands
+- ⏳ Documentation and examples (in progress)
+- ⏳ Integration tests with real GitHub repos
 
 ## Common Commands
 
@@ -77,6 +79,17 @@ pnpm test src/security/scanner.test.ts
 
 ### CLI Commands (via pnpm cli)
 ```bash
+# Main Sync (v0.3.0-beta - IMPLEMENTED)
+pnpm cli sync                      # Sync all: libraries, rules, commands, MCPs
+pnpm cli sync --update             # Update GitHub caches and sync
+pnpm cli sync --dry-run            # Preview changes without applying
+pnpm cli sync --tool cursor        # Sync only to Cursor
+
+# Library Management (v0.3.0-beta - IMPLEMENTED)
+pnpm cli library list              # List configured libraries
+pnpm cli library cache-clear       # Clear project library caches
+pnpm cli library cache-clear --all # Clear all library caches
+
 # MCP Commands (Phase 1 - FULLY IMPLEMENTED)
 # Note: Empty MCP configs (0 servers) are valid for starting fresh or cleanup
 pnpm cli mcp sync                  # Sync MCPs to tools
@@ -91,7 +104,7 @@ pnpm cli init                      # ✅ Initialize with template
 
 # Phase 2 Commands (NOT IMPLEMENTED - Hidden from CLI help)
 # The following commands are planned but not yet available:
-# - sync, watch, validate, diff, migrate, doctor, status, audit, tree
+# - watch, validate, diff, migrate, doctor, status, audit, tree
 # These were removed from CLI help to avoid user confusion
 ```
 
