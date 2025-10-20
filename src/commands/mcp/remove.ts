@@ -4,7 +4,7 @@
  */
 
 import { loadProjectConfig } from '../../core/mcp/config.js';
-import * as fs from 'fs-extra';
+import { writeFile } from 'node:fs/promises';
 import * as path from 'path';
 
 /**
@@ -19,6 +19,7 @@ export interface RemoveMCPResult {
 
 /**
  * Remove MCP server from project configuration
+ * Allows removing all MCPs, resulting in empty mcpServers array/object
  * @param serverName - MCP server name to remove
  * @returns Remove result
  */
@@ -35,26 +36,12 @@ export async function removeMCP(serverName: string): Promise<RemoveMCPResult> {
     const index = projectConfig.mcpServers.indexOf(serverName);
 
     if (index !== -1) {
-      // Check if this is the last MCP
-      if (projectConfig.mcpServers.length === 1) {
-        throw new Error(
-          `Cannot remove last MCP server. Project must have at least one MCP configured.`
-        );
-      }
-
       projectConfig.mcpServers.splice(index, 1);
       removed = true;
     }
   } else {
     // Object format: {github: true, postgres: {...}}
     if (projectConfig.mcpServers[serverName]) {
-      // Check if this is the last MCP
-      if (Object.keys(projectConfig.mcpServers).length === 1) {
-        throw new Error(
-          `Cannot remove last MCP server. Project must have at least one MCP configured.`
-        );
-      }
-
       delete projectConfig.mcpServers[serverName];
       removed = true;
     }
@@ -62,7 +49,7 @@ export async function removeMCP(serverName: string): Promise<RemoveMCPResult> {
 
   // 3. Save updated config
   if (removed) {
-    await fs.writeJson(configPath, projectConfig, { spaces: 2 });
+    await writeFile(configPath, JSON.stringify(projectConfig, null, 2) + '\n', 'utf-8');
   }
 
   return {
