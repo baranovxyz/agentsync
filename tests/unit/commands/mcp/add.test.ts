@@ -72,11 +72,11 @@ describe('addMCP', () => {
     const projectConfig = {
       mcpServers: ['github'],
     };
-    await fs.writeJson('.agentsync.json', projectConfig);
+    await fs.writeJson('agentsync.local.json', projectConfig);
 
     await addMCP('postgres');
 
-    const updated = await fs.readJson('.agentsync.json');
+    const updated = await fs.readJson('agentsync.local.json');
     expect(updated.mcpServers).toEqual(['github', 'postgres']);
   });
 
@@ -84,21 +84,21 @@ describe('addMCP', () => {
     const projectConfig = {
       mcpServers: ['github', 'postgres'],
     };
-    await fs.writeJson('.agentsync.json', projectConfig);
+    await fs.writeJson('agentsync.local.json', projectConfig);
 
     await addMCP('github');
 
-    const updated = await fs.readJson('.agentsync.json');
+    const updated = await fs.readJson('agentsync.local.json');
     expect(updated.mcpServers).toEqual(['github', 'postgres']); // No duplicate
   });
 
-  it('creates .agentsync.json if it does not exist', async () => {
+  it('creates agentsync.local.json if it does not exist', async () => {
     await addMCP('github');
 
-    const exists = await fs.pathExists('.agentsync.json');
+    const exists = await fs.pathExists('agentsync.local.json');
     expect(exists).toBe(true);
 
-    const config = await fs.readJson('.agentsync.json');
+    const config = await fs.readJson('agentsync.local.json');
     expect(config.mcpServers).toEqual(['github']);
   });
 
@@ -106,7 +106,7 @@ describe('addMCP', () => {
     const projectConfig = {
       mcpServers: ['github'],
     };
-    await fs.writeJson('.agentsync.json', projectConfig);
+    await fs.writeJson('agentsync.local.json', projectConfig);
 
     await expect(addMCP('nonexistent')).rejects.toThrow(
       /MCP server 'nonexistent' not found in global registry/
@@ -117,7 +117,7 @@ describe('addMCP', () => {
     const projectConfig = {
       mcpServers: ['postgres'],
     };
-    await fs.writeJson('.agentsync.json', projectConfig);
+    await fs.writeJson('agentsync.local.json', projectConfig);
 
     const result = await addMCP('github');
 
@@ -131,11 +131,11 @@ describe('addMCP', () => {
         github: true,
       },
     };
-    await fs.writeJson('.agentsync.json', projectConfig);
+    await fs.writeJson('agentsync.local.json', projectConfig);
 
     await addMCP('postgres');
 
-    const updated = await fs.readJson('.agentsync.json');
+    const updated = await fs.readJson('agentsync.local.json');
     expect(updated.mcpServers.github).toBe(true);
     expect(updated.mcpServers.postgres).toBe(true);
   });

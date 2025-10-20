@@ -242,7 +242,7 @@ describe('Production Package Installation', () => {
       expect(stdout).toContain('github');
 
       // Verify config created
-      const config = await fs.readJson(path.join(tempTestDir, '.agentsync.json'));
+      const config = await fs.readJson(path.join(tempTestDir, 'agentsync.local.json'));
       expect(config.mcpServers).toContain('github');
     });
 
@@ -254,7 +254,7 @@ describe('Production Package Installation', () => {
       expect(exitCode).toBe(0);
 
       // Verify both in config
-      const config = await fs.readJson(path.join(tempTestDir, '.agentsync.json'));
+      const config = await fs.readJson(path.join(tempTestDir, 'agentsync.local.json'));
       expect(config.mcpServers).toContain('github');
       expect(config.mcpServers).toContain('filesystem');
     });
@@ -332,7 +332,7 @@ describe('Production Package Installation', () => {
       expect(stdout).toContain('github') || expect(stdout).toContain('Removed');
 
       // Verify config updated
-      const config = await fs.readJson(path.join(tempTestDir, '.agentsync.json'));
+      const config = await fs.readJson(path.join(tempTestDir, 'agentsync.local.json'));
       expect(config.mcpServers).not.toContain('github');
       expect(config.mcpServers).toContain('filesystem');
     });

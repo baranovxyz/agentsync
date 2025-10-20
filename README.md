@@ -95,7 +95,7 @@ Add MCP server to project
 agentsync mcp add linear
 
 # Output:
-# ✓ Added 'linear' to .agentsync.json
+# ✓ Added 'linear' to agentsync.local.json
 #
 # MCP 'linear' requires environment variables:
 #   - LINEAR_API_KEY
@@ -111,14 +111,14 @@ Remove MCP server from project
 agentsync mcp remove linear
 
 # Output:
-# ✓ Removed 'linear' from .agentsync.json
+# ✓ Removed 'linear' from agentsync.local.json
 # Run 'agentsync mcp sync' to apply changes.
 ```
 
 ### How It Works
 
 1. **Global Registry** - Define all MCP servers once in `~/.agentsync/mcp.json`
-2. **Project Selection** - Select which MCPs each project needs in `.agentsync.json`
+2. **Project Selection** - Select which MCPs each project needs in `agentsync.local.json`
 3. **Token Substitution** - Securely replace `{GITHUB_TOKEN}` with actual env values
 4. **Validation** - Verify all required tokens exist before syncing
 5. **Multi-Target Sync** - Write tool-specific configs (Cursor uses wrapper, Claude doesn't)
@@ -148,7 +148,7 @@ Define all your MCP servers once:
 }
 ```
 
-#### Project Config (`.agentsync.json`)
+#### Project Config (`agentsync.local.json`)
 Select which MCPs this project needs:
 
 ```json
@@ -366,7 +366,7 @@ pnpm cli mcp --help
 
 ## Configuration
 
-### MCP Configuration (`.agentsync.json`)
+### MCP Configuration (`agentsync.local.json`)
 
 ```json
 {
@@ -377,7 +377,7 @@ pnpm cli mcp --help
 **Starting fresh?** Empty configs are valid:
 ```bash
 # Start with no MCPs configured (valid)
-echo '{"mcpServers": []}' > .agentsync.json
+echo '{"mcpServers": []}' > agentsync.local.json
 agentsync mcp list  # Shows all MCPs as inactive
 agentsync mcp add github  # Add your first MCP
 ```

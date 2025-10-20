@@ -81,7 +81,7 @@ describe('syncMCP', () => {
     const projectConfig = {
       mcpServers: ['github', 'postgres'],
     };
-    await fs.writeJson('.agentsync.json', projectConfig);
+    await fs.writeJson('agentsync.local.json', projectConfig);
 
     // Setup environment variables
     process.env.GITHUB_TOKEN = 'ghp_test123';
@@ -109,7 +109,7 @@ describe('syncMCP', () => {
     const projectConfig = {
       mcpServers: ['github'],
     };
-    await fs.writeJson('.agentsync.json', projectConfig);
+    await fs.writeJson('agentsync.local.json', projectConfig);
 
     process.env.GITHUB_TOKEN = 'ghp_test456';
 
@@ -129,7 +129,7 @@ describe('syncMCP', () => {
     const projectConfig = {
       mcpServers: ['github'],
     };
-    await fs.writeJson('.agentsync.json', projectConfig);
+    await fs.writeJson('agentsync.local.json', projectConfig);
 
     process.env.GITHUB_TOKEN = 'ghp_test789';
 
@@ -146,8 +146,8 @@ describe('syncMCP', () => {
     expect(claudeMcp.github.env.GITHUB_TOKEN).toBe('ghp_test789');
   });
 
-  it('throws error if .agentsync.json not found', async () => {
-    await expect(syncMCP()).rejects.toThrow(/Project configuration not found/);
+  it('throws error if agentsync.local.json not found', async () => {
+    await expect(syncMCP()).rejects.toThrow(/MCP configuration not found/);
   });
 
   it('throws error if global registry not found', async () => {
@@ -157,7 +157,7 @@ describe('syncMCP', () => {
     const projectConfig = {
       mcpServers: ['github'],
     };
-    await fs.writeJson('.agentsync.json', projectConfig);
+    await fs.writeJson('agentsync.local.json', projectConfig);
 
     await expect(syncMCP()).rejects.toThrow(/Global MCP registry not found/);
   });
@@ -166,7 +166,7 @@ describe('syncMCP', () => {
     const projectConfig = {
       mcpServers: ['github'],
     };
-    await fs.writeJson('.agentsync.json', projectConfig);
+    await fs.writeJson('agentsync.local.json', projectConfig);
 
     // Don't set GITHUB_TOKEN
     delete process.env.GITHUB_TOKEN;
@@ -180,7 +180,7 @@ describe('syncMCP', () => {
     const projectConfig = {
       mcpServers: ['github'],
     };
-    await fs.writeJson('.agentsync.json', projectConfig);
+    await fs.writeJson('agentsync.local.json', projectConfig);
 
     process.env.GITHUB_TOKEN = 'ghp_test';
 
@@ -193,7 +193,7 @@ describe('syncMCP', () => {
     const projectConfig = {
       mcpServers: ['github'],
     };
-    await fs.writeJson('.agentsync.json', projectConfig);
+    await fs.writeJson('agentsync.local.json', projectConfig);
 
     process.env.GITHUB_TOKEN = 'ghp_test';
 
@@ -215,7 +215,7 @@ describe('syncMCP', () => {
     const projectConfig = {
       mcpServers: ['github'],
     };
-    await fs.writeJson('.agentsync.json', projectConfig);
+    await fs.writeJson('agentsync.local.json', projectConfig);
 
     process.env.GITHUB_TOKEN = 'ghp_test';
 
@@ -239,7 +239,7 @@ describe('syncMCP', () => {
         },
       },
     };
-    await fs.writeJson('.agentsync.json', projectConfig);
+    await fs.writeJson('agentsync.local.json', projectConfig);
 
     process.env.GITHUB_TOKEN = 'ghp_test';
     process.env.DATABASE_URL = 'postgresql://localhost/default'; // Should be overridden
@@ -261,7 +261,7 @@ describe('syncMCP', () => {
     const projectConfig = {
       mcpServers: ['github'],
     };
-    await fs.writeJson('.agentsync.json', projectConfig);
+    await fs.writeJson('agentsync.local.json', projectConfig);
 
     // Clear process.env.GITHUB_TOKEN so .env takes effect
     delete process.env.GITHUB_TOKEN;
@@ -281,7 +281,7 @@ describe('syncMCP', () => {
     const projectConfig = {
       mcpServers: [],
     };
-    await fs.writeJson('.agentsync.json', projectConfig);
+    await fs.writeJson('agentsync.local.json', projectConfig);
 
     await fs.ensureDir('.cursor');
     await fs.ensureDir('.claude');
@@ -300,7 +300,7 @@ describe('syncMCP', () => {
     const projectConfig = {
       mcpServers: {},
     };
-    await fs.writeJson('.agentsync.json', projectConfig);
+    await fs.writeJson('agentsync.local.json', projectConfig);
 
     await fs.ensureDir('.cursor');
 

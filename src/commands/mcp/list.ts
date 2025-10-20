@@ -60,7 +60,7 @@ export async function listMCP(options: ListMCPOptions = {}): Promise<ListMCPResu
       }
     } catch (error) {
       // If no project config, treat all as inactive
-      if ((error as Error).message.includes('Project configuration not found')) {
+      if ((error as Error).message.includes('MCP configuration not found')) {
         // Continue with empty activeMCPs
       } else {
         throw error;

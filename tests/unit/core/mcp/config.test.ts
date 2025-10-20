@@ -1,6 +1,6 @@
 /**
  * Project MCP Config Loader & Merger Tests
- * Loads .agentsync.json and filters selected MCPs
+ * Loads agentsync.local.json (with fallbacks) and filters selected MCPs
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -25,11 +25,11 @@ describe('loadProjectConfig', () => {
     await fs.remove(tempDir);
   });
 
-  it('loads simple array config: ["github", "postgres"]', async () => {
+  it('loads from agentsync.local.json (primary location)', async () => {
     const config = {
       mcpServers: ['github', 'postgres'],
     };
-    await fs.writeJson('.agentsync.json', config);
+    await fs.writeJson('agentsync.local.json', config);
 
     const result = await loadProjectConfig();
 
@@ -37,12 +37,47 @@ describe('loadProjectConfig', () => {
     expect(result.tools).toBeUndefined();
   });
 
+  it('loads from .agentsync/config.local.json (backup location)', async () => {
+    await fs.ensureDir('.agentsync');
+    const config = {
+      mcpServers: ['github'],
+    };
+    await fs.writeJson('.agentsync/config.local.json', config);
+
+    const result = await loadProjectConfig();
+
+    expect(result.mcpServers).toEqual(['github']);
+  });
+
+  it('loads from .agentsync/config.json (team-shared fallback)', async () => {
+    await fs.ensureDir('.agentsync');
+    const config = {
+      mcpServers: ['github'],
+    };
+    await fs.writeJson('.agentsync/config.json', config);
+
+    const result = await loadProjectConfig();
+
+    expect(result.mcpServers).toEqual(['github']);
+  });
+
+  it('prefers agentsync.local.json over other locations', async () => {
+    await fs.ensureDir('.agentsync');
+    await fs.writeJson('agentsync.local.json', { mcpServers: ['local'] });
+    await fs.writeJson('.agentsync/config.local.json', { mcpServers: ['backup'] });
+    await fs.writeJson('.agentsync/config.json', { mcpServers: ['team'] });
+
+    const result = await loadProjectConfig();
+
+    expect(result.mcpServers).toEqual(['local']);
+  });
+
   it('loads config with tools selection', async () => {
     const config = {
       tools: ['cursor', 'claude'],
       mcpServers: ['github'],
     };
-    await fs.writeJson('.agentsync.json', config);
+    await fs.writeJson('agentsync.local.json', config);
 
     const result = await loadProjectConfig();
 
@@ -61,19 +96,19 @@ describe('loadProjectConfig', () => {
         },
       },
     };
-    await fs.writeJson('.agentsync.json', config);
+    await fs.writeJson('agentsync.local.json', config);
 
     const result = await loadProjectConfig();
 
     expect(result.mcpServers).toEqual(config.mcpServers);
   });
 
-  it('throws error if .agentsync.json does not exist', async () => {
-    await expect(loadProjectConfig()).rejects.toThrow(/Project configuration not found/);
+  it('throws error if no config file exists', async () => {
+    await expect(loadProjectConfig()).rejects.toThrow(/MCP configuration not found/);
   });
 
   it('throws error if config is not valid JSON', async () => {
-    await fs.writeFile('.agentsync.json', 'invalid json{');
+    await fs.writeFile('agentsync.local.json', 'invalid json{');
 
     await expect(loadProjectConfig()).rejects.toThrow(/Failed to parse/);
   });
@@ -83,7 +118,7 @@ describe('loadProjectConfig', () => {
       tools: ['cursor'],
       // Missing mcpServers
     };
-    await fs.writeJson('.agentsync.json', config);
+    await fs.writeJson('agentsync.local.json', config);
 
     await expect(loadProjectConfig()).rejects.toThrow(/missing 'mcpServers'/);
   });
@@ -92,7 +127,7 @@ describe('loadProjectConfig', () => {
     const config = {
       mcpServers: [],
     };
-    await fs.writeJson('.agentsync.json', config);
+    await fs.writeJson('agentsync.local.json', config);
 
     const result = await loadProjectConfig();
 
@@ -103,7 +138,7 @@ describe('loadProjectConfig', () => {
     const config = {
       mcpServers: {},
     };
-    await fs.writeJson('.agentsync.json', config);
+    await fs.writeJson('agentsync.local.json', config);
 
     const result = await loadProjectConfig();
 

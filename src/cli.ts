@@ -162,154 +162,8 @@ mcpCommand
     }
   });
 
-// Sync command (AGENTS.md sync - existing functionality)
-program
-  .command("sync")
-  .description("One-time sync of AGENTS.md to all configured tools")
-  .option(
-    "--tool <name>",
-    "Sync only specific tool (cursor, claude, cline, windsurf, copilot)"
-  )
-  .option("--dry-run", "Preview changes without applying them")
-  .option("-f, --force", "Force sync even if validation fails")
-  .option("--skip-validation", "Skip AGENTS.md validation")
-  .option("--skip-security", "Skip security checks (NOT RECOMMENDED)")
-  .action(async (options) => {
-    try {
-      // TODO: Implement sync command
-      console.log(pc.yellow("⚠️  Sync command not yet implemented"));
-      console.log("Options:", options);
-    } catch (error) {
-      handleError(error as Error);
-    }
-  });
-
-// Watch command
-program
-  .command("watch")
-  .description("Watch mode with auto-sync (<5s latency)")
-  .option("--tool <name>", "Watch and sync only specific tool")
-  .option("--debounce <ms>", "Debounce time in milliseconds", "500")
-  .option("--ignore <patterns>", "Comma-separated ignore patterns")
-  .action(async (options) => {
-    try {
-      // TODO: Implement watch command
-      console.log(pc.yellow("⚠️  Watch command not yet implemented"));
-      console.log("Options:", options);
-    } catch (error) {
-      handleError(error as Error);
-    }
-  });
-
-// Validate command
-program
-  .command("validate")
-  .description("Validate AGENTS.md against specification")
-  .option("--strict", "Enable strict mode (enforce best practices)")
-  .option("--fix", "Automatically fix issues where possible")
-  .option("--show-secrets", "Show detected secrets (for debugging)")
-  .action(async (options) => {
-    try {
-      // TODO: Implement validate command
-      console.log(pc.yellow("⚠️  Validate command not yet implemented"));
-      console.log("Options:", options);
-    } catch (error) {
-      handleError(error as Error);
-    }
-  });
-
-// Diff command
-program
-  .command("diff")
-  .description("Preview changes before syncing")
-  .option("--tools <tools>", "Comma-separated list of tools to diff")
-  .option("-v, --verbose", "Show detailed line-by-line diff")
-  .action(async (options) => {
-    try {
-      // TODO: Implement diff command
-      console.log(pc.yellow("⚠️  Diff command not yet implemented"));
-      console.log("Options:", options);
-    } catch (error) {
-      handleError(error as Error);
-    }
-  });
-
-// Migrate command
-program
-  .command("migrate")
-  .description("Import from existing tool configs")
-  .option("--symlinks", "Create symlinks to unified AGENTS.md")
-  .option("--sources <files>", "Comma-separated list of config files to import")
-  .option("-f, --force", "Overwrite existing AGENTS.md")
-  .action(async (options) => {
-    try {
-      // TODO: Implement migrate command
-      console.log(pc.yellow("⚠️  Migrate command not yet implemented"));
-      console.log("Options:", options);
-    } catch (error) {
-      handleError(error as Error);
-    }
-  });
-
-// Doctor command
-program
-  .command("doctor")
-  .description("Health check with actionable fixes")
-  .option("--fix", "Automatically fix issues where possible")
-  .option("-v, --verbose", "Show detailed diagnostics")
-  .action(async (options) => {
-    try {
-      // TODO: Implement doctor command
-      console.log(pc.yellow("⚠️  Doctor command not yet implemented"));
-      console.log("Options:", options);
-    } catch (error) {
-      handleError(error as Error);
-    }
-  });
-
-// Status command
-program
-  .command("status")
-  .description("Show sync state and configuration")
-  .action(async () => {
-    try {
-      // TODO: Implement status command
-      console.log(pc.yellow("⚠️  Status command not yet implemented"));
-    } catch (error) {
-      handleError(error as Error);
-    }
-  });
-
-// Tree command (for monorepos)
-program
-  .command("tree")
-  .description("Visualize monorepo config structure")
-  .action(async () => {
-    try {
-      // TODO: Implement tree command
-      console.log(pc.yellow("⚠️  Tree command not yet implemented"));
-    } catch (error) {
-      handleError(error as Error);
-    }
-  });
-
-// Audit command
-program
-  .command("audit")
-  .description("Query audit logs")
-  .option("--command <name>", "Filter by command")
-  .option("--result <type>", "Filter by result (success, failure, partial)")
-  .option("--after <days>", "Show logs from last N days (e.g., 7d)")
-  .option("--limit <count>", "Limit number of entries", "10")
-  .action(async (options) => {
-    try {
-      // TODO: Implement audit command
-      console.log(pc.yellow("⚠️  Audit command not yet implemented"));
-      console.log("Options:", options);
-    } catch (error) {
-      handleError(error as Error);
-    }
-  });
+// Phase 2 commands (AGENTS.md sync) - Not yet implemented
+// Removed to avoid user confusion. Will be added back as features are completed.
 
 // Add ASCII art logo for fun
 const showLogo = () => {
@@ -329,14 +183,12 @@ program.on("--help", () => {
   showLogo();
   console.log("");
   console.log("Examples:");
-  console.log(
-    "  $ agentsync init                    # Interactive setup wizard"
-  );
-  console.log("  $ agentsync sync                    # Sync to all tools");
-  console.log("  $ agentsync sync --dry-run          # Preview changes");
-  console.log("  $ agentsync watch                   # Enable auto-sync");
-  console.log("  $ agentsync validate --strict       # Check AGENTS.md");
-  console.log("  $ agentsync doctor                  # Health check");
+  console.log("  $ agentsync init                      # Interactive setup wizard");
+  console.log("  $ agentsync mcp list                  # List available MCPs");
+  console.log("  $ agentsync mcp add github            # Add MCP server");
+  console.log("  $ agentsync mcp sync                  # Sync MCPs to tools");
+  console.log("  $ agentsync mcp sync --dry-run        # Preview MCP changes");
+  console.log("  $ agentsync mcp remove github         # Remove MCP server");
   console.log("");
   console.log("Documentation:");
   console.log("  https://github.com/baranovxyz/agentsync");
