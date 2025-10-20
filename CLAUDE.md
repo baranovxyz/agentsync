@@ -335,7 +335,13 @@ Total: 87 MCP tests passing, >90% coverage
 
 ## Configuration
 
-### Project Configuration (`.agentsync/config.json`)
+AgentSync uses two separate configuration files with distinct purposes:
+
+### 1. Project Configuration (`.agentsync/config.json`) - COMMITTED
+**Created by:** `agentsync init` command
+**Purpose:** Team-shared project settings
+**Git:** Committed to repository
+
 ```json
 {
   "version": "1.0",
@@ -360,7 +366,15 @@ Total: 87 MCP tests passing, >90% coverage
 }
 ```
 
-### MCP Configuration (`agentsync.local.json`)
+This file is committed to git and shared with the team.
+
+### 2. MCP Configuration (`agentsync.local.json`) - GITIGNORED
+**Created by:** User manually OR `agentsync mcp add` command
+**Purpose:** User-specific/machine-specific MCP selections
+**Git:** NOT committed (in .gitignore)
+
+**IMPORTANT:** This file is **NOT** created by `agentsync init`. Each developer creates their own based on which MCPs they need.
+
 The MCP configuration supports both array and object formats, and **empty configs are valid**:
 
 ```json
@@ -391,11 +405,20 @@ The MCP configuration supports both array and object formats, and **empty config
 }
 ```
 
+**How to create:**
+1. **Recommended:** Run `agentsync mcp add <server>` - automatically creates file and adds MCP
+2. **Manual:** Create file yourself: `echo '{"mcpServers": []}' > agentsync.local.json`
+
 **Use Cases for Empty Configs:**
 - Starting a new project, planning to add MCPs later
 - Temporarily removing all MCPs during testing/debugging
 - Template projects with no MCPs configured initially
 - Running `mcp sync` with empty config clears all MCPs from tools
+
+**Why separate files?**
+- Different developers need different MCPs (e.g., one works on backend with postgres, another on frontend with figma)
+- Local file stays private (user preferences, not team requirements)
+- Project config is shared (team agrees on tools and security settings)
 
 ### Build Configuration
 - **TypeScript**: Strict mode, ES2022 target, path aliases (`@/*`)

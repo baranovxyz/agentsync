@@ -175,8 +175,8 @@ describe('InitCommand', () => {
         })
       );
 
-      // Should have called confirm 3 times (symlinks, gitignore, and MCP setup)
-      expect(confirm).toHaveBeenCalledTimes(3);
+      // Should have called confirm 2 times (symlinks and gitignore)
+      expect(confirm).toHaveBeenCalledTimes(2);
     });
 
     it('should succeed when AGENTS.md exists but .agentsync/config.json does not', async () => {

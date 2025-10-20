@@ -233,9 +233,12 @@ tests/
 
 **Creates**:
 - `AGENTS.md` from template
-- `.agentsync/config.json`
+- `.agentsync/config.json` (project configuration, committed to git)
 - `.agentsync/{logs,backups,cache}/` directories
 - Tool-specific symlinks/copies
+
+**Does NOT Create:**
+- `agentsync.local.json` - This is user-created (either manually or via `agentsync mcp add`)
 
 **Tool Paths**:
 - Cursor: `.cursor/agents.md`, `.cursor/AGENTS.md`
@@ -248,6 +251,7 @@ tests/
 - Init fails only if config.json exists (without `--force`)
 - Skips AGENTS.md creation if file already exists (unless `--force`)
 - Enables adding AgentSync to projects with existing AGENTS.md files
+- Does not prompt or create MCP configuration (user responsibility)
 
 ### 6. Error System (`src/core/errors.ts`)
 
