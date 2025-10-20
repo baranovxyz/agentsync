@@ -202,12 +202,6 @@ export class InitCommand {
         await this.updateGitignore();
       }
 
-      // Optional MCP setup (only in interactive mode)
-      const mcpConfigPath = await this.getMCPConfigPath();
-      if (!mcpConfigPath && !options.template && !options.tools) {
-        await this.optionalMCPSetup();
-      }
-
       // Log success
       await this.audit.log({
         type: AuditEventType.INIT_WORKSPACE,
@@ -219,20 +213,12 @@ export class InitCommand {
 
       // Success message
       console.log(pc.green('\n✅ AgentSync initialized successfully!\n'));
-
-      const mcpConfigAfter = await this.getMCPConfigPath();
-      if (mcpConfigAfter) {
-        console.log(pc.gray('Next steps:'));
-        console.log(pc.gray('  1. Edit AGENTS.md to match your project'));
-        console.log(pc.gray('  2. Add MCP servers: ') + pc.cyan('agentsync mcp add <server>'));
-        console.log(pc.gray('  3. Sync to tools:   ') + pc.cyan('agentsync mcp sync'));
-      } else {
-        console.log(pc.gray('Next steps:'));
-        console.log(pc.gray('  1. Edit AGENTS.md to match your project'));
-        console.log(pc.gray('  2. (Optional) Set up MCP servers:'));
-        console.log(pc.gray('     - Run ') + pc.cyan('agentsync mcp list') + pc.gray(' to see options'));
-        console.log(pc.gray('     - Run ') + pc.cyan('agentsync mcp add <server>') + pc.gray(' to add MCPs'));
-      }
+      console.log(pc.gray('Next steps:'));
+      console.log(pc.gray('  1. Edit AGENTS.md to match your project'));
+      console.log(pc.gray('  2. (Optional) Set up MCP servers:'));
+      console.log(pc.gray('     - Run ') + pc.cyan('agentsync mcp list') + pc.gray(' to see available MCPs'));
+      console.log(pc.gray('     - Run ') + pc.cyan('agentsync mcp add <server>') + pc.gray(' to select MCPs'));
+      console.log(pc.gray('     - Run ') + pc.cyan('agentsync mcp sync') + pc.gray(' to apply changes'));
     } catch (error) {
       await this.audit.logError(
         error as Error,
@@ -241,43 +227,6 @@ export class InitCommand {
         { command: 'init', options }
       );
       throw error;
-    }
-  }
-
-  /**
-   * Optional MCP setup workflow
-   */
-  private async optionalMCPSetup(): Promise<void> {
-    console.log();
-
-    // Check if we're in an interactive environment
-    const isInteractive = process.stdin.isTTY;
-    if (!isInteractive) {
-      return;
-    }
-
-    try {
-      const setupMCP = await confirm({
-        message: 'Would you like to set up MCP servers now? (Recommended for reducing AI context)',
-        default: false,
-      });
-
-      if (setupMCP) {
-        console.log(pc.gray('\n  Creating agentsync.local.json...'));
-
-        await fs.outputFile(
-          path.join(process.cwd(), 'agentsync.local.json'),
-          JSON.stringify({ mcpServers: [] }, null, 2) + '\n',
-          'utf-8'
-        );
-
-        console.log(pc.green('  ✓ Created agentsync.local.json'));
-        console.log(pc.gray('\n  MCP servers help reduce AI context by loading only what you need.'));
-        console.log(pc.gray('  This makes responses faster and reduces token costs.\n'));
-      }
-    } catch (error) {
-      // User cancelled or error - continue silently
-      return;
     }
   }
 

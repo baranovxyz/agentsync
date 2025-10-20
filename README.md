@@ -43,7 +43,7 @@ Result: 70-90% context reduction, 2-3x faster AI responses
 # Install AgentSync
 npm install -g agentsync
 
-# Add MCP servers to your project
+# Add MCP servers to your project (creates agentsync.local.json)
 agentsync mcp add github
 agentsync mcp add postgres
 
@@ -126,7 +126,9 @@ agentsync mcp remove linear
 ### Configuration Files
 
 #### Global Registry (`~/.agentsync/mcp.json`)
-Define all your MCP servers once:
+**Purpose:** Define all your MCP servers once
+**Created by:** User manually
+**Location:** Home directory
 
 ```json
 {
@@ -148,8 +150,11 @@ Define all your MCP servers once:
 }
 ```
 
-#### Project Config (`agentsync.local.json`)
-Select which MCPs this project needs:
+#### Project MCP Config (`agentsync.local.json`)
+**Purpose:** Select which MCPs this project needs
+**Created by:** `agentsync mcp add` command OR user manually
+**Git:** NOT committed (in .gitignore)
+**User-specific:** Each developer has their own
 
 ```json
 {
@@ -157,8 +162,26 @@ Select which MCPs this project needs:
 }
 ```
 
+**How to create:**
+- Recommended: `agentsync mcp add github` (auto-creates file)
+- Manual: `echo '{"mcpServers": []}' > agentsync.local.json`
+
+#### Project Settings (`.agentsync/config.json`)
+**Purpose:** Team-shared project configuration
+**Created by:** `agentsync init` command
+**Git:** Committed to repository
+
+```json
+{
+  "version": "1.0",
+  "tools": ["cursor", "claude"],
+  "useSymlinks": true
+}
+```
+
 #### Environment Variables (`.env`)
-Store actual tokens (gitignored):
+**Purpose:** Store actual tokens (gitignored)
+**Created by:** User manually
 
 ```bash
 GITHUB_TOKEN=ghp_your_token_here
@@ -369,6 +392,9 @@ pnpm cli mcp --help
 
 ### MCP Configuration (`agentsync.local.json`)
 
+**Created by:** `agentsync mcp add` OR user manually
+**Git:** NOT committed (each developer has their own)
+
 ```json
 {
   "mcpServers": ["github", "postgres", "linear"]
@@ -380,10 +406,13 @@ pnpm cli mcp --help
 # Start with no MCPs configured (valid)
 echo '{"mcpServers": []}' > agentsync.local.json
 agentsync mcp list  # Shows all MCPs as inactive
-agentsync mcp add github  # Add your first MCP
+agentsync mcp add github  # Add your first MCP (auto-creates file if missing)
 ```
 
-### AGENTS.md Configuration (`.agentsync/config.json`)
+### Project Configuration (`.agentsync/config.json`)
+
+**Created by:** `agentsync init` command
+**Git:** Committed to repository (team-shared)
 
 ```json
 {
