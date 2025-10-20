@@ -7,10 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-alpha.4] - 2025-10-20
+
+### Fixed
+- **Init Command** - Template path resolution for production packages
+  - Fixed "Failed to create AGENTS.md from template" error when running via `npx agentsync@latest init`
+  - Implemented robust package root detection with dual strategy (filesystem traversal + require.resolve)
+  - Now works reliably in all contexts: development, bundled, npm installs, npx executions
+
+### Added
+- **E2E Init Testing** - Production package validation for init command (4 new tests)
+  - Tests all 3 templates (default, typescript-react, python-fastapi)
+  - Validates templates exist in tarball and load correctly
+  - Ensures template content is accurate (not mocked)
+  - Total install tests: 17 → 21
+
+### Changed
+- **Test Coverage** - Updated total automated tests: 240 → 244
+  - 166 Vitest tests (>90% coverage)
+  - 21 Install tests (production validation)
+  - 26 BATS tests (shell validation)
+  - 31 Manual tests (optional UX validation)
+
 ## [0.2.0-alpha.3] - 2025-10-20
 
 ### Added
-- **Install Test** - Automated production package validation (17 E2E tests)
+- **Install Test** - Automated production package validation (21 E2E tests)
   - Validates complete `pnpm pack` → `npm install -g` workflow
   - Tests tarball creation, bin linking, template inclusion, shebang
   - Runs weekly in CI + before releases
@@ -44,7 +66,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Better cross-platform test isolation
   - Add weekly install-test.yml workflow
 - **Testing Infrastructure**
-  - Total tests: 240 (166 Vitest + 17 Install + 26 BATS + 31 Manual)
+  - Total tests: 244 (166 Vitest + 21 Install + 26 BATS + 31 Manual)
   - Coverage: >90% for Vitest tests
   - Manual testing now optional (mostly replaced by install test)
 - **Documentation**
