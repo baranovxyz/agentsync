@@ -28,9 +28,14 @@ pnpm test:shell      # Shell execution tests (Vitest + execa)
 pnpm test:bats       # Shell script tests (BATS)
 pnpm test:coverage   # With coverage report
 
-# Manual testing (30 minutes)
+# Run critical tests before release
+pnpm test                                    # Fast unit/integration (~2s)
+pnpm test:shell                              # Shell execution (~2s)
+pnpm test tests/e2e/install-test.test.ts   # Production package (~30-60s)
+
+# Manual testing (optional - mostly replaced by install test)
 cd manual-tests
-# Follow scenarios 00 → 08
+# Follow scenarios 00 → 08 if needed for final UX validation
 ```
 
 ---
@@ -41,9 +46,10 @@ cd manual-tests
 |------|-------|-------|----------|---------|---------------|
 | **Vitest (Unit/Integration)** | 125 | ~2s | >90% | Core functionality | [automated.md](docs/testing/automated.md) |
 | **Shell Tests (Vitest + execa)** | 24 | ~2s | - | Real CLI execution | [shell-implementation.md](docs/testing/shell-implementation.md) |
+| **Install Test (Production)** | 17 | ~30-60s | - | Package validation | [automated.md](docs/testing/automated.md#install-test-production-package-validation) |
 | **BATS (Shell Scripts)** | 26 | ~5s | - | Shell validation | [shell-implementation.md](docs/testing/shell-implementation.md) |
 | **Manual Scenarios** | 48 | ~30m | - | UX workflows | [manual-testing.md](docs/testing/manual-testing.md) |
-| **Total** | **223** | - | - | Complete coverage | - |
+| **Total** | **240** | - | - | Complete coverage | - |
 
 ---
 
@@ -94,6 +100,26 @@ pnpm test:bats
 
 **Details:** [docs/testing/shell-implementation.md](docs/testing/shell-implementation.md)
 
+### Handling Library Updates
+
+When major dependencies are updated, common issues include:
+
+**fs-extra v11+ Migration:**
+- Removed: `readJson`, `writeJson`
+- Solution: Use native `node:fs/promises` + manual JSON parsing
+- Test mocks must include all methods used (add `outputFile` to vi.mock)
+- Helper pattern for E2E tests:
+  ```typescript
+  async function writeJson(filePath: string, data: unknown): Promise<void> {
+    await fs.outputFile(filePath, JSON.stringify(data, null, 2) + '\n', 'utf-8');
+  }
+  ```
+
+**Test Isolation:**
+- Copy production artifacts (dist/, package.json) to temp directories
+- Use `beforeAll` for expensive setup (CLI copying), `beforeEach` for test-specific setup
+- Clean up shared resources only in `afterAll`, not `afterEach`
+
 ---
 
 ## Manual Testing
@@ -134,21 +160,27 @@ Before publishing to npm:
 ### 1. Automated Tests ✅
 - [ ] All tests pass: `pnpm test`
 - [ ] Shell tests pass: `pnpm test:shell`
+- [ ] Install test pass: `pnpm test tests/e2e/install-test.test.ts`
 - [ ] BATS tests pass: `pnpm test:bats` (if installed)
 - [ ] Coverage >80%: `pnpm test:coverage`
 - [ ] No TypeScript errors: `pnpm lint`
 
-### 2. Manual Testing ✅
-- [ ] Execute all 6 scenarios in `manual-tests/`
+### 2. Manual Testing (Optional - Install Test Replaces Most) ⚠️
+- [ ] Execute critical UX scenarios in `manual-tests/` (if needed)
 - [ ] Record results in `test-results-template.md`
 - [ ] All tests pass or documented
 - [ ] Error messages are helpful
 
+**Note**: The install test automates most manual testing. Manual tests are only needed for:
+- Final UX validation before major releases
+- Testing specific edge cases not covered by install test
+- Validating error message quality
+
 ### 3. Build & Package ✅
 - [ ] Clean build: `rm -rf dist && pnpm build`
-- [ ] Pack tarball: `pnpm pack`
-- [ ] Install from tarball: `npm install -g agentsync-*.tgz`
-- [ ] Test installed CLI: `agentsync --version`, `agentsync mcp --help`
+- [ ] Install test passes (validates tarball creation & installation)
+- [ ] ~~Pack tarball manually~~ (install test does this)
+- [ ] ~~Install from tarball~~ (install test does this)
 
 ### 4. Documentation ✅
 - [ ] README.md updated

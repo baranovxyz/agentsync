@@ -1,0 +1,167 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`CLI Output Snapshots > Error Messages > mcp add non-existent server error matches snapshot 1`] = `
+"❌ Error: MCP server 'nonexistent-server' not found in global registry.
+
+Available MCPs: github"
+`;
+
+exports[`CLI Output Snapshots > Error Messages > mcp sync without project config error matches snapshot 1`] = `
+"❌ Error: Project configuration not found at: /tmp/snapshot-project-XXXXXX/.agentsync.json
+
+Run 'agentsync mcp init' to create it."
+`;
+
+exports[`CLI Output Snapshots > Error Messages > missing MCP registry error matches snapshot 1`] = `
+"❌ Error: Global MCP registry not found at: ~/.agentsync/mcp.json
+
+Please create it with your MCP server configurations.
+Example:
+{
+  "github": {
+    "command": "npx",
+    "args": ["-y", "@modelcontextprotocol/server-github"],
+    "env": { "GITHUB_TOKEN": "{GITHUB_TOKEN}" }
+  }
+}"
+`;
+
+exports[`CLI Output Snapshots > Error Messages > unknown command error matches snapshot 1`] = `
+"error: unknown command 'unknown-command'
+
+Usage: agentsync [options] [command]
+
+Sync your AGENTS.md to all your AI coding tools - Cursor, Claude Code, Cline,
+Windsurf, GitHub Copilot
+
+Options:
+  -V, --version       output the version number
+  -h, --help          display help for command
+
+Commands:
+  init [options]      Initialize AgentSync with interactive setup wizard
+  mcp                 Manage MCP (Model Context Protocol) servers
+  sync [options]      One-time sync of AGENTS.md to all configured tools
+  watch [options]     Watch mode with auto-sync (<5s latency)
+  validate [options]  Validate AGENTS.md against specification
+  diff [options]      Preview changes before syncing
+  migrate [options]   Import from existing tool configs
+  doctor [options]    Health check with actionable fixes
+  status              Show sync state and configuration
+  tree                Visualize monorepo config structure
+  audit [options]     Query audit logs
+  help [command]      display help for command"
+`;
+
+exports[`CLI Output Snapshots > Init Command Help > init --help output matches snapshot 1`] = `
+"Usage: agentsync init [options]
+
+Initialize AgentSync with interactive setup wizard
+
+Options:
+  -t, --template <name>  Use a specific template (react-typescript, nextjs-app,
+                         python-fastapi, monorepo-nx)
+  --tools <tools>        Comma-separated list of tools to configure
+  --use-symlinks         Use symlinks for compatibility (recommended) (default:
+                         true)
+  --no-symlinks          Use file copies instead of symlinks
+  -f, --force            Overwrite existing configuration
+  -h, --help             display help for command"
+`;
+
+exports[`CLI Output Snapshots > MCP Commands Help > mcp --help output matches snapshot 1`] = `
+"Usage: agentsync mcp [options] [command]
+
+Manage MCP (Model Context Protocol) servers
+
+Options:
+  -h, --help       display help for command
+
+Commands:
+  sync [options]   Sync selected MCPs to AI coding tools
+  list             List available and active MCP servers
+  add <server>     Add MCP server to project
+  remove <server>  Remove MCP server from project
+  help [command]   display help for command"
+`;
+
+exports[`CLI Output Snapshots > MCP Commands Help > mcp add --help output matches snapshot 1`] = `
+"Usage: agentsync mcp add [options] <server>
+
+Add MCP server to project
+
+Options:
+  -h, --help  display help for command"
+`;
+
+exports[`CLI Output Snapshots > MCP Commands Help > mcp list --help output matches snapshot 1`] = `
+"Usage: agentsync mcp list [options]
+
+List available and active MCP servers
+
+Options:
+  -h, --help  display help for command"
+`;
+
+exports[`CLI Output Snapshots > MCP Commands Help > mcp remove --help output matches snapshot 1`] = `
+"Usage: agentsync mcp remove [options] <server>
+
+Remove MCP server from project
+
+Options:
+  -h, --help  display help for command"
+`;
+
+exports[`CLI Output Snapshots > MCP Commands Help > mcp sync --help output matches snapshot 1`] = `
+"Usage: agentsync mcp sync [options]
+
+Sync selected MCPs to AI coding tools
+
+Options:
+  --tool <name>  Sync only to specific tool (cursor, claude)
+  --dry-run      Preview changes without applying them
+  -h, --help     display help for command"
+`;
+
+exports[`CLI Output Snapshots > Version and Help > --help output matches snapshot 1`] = `
+"Usage: agentsync [options] [command]
+
+Sync your AGENTS.md to all your AI coding tools - Cursor, Claude Code, Cline,
+Windsurf, GitHub Copilot
+
+Options:
+  -V, --version       output the version number
+  -h, --help          display help for command
+
+Commands:
+  init [options]      Initialize AgentSync with interactive setup wizard
+  mcp                 Manage MCP (Model Context Protocol) servers
+  sync [options]      One-time sync of AGENTS.md to all configured tools
+  watch [options]     Watch mode with auto-sync (<5s latency)
+  validate [options]  Validate AGENTS.md against specification
+  diff [options]      Preview changes before syncing
+  migrate [options]   Import from existing tool configs
+  doctor [options]    Health check with actionable fixes
+  status              Show sync state and configuration
+  tree                Visualize monorepo config structure
+  audit [options]     Query audit logs
+  help [command]      display help for command
+
+  ╔═══════════════════════════════════════╗
+  ║     AgentSync v0.2.0-alpha.3              ║
+  ║  The missing infrastructure layer     ║
+  ║  for AI agent configuration sync      ║
+  ╚═══════════════════════════════════════╝
+  
+
+Examples:
+  $ agentsync init                    # Interactive setup wizard
+  $ agentsync sync                    # Sync to all tools
+  $ agentsync sync --dry-run          # Preview changes
+  $ agentsync watch                   # Enable auto-sync
+  $ agentsync validate --strict       # Check AGENTS.md
+  $ agentsync doctor                  # Health check
+
+Documentation:
+  https://github.com/baranovxyz/agentsync"
+`;

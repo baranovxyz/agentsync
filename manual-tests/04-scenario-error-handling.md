@@ -74,25 +74,32 @@ echo "Exit code: $?"
 
 ---
 
-## Test 04.4: Remove Last MCP
+## Test 04.4: Remove All MCPs (Empty Config)
 
 ```bash
 # Ensure only one MCP
 echo '{"mcpServers": ["github"]}' > .agentsync.json
 
-agentsync mcp remove github 2>&1
+# Remove last MCP (should succeed, leaving empty array)
+agentsync mcp remove github
 echo "Exit code: $?"
+
+# Verify config is now empty
+cat .agentsync.json
 ```
 
-**Expected Error**:
+**Expected Output**:
 ```
-❌ Error: Cannot remove last MCP server. Project must have at least one MCP configured.
+✅ Removed MCP server 'github'
+Exit code: 0
+{"mcpServers": []}
 ```
 
 **Pass Criteria**:
-- ✅ Validation prevents removing last MCP
-- ✅ Clear error message
-- ✅ Exit code is 1
+- ✅ Allows removing last MCP
+- ✅ Config becomes {"mcpServers": []}
+- ✅ Exit code is 0
+- ✅ Empty config is valid (can sync, add new MCPs later)
 
 ---
 

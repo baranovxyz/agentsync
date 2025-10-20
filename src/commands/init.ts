@@ -6,7 +6,8 @@
 import * as fs from 'fs-extra';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import prompts from 'prompts';
+import { createRequire } from 'node:module';
+import { select, checkbox, confirm } from '@inquirer/prompts';
 import picocolors from 'picocolors';
 import { ConfigError, FileSystemError, ErrorCategory, ErrorSeverity } from '../core/errors.js';
 import AuditLogger, { AuditEventType } from '../core/audit.js';
@@ -15,6 +16,39 @@ import type { InitOptions, ToolName } from '../types/index.js';
 const pc = picocolors;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+/**
+ * Find the package root directory by traversing up until we find package.json
+ * This works reliably regardless of bundling, distribution, or execution context
+ */
+async function findPackageRoot(startDir: string): Promise<string> {
+  let currentDir = startDir;
+  const root = path.parse(currentDir).root;
+
+  while (currentDir !== root) {
+    const packageJsonPath = path.join(currentDir, 'package.json');
+    if (await fs.pathExists(packageJsonPath)) {
+      return currentDir;
+    }
+    currentDir = path.dirname(currentDir);
+  }
+
+  throw new Error('Could not find package.json in any parent directory');
+}
+
+/**
+ * Get package root using require.resolve as fallback
+ * This works well for production npm installs
+ */
+function getPackageRootViaRequire(): string | null {
+  try {
+    const require = createRequire(import.meta.url);
+    const packageJsonPath = require.resolve('agentsync/package.json');
+    return path.dirname(packageJsonPath);
+  } catch {
+    return null;
+  }
+}
 
 // Available templates
 const TEMPLATES = {
@@ -124,64 +158,55 @@ export class InitCommand {
       );
     }
 
-    const questions: prompts.PromptObject[] = [];
-
-    if (!options.template) {
-      questions.push({
-        type: 'select' as const,
-        name: 'template',
+    try {
+      // Template selection
+      const template = options.template || await select({
         message: 'Select a template:',
         choices: [
-          { title: 'Default (General Purpose)', value: 'default' },
-          { title: 'TypeScript React', value: 'typescript-react' },
-          { title: 'Python FastAPI', value: 'python-fastapi' },
+          { name: 'Default (General Purpose)', value: 'default' },
+          { name: 'TypeScript React', value: 'typescript-react' },
+          { name: 'Python FastAPI', value: 'python-fastapi' },
         ],
-        initial: 0,
+        default: 'default',
       });
-    }
 
-    if (!options.tools || options.tools.length === 0) {
-      questions.push({
-        type: 'multiselect' as const,
-        name: 'tools',
+      // Tool selection
+      const tools = options.tools || await checkbox({
         message: 'Which AI tools do you use?',
         choices: [
-          { title: 'Cursor', value: 'cursor', selected: true },
-          { title: 'Claude Code', value: 'claude', selected: true },
-          { title: 'Cline', value: 'cline' },
-          { title: 'Windsurf', value: 'windsurf' },
-          { title: 'GitHub Copilot', value: 'copilot' },
+          { name: 'Cursor', value: 'cursor', checked: true },
+          { name: 'Claude Code', value: 'claude', checked: true },
+          { name: 'Cline', value: 'cline' },
+          { name: 'Windsurf', value: 'windsurf' },
+          { name: 'GitHub Copilot', value: 'copilot' },
         ],
-        hint: 'Space to select, Enter to confirm',
+      }) as ToolName[];
+
+      // Symlink option
+      const useSymlinks = await confirm({
+        message: 'Use symlinks for tool configurations? (recommended)',
+        default: true,
       });
-    }
 
-    questions.push({
-      type: 'confirm' as const,
-      name: 'useSymlinks',
-      message: 'Use symlinks for tool configurations? (recommended)',
-      initial: true,
-    });
+      // Gitignore update option
+      const updateGitignore = await confirm({
+        message: 'Add AgentSync entries to .gitignore?',
+        default: true,
+      });
 
-    questions.push({
-      type: 'confirm' as const,
-      name: 'updateGitignore',
-      message: 'Add AgentSync entries to .gitignore?',
-      initial: true,
-    });
-
-    const response = await prompts(questions, {
-      onCancel: () => {
+      return {
+        template,
+        tools,
+        useSymlinks,
+        updateGitignore,
+      };
+    } catch (error) {
+      // Handle Ctrl+C cancellation
+      if (error instanceof Error && error.message.includes('User force closed')) {
         throw new ConfigError('Setup cancelled', '', 'Run "agentsync init" again to start over');
       }
-    });
-
-    return {
-      template: options.template || response.template,
-      tools: options.tools || response.tools || [],
-      useSymlinks: response.useSymlinks ?? true,
-      updateGitignore: response.updateGitignore ?? true,
-    };
+      throw error;
+    }
   }
 
   /**
@@ -192,17 +217,26 @@ export class InitCommand {
 
     const templateFile = TEMPLATES[templateName as keyof typeof TEMPLATES] || TEMPLATES.default;
 
-    // Find templates directory relative to the bundled code location
-    // In production: dist/init-*.js -> ../../templates
-    // The __dirname is the directory of the bundled init file
-    let templatePath = path.join(__dirname, '../../templates', templateFile);
+    // Find package root using multiple strategies for maximum reliability
+    let packageRoot: string | null = null;
 
-    // Fallback: try relative to cli.js location
-    if (!await fs.pathExists(templatePath)) {
-      // Go up from dist/ to root
-      templatePath = path.join(path.dirname(process.argv[1]), '../templates', templateFile);
+    // Strategy 1: Traverse up from current module location (works in dev and bundled)
+    try {
+      packageRoot = await findPackageRoot(__dirname);
+    } catch (error) {
+      // Strategy 2: Use require.resolve (works in production npm installs)
+      packageRoot = getPackageRootViaRequire();
     }
 
+    if (!packageRoot) {
+      throw new FileSystemError(
+        'Could not locate agentsync package root directory',
+        __dirname,
+        new Error('All package root detection strategies failed')
+      );
+    }
+
+    const templatePath = path.join(packageRoot, 'templates', templateFile);
     const targetPath = path.join(process.cwd(), 'AGENTS.md');
 
     try {
@@ -244,10 +278,10 @@ export class InitCommand {
         tools: [],
       };
 
-      await fs.writeJson(
+      await fs.outputFile(
         path.join(agentSyncDir, 'config.json'),
-        config,
-        { spaces: 2 }
+        JSON.stringify(config, null, 2) + '\n',
+        'utf-8'
       );
 
       console.log(pc.green('  ✓ Created .agentsync directory'));

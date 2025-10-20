@@ -19,6 +19,13 @@ describe('MCP E2E Workflow', () => {
   let originalHome: string | undefined;
   let originalUserProfile: string | undefined;
 
+  /**
+   * Helper to write JSON files (replacement for fs.writeJson which doesn't exist in fs-extra v11)
+   */
+  async function writeJson(filePath: string, data: unknown): Promise<void> {
+    await fs.outputFile(filePath, JSON.stringify(data, null, 2) + '\n', 'utf-8');
+  }
+
   beforeEach(async () => {
     // Setup temp directories
     tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agentsync-e2e-'));
@@ -62,7 +69,7 @@ describe('MCP E2E Workflow', () => {
 
     const agentsyncDir = path.join(tempHomeDir, '.agentsync');
     await fs.ensureDir(agentsyncDir);
-    await fs.writeJson(path.join(agentsyncDir, 'mcp.json'), globalRegistry);
+    await writeJson(path.join(agentsyncDir, 'mcp.json'), globalRegistry);
 
     // Setup environment variables
     process.env.GITHUB_TOKEN = 'ghp_e2e_test_token';
