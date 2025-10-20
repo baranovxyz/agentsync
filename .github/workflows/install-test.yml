@@ -1,0 +1,80 @@
+name: Install Test
+
+# Run weekly or manually to validate production package
+# This test validates the tarball → npm install -g workflow
+# It's slower (~1-2 min) so we don't run it on every PR
+
+on:
+  schedule:
+    # Run every Sunday at midnight UTC
+    - cron: '0 0 * * 0'
+  workflow_dispatch: # Allow manual trigger
+  push:
+    # Run on main branch pushes (after merge)
+    branches:
+      - main
+    paths:
+      - 'package.json'
+      - 'src/**'
+      - 'templates/**'
+      - '.github/workflows/install-test.yml'
+
+jobs:
+  install-test:
+    name: Install Test (${{ matrix.os }}, Node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: [18.x, 20.x, 22.x]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
+
+      - name: Setup Node.js ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build CLI
+        run: pnpm build
+
+      - name: Run Install Test
+        run: pnpm test tests/e2e/install-test.test.ts
+        timeout-minutes: 10
+
+      - name: Cleanup (ensure global package uninstalled)
+        if: always()
+        shell: bash
+        run: |
+          npm uninstall -g agentsync || true
+        continue-on-error: true
+
+  summary:
+    name: Install Test Summary
+    needs: [install-test]
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Check test results
+        run: |
+          if [ "${{ needs.install-test.result }}" == "success" ]; then
+            echo "✅ All install tests passed across all platforms!"
+            echo "Production package is ready for publishing."
+          else
+            echo "❌ Install tests failed. Check logs above."
+            exit 1
+          fi
