@@ -5,6 +5,7 @@
 
 import * as path from 'path';
 import * as fs from 'fs-extra';
+import { stat, readdir } from 'node:fs/promises';
 import * as os from 'os';
 import { GitHubSource, GitHubSourceParser } from './github-source.js';
 
@@ -68,7 +69,7 @@ export class CacheManager {
     }
 
     // Get directory stats
-    const stats = await fs.stat(cachePath);
+    const stats = await stat(cachePath);
 
     return {
       exists: true,
@@ -82,14 +83,14 @@ export class CacheManager {
    */
   private async getDirectorySize(dir: string): Promise<number> {
     let size = 0;
-    const files = await fs.readdir(dir, { withFileTypes: true });
+    const files = await readdir(dir, { withFileTypes: true });
 
     for (const file of files) {
       const filePath = path.join(dir, file.name);
       if (file.isDirectory()) {
         size += await this.getDirectorySize(filePath);
       } else {
-        const stats = await fs.stat(filePath);
+        const stats = await stat(filePath);
         size += stats.size;
       }
     }
