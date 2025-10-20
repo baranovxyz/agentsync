@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-alpha.8] - 2025-10-20
+
+### Added
+
+- **Apple-like UX** - Transform CLI from error-first to recovery-focused
+  - `init` command shows helpful status instead of blocking error when already initialized
+  - Display current setup (AGENTS.md, MCP servers, tools) with next steps
+  - Optional MCP setup prompt during interactive init flow
+  - `mcp list` auto-creates empty config with onboarding guidance
+  - All error messages include recovery commands and fix suggestions
+  - Better empty state messaging with numbered steps
+  - Context-aware guidance based on configuration state
+
+- **E2E Error Scenario Tests** - 11 new automated tests
+  - Invalid MCP names, duplicate additions
+  - Missing environment variables, no target directories
+  - Spaces in paths, permission errors (Unix)
+  - Empty registry, invalid JSON recovery
+  - Auto-creating missing config
+
+- **Install Test UX Validation** - Test Apple-like behavior in production package
+
+### Changed
+
+- **Test Suite** - 207 fully automated tests (was 195 automated + 48 manual)
+  - Removed all 48 manual tests (9 markdown files, 3,200 lines)
+  - Added 16 E2E tests (5 workflow + 11 error scenarios)
+  - Faster: 10s automated vs 30-40min manual
+  - More reliable: Consistent results, runs in CI
+  - Better coverage: E2E tests catch edge cases manual tests missed
+
+- **Error Messages** - All errors now include recovery paths
+  - Never block users without showing status + context + actions
+  - Helpful fix commands included in error output
+  - Auto-recovery suggestions where applicable
+
+### Removed
+
+- Manual test suite (`manual-tests/` directory)
+- Manual testing documentation (`docs/testing/manual-testing.md`)
+- All references to manual testing in docs
+
+### Fixed
+
+- Users blocked by unhelpful "already initialized" error
+- Missing recovery guidance in error messages
+- Confusing empty states without clear next steps
+
 ## [0.2.0-alpha.7] - 2025-10-20
 
 ### Changed
