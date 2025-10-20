@@ -5,7 +5,8 @@
 
 import type { MCPTarget } from './mcp-base.js';
 import type { MCP } from '../core/mcp/tokens.js';
-import * as fs from 'fs-extra';
+import { writeFile } from 'node:fs/promises';
+import { pathExists, ensureDir } from 'fs-extra';
 import * as path from 'path';
 
 /**
@@ -16,7 +17,7 @@ export class CursorTarget implements MCPTarget {
   name = 'cursor';
 
   async detect(): Promise<boolean> {
-    return fs.pathExists('.cursor');
+    return pathExists('.cursor');
   }
 
   async syncMCP(mcps: Record<string, MCP>): Promise<void> {
@@ -24,7 +25,7 @@ export class CursorTarget implements MCPTarget {
     const mcpFile = path.join(cursorDir, 'mcp.json');
 
     // Ensure directory exists
-    await fs.ensureDir(cursorDir);
+    await ensureDir(cursorDir);
 
     // Cursor expects: {"mcpServers": {...}}
     const config = {
@@ -32,6 +33,6 @@ export class CursorTarget implements MCPTarget {
     };
 
     // Write MCP configuration with 2-space indentation
-    await fs.writeJson(mcpFile, config, { spaces: 2 });
+    await writeFile(mcpFile, JSON.stringify(config, null, 2) + '\n', 'utf-8');
   }
 }
