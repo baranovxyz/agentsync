@@ -8,12 +8,13 @@ This document covers automated testing using Vitest and BATS.
 
 ## Overview
 
-AgentSync uses two automated testing frameworks:
+AgentSync uses three automated testing frameworks:
 
-1. **Vitest** - Primary test framework (125 tests, ~2s)
-2. **BATS** - Shell script testing (26 tests, ~5s, optional)
+1. **Vitest** - Primary test framework (149 tests, ~2s)
+2. **Install Test** - Production package validation (17 tests, ~30-60s)
+3. **BATS** - Shell script testing (26 tests, ~5s, optional)
 
-**Total**: 151 automated tests, >90% code coverage
+**Total**: 192 automated tests, >90% code coverage
 
 ---
 
@@ -44,17 +45,21 @@ tests/
 │   │   ├── tokens.test.ts
 │   │   ├── registry.test.ts
 │   │   └── config.test.ts
-│   └── commands/mcp/      # MCP commands (28 tests)
-│       ├── sync.test.ts
-│       ├── list.test.ts
-│       ├── add.test.ts
-│       └── remove.test.ts
+│   ├── commands/mcp/      # MCP commands (28 tests)
+│   │   ├── sync.test.ts
+│   │   ├── list.test.ts
+│   │   ├── add.test.ts
+│   │   └── remove.test.ts
+│   ├── utils/             # Utilities (12 tests)
+│   │   └── process-tracker.test.ts
+│   └── cli-output-snapshots.test.ts  # CLI snapshots (12 tests)
 ├── integration/targets/   # Target integration (16 tests)
 │   ├── cursor-target.test.ts
 │   └── claude-target.test.ts
-└── e2e/                   # End-to-end (43 tests)
-    ├── mcp-workflow.test.ts
-    └── cli-shell.test.ts
+└── e2e/                   # End-to-end (60 tests)
+    ├── mcp-workflow.test.ts       # Workflow tests (5 tests)
+    ├── cli-shell.test.ts          # Shell execution (24 tests)
+    └── install-test.test.ts       # Production package (17 tests)
 ```
 
 ### Coverage by Module
@@ -66,8 +71,11 @@ tests/
 | Targets | 16 | 90% | ✅ |
 | E2E Workflows | 5 | - | ✅ |
 | Shell Execution | 24 | - | ✅ |
+| Install/Package | 17 | - | ✅ |
 | Init Command | 14 | 85% | ✅ |
-| **Total** | **125** | **>90%** | ✅ |
+| CLI Snapshots | 12 | - | ✅ |
+| Process Tracker | 12 | 100% | ✅ |
+| **Total** | **166** | **>90%** | ✅ |
 
 ### Running Specific Tests
 
@@ -80,6 +88,9 @@ pnpm test:e2e
 
 # Shell tests only
 pnpm test:shell
+
+# Install test (production package validation)
+pnpm test tests/e2e/install-test.test.ts
 
 # With coverage
 pnpm test:coverage
@@ -114,8 +125,183 @@ describe('MCP Sync', () => {
 - Use `describe` for grouping related tests
 - Use `beforeEach` for setup, `afterEach` for cleanup
 - Create temp directories with `fs.mkdtemp`
-- Clean up after tests
+- Clean up after tests (use process tracker for spawned processes)
 - Test both success and error cases
+- Use snapshots for CLI output regression testing
+
+---
+
+## Snapshot Testing
+
+### Overview
+
+Snapshot testing captures CLI output and ensures it doesn't change unexpectedly. This prevents accidental UX regressions.
+
+### Usage
+
+```bash
+# Run snapshot tests
+pnpm test tests/unit/cli-output-snapshots.test.ts
+
+# Update snapshots (when changes are intentional)
+pnpm test tests/unit/cli-output-snapshots.test.ts -- -u
+
+# Review snapshot changes
+git diff **/__snapshots__/
+```
+
+### Example
+
+```typescript
+import { execa } from 'execa';
+import stripAnsi from 'strip-ansi';
+
+it('--help output matches snapshot', async () => {
+  const { stdout } = await execa('node', [cliPath, '--help']);
+  const clean = stripAnsi(stdout);  // Remove ANSI color codes
+  expect(clean).toMatchSnapshot();
+});
+```
+
+### What to Snapshot
+
+✅ **Good candidates:**
+- `--help` output for all commands
+- `--version` output
+- Error messages (common errors)
+- Formatted output (tables, lists)
+
+❌ **Avoid snapshotting:**
+- Timestamps
+- Random IDs
+- Temp file paths (normalize them first)
+- Environment-specific output
+
+### Normalizing Output
+
+For paths or random data, normalize before snapshotting:
+
+```typescript
+let clean = stripAnsi(output);
+// Normalize temp paths
+clean = clean.replace(
+  /\/tmp\/test-[^/]+/g,
+  '/tmp/test-XXXXXX'
+);
+expect(clean).toMatchSnapshot();
+```
+
+---
+
+## Process Cleanup Tracking
+
+### Overview
+
+The process tracker ensures all spawned processes are killed after tests, preventing zombie processes and resource leaks.
+
+### Usage
+
+```typescript
+import { processTracker } from '../utils/process-tracker.js';
+
+describe('My Tests', () => {
+  afterEach(async () => {
+    // Kill all tracked processes
+    await processTracker.killAll();
+  });
+
+  it('spawns a process', () => {
+    const proc = spawn('sleep', ['10']);
+    processTracker.track(proc);  // Track for cleanup
+
+    // Process will be auto-killed in afterEach
+  });
+});
+```
+
+### API
+
+```typescript
+// Track a process
+processTracker.track(childProcess);
+
+// Kill all tracked processes
+await processTracker.killAll(signal?, timeout?);
+
+// Get process count
+processTracker.count;
+
+// Check if empty
+processTracker.isEmpty;
+
+// Get tracked PIDs
+processTracker.pids;
+```
+
+### Features
+
+- **Graceful shutdown**: Sends SIGTERM first, waits for exit
+- **Force kill**: Sends SIGKILL after timeout (default: 5s)
+- **Auto-removal**: Processes removed when they exit naturally
+- **Error handling**: Handles already-dead processes gracefully
+
+---
+
+## ShellCheck Integration
+
+### Overview
+
+ShellCheck ensures shell scripts follow POSIX best practices and catches common errors.
+
+### Configuration
+
+`.shellcheckrc`:
+```bash
+# Enable external sources checking
+external-sources=true
+
+# Set shell to bash
+shell=bash
+```
+
+### Usage
+
+```bash
+# Check all shell scripts
+find . -name "*.sh" | xargs shellcheck
+
+# Check specific file
+shellcheck scripts/build.sh
+
+# Ignore specific warnings
+shellcheck --exclude=SC2034 scripts/build.sh
+```
+
+### CI Integration
+
+ShellCheck runs automatically in CI:
+
+```yaml
+- name: Install ShellCheck (Ubuntu only)
+  if: runner.os == 'Linux'
+  run: sudo apt-get install -y shellcheck
+
+- name: Lint shell scripts
+  if: runner.os == 'Linux'
+  run: |
+    find . -name "*.sh" -not -path "*/node_modules/*" | while read -r file; do
+      shellcheck --severity=warning "$file"
+    done
+```
+
+### Common Warnings
+
+| Code | Warning | Fix |
+|------|---------|-----|
+| SC2086 | Unquoted variable | Use `"$var"` |
+| SC2046 | Word splitting | Quote command substitution |
+| SC2006 | Deprecated backticks | Use `$(command)` |
+| SC2155 | Masking return value | Separate `local` and assignment |
 
 ---
 
@@ -223,6 +409,125 @@ tests/shell/cli.bats  # 26 tests covering:
 - Fast iteration
 - Code coverage
 - Debugging
+
+---
+
+## Install Test (Production Package Validation)
+
+### Overview
+
+The install test validates the production package by creating a tarball and installing it globally, simulating the real `npm install -g` workflow. This replaces manual QA testing and catches packaging issues before publishing.
+
+**File**: `tests/e2e/install-test.test.ts`
+**Tests**: 17 tests
+**Duration**: ~30-60 seconds
+**Runs**: Weekly in CI, manually before releases
+
+### What It Tests
+
+✅ **Package Creation**:
+- Tarball generation with `pnpm pack`
+- Package size validation (<5MB)
+- Required files included (dist/, templates/)
+- Dev files excluded (tests/, node_modules/)
+
+✅ **Global Installation**:
+- `npm install -g` succeeds
+- Binary is executable
+- Correct version displayed
+- Help text shows correctly
+
+✅ **Full MCP Workflow**:
+- Add MCPs to project
+- Sync to targets (Cursor, Claude)
+- Token substitution
+- Dry-run mode
+- Tool-specific sync (`--tool cursor`)
+- Remove MCPs
+
+✅ **Error Handling**:
+- Missing registry error
+- Non-existent MCP error
+- Missing environment variables
+- Invalid commands
+
+### Running Install Test
+
+```bash
+# Run install test
+pnpm test tests/e2e/install-test.test.ts
+
+# Watch mode (not recommended - too slow)
+pnpm test:watch tests/e2e/install-test.test.ts
+```
+
+**Note**: This test is slower than unit tests because it:
+1. Builds the project
+2. Creates a tarball
+3. Installs globally
+4. Runs tests
+5. Uninstalls and cleans up
+
+### When to Run
+
+✅ **Run install test**:
+- Before publishing to npm
+- After packaging changes (package.json, files field)
+- Weekly (automated in CI)
+- After major CLI changes
+
+❌ **Don't run install test**:
+- During active development (too slow)
+- For every PR (runs in CI weekly)
+- When testing internal APIs
+
+### CI Integration
+
+The install test runs on a weekly schedule and on main branch pushes:
+
+```yaml
+# .github/workflows/install-test.yml
+on:
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly on Sunday
+  push:
+    branches: [main]
+  workflow_dispatch:      # Manual trigger
+```
+
+**Why weekly instead of every PR?**
+- Slower execution (~1-2 min per platform)
+- Tests packaging, not core functionality
+- Sufficient to catch issues before release
+
+### Troubleshooting
+
+**Test fails with "package already installed":**
+```bash
+# Uninstall manually
+npm uninstall -g agentsync
+
+# Re-run test
+pnpm test tests/e2e/install-test.test.ts
+```
+
+**Tarball not found:**
+```bash
+# Ensure clean build
+pnpm build
+
+# Re-run test
+pnpm test tests/e2e/install-test.test.ts
+```
+
+**Global install fails:**
+```bash
+# Check npm permissions
+npm config get prefix
+
+# Use npx if needed (doesn't require global install)
+npx agentsync --version
+```
 
 ---
 
@@ -391,10 +696,11 @@ bats tests/shell/cli.bats --filter "version"
 
 | Test Suite | Tests | Duration | Speed |
 |------------|-------|----------|-------|
-| Vitest (all) | 125 | ~2.2s | 🚀 Fast |
-| Shell (Vitest) | 24 | ~1.7s | 🚀 Fast |
+| Vitest (unit/integration) | 149 | ~2.3s | 🚀 Fast |
+| Shell (Vitest + execa) | 24 | ~1.8s | 🚀 Fast |
+| Install Test (E2E) | 17 | ~30-60s | ⚡ Medium |
 | BATS | 26 | ~5.0s | ⚡ Good |
-| **Total** | **151** | **~9s** | 🚀 Fast |
+| **Total** | **216** | **~40-65s** | ⚡ Good |
 
 ### Optimization Tips
 
