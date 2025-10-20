@@ -3,8 +3,26 @@
  * Lists available vs active MCP servers
  */
 
+import { outputFile } from 'fs-extra';
+import * as path from 'path';
+import picocolors from 'picocolors';
 import { loadGlobalRegistry } from '../../core/mcp/registry.js';
 import { loadProjectConfig } from '../../core/mcp/config.js';
+
+const pc = picocolors;
+
+/**
+ * Auto-create empty MCP configuration with helpful onboarding
+ */
+async function autoCreateMCPConfig(): Promise<void> {
+  console.log(pc.yellow('⚠ No MCP configuration found\n'));
+  console.log(pc.gray('Creating agentsync.local.json with empty MCP configuration...\n'));
+
+  const configPath = path.join(process.cwd(), 'agentsync.local.json');
+  await outputFile(configPath, JSON.stringify({ mcpServers: [] }, null, 2) + '\n', 'utf-8');
+
+  console.log(pc.green('✓ Created agentsync.local.json\n'));
+}
 
 /**
  * List options
@@ -59,8 +77,9 @@ export async function listMCP(options: ListMCPOptions = {}): Promise<ListMCPResu
         activeMCPs = Object.keys(projectConfig.mcpServers);
       }
     } catch (error) {
-      // If no project config, treat all as inactive
+      // If no project config, auto-create with helpful message
       if ((error as Error).message.includes('MCP configuration not found')) {
+        await autoCreateMCPConfig();
         // Continue with empty activeMCPs
       } else {
         throw error;
