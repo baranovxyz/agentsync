@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-alpha.7] - 2025-10-20
+
+### Changed
+
+- **CLI Help Output** - Removed all unimplemented Phase 2 commands from help
+  - Removed 9 command stubs: sync, watch, validate, diff, migrate, doctor, status, tree, audit
+  - Users now see only working commands (init + all MCP commands)
+  - No more confusing "not yet implemented" error messages
+  - Cleaner, focused help output
+  - Commands will be added back as they're implemented
+
+### Fixed
+
+- User confusion from help showing unimplemented commands
+- Misleading CLI interface suggesting features that don't exist
+
 ## [0.2.0-alpha.6] - 2025-10-20
 
 ### Breaking Changes
