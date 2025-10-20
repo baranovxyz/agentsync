@@ -276,4 +276,38 @@ describe('syncMCP', () => {
     const cursorMcp = await fs.readJson('.cursor/mcp.json');
     expect(cursorMcp.mcpServers.github.env.GITHUB_TOKEN).toBe('ghp_from_env_file');
   });
+
+  it('syncs empty config (empty array) to tools', async () => {
+    const projectConfig = {
+      mcpServers: [],
+    };
+    await fs.writeJson('.agentsync.json', projectConfig);
+
+    await fs.ensureDir('.cursor');
+    await fs.ensureDir('.claude');
+
+    await syncMCP();
+
+    // Verify empty configs were written to tools
+    const cursorMcp = await fs.readJson('.cursor/mcp.json');
+    expect(cursorMcp.mcpServers).toEqual({});
+
+    const claudeMcp = await fs.readJson('.claude/mcp.json');
+    expect(claudeMcp).toEqual({});
+  });
+
+  it('syncs empty config (empty object) to tools', async () => {
+    const projectConfig = {
+      mcpServers: {},
+    };
+    await fs.writeJson('.agentsync.json', projectConfig);
+
+    await fs.ensureDir('.cursor');
+
+    await syncMCP();
+
+    // Verify empty config was written
+    const cursorMcp = await fs.readJson('.cursor/mcp.json');
+    expect(cursorMcp.mcpServers).toEqual({});
+  });
 });

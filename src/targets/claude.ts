@@ -5,7 +5,8 @@
 
 import type { MCPTarget } from './mcp-base.js';
 import type { MCP } from '../core/mcp/tokens.js';
-import * as fs from 'fs-extra';
+import { writeFile } from 'node:fs/promises';
+import { pathExists, ensureDir } from 'fs-extra';
 import * as path from 'path';
 
 /**
@@ -16,7 +17,7 @@ export class ClaudeTarget implements MCPTarget {
   name = 'claude';
 
   async detect(): Promise<boolean> {
-    return fs.pathExists('.claude');
+    return pathExists('.claude');
   }
 
   async syncMCP(mcps: Record<string, MCP>): Promise<void> {
@@ -24,9 +25,9 @@ export class ClaudeTarget implements MCPTarget {
     const mcpFile = path.join(claudeDir, 'mcp.json');
 
     // Ensure directory exists
-    await fs.ensureDir(claudeDir);
+    await ensureDir(claudeDir);
 
     // Claude Code expects direct MCP object (no wrapper)
-    await fs.writeJson(mcpFile, mcps, { spaces: 2 });
+    await writeFile(mcpFile, JSON.stringify(mcps, null, 2) + '\n', 'utf-8');
   }
 }

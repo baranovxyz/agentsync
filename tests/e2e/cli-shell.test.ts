@@ -9,14 +9,43 @@ import { execa } from 'execa';
 import * as fs from 'fs-extra';
 import * as path from 'path';
 import * as os from 'os';
+import { processTracker } from '../utils/process-tracker.js';
 
+/**
+ * CLI Shell Execution Tests
+ *
+ * Test Strategy:
+ * - beforeAll: Copy entire dist/ folder + package.json to temp location
+ *   (Prevents production CLI from being deleted during test execution)
+ * - beforeEach: Setup test-specific temp directories (HOME, working directory)
+ * - afterEach: Cleanup test-specific directories only
+ * - afterAll: Cleanup CLI copy
+ *
+ * Why copy CLI?
+ * - Tests change working directory, which can cause module resolution issues
+ * - Prevents accidental deletion of production CLI during cleanup
+ * - Allows parallel test execution safely
+ *
+ * Required files in temp location:
+ * - dist/ folder (includes cli.js and all chunk files)
+ * - package.json (required for --version command)
+ */
 describe('CLI Shell Execution', () => {
   let tempDir: string;
   let tempHomeDir: string;
+  let tempCliDir: string;
+  let tempCliPath: string;
   let originalCwd: string;
   let originalHome: string | undefined;
   let originalUserProfile: string | undefined;
   const cliPath = path.resolve(process.cwd(), 'dist/cli.js');
+
+  /**
+   * Helper to write JSON files (replacement for fs.writeJson which doesn't exist in fs-extra v11)
+   */
+  async function writeJson(filePath: string, data: unknown): Promise<void> {
+    await fs.outputFile(filePath, JSON.stringify(data, null, 2) + '\n', 'utf-8');
+  }
 
   /**
    * Cleanup helper with retry logic for Windows file locking issues
@@ -61,12 +90,35 @@ describe('CLI Shell Execution', () => {
       await Promise.all([
         tempDir && cleanup(tempDir),
         tempHomeDir && cleanup(tempHomeDir),
+        // Note: tempCliDir is cleaned up in afterAll, not here
       ]);
     } catch (error) {
       console.error('Cleanup failed:', error);
       // Don't throw - let test results show through
     }
   }
+
+  beforeAll(async () => {
+    // Verify original CLI is built
+    const originalCliPath = path.resolve(process.cwd(), 'dist/cli.js');
+    if (!await fs.pathExists(originalCliPath)) {
+      throw new Error(`CLI not built. Run 'pnpm build' first. Expected: ${originalCliPath}`);
+    }
+
+    // Create temp directory for CLI copy
+    tempCliDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agentsync-cli-'));
+
+    // Copy entire dist folder to temp location (including chunk files)
+    const distDir = path.resolve(process.cwd(), 'dist');
+    await fs.copy(distDir, path.join(tempCliDir, 'dist'));
+
+    // Copy package.json (needed for version check)
+    const packageJson = path.resolve(process.cwd(), 'package.json');
+    await fs.copy(packageJson, path.join(tempCliDir, 'package.json'));
+
+    // Set path to copied CLI
+    tempCliPath = path.join(tempCliDir, 'dist', 'cli.js');
+  });
 
   beforeEach(async () => {
     try {
@@ -84,11 +136,6 @@ describe('CLI Shell Execution', () => {
         originalUserProfile = process.env.USERPROFILE;
         process.env.USERPROFILE = tempHomeDir;
       }
-
-      // Ensure CLI is built
-      if (!await fs.pathExists(cliPath)) {
-        throw new Error(`CLI not built. Run 'pnpm build' first. Expected: ${cliPath}`);
-      }
     } catch (error) {
       // Cleanup on setup failure
       await cleanupTestEnvironment();
@@ -97,19 +144,30 @@ describe('CLI Shell Execution', () => {
   });
 
   afterEach(async () => {
+    // Kill all tracked processes first
+    await processTracker.killAll();
+
+    // Then cleanup filesystem
     await cleanupTestEnvironment();
+  });
+
+  afterAll(async () => {
+    // Final cleanup of CLI copy
+    if (tempCliDir && await fs.pathExists(tempCliDir)) {
+      await fs.remove(tempCliDir);
+    }
   });
 
   describe('Basic CLI Execution', () => {
     it('executes --version flag successfully', async () => {
-      const { stdout, exitCode } = await execa('node', [cliPath, '--version']);
+      const { stdout, exitCode } = await execa('node', [tempCliPath, '--version']);
 
       expect(exitCode).toBe(0);
       expect(stdout).toMatch(/^\d+\.\d+\.\d+/); // Semver pattern
     });
 
     it('executes --help flag successfully', async () => {
-      const { stdout, exitCode } = await execa('node', [cliPath, '--help']);
+      const { stdout, exitCode } = await execa('node', [tempCliPath, '--help']);
 
       expect(exitCode).toBe(0);
       expect(stdout).toContain('agentsync');
@@ -119,7 +177,7 @@ describe('CLI Shell Execution', () => {
 
     it('shows error for unknown command', async () => {
       try {
-        await execa('node', [cliPath, 'nonexistent-command']);
+        await execa('node', [tempCliPath, 'nonexistent-command']);
         expect.fail('Should have thrown an error');
       } catch (error: any) {
         expect(error.exitCode).not.toBe(0);
@@ -138,7 +196,7 @@ describe('CLI Shell Execution', () => {
         return;
       }
 
-      const { stdout, exitCode } = await execa(cliPath, ['--version']);
+      const { stdout, exitCode } = await execa(tempCliPath, ['--version']);
 
       expect(exitCode).toBe(0);
       expect(stdout).toMatch(/^\d+\.\d+\.\d+/);
@@ -167,7 +225,7 @@ describe('CLI Shell Execution', () => {
 
       const agentsyncDir = path.join(tempHomeDir, '.agentsync');
       await fs.ensureDir(agentsyncDir);
-      await fs.writeJson(path.join(agentsyncDir, 'mcp.json'), globalRegistry);
+      await writeJson(path.join(agentsyncDir, 'mcp.json'), globalRegistry);
 
       // Setup environment variables
       process.env.GITHUB_TOKEN = 'ghp_test_token';
@@ -179,7 +237,7 @@ describe('CLI Shell Execution', () => {
     });
 
     it('executes mcp list command', async () => {
-      const { stdout, exitCode } = await execa('node', [cliPath, 'mcp', 'list']);
+      const { stdout, exitCode } = await execa('node', [tempCliPath, 'mcp', 'list']);
 
       expect(exitCode).toBe(0);
       expect(stdout).toContain('github');
@@ -187,7 +245,7 @@ describe('CLI Shell Execution', () => {
     });
 
     it('executes mcp add command', async () => {
-      const { stdout, exitCode } = await execa('node', [cliPath, 'mcp', 'add', 'github']);
+      const { stdout, exitCode } = await execa('node', [tempCliPath, 'mcp', 'add', 'github']);
 
       expect(exitCode).toBe(0);
       expect(stdout).toContain('github');
@@ -202,10 +260,10 @@ describe('CLI Shell Execution', () => {
 
     it('executes mcp sync command', async () => {
       // First add an MCP
-      await execa('node', [cliPath, 'mcp', 'add', 'github']);
+      await execa('node', [tempCliPath, 'mcp', 'add', 'github']);
 
       // Then sync
-      const { stdout, exitCode } = await execa('node', [cliPath, 'mcp', 'sync']);
+      const { stdout, exitCode } = await execa('node', [tempCliPath, 'mcp', 'sync']);
 
       expect(exitCode).toBe(0);
 
@@ -216,9 +274,9 @@ describe('CLI Shell Execution', () => {
     });
 
     it('executes mcp sync with --dry-run flag', async () => {
-      await execa('node', [cliPath, 'mcp', 'add', 'github']);
+      await execa('node', [tempCliPath, 'mcp', 'add', 'github']);
 
-      const { exitCode } = await execa('node', [cliPath, 'mcp', 'sync', '--dry-run']);
+      const { exitCode } = await execa('node', [tempCliPath, 'mcp', 'sync', '--dry-run']);
 
       expect(exitCode).toBe(0);
 
@@ -230,9 +288,9 @@ describe('CLI Shell Execution', () => {
     });
 
     it('executes mcp sync with --tool flag', async () => {
-      await execa('node', [cliPath, 'mcp', 'add', 'github']);
+      await execa('node', [tempCliPath, 'mcp', 'add', 'github']);
 
-      const { exitCode } = await execa('node', [cliPath, 'mcp', 'sync', '--tool', 'cursor']);
+      const { exitCode } = await execa('node', [tempCliPath, 'mcp', 'sync', '--tool', 'cursor']);
 
       expect(exitCode).toBe(0);
 
@@ -245,11 +303,11 @@ describe('CLI Shell Execution', () => {
 
     it('executes mcp remove command', async () => {
       // Add two MCPs so we can remove one
-      await execa('node', [cliPath, 'mcp', 'add', 'github']);
-      await execa('node', [cliPath, 'mcp', 'add', 'postgres']);
+      await execa('node', [tempCliPath, 'mcp', 'add', 'github']);
+      await execa('node', [tempCliPath, 'mcp', 'add', 'postgres']);
 
       // Then remove one
-      const { stdout, exitCode } = await execa('node', [cliPath, 'mcp', 'remove', 'github']);
+      const { stdout, exitCode } = await execa('node', [tempCliPath, 'mcp', 'remove', 'github']);
 
       expect(exitCode).toBe(0);
       expect(stdout).toContain('github');
@@ -265,7 +323,7 @@ describe('CLI Shell Execution', () => {
       await fs.remove(path.join(tempHomeDir, '.agentsync', 'mcp.json'));
 
       try {
-        await execa('node', [cliPath, 'mcp', 'list']);
+        await execa('node', [tempCliPath, 'mcp', 'list']);
         expect.fail('Should have thrown an error');
       } catch (error: any) {
         expect(error.exitCode).not.toBe(0);
@@ -276,10 +334,10 @@ describe('CLI Shell Execution', () => {
     it('handles missing environment variables', async () => {
       delete process.env.GITHUB_TOKEN;
 
-      await execa('node', [cliPath, 'mcp', 'add', 'github']);
+      await execa('node', [tempCliPath, 'mcp', 'add', 'github']);
 
       try {
-        await execa('node', [cliPath, 'mcp', 'sync'], {
+        await execa('node', [tempCliPath, 'mcp', 'sync'], {
           env: { ...process.env, GITHUB_TOKEN: undefined },
         });
         expect.fail('Should have thrown an error');
@@ -297,12 +355,12 @@ describe('CLI Shell Execution', () => {
         tools: ['cursor'],
         useSymlinks: false,
       };
-      await fs.writeJson('.agentsync.json', config);
+      await writeJson('.agentsync.json', config);
 
       // Note: Interactive prompts can't be tested without a TTY
       // We'd need a library like 'expect' or 'inquirer-test' for that
       // For now, just verify the command doesn't crash
-      const { exitCode } = await execa('node', [cliPath, '--help']);
+      const { exitCode } = await execa('node', [tempCliPath, '--help']);
       expect(exitCode).toBe(0);
     });
   });
@@ -312,7 +370,7 @@ describe('CLI Shell Execution', () => {
       await fs.writeFile('.agentsync.json', '{invalid json}');
 
       try {
-        await execa('node', [cliPath, 'mcp', 'list']);
+        await execa('node', [tempCliPath, 'mcp', 'list']);
         expect.fail('Should have thrown an error');
       } catch (error: any) {
         expect(error.exitCode).not.toBe(0);
@@ -336,14 +394,14 @@ describe('CLI Shell Execution', () => {
       };
       const agentsyncDir = path.join(tempHomeDir, '.agentsync');
       await fs.ensureDir(agentsyncDir);
-      await fs.writeJson(path.join(agentsyncDir, 'mcp.json'), globalRegistry);
+      await writeJson(path.join(agentsyncDir, 'mcp.json'), globalRegistry);
 
       await fs.ensureDir('.cursor');
       await fs.chmod('.cursor', 0o444); // Read-only
 
       try {
-        await execa('node', [cliPath, 'mcp', 'add', 'github']);
-        await execa('node', [cliPath, 'mcp', 'sync'], {
+        await execa('node', [tempCliPath, 'mcp', 'add', 'github']);
+        await execa('node', [tempCliPath, 'mcp', 'sync'], {
           env: { ...process.env, GITHUB_TOKEN: 'test_token' },
         });
         expect.fail('Should have thrown an error');
@@ -358,7 +416,7 @@ describe('CLI Shell Execution', () => {
 
   describe('Cross-Platform Compatibility', () => {
     it('handles different line endings', async () => {
-      const { stdout } = await execa('node', [cliPath, '--version']);
+      const { stdout } = await execa('node', [tempCliPath, '--version']);
 
       // Should work regardless of line endings
       expect(stdout).toBeTruthy();
@@ -370,7 +428,7 @@ describe('CLI Shell Execution', () => {
       await fs.ensureDir(spacedDir);
       process.chdir(spacedDir);
 
-      const { exitCode } = await execa('node', [cliPath, '--version']);
+      const { exitCode } = await execa('node', [tempCliPath, '--version']);
       expect(exitCode).toBe(0);
     });
 
@@ -380,7 +438,7 @@ describe('CLI Shell Execution', () => {
 
       const globalRegistry = { github: { command: 'echo', args: ['test'] } };
       await fs.ensureDir(path.join(customHome, '.agentsync'));
-      await fs.writeJson(path.join(customHome, '.agentsync', 'mcp.json'), globalRegistry);
+      await writeJson(path.join(customHome, '.agentsync', 'mcp.json'), globalRegistry);
 
       // On Windows, os.homedir() uses USERPROFILE, not HOME
       const env = { ...process.env, HOME: customHome };
@@ -388,7 +446,7 @@ describe('CLI Shell Execution', () => {
         env.USERPROFILE = customHome;
       }
 
-      const { stdout, exitCode } = await execa('node', [cliPath, 'mcp', 'list'], { env });
+      const { stdout, exitCode } = await execa('node', [tempCliPath, 'mcp', 'list'], { env });
 
       expect(exitCode).toBe(0);
       expect(stdout).toContain('github');
@@ -397,13 +455,13 @@ describe('CLI Shell Execution', () => {
 
   describe('Exit Codes', () => {
     it('exits with 0 on success', async () => {
-      const { exitCode } = await execa('node', [cliPath, '--version']);
+      const { exitCode } = await execa('node', [tempCliPath, '--version']);
       expect(exitCode).toBe(0);
     });
 
     it('exits with non-zero on error', async () => {
       try {
-        await execa('node', [cliPath, 'invalid-command']);
+        await execa('node', [tempCliPath, 'invalid-command']);
         expect.fail('Should have thrown');
       } catch (error: any) {
         expect(error.exitCode).toBeGreaterThan(0);
@@ -412,7 +470,7 @@ describe('CLI Shell Execution', () => {
 
     it('exits with non-zero on missing arguments', async () => {
       try {
-        await execa('node', [cliPath, 'mcp', 'add']); // Missing MCP name
+        await execa('node', [tempCliPath, 'mcp', 'add']); // Missing MCP name
         expect.fail('Should have thrown');
       } catch (error: any) {
         expect(error.exitCode).toBeGreaterThan(0);
@@ -422,14 +480,14 @@ describe('CLI Shell Execution', () => {
 
   describe('Output Formatting', () => {
     it('outputs valid UTF-8', async () => {
-      const { stdout } = await execa('node', [cliPath, '--help']);
+      const { stdout } = await execa('node', [tempCliPath, '--help']);
 
       // Should not contain malformed UTF-8
       expect(() => Buffer.from(stdout, 'utf-8')).not.toThrow();
     });
 
     it('outputs to stdout for normal output', async () => {
-      const { stdout, stderr } = await execa('node', [cliPath, '--version']);
+      const { stdout, stderr } = await execa('node', [tempCliPath, '--version']);
 
       expect(stdout).toBeTruthy();
       expect(stderr).toBe('');
@@ -437,7 +495,7 @@ describe('CLI Shell Execution', () => {
 
     it('outputs to stderr for errors', async () => {
       try {
-        await execa('node', [cliPath, 'invalid-command']);
+        await execa('node', [tempCliPath, 'invalid-command']);
       } catch (error: any) {
         // Either stderr or stdout should contain error message
         expect(error.stderr || error.stdout).toBeTruthy();

@@ -46,16 +46,28 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           echo "Checking shell scripts with ShellCheck..."
-          # Find all .sh files (excluding node_modules)
-          find . -name "*.sh" -not -path "*/node_modules/*" | while read -r file; do
-            echo "Checking $file"
-            shellcheck --shell bash "$file"
-          done
 
-          # Check BATS test files
+          # ShellCheck will use .shellcheckrc automatically
+          shellcheck_failed=0
+
+          # Find and check all .sh files (excluding node_modules)
+          while IFS= read -r file; do
+            echo "Checking $file"
+            if ! shellcheck --severity=warning "$file"; then
+              shellcheck_failed=1
+            fi
+          done < <(find . -name "*.sh" -not -path "*/node_modules/*" -not -path "*/.git/*")
+
+          # Check BATS test files (informational only)
           if [ -f "tests/shell/cli.bats" ]; then
-            echo "Checking tests/shell/cli.bats"
-            shellcheck --shell bash tests/shell/cli.bats || true
+            echo "Checking tests/shell/cli.bats (informational)"
+            shellcheck --shell bash tests/shell/cli.bats || echo "BATS warnings found (non-blocking)"
+          fi
+
+          # Exit with error if any script failed
+          if [ $shellcheck_failed -eq 1 ]; then
+            echo "ShellCheck found issues in shell scripts"
+            exit 1
           fi
 
       - name: Build CLI

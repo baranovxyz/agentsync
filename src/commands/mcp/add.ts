@@ -5,7 +5,7 @@
 
 import { loadGlobalRegistry } from '../../core/mcp/registry.js';
 import { loadProjectConfig } from '../../core/mcp/config.js';
-import * as fs from 'fs-extra';
+import { writeFile } from 'node:fs/promises';
 import * as path from 'path';
 
 /**
@@ -63,7 +63,7 @@ export async function addMCP(serverName: string): Promise<AddMCPResult> {
         mcpServers: [serverName],
       };
 
-      await fs.writeJson(configPath, projectConfig, { spaces: 2 });
+      await writeFile(configPath, JSON.stringify(projectConfig, null, 2) + '\n', 'utf-8');
 
       return {
         added: true,
@@ -93,7 +93,7 @@ export async function addMCP(serverName: string): Promise<AddMCPResult> {
 
   // 5. Save updated config
   if (added) {
-    await fs.writeJson(configPath, projectConfig, { spaces: 2 });
+    await writeFile(configPath, JSON.stringify(projectConfig, null, 2) + '\n', 'utf-8');
   }
 
   return {
