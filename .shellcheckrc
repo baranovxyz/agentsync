@@ -1,0 +1,14 @@
+# ShellCheck Configuration
+# https://www.shellcheck.net/
+
+# Enable external sources checking
+external-sources=true
+
+# Set shell to bash (compatible with most CI environments)
+shell=bash
+
+# Exclude specific checks (add as needed)
+# exclude=SC2034  # Unused variables (enable if needed)
+
+# Severity level (error, warning, info, style)
+# We run with default (all levels) but can filter in CI if needed
