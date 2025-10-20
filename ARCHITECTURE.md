@@ -253,7 +253,36 @@ tests/
 - Enables adding AgentSync to projects with existing AGENTS.md files
 - Does not prompt or create MCP configuration (user responsibility)
 
-### 6. Error System (`src/core/errors.ts`)
+### 6. Release Workflow
+
+**Command**: Use `/release` slash command
+
+**Critical Rule**: NEVER push to main branch
+
+**Workflow**:
+1. Create release branch: `release/v{version}`
+2. Run pre-publish checks (build, tests, clean git)
+3. Bump version: `npm version prerelease --preid=alpha`
+4. Push branch + tags
+5. Create PR with auto-generated changelog
+6. **Manual review and merge PR**
+7. Publish to npm: `npm publish`
+8. Create GitHub release
+9. Cleanup branches
+
+**Two-Step Process**:
+```bash
+/release              # Creates PR
+/release --publish    # After PR merged, publishes
+```
+
+**Safety Features**:
+- Never pushes to main (always uses feature/release branch)
+- Pre-publish checks ensure quality
+- Manual PR review gate prevents accidents
+- Rollback possible if publish fails
+
+### 7. Error System (`src/core/errors.ts`)
 
 **Purpose**: Typed error hierarchy with recovery strategies
 
@@ -269,7 +298,7 @@ tests/
 
 **Error Recovery**: `RetryStrategy` with exponential backoff
 
-### 7. Type System (`src/types/`)
+### 8. Type System (`src/types/`)
 
 **Tool Types**: `'cursor' | 'claude' | 'cline' | 'windsurf' | 'copilot'`
 
