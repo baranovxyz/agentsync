@@ -51,14 +51,14 @@ export async function addMCP(serverName: string): Promise<AddMCPResult> {
   }
 
   // 3. Load or create project config
-  const configPath = path.join(process.cwd(), '.agentsync.json');
+  const configPath = path.join(process.cwd(), 'agentsync.local.json');
   let projectConfig;
 
   try {
     projectConfig = await loadProjectConfig();
   } catch (error) {
     // If config doesn't exist, create it
-    if ((error as Error).message.includes('Project configuration not found')) {
+    if ((error as Error).message.includes('MCP configuration not found')) {
       projectConfig = {
         mcpServers: [serverName],
       };

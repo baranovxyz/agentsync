@@ -47,7 +47,7 @@ Available servers: github, filesystem, postgres, brave-search
 ```bash
 agentsync mcp add github
 agentsync mcp add github 2>&1
-cat .agentsync.json
+cat agentsync.local.json
 ```
 
 **Expected**: Second add should be idempotent, no duplicate
@@ -78,14 +78,14 @@ echo "Exit code: $?"
 
 ```bash
 # Ensure only one MCP
-echo '{"mcpServers": ["github"]}' > .agentsync.json
+echo '{"mcpServers": ["github"]}' > agentsync.local.json
 
 # Remove last MCP (should succeed, leaving empty array)
 agentsync mcp remove github
 echo "Exit code: $?"
 
 # Verify config is now empty
-cat .agentsync.json
+cat agentsync.local.json
 ```
 
 **Expected Output**:
@@ -129,7 +129,7 @@ echo "Exit code: $?"
 ## Test 04.6: Invalid JSON in Project Config
 
 ```bash
-echo '{invalid json}' > .agentsync.json
+echo '{invalid json}' > agentsync.local.json
 agentsync mcp list 2>&1
 ```
 

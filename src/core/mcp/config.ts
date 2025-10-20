@@ -1,6 +1,6 @@
 /**
  * Project MCP Configuration Loader & Merger
- * Loads .agentsync.json and filters/merges selected MCPs
+ * Loads agentsync.local.json (or fallback locations) and filters/merges selected MCPs
  */
 
 import { readFile } from 'node:fs/promises';
@@ -20,20 +20,65 @@ export interface ProjectMCPConfig {
 }
 
 /**
+ * Get MCP config file path with fallback priority:
+ * 1. agentsync.local.json (primary - root level, follows *.local.json convention)
+ * 2. .agentsync/config.local.json (backup - hidden directory)
+ * 3. .agentsync/config.json (team-shared, optional)
+ */
+async function getMCPConfigPath(): Promise<string | null> {
+  const cwd = process.cwd();
+
+  // Primary: Root-level local config (follows TypeScript/ESLint convention)
+  const primaryPath = path.join(cwd, 'agentsync.local.json');
+  if (await pathExists(primaryPath)) {
+    return primaryPath;
+  }
+
+  // Backup: Hidden directory local config
+  const backupPath = path.join(cwd, '.agentsync', 'config.local.json');
+  if (await pathExists(backupPath)) {
+    return backupPath;
+  }
+
+  // Fallback: Team-shared config (optional)
+  const teamPath = path.join(cwd, '.agentsync', 'config.json');
+  if (await pathExists(teamPath)) {
+    return teamPath;
+  }
+
+  return null;
+}
+
+/**
  * Load project MCP configuration
- * @param configPath - Optional custom path (defaults to .agentsync.json in cwd)
+ * @param configPath - Optional custom path (defaults to auto-detect with fallback)
  * @returns Project configuration (empty mcpServers arrays/objects are valid)
  * @throws Error if config doesn't exist or is invalid
  */
 export async function loadProjectConfig(configPath?: string): Promise<ProjectMCPConfig> {
-  const filepath = configPath || path.join(process.cwd(), '.agentsync.json');
+  let filepath: string | null;
 
-  // Check if file exists
-  if (!(await pathExists(filepath))) {
-    throw new Error(
-      `Project configuration not found at: ${filepath}\n\n` +
-        `Run 'agentsync mcp init' to create it.`
-    );
+  if (configPath) {
+    // Custom path provided
+    filepath = configPath;
+    if (!(await pathExists(filepath))) {
+      throw new Error(`MCP configuration not found at: ${filepath}`);
+    }
+  } else {
+    // Auto-detect with fallback
+    filepath = await getMCPConfigPath();
+    if (!filepath) {
+      throw new Error(
+        `MCP configuration not found.\n\n` +
+        `Expected one of:\n` +
+        `  - agentsync.local.json (local, gitignored)\n` +
+        `  - .agentsync/config.local.json (backup location)\n` +
+        `  - .agentsync/config.json (team-shared, optional)\n\n` +
+        `Create agentsync.local.json with:\n` +
+        `  {"mcpServers": []}\n\n` +
+        `Then use 'agentsync mcp add <server>' to select MCPs.`
+      );
+    }
   }
 
   // Read and parse JSON
@@ -42,19 +87,22 @@ export async function loadProjectConfig(configPath?: string): Promise<ProjectMCP
     const content = await readFile(filepath, 'utf-8');
     config = JSON.parse(content);
   } catch (error) {
-    throw new Error(`Failed to parse project configuration: ${(error as Error).message}`);
+    throw new Error(`Failed to parse MCP configuration at ${filepath}: ${(error as Error).message}`);
   }
 
   // Validate structure
   if (typeof config !== 'object' || config === null) {
-    throw new Error('Project configuration must be an object');
+    throw new Error(`MCP configuration must be an object at ${filepath}`);
   }
 
   const configObj = config as Record<string, unknown>;
 
   // Check for mcpServers field
   if (!configObj.mcpServers) {
-    throw new Error(`Project configuration missing 'mcpServers' field`);
+    throw new Error(
+      `MCP configuration missing 'mcpServers' field at ${filepath}\n\n` +
+      `Expected format: {"mcpServers": []}`
+    );
   }
 
   // Validate mcpServers is array or object (empty arrays/objects are valid)
@@ -62,7 +110,7 @@ export async function loadProjectConfig(configPath?: string): Promise<ProjectMCP
     !Array.isArray(configObj.mcpServers) &&
     (typeof configObj.mcpServers !== 'object' || configObj.mcpServers === null)
   ) {
-    throw new Error(`'mcpServers' must be an array or object`);
+    throw new Error(`'mcpServers' must be an array or object at ${filepath}`);
   }
 
   return config as ProjectMCPConfig;

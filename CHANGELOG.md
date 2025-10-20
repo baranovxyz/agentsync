@@ -7,6 +7,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-alpha.7] - 2025-10-20
+
+### Changed
+
+- **CLI Help Output** - Removed all unimplemented Phase 2 commands from help
+  - Removed 9 command stubs: sync, watch, validate, diff, migrate, doctor, status, tree, audit
+  - Users now see only working commands (init + all MCP commands)
+  - No more confusing "not yet implemented" error messages
+  - Cleaner, focused help output
+  - Commands will be added back as they're implemented
+
+### Fixed
+
+- User confusion from help showing unimplemented commands
+- Misleading CLI interface suggesting features that don't exist
+
+## [0.2.0-alpha.6] - 2025-10-20
+
+### Breaking Changes
+
+**MCP Config File Location Changed**
+- **Before**: `.agentsync.json` (root)
+- **After**: `agentsync.local.json` (root, gitignored by default)
+- **Reason**: Fixes confusing UX where `init` and `mcp` commands used different config files
+- **Migration**: Rename `.agentsync.json` → `agentsync.local.json`
+
+### Added
+
+- **Architecture Documentation**
+  - New `ARCHITECTURE.md` with detailed design documentation
+  - ADR-001: Config File Locations decision record in agentsync-docs
+  - Comprehensive module explanations (13 core modules documented)
+
+- **Config File Fallback Chain**
+  - Primary: `agentsync.local.json` (root-level, follows TypeScript/ESLint `*.local.json` convention)
+  - Backup: `.agentsync/config.local.json` (hidden directory alternative)
+  - Team: `.agentsync/config.json` (optional team-shared MCPs)
+
+### Changed
+
+- **Init Command UX**
+  - Removed references to unimplemented commands (sync, validate, watch)
+  - Added clear guidance for MCP setup with correct file names
+  - Updated gitignore template to include `agentsync.local.json` and `.agentsync/config.local.json`
+
+- **Error Messages**
+  - Improved MCP error messages with helpful next steps
+  - Clear guidance on which config file to create and where
+  - Examples of correct config format in error output
+
+### Fixed
+
+- Confusing UX where users didn't know which config file to use for MCPs
+- Init command suggested running unimplemented Phase 2 commands
+- MCP config files not following common `*.local.json` convention
+- No clear separation between committed and gitignored configuration
+
+### Documentation
+
+- Updated README.md with new config file paths
+- Updated CLAUDE.md with references to ARCHITECTURE.md
+- Updated all manual tests and test fixtures (195 tests passing)
+
 ## [0.2.0-alpha.5] - 2025-10-20
 
 ### Fixed
