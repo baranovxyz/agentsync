@@ -374,6 +374,14 @@ pnpm cli mcp --help
 }
 ```
 
+**Starting fresh?** Empty configs are valid:
+```bash
+# Start with no MCPs configured (valid)
+echo '{"mcpServers": []}' > .agentsync.json
+agentsync mcp list  # Shows all MCPs as inactive
+agentsync mcp add github  # Add your first MCP
+```
+
 ### AGENTS.md Configuration (`.agentsync/config.json`)
 
 ```json
