@@ -69,7 +69,7 @@ describe('listMCP', () => {
     const projectConfig = {
       mcpServers: ['github', 'postgres'],
     };
-    await fs.writeJson('.agentsync.json', projectConfig);
+    await fs.writeJson('agentsync.local.json', projectConfig);
 
     const result = await listMCP();
 
@@ -86,7 +86,7 @@ describe('listMCP', () => {
     const projectConfig = {
       mcpServers: ['github'],
     };
-    await fs.writeJson('.agentsync.json', projectConfig);
+    await fs.writeJson('agentsync.local.json', projectConfig);
 
     const result = await listMCP();
 
@@ -107,7 +107,7 @@ describe('listMCP', () => {
   });
 
   it('works without project config when flag is set', async () => {
-    // No .agentsync.json created
+    // No agentsync.local.json created
 
     const result = await listMCP({ ignoreProjectConfig: true });
 
