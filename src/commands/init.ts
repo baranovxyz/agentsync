@@ -6,6 +6,7 @@
 import * as fs from 'fs-extra';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+import { createRequire } from 'node:module';
 import { select, checkbox, confirm } from '@inquirer/prompts';
 import picocolors from 'picocolors';
 import { ConfigError, FileSystemError, ErrorCategory, ErrorSeverity } from '../core/errors.js';
@@ -15,6 +16,39 @@ import type { InitOptions, ToolName } from '../types/index.js';
 const pc = picocolors;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+/**
+ * Find the package root directory by traversing up until we find package.json
+ * This works reliably regardless of bundling, distribution, or execution context
+ */
+async function findPackageRoot(startDir: string): Promise<string> {
+  let currentDir = startDir;
+  const root = path.parse(currentDir).root;
+
+  while (currentDir !== root) {
+    const packageJsonPath = path.join(currentDir, 'package.json');
+    if (await fs.pathExists(packageJsonPath)) {
+      return currentDir;
+    }
+    currentDir = path.dirname(currentDir);
+  }
+
+  throw new Error('Could not find package.json in any parent directory');
+}
+
+/**
+ * Get package root using require.resolve as fallback
+ * This works well for production npm installs
+ */
+function getPackageRootViaRequire(): string | null {
+  try {
+    const require = createRequire(import.meta.url);
+    const packageJsonPath = require.resolve('agentsync/package.json');
+    return path.dirname(packageJsonPath);
+  } catch {
+    return null;
+  }
+}
 
 // Available templates
 const TEMPLATES = {
@@ -183,17 +217,26 @@ export class InitCommand {
 
     const templateFile = TEMPLATES[templateName as keyof typeof TEMPLATES] || TEMPLATES.default;
 
-    // Find templates directory relative to the bundled code location
-    // In production: dist/init-*.js -> ../../templates
-    // The __dirname is the directory of the bundled init file
-    let templatePath = path.join(__dirname, '../../templates', templateFile);
+    // Find package root using multiple strategies for maximum reliability
+    let packageRoot: string | null = null;
 
-    // Fallback: try relative to cli.js location
-    if (!await fs.pathExists(templatePath)) {
-      // Go up from dist/ to root
-      templatePath = path.join(path.dirname(process.argv[1]), '../templates', templateFile);
+    // Strategy 1: Traverse up from current module location (works in dev and bundled)
+    try {
+      packageRoot = await findPackageRoot(__dirname);
+    } catch (error) {
+      // Strategy 2: Use require.resolve (works in production npm installs)
+      packageRoot = getPackageRootViaRequire();
     }
 
+    if (!packageRoot) {
+      throw new FileSystemError(
+        'Could not locate agentsync package root directory',
+        __dirname,
+        new Error('All package root detection strategies failed')
+      );
+    }
+
+    const templatePath = path.join(packageRoot, 'templates', templateFile);
     const targetPath = path.join(process.cwd(), 'AGENTS.md');
 
     try {
