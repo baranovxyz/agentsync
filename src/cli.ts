@@ -170,6 +170,52 @@ mcpCommand
     }
   });
 
+// Sync command (v0.3.0-beta)
+program
+  .command('sync')
+  .description('Sync rules, commands, and MCPs from libraries to tools')
+  .option('--update', 'Update GitHub caches before syncing')
+  .option('--dry-run', 'Preview changes without writing files')
+  .option('--tool <name>', 'Sync only to specific tool (cursor, claude)')
+  .action(async (options) => {
+    try {
+      const { sync } = await import('./commands/sync.js');
+      await sync(options);
+    } catch (error) {
+      handleError(error as Error);
+    }
+  });
+
+// Library management commands (v0.3.0-beta)
+const library = program
+  .command('library')
+  .description('Manage library cache');
+
+library
+  .command('list')
+  .description('Show extended libraries')
+  .action(async () => {
+    try {
+      const { listLibraries } = await import('./commands/library/list.js');
+      await listLibraries();
+    } catch (error) {
+      handleError(error as Error);
+    }
+  });
+
+library
+  .command('cache-clear')
+  .description('Clear GitHub library cache')
+  .option('--all', 'Clear all caches')
+  .action(async (options) => {
+    try {
+      const { clearCache } = await import('./commands/library/cache-clear.js');
+      await clearCache(options);
+    } catch (error) {
+      handleError(error as Error);
+    }
+  });
+
 // Phase 2 commands (AGENTS.md sync) - Not yet implemented
 // Removed to avoid user confusion. Will be added back as features are completed.
 
