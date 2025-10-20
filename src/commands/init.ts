@@ -73,21 +73,27 @@ export class InitCommand {
     console.log(pc.blue('🚀 Initializing AgentSync...\n'));
 
     try {
-      // Check if AGENTS.md already exists
-      const agentsPath = path.join(process.cwd(), 'AGENTS.md');
-      if (await fs.pathExists(agentsPath) && !options.force) {
+      // Check if .agentsync/config.json already exists (source of truth)
+      const configPath = path.join(process.cwd(), '.agentsync', 'config.json');
+      if (await fs.pathExists(configPath) && !options.force) {
         throw new ConfigError(
-          'AGENTS.md already exists',
-          agentsPath,
-          'Use --force to overwrite or manually backup the existing file'
+          'AgentSync is already initialized',
+          configPath,
+          'Use --force to re-initialize or update configuration manually'
         );
       }
 
       // Interactive setup if no options provided
       const config = await this.interactiveSetup(options);
 
-      // Create AGENTS.md from template
-      await this.createAgentsMd(config.template);
+      // Create AGENTS.md from template (skip if already exists unless forced)
+      const agentsPath = path.join(process.cwd(), 'AGENTS.md');
+      const shouldCreateAgentsMd = !await fs.pathExists(agentsPath) || options.force;
+      if (shouldCreateAgentsMd) {
+        await this.createAgentsMd(config.template);
+      } else {
+        console.log(pc.gray('  AGENTS.md already exists, skipping template creation...'));
+      }
 
       // Create .agentsync directory
       await this.createAgentSyncDir();
