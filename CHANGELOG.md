@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-alpha.5] - 2025-10-20
+
+### Fixed
+- **Init Command** - Use `.agentsync/config.json` as source of truth instead of `AGENTS.md`
+  - Previously failed when `AGENTS.md` already existed, blocking legitimate workflows
+  - Now skips `AGENTS.md` template creation if file exists (unless `--force` used)
+  - Enables adding AgentSync to projects that already follow AGENTS.md specification
+  - Use cases: existing AGENTS.md projects, mature codebases, template projects
+
 ## [0.2.0-alpha.4] - 2025-10-20
 
 ### Fixed
