@@ -78,6 +78,40 @@ export const AgentsMdSchema = z.object({
 // Configuration schema for .agentsync/config.json
 export const AgentSyncConfigSchema = z.object({
   version: z.string().default('1.0'),
+
+  // GitHub registry sources (v0.3.0-beta)
+  extends: z
+    .array(
+      z.union([
+        z.string(), // Simple: "github:company/standards"
+        z.object({
+          source: z.string(),
+          namespace: z.string().optional(), // Override default namespace
+          include: z.array(z.string()).optional(), // Glob patterns
+          exclude: z.array(z.string()).optional(), // Glob patterns
+        }),
+      ])
+    )
+    .optional(),
+
+  // MCP servers (moved to main config in v0.3.0-beta)
+  mcpServers: z
+    .union([
+      z.array(z.string()),
+      z.record(
+        z.string(),
+        z.union([
+          z.boolean(),
+          z.object({
+            command: z.string().optional(),
+            args: z.array(z.string()).optional(),
+            env: z.record(z.string(), z.string()).optional(),
+          }),
+        ])
+      ),
+    ])
+    .optional(),
+
   tools: z.array(
     z.enum(['cursor', 'claude', 'cline', 'windsurf', 'copilot'])
   ),
@@ -276,4 +310,58 @@ export function safeParseAgentsMd(
   } else {
     return { success: false, error: result.error };
   }
+}
+
+/**
+ * Parsed extends entry with normalized namespace
+ */
+export interface ExtendsEntry {
+  source: string;
+  namespace: string;
+  include?: string[];
+  exclude?: string[];
+}
+
+/**
+ * Parse extends field to normalized format with extracted namespaces
+ * @example
+ * normalizeExtends(['github:company/standards']) → [{source: 'github:company/standards', namespace: 'company'}]
+ */
+export function normalizeExtends(
+  extends_?: AgentSyncConfig['extends']
+): ExtendsEntry[] {
+  if (!extends_) return [];
+
+  return extends_.map((entry) => {
+    if (typeof entry === 'string') {
+      // Extract namespace from source: github:company/standards → namespace: company
+      const namespace = extractNamespace(entry);
+      return { source: entry, namespace };
+    }
+
+    return {
+      source: entry.source,
+      namespace: entry.namespace || extractNamespace(entry.source),
+      include: entry.include,
+      exclude: entry.exclude,
+    };
+  });
+}
+
+/**
+ * Extract namespace from GitHub source
+ * @example
+ * extractNamespace('github:company/standards') → 'company'
+ * extractNamespace('github:acme-corp/backend-rules') → 'acme-corp'
+ */
+function extractNamespace(source: string): string {
+  // github:company/standards → company
+  // github:acme-corp/backend-rules → acme-corp
+  const match = source.match(/^github:([^/]+)\//);
+  if (!match) {
+    throw new Error(
+      `Invalid GitHub source: ${source}. Expected format: github:org/repo`
+    );
+  }
+  return match[1];
 }

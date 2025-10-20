@@ -372,11 +372,14 @@ export class InitCommand {
         await fs.ensureDir(dir);
       }
 
-      // Create config file
+      // Create config file (v0.3.0-beta format)
       const config = {
         version: '1.0',
-        createdAt: new Date().toISOString(),
+        extends: [], // GitHub libraries (v0.3.0-beta)
+        mcpServers: [], // MCP servers in main config (v0.3.0-beta)
         tools: [],
+        useSymlinks: true,
+        createdAt: new Date().toISOString(),
       };
 
       await fs.outputFile(
