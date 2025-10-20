@@ -1,15 +1,17 @@
 # Testing Strategy
 
-> **Quick Links:** [Automated Tests](#automated-testing) · [Manual Testing](#manual-testing) · [Pre-Release Checklist](#pre-release-checklist) · [Detailed Docs](docs/testing/)
+> **Quick Links:** [Automated Tests](#automated-testing) · [E2E Tests](#e2e-testing) · [Pre-Release Checklist](#pre-release-checklist) · [Detailed Docs](docs/testing/)
 
 ## Overview
 
-AgentSync uses a comprehensive, multi-layered testing strategy to ensure CLI reliability, UX quality, and production readiness.
+AgentSync uses a comprehensive, fully-automated testing strategy to ensure CLI reliability, UX quality, and production readiness.
 
 **Test Philosophy:**
-- **Automated tests** catch regressions and validate functionality
-- **Shell tests** ensure real-world CLI execution works
-- **Manual tests** validate user workflows and error messages
+- **Unit tests** catch regressions and validate functionality
+- **Integration tests** ensure components work together
+- **E2E tests** validate complete workflows and production package
+- **Shell tests** verify real-world CLI execution
+- **All tests automated** - no manual testing required
 
 ---
 
@@ -20,7 +22,7 @@ AgentSync uses a comprehensive, multi-layered testing strategy to ensure CLI rel
 pnpm install
 pnpm build
 
-# Run all automated tests (2 seconds)
+# Run all automated tests (~10 seconds)
 pnpm test
 
 # Run specific test suites
@@ -29,13 +31,8 @@ pnpm test:bats       # Shell script tests (BATS)
 pnpm test:coverage   # With coverage report
 
 # Run critical tests before release
-pnpm test                                    # Fast unit/integration (~2s)
-pnpm test:shell                              # Shell execution (~2s)
-pnpm test tests/e2e/install-test.test.ts   # Production package (~30-60s)
-
-# Manual testing (optional - mostly replaced by install test)
-cd manual-tests
-# Follow scenarios 00 → 08 if needed for final UX validation
+pnpm test                                    # All tests (unit + integration + E2E)
+pnpm test tests/e2e/install-test.test.ts   # Production package validation
 ```
 
 ---
@@ -44,12 +41,15 @@ cd manual-tests
 
 | Type | Count | Speed | Coverage | Purpose | Documentation |
 |------|-------|-------|----------|---------|---------------|
-| **Vitest (Unit/Integration)** | 125 | ~2s | >90% | Core functionality | [automated.md](docs/testing/automated.md) |
+| **Vitest (Unit/Integration)** | 166 | ~2s | >90% | Core functionality | [automated.md](docs/testing/automated.md) |
+| **E2E Workflow Tests** | 5 | ~1s | - | MCP lifecycle | [automated.md](docs/testing/automated.md#e2e-workflow-tests) |
+| **E2E Error Scenarios** | 11 | ~1s | - | Edge cases & errors | [automated.md](docs/testing/automated.md#e2e-error-scenarios) |
+| **Install Test (Production)** | 22 | ~30-60s | - | Package validation + new UX | [automated.md](docs/testing/automated.md#install-test-production-package-validation) |
 | **Shell Tests (Vitest + execa)** | 24 | ~2s | - | Real CLI execution | [shell-implementation.md](docs/testing/shell-implementation.md) |
-| **Install Test (Production)** | 17 | ~30-60s | - | Package validation | [automated.md](docs/testing/automated.md#install-test-production-package-validation) |
 | **BATS (Shell Scripts)** | 26 | ~5s | - | Shell validation | [shell-implementation.md](docs/testing/shell-implementation.md) |
-| **Manual Scenarios** | 48 | ~30m | - | UX workflows | [manual-testing.md](docs/testing/manual-testing.md) |
-| **Total** | **240** | - | - | Complete coverage | - |
+| **Total** | **207** | ~10s | >90% | Complete coverage | - |
+
+**All tests are automated** - no manual testing required. E2E tests cover all workflows previously done manually.
 
 ---
 
@@ -122,34 +122,52 @@ When major dependencies are updated, common issues include:
 
 ---
 
-## Manual Testing
+## E2E Testing
 
-Systematic, scenario-based testing for UX validation.
+Comprehensive end-to-end tests covering complete workflows and error scenarios.
 
-**Location:** [`manual-tests/`](manual-tests/)
+**Test Files:**
+- `tests/e2e/mcp-workflow.test.ts` - Complete MCP lifecycle (add → sync → remove)
+- `tests/e2e/error-scenarios.test.ts` - Edge cases and error handling
+- `tests/e2e/install-test.test.ts` - Production package validation
 
-**Scenarios:**
-1. **Setup** (2 min) - Build, link, verify
-2. **No Registry** (3 min) - New user without MCP registry
-3. **First-Time Setup** (5 min) - Creating global registry
-4. **Basic Workflow** (10 min) - Add → Sync → Remove
-5. **Error Handling** (8 min) - Edge cases and validation
-6. **Cleanup** (2 min) - Teardown
+**Workflow Tests** (5 tests):
+- Complete MCP lifecycle workflow
+- Token substitution in real files
+- Multi-tool sync
+- Tool-specific sync (--tool flag)
+- Dry-run mode validation
+- Removing last MCP (empty config)
+
+**Error Scenarios** (11 tests):
+- Invalid MCP names
+- Duplicate MCP addition
+- Removing non-existent MCPs
+- Missing environment variables
+- No target directories
+- Spaces in paths
+- Invalid JSON recovery
+- Permission errors (Unix only)
+- Empty global registry
+- Auto-creating missing config
 
 **Run:**
 ```bash
-# Build and link CLI
-pnpm build
-pnpm link --global
+# Run all E2E tests
+pnpm test tests/e2e/
 
-# Execute manual test scenarios
-cd manual-tests
-# Follow: 00-setup.md → ... → 08-cleanup.md
-
-# Record results in test-results-template.md
+# Run specific E2E test file
+pnpm test tests/e2e/mcp-workflow.test.ts
+pnpm test tests/e2e/error-scenarios.test.ts
+pnpm test tests/e2e/install-test.test.ts
 ```
 
-**Details:** [docs/testing/manual-testing.md](docs/testing/manual-testing.md)
+**Benefits:**
+- ✅ Fully automated - no human intervention
+- ✅ Consistent results
+- ✅ Fast execution (~10s total)
+- ✅ Runs in CI on every commit
+- ✅ Covers all workflows previously done manually
 
 ---
 
@@ -158,25 +176,17 @@ cd manual-tests
 Before publishing to npm:
 
 ### 1. Automated Tests ✅
-- [ ] All tests pass: `pnpm test`
+- [ ] All tests pass: `pnpm test` (207 tests)
+- [ ] E2E tests pass: `pnpm test tests/e2e/`
 - [ ] Shell tests pass: `pnpm test:shell`
-- [ ] Install test pass: `pnpm test tests/e2e/install-test.test.ts`
+- [ ] Install test passes: `pnpm test tests/e2e/install-test.test.ts`
 - [ ] BATS tests pass: `pnpm test:bats` (if installed)
 - [ ] Coverage >80%: `pnpm test:coverage`
 - [ ] No TypeScript errors: `pnpm lint`
 
-### 2. Manual Testing (Optional - Install Test Replaces Most) ⚠️
-- [ ] Execute critical UX scenarios in `manual-tests/` (if needed)
-- [ ] Record results in `test-results-template.md`
-- [ ] All tests pass or documented
-- [ ] Error messages are helpful
+**All testing is automated** - no manual steps required!
 
-**Note**: The install test automates most manual testing. Manual tests are only needed for:
-- Final UX validation before major releases
-- Testing specific edge cases not covered by install test
-- Validating error message quality
-
-### 3. Build & Package ✅
+### 2. Build & Package ✅
 - [ ] Clean build: `rm -rf dist && pnpm build`
 - [ ] Install test passes (validates tarball creation & installation)
 - [ ] ~~Pack tarball manually~~ (install test does this)
@@ -245,9 +255,7 @@ sudo apt-get install -y bats  # Ubuntu
 
 - **[Automated Testing](docs/testing/automated.md)** - Vitest and BATS details
 - **[Shell Implementation](docs/testing/shell-implementation.md)** - Shell testing deep dive
-- **[Manual Testing Guide](docs/testing/manual-testing.md)** - Manual test suite reference
-- **[Manual Test Scenarios](manual-tests/)** - Step-by-step test scenarios
-- **[Installation Methods](manual-tests/INSTALLATION_METHODS.md)** - Local install options
+- **E2E Tests** - See `tests/e2e/` for workflow and error scenario tests
 
 ---
 
@@ -271,10 +279,16 @@ Tests run automatically in GitHub Actions:
 When adding new features:
 
 1. ✅ Write unit tests (Vitest)
-2. ✅ Add shell tests if CLI-related
-3. ✅ Update manual test scenarios if UX changes
+2. ✅ Add E2E tests for new workflows
+3. ✅ Add shell tests if CLI-related
 4. ✅ Ensure all tests pass: `pnpm test`
 5. ✅ Document testing approach
+
+**Test Coverage Requirements:**
+- Unit tests for all new functions
+- E2E tests for user-facing workflows
+- Error scenario tests for edge cases
+- All tests automated (no manual steps)
 
 ---
 
