@@ -199,6 +199,11 @@ Total: 87 MCP tests passing, >90% coverage
   - Cline: `.cline/AGENTS.md`, `.cline/instructions.md`
   - Windsurf: `.windsurf/AGENTS.md`, `.windsurf/instructions.md`
   - Copilot: `.github/copilot/AGENTS.md`, `.github/copilot-instructions.md`
+- **Source of Truth**: `.agentsync/config.json` (not AGENTS.md)
+  - Init fails only if config.json exists (without `--force`)
+  - Skips AGENTS.md creation if file already exists (unless `--force`)
+  - Enables adding AgentSync to projects with existing AGENTS.md files
+  - Use cases: existing AGENTS.md projects, mature codebases, template projects
 
 #### 6. **Error System** (`src/core/errors.ts`)
 - **Base Class**: `AgentSyncError` with metadata
@@ -541,6 +546,33 @@ The MCP configuration supports both array and object formats, and **empty config
 8. **Test Mocks**: When using `vi.mock('fs-extra')`, ensure all used methods are mocked:
    - Include `outputFile` if using it in source code
    - E2E tests use real fs-extra (not mocked), so they catch missing methods
+
+## TDD for Bug Fixes
+
+When fixing bugs, follow TDD approach:
+1. **Write failing tests first** - Create tests that demonstrate the bug
+2. **Update implementation** - Fix the code to make tests pass
+3. **Verify with real usage** - Test CLI in actual scenarios
+4. **Test coverage patterns**:
+   - Success case (new behavior works)
+   - Error case (proper validation)
+   - Skip logic (conditional behavior)
+   - Force flag override (when applicable)
+
+Example: Init command fix added 3 new tests + 1 updated test before implementation.
+
+## npm Publishing Workflow
+
+When releasing a new version:
+1. **Update version**: Edit `package.json` version field
+2. **Update changelog**: Add entry to `CHANGELOG.md` with date
+3. **Commit**: `chore: bump version to X.Y.Z and update changelog`
+4. **Tag**: `git tag vX.Y.Z`
+5. **Push**: `git push origin main && git push origin vX.Y.Z`
+6. **Build & Test**: `pnpm build && pnpm test`
+7. **Publish**: `npm publish` (version string includes alpha/beta - no dist-tag needed)
+
+Note: Pre-release versions like `0.2.0-alpha.5` don't need `--tag alpha` - the version string itself signals pre-release status.
 
 ## Important Files & Paths
 
