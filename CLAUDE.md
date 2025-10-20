@@ -823,7 +823,7 @@ The MCP configuration supports both array and object formats, and **empty config
 - **E2E CLI tests**: Copy `dist/` folder + create symlink to `node_modules/`
 - **Why**: Vite externalizes all dependencies (not bundled into dist)
 - **Critical**: NODE_PATH doesn't work with ESM (only works with CommonJS `require()`)
-- **See**: [ADR-002](/Users/baranovxyz/oss/agentsync-docs/adr/002-fs-extra-v11-and-esm-test-isolation.md) for detailed rationale
+- **See**: ADR-002 (agentsync-docs/adr) for detailed rationale
 - **Pattern**:
   ```typescript
   beforeAll(async () => {
@@ -887,13 +887,13 @@ The MCP configuration supports both array and object formats, and **empty config
 - **Why**: NODE_PATH only affects CommonJS `require()`, not ESM `import` statements
 - **Test isolation**: Create symlink to node_modules in temp CLI location (see Test Isolation Best Practices)
 - **Alternative**: Copy node_modules (slow, ~500MB) or run from original location (loses isolation)
-- **See**: [ADR-002](/Users/baranovxyz/oss/agentsync-docs/adr/002-fs-extra-v11-and-esm-test-isolation.md) for complete analysis
+- **See**: ADR-002 (agentsync-docs/adr) for complete analysis
 
 ### fs-extra v11 Compatibility
 - fs-extra v11+ removed `readJson`, `writeJson`, `readFile`, `writeFile`, and `symlink` methods
 - **Solution**: Use native Node.js functions from `node:fs/promises`
 - For writing with automatic directory creation: Use `fs.outputFile` from fs-extra
-- **See**: [ADR-002](/Users/baranovxyz/oss/agentsync-docs/adr/002-fs-extra-v11-and-esm-test-isolation.md) for complete migration guide
+- **See**: ADR-002 (agentsync-docs/adr) for complete migration guide
 - **Pattern**:
   ```typescript
   // Import native functions
@@ -949,7 +949,7 @@ Example: Init command fix added 3 new tests + 1 updated test before implementati
 
 **Key Learning**: When upgrading dependencies, update test mocks BEFORE implementation to catch API changes early.
 
-**See**: [ADR-002](/Users/baranovxyz/oss/agentsync-docs/adr/002-fs-extra-v11-and-esm-test-isolation.md) for complete details.
+**See**: ADR-002 (agentsync-docs/adr) for complete details.
 
 ## npm Publishing Workflow
 
