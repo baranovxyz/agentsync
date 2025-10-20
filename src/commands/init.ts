@@ -69,6 +69,102 @@ const TOOL_CONFIGS: Record<ToolName, string[]> = {
 export class InitCommand {
   private audit = AuditLogger.getInstance();
 
+  /**
+   * Show current AgentSync setup status with helpful next steps
+   */
+  private async showCurrentStatus(): Promise<void> {
+    console.log(pc.cyan('✓ AgentSync is already initialized\n'));
+
+    // Check what's configured
+    const agentsMdPath = path.join(process.cwd(), 'AGENTS.md');
+    const agentsMdExists = await fs.pathExists(agentsMdPath);
+
+    const mcpConfigPath = await this.getMCPConfigPath();
+    const mcpConfigExists = mcpConfigPath !== null;
+
+    let mcpCount = 0;
+    if (mcpConfigExists && mcpConfigPath) {
+      try {
+        const { readFile } = await import('node:fs/promises');
+        const content = await readFile(mcpConfigPath, 'utf-8');
+        const config = JSON.parse(content);
+        if (Array.isArray(config.mcpServers)) {
+          mcpCount = config.mcpServers.length;
+        } else if (typeof config.mcpServers === 'object') {
+          mcpCount = Object.keys(config.mcpServers).length;
+        }
+      } catch {
+        // Ignore parsing errors
+      }
+    }
+
+    const configPath = path.join(process.cwd(), '.agentsync', 'config.json');
+    let tools: string[] = [];
+    try {
+      const { readFile } = await import('node:fs/promises');
+      const content = await readFile(configPath, 'utf-8');
+      const config = JSON.parse(content);
+      tools = config.tools || [];
+    } catch {
+      // Ignore parsing errors
+    }
+
+    // Display status
+    console.log(pc.bold('Current setup:'));
+    console.log(
+      pc.gray('  AGENTS.md sync: '),
+      agentsMdExists ? pc.green('✓ Configured') : pc.yellow('✗ Not set up')
+    );
+    console.log(
+      pc.gray('  MCP servers:    '),
+      mcpConfigExists
+        ? pc.green(`✓ ${mcpCount} server${mcpCount !== 1 ? 's' : ''} configured`)
+        : pc.yellow('✗ Not configured')
+    );
+    console.log(
+      pc.gray('  Tools syncing:  '),
+      tools.length > 0 ? pc.green(tools.join(', ')) : pc.gray('None')
+    );
+
+    // Show next steps
+    console.log();
+    console.log(pc.bold('What you can do:'));
+
+    if (!mcpConfigExists) {
+      console.log(pc.gray('  • Set up MCP servers: ') + pc.cyan('agentsync mcp add <server>'));
+      console.log(pc.gray('  • View MCP options:   ') + pc.cyan('agentsync mcp list'));
+    } else if (mcpCount === 0) {
+      console.log(pc.gray('  • Add an MCP server:  ') + pc.cyan('agentsync mcp add github'));
+      console.log(pc.gray('  • View MCP options:   ') + pc.cyan('agentsync mcp list'));
+    } else {
+      console.log(pc.gray('  • Sync MCP changes:   ') + pc.cyan('agentsync mcp sync'));
+      console.log(pc.gray('  • Manage MCPs:        ') + pc.cyan('agentsync mcp list'));
+    }
+
+    console.log(pc.gray('  • Re-initialize:      ') + pc.cyan('agentsync init --force'));
+    console.log();
+  }
+
+  /**
+   * Get MCP config file path (checks multiple locations)
+   */
+  private async getMCPConfigPath(): Promise<string | null> {
+    const cwd = process.cwd();
+    const paths = [
+      path.join(cwd, 'agentsync.local.json'),
+      path.join(cwd, '.agentsync', 'config.local.json'),
+      path.join(cwd, '.agentsync', 'config.json'),
+    ];
+
+    for (const p of paths) {
+      if (await fs.pathExists(p)) {
+        return p;
+      }
+    }
+
+    return null;
+  }
+
   async execute(options: InitOptions): Promise<void> {
     console.log(pc.blue('🚀 Initializing AgentSync...\n'));
 
@@ -76,11 +172,9 @@ export class InitCommand {
       // Check if .agentsync/config.json already exists (source of truth)
       const configPath = path.join(process.cwd(), '.agentsync', 'config.json');
       if (await fs.pathExists(configPath) && !options.force) {
-        throw new ConfigError(
-          'AgentSync is already initialized',
-          configPath,
-          'Use --force to re-initialize or update configuration manually'
-        );
+        // Show helpful status instead of blocking error
+        await this.showCurrentStatus();
+        return;
       }
 
       // Interactive setup if no options provided
@@ -108,6 +202,12 @@ export class InitCommand {
         await this.updateGitignore();
       }
 
+      // Optional MCP setup (only in interactive mode)
+      const mcpConfigPath = await this.getMCPConfigPath();
+      if (!mcpConfigPath && !options.template && !options.tools) {
+        await this.optionalMCPSetup();
+      }
+
       // Log success
       await this.audit.log({
         type: AuditEventType.INIT_WORKSPACE,
@@ -119,12 +219,20 @@ export class InitCommand {
 
       // Success message
       console.log(pc.green('\n✅ AgentSync initialized successfully!\n'));
-      console.log(pc.gray('Next steps:'));
-      console.log(pc.gray('  1. Edit AGENTS.md to match your project'));
-      console.log(pc.gray('  2. (Optional) Set up MCP servers:'));
-      console.log(pc.gray('     - Create agentsync.local.json with {"mcpServers": []}'));
-      console.log(pc.gray('     - Run "agentsync mcp add <server>" to select MCPs'));
-      console.log(pc.gray('     - Run "agentsync mcp sync" to sync to your tools'));
+
+      const mcpConfigAfter = await this.getMCPConfigPath();
+      if (mcpConfigAfter) {
+        console.log(pc.gray('Next steps:'));
+        console.log(pc.gray('  1. Edit AGENTS.md to match your project'));
+        console.log(pc.gray('  2. Add MCP servers: ') + pc.cyan('agentsync mcp add <server>'));
+        console.log(pc.gray('  3. Sync to tools:   ') + pc.cyan('agentsync mcp sync'));
+      } else {
+        console.log(pc.gray('Next steps:'));
+        console.log(pc.gray('  1. Edit AGENTS.md to match your project'));
+        console.log(pc.gray('  2. (Optional) Set up MCP servers:'));
+        console.log(pc.gray('     - Run ') + pc.cyan('agentsync mcp list') + pc.gray(' to see options'));
+        console.log(pc.gray('     - Run ') + pc.cyan('agentsync mcp add <server>') + pc.gray(' to add MCPs'));
+      }
     } catch (error) {
       await this.audit.logError(
         error as Error,
@@ -133,6 +241,43 @@ export class InitCommand {
         { command: 'init', options }
       );
       throw error;
+    }
+  }
+
+  /**
+   * Optional MCP setup workflow
+   */
+  private async optionalMCPSetup(): Promise<void> {
+    console.log();
+
+    // Check if we're in an interactive environment
+    const isInteractive = process.stdin.isTTY;
+    if (!isInteractive) {
+      return;
+    }
+
+    try {
+      const setupMCP = await confirm({
+        message: 'Would you like to set up MCP servers now? (Recommended for reducing AI context)',
+        default: false,
+      });
+
+      if (setupMCP) {
+        console.log(pc.gray('\n  Creating agentsync.local.json...'));
+
+        await fs.outputFile(
+          path.join(process.cwd(), 'agentsync.local.json'),
+          JSON.stringify({ mcpServers: [] }, null, 2) + '\n',
+          'utf-8'
+        );
+
+        console.log(pc.green('  ✓ Created agentsync.local.json'));
+        console.log(pc.gray('\n  MCP servers help reduce AI context by loading only what you need.'));
+        console.log(pc.gray('  This makes responses faster and reduces token costs.\n'));
+      }
+    } catch (error) {
+      // User cancelled or error - continue silently
+      return;
     }
   }
 

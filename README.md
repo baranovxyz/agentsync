@@ -358,9 +358,10 @@ pnpm cli mcp --help
 ```
 
 **Test Coverage:**
-- **223 tests** total (125 Vitest, 24 Shell, 26 BATS, 48 Manual)
+- **207 fully automated tests** (166 Unit, 16 E2E, 24 Shell, 26 BATS)
 - **>90% code coverage** for MCP functionality
 - **Real CLI testing** in bash/zsh environments
+- **All tests automated** - no manual testing required
 
 **See:** [TESTING.md](TESTING.md) for complete testing strategy and guides.
 
