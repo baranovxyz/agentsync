@@ -35,6 +35,7 @@ describe('CLI Shell Execution', () => {
   let tempHomeDir: string;
   let tempCliDir: string;
   let tempCliPath: string;
+  let nodeModulesPath: string;
   let originalCwd: string;
   let originalHome: string | undefined;
   let originalUserProfile: string | undefined;
@@ -45,6 +46,13 @@ describe('CLI Shell Execution', () => {
    */
   async function writeJson(filePath: string, data: unknown): Promise<void> {
     await fs.outputFile(filePath, JSON.stringify(data, null, 2) + '\n', 'utf-8');
+  }
+
+  /**
+   * Helper to execute CLI (resolves dependencies via symlinked node_modules)
+   */
+  function execaCli(args: string[], options: any = {}) {
+    return execa('node', [tempCliPath, ...args], options);
   }
 
   /**
@@ -105,6 +113,9 @@ describe('CLI Shell Execution', () => {
       throw new Error(`CLI not built. Run 'pnpm build' first. Expected: ${originalCliPath}`);
     }
 
+    // Store path to node_modules (for symlink since vite externalizes deps)
+    nodeModulesPath = path.resolve(process.cwd(), 'node_modules');
+
     // Create temp directory for CLI copy
     tempCliDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agentsync-cli-'));
 
@@ -115,6 +126,10 @@ describe('CLI Shell Execution', () => {
     // Copy package.json (needed for version check)
     const packageJson = path.resolve(process.cwd(), 'package.json');
     await fs.copy(packageJson, path.join(tempCliDir, 'package.json'));
+
+    // Create symlink to node_modules (ESM doesn't support NODE_PATH env var)
+    const tempNodeModulesPath = path.join(tempCliDir, 'node_modules');
+    await fs.symlink(nodeModulesPath, tempNodeModulesPath, 'dir');
 
     // Set path to copied CLI
     tempCliPath = path.join(tempCliDir, 'dist', 'cli.js');
@@ -160,14 +175,14 @@ describe('CLI Shell Execution', () => {
 
   describe('Basic CLI Execution', () => {
     it('executes --version flag successfully', async () => {
-      const { stdout, exitCode } = await execa('node', [tempCliPath, '--version']);
+      const { stdout, exitCode } = await execaCli(['--version']);
 
       expect(exitCode).toBe(0);
       expect(stdout).toMatch(/^\d+\.\d+\.\d+/); // Semver pattern
     });
 
     it('executes --help flag successfully', async () => {
-      const { stdout, exitCode } = await execa('node', [tempCliPath, '--help']);
+      const { stdout, exitCode } = await execaCli(['--help']);
 
       expect(exitCode).toBe(0);
       expect(stdout).toContain('agentsync');
@@ -177,7 +192,7 @@ describe('CLI Shell Execution', () => {
 
     it('shows error for unknown command', async () => {
       try {
-        await execa('node', [tempCliPath, 'nonexistent-command']);
+        await execaCli(['nonexistent-command']);
         expect.fail('Should have thrown an error');
       } catch (error: any) {
         expect(error.exitCode).not.toBe(0);
@@ -237,7 +252,7 @@ describe('CLI Shell Execution', () => {
     });
 
     it('executes mcp list command', async () => {
-      const { stdout, exitCode } = await execa('node', [tempCliPath, 'mcp', 'list']);
+      const { stdout, exitCode } = await execaCli(['mcp', 'list']);
 
       expect(exitCode).toBe(0);
       expect(stdout).toContain('github');
@@ -245,7 +260,7 @@ describe('CLI Shell Execution', () => {
     });
 
     it('executes mcp add command', async () => {
-      const { stdout, exitCode } = await execa('node', [tempCliPath, 'mcp', 'add', 'github']);
+      const { stdout, exitCode } = await execaCli(['mcp', 'add', 'github']);
 
       expect(exitCode).toBe(0);
       expect(stdout).toContain('github');
@@ -254,16 +269,17 @@ describe('CLI Shell Execution', () => {
       const configExists = await fs.pathExists('agentsync.local.json');
       expect(configExists).toBe(true);
 
-      const config = await fs.readJson('agentsync.local.json');
+      const configContent = await fs.readFile('agentsync.local.json', 'utf-8');
+      const config = JSON.parse(configContent);
       expect(config.mcpServers).toContain('github');
     });
 
     it('executes mcp sync command', async () => {
       // First add an MCP
-      await execa('node', [tempCliPath, 'mcp', 'add', 'github']);
+      await execaCli(['mcp', 'add', 'github']);
 
       // Then sync
-      const { stdout, exitCode } = await execa('node', [tempCliPath, 'mcp', 'sync']);
+      const { stdout, exitCode } = await execaCli(['mcp', 'sync']);
 
       expect(exitCode).toBe(0);
 
@@ -274,9 +290,9 @@ describe('CLI Shell Execution', () => {
     });
 
     it('executes mcp sync with --dry-run flag', async () => {
-      await execa('node', [tempCliPath, 'mcp', 'add', 'github']);
+      await execaCli(['mcp', 'add', 'github']);
 
-      const { exitCode } = await execa('node', [tempCliPath, 'mcp', 'sync', '--dry-run']);
+      const { exitCode } = await execaCli(['mcp', 'sync', '--dry-run']);
 
       expect(exitCode).toBe(0);
 
@@ -288,9 +304,9 @@ describe('CLI Shell Execution', () => {
     });
 
     it('executes mcp sync with --tool flag', async () => {
-      await execa('node', [tempCliPath, 'mcp', 'add', 'github']);
+      await execaCli(['mcp', 'add', 'github']);
 
-      const { exitCode } = await execa('node', [tempCliPath, 'mcp', 'sync', '--tool', 'cursor']);
+      const { exitCode } = await execaCli(['mcp', 'sync', '--tool', 'cursor']);
 
       expect(exitCode).toBe(0);
 
@@ -303,17 +319,18 @@ describe('CLI Shell Execution', () => {
 
     it('executes mcp remove command', async () => {
       // Add two MCPs so we can remove one
-      await execa('node', [tempCliPath, 'mcp', 'add', 'github']);
-      await execa('node', [tempCliPath, 'mcp', 'add', 'postgres']);
+      await execaCli(['mcp', 'add', 'github']);
+      await execaCli(['mcp', 'add', 'postgres']);
 
       // Then remove one
-      const { stdout, exitCode } = await execa('node', [tempCliPath, 'mcp', 'remove', 'github']);
+      const { stdout, exitCode } = await execaCli(['mcp', 'remove', 'github']);
 
       expect(exitCode).toBe(0);
       expect(stdout).toContain('github');
 
       // Verify removed from config but postgres remains
-      const config = await fs.readJson('agentsync.local.json');
+      const configContent = await fs.readFile('agentsync.local.json', 'utf-8');
+      const config = JSON.parse(configContent);
       expect(config.mcpServers).not.toContain('github');
       expect(config.mcpServers).toContain('postgres');
     });
@@ -323,7 +340,7 @@ describe('CLI Shell Execution', () => {
       await fs.remove(path.join(tempHomeDir, '.agentsync', 'mcp.json'));
 
       try {
-        await execa('node', [tempCliPath, 'mcp', 'list']);
+        await execaCli(['mcp', 'list']);
         expect.fail('Should have thrown an error');
       } catch (error: any) {
         expect(error.exitCode).not.toBe(0);
@@ -334,10 +351,10 @@ describe('CLI Shell Execution', () => {
     it('handles missing environment variables', async () => {
       delete process.env.GITHUB_TOKEN;
 
-      await execa('node', [tempCliPath, 'mcp', 'add', 'github']);
+      await execaCli(['mcp', 'add', 'github']);
 
       try {
-        await execa('node', [tempCliPath, 'mcp', 'sync'], {
+        await execaCli(['mcp', 'sync'], {
           env: { ...process.env, GITHUB_TOKEN: undefined },
         });
         expect.fail('Should have thrown an error');
@@ -360,7 +377,7 @@ describe('CLI Shell Execution', () => {
       // Note: Interactive prompts can't be tested without a TTY
       // We'd need a library like 'expect' or 'inquirer-test' for that
       // For now, just verify the command doesn't crash
-      const { exitCode } = await execa('node', [tempCliPath, '--help']);
+      const { exitCode } = await execaCli(['--help']);
       expect(exitCode).toBe(0);
     });
   });
@@ -370,7 +387,7 @@ describe('CLI Shell Execution', () => {
       await fs.writeFile('agentsync.local.json', '{invalid json}');
 
       try {
-        await execa('node', [tempCliPath, 'mcp', 'list']);
+        await execaCli(['mcp', 'list']);
         expect.fail('Should have thrown an error');
       } catch (error: any) {
         expect(error.exitCode).not.toBe(0);
@@ -400,8 +417,8 @@ describe('CLI Shell Execution', () => {
       await fs.chmod('.cursor', 0o444); // Read-only
 
       try {
-        await execa('node', [tempCliPath, 'mcp', 'add', 'github']);
-        await execa('node', [tempCliPath, 'mcp', 'sync'], {
+        await execaCli(['mcp', 'add', 'github']);
+        await execaCli(['mcp', 'sync'], {
           env: { ...process.env, GITHUB_TOKEN: 'test_token' },
         });
         expect.fail('Should have thrown an error');
@@ -416,7 +433,7 @@ describe('CLI Shell Execution', () => {
 
   describe('Cross-Platform Compatibility', () => {
     it('handles different line endings', async () => {
-      const { stdout } = await execa('node', [tempCliPath, '--version']);
+      const { stdout } = await execaCli(['--version']);
 
       // Should work regardless of line endings
       expect(stdout).toBeTruthy();
@@ -428,7 +445,7 @@ describe('CLI Shell Execution', () => {
       await fs.ensureDir(spacedDir);
       process.chdir(spacedDir);
 
-      const { exitCode } = await execa('node', [tempCliPath, '--version']);
+      const { exitCode } = await execaCli(['--version']);
       expect(exitCode).toBe(0);
     });
 
@@ -446,7 +463,7 @@ describe('CLI Shell Execution', () => {
         env.USERPROFILE = customHome;
       }
 
-      const { stdout, exitCode } = await execa('node', [tempCliPath, 'mcp', 'list'], { env });
+      const { stdout, exitCode } = await execaCli(['mcp', 'list'], { env });
 
       expect(exitCode).toBe(0);
       expect(stdout).toContain('github');
@@ -455,13 +472,13 @@ describe('CLI Shell Execution', () => {
 
   describe('Exit Codes', () => {
     it('exits with 0 on success', async () => {
-      const { exitCode } = await execa('node', [tempCliPath, '--version']);
+      const { exitCode } = await execaCli(['--version']);
       expect(exitCode).toBe(0);
     });
 
     it('exits with non-zero on error', async () => {
       try {
-        await execa('node', [tempCliPath, 'invalid-command']);
+        await execaCli(['invalid-command']);
         expect.fail('Should have thrown');
       } catch (error: any) {
         expect(error.exitCode).toBeGreaterThan(0);
@@ -470,7 +487,7 @@ describe('CLI Shell Execution', () => {
 
     it('exits with non-zero on missing arguments', async () => {
       try {
-        await execa('node', [tempCliPath, 'mcp', 'add']); // Missing MCP name
+        await execaCli(['mcp', 'add']); // Missing MCP name
         expect.fail('Should have thrown');
       } catch (error: any) {
         expect(error.exitCode).toBeGreaterThan(0);
@@ -480,14 +497,14 @@ describe('CLI Shell Execution', () => {
 
   describe('Output Formatting', () => {
     it('outputs valid UTF-8', async () => {
-      const { stdout } = await execa('node', [tempCliPath, '--help']);
+      const { stdout } = await execaCli(['--help']);
 
       // Should not contain malformed UTF-8
       expect(() => Buffer.from(stdout, 'utf-8')).not.toThrow();
     });
 
     it('outputs to stdout for normal output', async () => {
-      const { stdout, stderr } = await execa('node', [tempCliPath, '--version']);
+      const { stdout, stderr } = await execaCli(['--version']);
 
       expect(stdout).toBeTruthy();
       expect(stderr).toBe('');
@@ -495,7 +512,7 @@ describe('CLI Shell Execution', () => {
 
     it('outputs to stderr for errors', async () => {
       try {
-        await execa('node', [tempCliPath, 'invalid-command']);
+        await execaCli(['invalid-command']);
       } catch (error: any) {
         // Either stderr or stdout should contain error message
         expect(error.stderr || error.stdout).toBeTruthy();
