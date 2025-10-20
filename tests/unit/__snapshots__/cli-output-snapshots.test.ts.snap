@@ -124,7 +124,7 @@ Options:
   -h, --help     display help for command"
 `;
 
-exports[`CLI Output Snapshots > Version and Help > --help output matches snapshot 1`] = `
+exports[`CLI Output Snapshots > Version and Help > --help output matches snapshot (version-agnostic) 1`] = `
 "Usage: agentsync [options] [command]
 
 Sync your AGENTS.md to all your AI coding tools - Cursor, Claude Code, Cline,
@@ -142,7 +142,7 @@ Commands:
   help [command]  display help for command
 
   ╔═══════════════════════════════════════╗
-  ║     AgentSync v0.2.0-alpha.9              ║
+  ║     AgentSync vX.Y.Z              ║
   ║  The missing infrastructure layer     ║
   ║  for AI agent configuration sync      ║
   ╚═══════════════════════════════════════╝
