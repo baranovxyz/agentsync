@@ -1,6 +1,6 @@
 {
   "name": "agentsync",
-  "version": "0.2.0-alpha.4",
+  "version": "0.2.0-alpha.5",
   "description": "The missing infrastructure layer for AI coding agent configuration management",
   "type": "module",
   "bin": {
