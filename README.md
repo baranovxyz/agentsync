@@ -7,9 +7,38 @@
 
 > The missing infrastructure layer for AI coding agent configuration management.
 
-**AgentSync** provides two powerful features:
+**AgentSync** provides three powerful features:
 1. **MCP Context Optimizer** (Phase 1 ✅) - Reduce AI context bloat with project-specific MCP server selection
-2. **AGENTS.md Sync** (Phase 2 ⏳) - Sync unified AGENTS.md to all AI coding tools
+2. **GitHub Library System** (v0.3.0-beta 🚧) - Share rules, commands, and MCPs via GitHub repositories
+3. **AGENTS.md Sync** (Phase 2 ⏳) - Sync unified AGENTS.md to all AI coding tools
+
+## v0.3.0-beta: GitHub Library System 🚧 IN PROGRESS
+
+Share team coding standards, commands, and MCPs via GitHub repositories. Core infrastructure complete, targeting full release in early 2025.
+
+**Completed:**
+- ✅ GitHub source parser and cache manager
+- ✅ Namespace-based library merging
+- ✅ SSH/HTTPS fallback for private repos
+- ✅ Config schema with `extends` field
+- ✅ 29 unit tests passing
+
+**Coming Soon:**
+- Rules/commands sync to Cursor & Claude
+- Main sync command
+- Example library repositories
+- Full documentation
+
+**Preview:**
+```json
+{
+  "extends": ["github:company/standards"],
+  "mcpServers": ["github", "postgres"],
+  "tools": ["cursor", "claude"]
+}
+```
+
+Learn more in [CLAUDE.md](./CLAUDE.md#v030-beta-github-library-system)
 
 ## Phase 1: MCP Context Optimizer ✅ COMPLETE
 
