@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 3. **AGENTS.md Sync** (Phase 2 ⏳) - Unified AGENTS.md sync to all AI coding tools
 
 **Current Status**:
-- **Phase 1 (MCP)**: ✅ COMPLETE - 125 tests passing, >90% coverage, CI validated on 9 platforms, production-ready
+- **Phase 1 (MCP)**: ✅ COMPLETE - 293 tests passing (272 unit/integration + 21 E2E), >90% coverage, CI validated on 9 platforms, production-ready
 - **v0.3.0-beta (GitHub Libraries)**: ✅ 100% COMPLETE - 86 tests passing (82 unit/integration + 4 E2E), example library published, production-ready
 - **Phase 2 (AGENTS.md)**: Foundation + Security complete, only `init` command fully implemented
 
@@ -820,17 +820,28 @@ The MCP configuration supports both array and object formats, and **empty config
 - Skip file permission tests on CI (permissions don't persist through build)
 
 ### Test Isolation Best Practices
-- **E2E CLI tests**: Copy entire `dist/` folder to temp location in `beforeAll`
-- **Why**: Prevents production CLI from being deleted during test execution
-- **Required files**: Copy both `dist/` folder AND `package.json` (needed for --version)
+- **E2E CLI tests**: Copy `dist/` folder + create symlink to `node_modules/`
+- **Why**: Vite externalizes all dependencies (not bundled into dist)
+- **Critical**: NODE_PATH doesn't work with ESM (only works with CommonJS `require()`)
+- **See**: [ADR-002](/Users/baranovxyz/oss/agentsync-docs/adr/002-fs-extra-v11-and-esm-test-isolation.md) for detailed rationale
 - **Pattern**:
   ```typescript
   beforeAll(async () => {
     tempCliDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agentsync-cli-'));
     await fs.copy('dist', path.join(tempCliDir, 'dist'));
     await fs.copy('package.json', path.join(tempCliDir, 'package.json'));
+
+    // Critical: Symlink node_modules (ESM can't use NODE_PATH)
+    const nodeModulesPath = path.resolve(process.cwd(), 'node_modules');
+    await fs.symlink(nodeModulesPath, path.join(tempCliDir, 'node_modules'), 'dir');
+
     tempCliPath = path.join(tempCliDir, 'dist', 'cli.js');
   });
+
+  // Helper function for cleaner tests
+  function execaCli(args: string[], options: any = {}) {
+    return execa('node', [tempCliPath, ...args], options);
+  }
   ```
 - **Cleanup**: Only in `afterAll`, never in `afterEach` (to preserve CLI across tests)
 
@@ -871,20 +882,33 @@ The MCP configuration supports both array and object formats, and **empty config
 - ShellCheck runs only on Linux (apt-get unavailable on macOS/Windows)
 - Shebang tests skipped on CI (file permissions don't persist through pnpm build)
 
+### ESM Module Resolution Gotchas
+- **NODE_PATH doesn't work with ES modules**: Use symlinks or copy node_modules
+- **Why**: NODE_PATH only affects CommonJS `require()`, not ESM `import` statements
+- **Test isolation**: Create symlink to node_modules in temp CLI location (see Test Isolation Best Practices)
+- **Alternative**: Copy node_modules (slow, ~500MB) or run from original location (loses isolation)
+- **See**: [ADR-002](/Users/baranovxyz/oss/agentsync-docs/adr/002-fs-extra-v11-and-esm-test-isolation.md) for complete analysis
+
 ### fs-extra v11 Compatibility
-- fs-extra v11+ removed `readJson` and `writeJson` methods
-- **Solution**: Use native Node.js `readFile` from `node:fs/promises` + `JSON.parse`
+- fs-extra v11+ removed `readJson`, `writeJson`, `readFile`, `writeFile`, and `symlink` methods
+- **Solution**: Use native Node.js functions from `node:fs/promises`
 - For writing with automatic directory creation: Use `fs.outputFile` from fs-extra
+- **See**: [ADR-002](/Users/baranovxyz/oss/agentsync-docs/adr/002-fs-extra-v11-and-esm-test-isolation.md) for complete migration guide
 - **Pattern**:
   ```typescript
-  // Reading JSON
-  import { readFile } from 'node:fs/promises';
+  // Import native functions
+  import { readFile, symlink } from 'node:fs/promises';
+  import { outputFile } from 'fs-extra';
+
+  // Reading files/JSON
   const content = await readFile(path, 'utf-8');
   const data = JSON.parse(content);
 
-  // Writing JSON (creates parent dirs)
-  import { outputFile } from 'fs-extra';
+  // Writing files (creates parent dirs)
   await outputFile(path, JSON.stringify(data, null, 2) + '\n', 'utf-8');
+
+  // Creating symlinks
+  await symlink(target, linkPath);
   ```
 
 ## Debug Tips
@@ -913,6 +937,19 @@ When fixing bugs, follow TDD approach:
    - Force flag override (when applicable)
 
 Example: Init command fix added 3 new tests + 1 updated test before implementation.
+
+### Example: fs-extra v11 Compatibility Fix
+**Bug**: Init command failing with "fs.readFile is not a function"
+
+**TDD Approach**:
+1. Updated test mocks to use `fsPromises.readFile` (from `node:fs/promises`)
+2. Fixed all test expectations to match new imports
+3. Updated implementation to use native Node.js functions
+4. Verified: All 16 unit tests + 21 E2E tests passing
+
+**Key Learning**: When upgrading dependencies, update test mocks BEFORE implementation to catch API changes early.
+
+**See**: [ADR-002](/Users/baranovxyz/oss/agentsync-docs/adr/002-fs-extra-v11-and-esm-test-isolation.md) for complete details.
 
 ## npm Publishing Workflow
 
