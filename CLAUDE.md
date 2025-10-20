@@ -62,12 +62,13 @@ pnpm test src/security/scanner.test.ts
 ### CLI Commands (via pnpm cli)
 ```bash
 # MCP Commands (Phase 1 - FULLY IMPLEMENTED)
+# Note: Empty MCP configs (0 servers) are valid for starting fresh or cleanup
 pnpm cli mcp sync                  # Sync MCPs to tools
 pnpm cli mcp sync --dry-run        # Preview without applying
 pnpm cli mcp sync --tool cursor    # Sync only to Cursor
 pnpm cli mcp list                  # Show available/active MCPs
 pnpm cli mcp add github            # Add MCP to project
-pnpm cli mcp remove postgres       # Remove MCP from project
+pnpm cli mcp remove postgres       # Remove MCP (can remove all)
 
 # AGENTS.md Commands (Phase 2 - IN PROGRESS)
 pnpm cli init                      # ✅ Initialize with template
@@ -95,7 +96,7 @@ src/
 │   │   ├── sync.ts               # ✅ Sync MCPs to tools
 │   │   ├── list.ts               # ✅ List available/active MCPs
 │   │   ├── add.ts                # ✅ Add MCP to project
-│   │   └── remove.ts             # ✅ Remove MCP from project
+│   │   └── remove.ts             # ✅ Remove MCP from project (allows removing all)
 │   └── [others].ts               # 🔨 AGENTS.md commands (TODO)
 ├── core/
 │   ├── mcp/                      # ✅ MCP engine (Phase 1 COMPLETE)
@@ -239,6 +240,7 @@ Total: 87 MCP tests passing, >90% coverage
   - Array: `{"mcpServers": ["github", "postgres"]}`
   - Object: `{"mcpServers": {"github": true, "postgres": {...}}}`
 - **Override Support**: Project-specific env var overrides
+- **Empty Config Support**: Both `{"mcpServers": []}` and `{"mcpServers": {}}` are valid. Useful for: fresh starts, cleanup/testing, template projects. Running `mcp sync` with empty config clears all MCPs from tools (idempotent).
 
 #### 10. **Token Substitution** (`src/core/mcp/tokens.ts`)
 - **Purpose**: Replace `{VAR}` placeholders with actual environment values
@@ -301,6 +303,13 @@ Total: 87 MCP tests passing, >90% coverage
 3. Add test cases with false positive checks
 4. Update documentation
 
+### Changing Validation Rules
+1. Consider backward compatibility - prefer allowing more, not less
+2. Update both implementation and tests simultaneously
+3. Convert error tests to success tests when relaxing restrictions
+4. Document use cases in CLAUDE.md, not just API changes
+5. Update manual tests in `manual-tests/` to match new behavior
+
 ### Extending AGENTS.md Parser
 1. Add section detection in `sectionsToAgentsMd()` method
 2. Create parsing method like `parseNewSection()`
@@ -350,6 +359,43 @@ Total: 87 MCP tests passing, >90% coverage
 }
 ```
 
+### MCP Configuration (`.agentsync.json`)
+The MCP configuration supports both array and object formats, and **empty configs are valid**:
+
+```json
+// Array format (simple selection)
+{
+  "mcpServers": ["github", "postgres"]
+}
+
+// Object format (with overrides)
+{
+  "mcpServers": {
+    "github": true,
+    "postgres": {
+      "env": {
+        "POSTGRES_URL": "custom_value"
+      }
+    }
+  }
+}
+
+// Empty config (valid - useful for fresh start or cleanup)
+{
+  "mcpServers": []
+}
+// or
+{
+  "mcpServers": {}
+}
+```
+
+**Use Cases for Empty Configs:**
+- Starting a new project, planning to add MCPs later
+- Temporarily removing all MCPs during testing/debugging
+- Template projects with no MCPs configured initially
+- Running `mcp sync` with empty config clears all MCPs from tools
+
 ### Build Configuration
 - **TypeScript**: Strict mode, ES2022 target, path aliases (`@/*`)
 - **Vite**: ESM-only, Node 18+, no minification for debugging
@@ -382,11 +428,54 @@ Total: 87 MCP tests passing, >90% coverage
 - Coverage target: >80%
 - Use test fixtures in `tests/fixtures/`
 
+#### Install Test (Production Package Validation)
+- New E2E test validates `pnpm pack` → `npm install -g` workflow
+- 21 tests covering:
+  - Tarball creation and global install
+  - Full MCP workflow (add, sync, remove)
+  - Init command with all 3 templates (validates template path resolution)
+  - Production package quality checks
+- Replaces manual QA agent testing
+- Runs weekly in CI + before releases (not every PR due to ~30-60s runtime)
+- File: `tests/e2e/install-test.test.ts`
+- CI: `.github/workflows/install-test.yml`
+
+#### When to Use Automated Tests vs Agents
+
+**Use automated E2E tests for:**
+- CLI tool installation workflows (pnpm pack, npm install -g)
+- Repetitive validation that can be scripted
+- Production package quality checks (tarball size, file inclusion)
+- Cross-platform CLI execution (use execa for shell testing)
+
+**Use agents only for:**
+- Exploratory testing ("try to break this")
+- Visual/GUI validation
+- Complex external service integration
+- One-time migration or analysis tasks
+
+**Pattern**: If an agent repeats the same commands every time, convert to automated test.
+
 ### Cross-Platform Testing
 - Set both `process.env.HOME` and `process.env.USERPROFILE` (Windows uses USERPROFILE)
 - Use retry logic in cleanup (3 retries with 100ms delay for Windows file locking)
 - Add trap handlers in BATS tests: `trap 'cleanup_trap' EXIT INT TERM`
 - Skip file permission tests on CI (permissions don't persist through build)
+
+### Test Isolation Best Practices
+- **E2E CLI tests**: Copy entire `dist/` folder to temp location in `beforeAll`
+- **Why**: Prevents production CLI from being deleted during test execution
+- **Required files**: Copy both `dist/` folder AND `package.json` (needed for --version)
+- **Pattern**:
+  ```typescript
+  beforeAll(async () => {
+    tempCliDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agentsync-cli-'));
+    await fs.copy('dist', path.join(tempCliDir, 'dist'));
+    await fs.copy('package.json', path.join(tempCliDir, 'package.json'));
+    tempCliPath = path.join(tempCliDir, 'dist', 'cli.js');
+  });
+  ```
+- **Cleanup**: Only in `afterAll`, never in `afterEach` (to preserve CLI across tests)
 
 ## Current Limitations
 
@@ -394,7 +483,12 @@ Total: 87 MCP tests passing, >90% coverage
 - ✅ All 4 MCP commands implemented and tested
 - ✅ Token substitution and validation
 - ✅ Cursor and Claude Code targets
-- ✅ 87 tests passing, >90% coverage
+- ✅ Empty MCP configs supported (allows 0 servers for fresh start/cleanup)
+- ✅ 166 Vitest tests: >90% coverage
+- ✅ 21 Install tests: Production validation (includes init command with all templates)
+- ✅ 26 BATS tests: Shell validation
+- ✅ 48 Manual tests: Optional UX validation (mostly replaced by install test)
+- ✅ 244 total automated tests
 
 ### Phase 2 (AGENTS.md) - IN PROGRESS ⏳
 **Completed:**
@@ -419,6 +513,22 @@ Total: 87 MCP tests passing, >90% coverage
 - ShellCheck runs only on Linux (apt-get unavailable on macOS/Windows)
 - Shebang tests skipped on CI (file permissions don't persist through pnpm build)
 
+### fs-extra v11 Compatibility
+- fs-extra v11+ removed `readJson` and `writeJson` methods
+- **Solution**: Use native Node.js `readFile` from `node:fs/promises` + `JSON.parse`
+- For writing with automatic directory creation: Use `fs.outputFile` from fs-extra
+- **Pattern**:
+  ```typescript
+  // Reading JSON
+  import { readFile } from 'node:fs/promises';
+  const content = await readFile(path, 'utf-8');
+  const data = JSON.parse(content);
+
+  // Writing JSON (creates parent dirs)
+  import { outputFile } from 'fs-extra';
+  await outputFile(path, JSON.stringify(data, null, 2) + '\n', 'utf-8');
+  ```
+
 ## Debug Tips
 
 1. **Verbose Output**: Set `DEBUG=true` environment variable
@@ -427,6 +537,10 @@ Total: 87 MCP tests passing, >90% coverage
 4. **Check Config**: Inspect `.agentsync/config.json` for issues
 5. **Dry Run**: Always use `--dry-run` flag when testing sync
 6. **Parser Testing**: Use `pnpm cli validate` to test parsing
+7. **Empty Configs**: Valid for all MCP commands - use for fresh starts or cleanup
+8. **Test Mocks**: When using `vi.mock('fs-extra')`, ensure all used methods are mocked:
+   - Include `outputFile` if using it in source code
+   - E2E tests use real fs-extra (not mocked), so they catch missing methods
 
 ## Important Files & Paths
 

@@ -3,7 +3,8 @@
  * Loads .agentsync.json and filters/merges selected MCPs
  */
 
-import * as fs from 'fs-extra';
+import { readFile } from 'node:fs/promises';
+import { pathExists } from 'fs-extra';
 import * as path from 'path';
 import type { MCP } from './tokens.js';
 
@@ -14,21 +15,21 @@ export interface ProjectMCPConfig {
   /** Selected AI tools (optional) */
   tools?: string[];
 
-  /** Selected MCP servers - array or object format */
+  /** Selected MCP servers - array or object format (empty arrays/objects are valid) */
   mcpServers: string[] | Record<string, boolean | Partial<MCP>>;
 }
 
 /**
  * Load project MCP configuration
  * @param configPath - Optional custom path (defaults to .agentsync.json in cwd)
- * @returns Project configuration
+ * @returns Project configuration (empty mcpServers arrays/objects are valid)
  * @throws Error if config doesn't exist or is invalid
  */
 export async function loadProjectConfig(configPath?: string): Promise<ProjectMCPConfig> {
   const filepath = configPath || path.join(process.cwd(), '.agentsync.json');
 
   // Check if file exists
-  if (!(await fs.pathExists(filepath))) {
+  if (!(await pathExists(filepath))) {
     throw new Error(
       `Project configuration not found at: ${filepath}\n\n` +
         `Run 'agentsync mcp init' to create it.`
@@ -38,7 +39,8 @@ export async function loadProjectConfig(configPath?: string): Promise<ProjectMCP
   // Read and parse JSON
   let config: unknown;
   try {
-    config = await fs.readJson(filepath);
+    const content = await readFile(filepath, 'utf-8');
+    config = JSON.parse(content);
   } catch (error) {
     throw new Error(`Failed to parse project configuration: ${(error as Error).message}`);
   }
@@ -55,26 +57,12 @@ export async function loadProjectConfig(configPath?: string): Promise<ProjectMCP
     throw new Error(`Project configuration missing 'mcpServers' field`);
   }
 
-  // Validate mcpServers is array or object
+  // Validate mcpServers is array or object (empty arrays/objects are valid)
   if (
     !Array.isArray(configObj.mcpServers) &&
     (typeof configObj.mcpServers !== 'object' || configObj.mcpServers === null)
   ) {
     throw new Error(`'mcpServers' must be an array or object`);
-  }
-
-  // Check for empty array
-  if (Array.isArray(configObj.mcpServers) && configObj.mcpServers.length === 0) {
-    throw new Error(`'mcpServers' cannot be empty`);
-  }
-
-  // Check for empty object
-  if (
-    typeof configObj.mcpServers === 'object' &&
-    !Array.isArray(configObj.mcpServers) &&
-    Object.keys(configObj.mcpServers).length === 0
-  ) {
-    throw new Error(`'mcpServers' cannot be empty`);
   }
 
   return config as ProjectMCPConfig;

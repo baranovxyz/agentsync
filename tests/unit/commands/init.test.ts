@@ -3,7 +3,6 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs-extra';
-import prompts from 'prompts';
 import { InitCommand } from '../../../src/commands/init.js';
 import { ConfigError } from '../../../src/core/errors.js';
 import type { InitOptions } from '../../../src/types/index.js';
@@ -13,6 +12,7 @@ vi.mock('fs-extra', () => ({
     pathExists: vi.fn(),
     readFile: vi.fn(),
     writeFile: vi.fn(),
+    outputFile: vi.fn(),
     ensureDir: vi.fn(),
     writeJson: vi.fn(),
     symlink: vi.fn(),
@@ -21,12 +21,19 @@ vi.mock('fs-extra', () => ({
   pathExists: vi.fn(),
   readFile: vi.fn(),
   writeFile: vi.fn(),
+  outputFile: vi.fn(),
   ensureDir: vi.fn(),
   writeJson: vi.fn(),
   symlink: vi.fn(),
   copy: vi.fn(),
 }));
-vi.mock('prompts');
+
+// Mock @inquirer/prompts
+vi.mock('@inquirer/prompts', () => ({
+  select: vi.fn(),
+  checkbox: vi.fn(),
+  confirm: vi.fn(),
+}));
 
 describe('InitCommand', () => {
   let initCommand: InitCommand;
@@ -69,7 +76,11 @@ describe('InitCommand', () => {
         configurable: true,
       });
 
-      vi.mocked(fs.pathExists).mockResolvedValue(false);
+      // Mock fs methods with implementation that returns different values
+      vi.mocked(fs.pathExists).mockImplementation(async (path: string) => {
+        // Return false for AGENTS.md (doesn't exist yet), true for package.json search
+        return String(path).includes('package.json');
+      });
       vi.mocked(fs.readFile).mockResolvedValue('# Template');
       vi.mocked(fs.writeFile).mockResolvedValue();
       vi.mocked(fs.ensureDir).mockResolvedValue();
@@ -82,19 +93,20 @@ describe('InitCommand', () => {
 
       await initCommand.execute(options);
 
-      // Should succeed without prompts
-      expect(prompts).not.toHaveBeenCalled();
+      // Should succeed without calling any prompt functions
+      const { select, checkbox, confirm } = await import('@inquirer/prompts');
+      expect(select).not.toHaveBeenCalled();
+      expect(checkbox).not.toHaveBeenCalled();
     });
 
     it('should handle user cancellation properly', async () => {
-      // Mock prompts to simulate user cancellation
-      const cancelError = new ConfigError(
-        'Setup cancelled',
-        '',
-        'Run "agentsync init" again to start over'
-      );
+      const { select } = await import('@inquirer/prompts');
 
-      vi.mocked(prompts).mockRejectedValue(cancelError);
+      // Mock select to simulate user cancellation (Ctrl+C)
+      const cancelError = new Error('User force closed the prompt with 0 answers');
+      vi.mocked(select).mockRejectedValue(cancelError);
+
+      vi.mocked(fs.pathExists).mockResolvedValue(false);
 
       const options: InitOptions = {};
 
@@ -102,7 +114,9 @@ describe('InitCommand', () => {
     });
 
     it('should skip interactive setup when all options provided', async () => {
-      vi.mocked(fs.pathExists).mockResolvedValue(false);
+      vi.mocked(fs.pathExists).mockImplementation(async (path: string) => {
+        return String(path).includes('package.json');
+      });
       vi.mocked(fs.readFile).mockResolvedValue('# Template');
       vi.mocked(fs.writeFile).mockResolvedValue();
       vi.mocked(fs.ensureDir).mockResolvedValue();
@@ -116,34 +130,48 @@ describe('InitCommand', () => {
 
       await initCommand.execute(options);
 
-      // prompts should not be called when all options are provided
-      expect(prompts).not.toHaveBeenCalled();
+      // Prompts should not be called when all options are provided
+      const { select, checkbox } = await import('@inquirer/prompts');
+      expect(select).not.toHaveBeenCalled();
+      expect(checkbox).not.toHaveBeenCalled();
     });
 
     it('should use prompts when options are not provided', async () => {
-      vi.mocked(fs.pathExists).mockResolvedValue(false);
+      const { select, checkbox, confirm } = await import('@inquirer/prompts');
+
+      vi.mocked(fs.pathExists).mockImplementation(async (path: string) => {
+        return String(path).includes('package.json');
+      });
       vi.mocked(fs.readFile).mockResolvedValue('# Template');
       vi.mocked(fs.writeFile).mockResolvedValue();
       vi.mocked(fs.ensureDir).mockResolvedValue();
       vi.mocked(fs.writeJson).mockResolvedValue();
 
-      vi.mocked(prompts).mockResolvedValue({
-        template: 'default',
-        tools: ['cursor'],
-        useSymlinks: true,
-        updateGitignore: true,
-      });
+      // Mock prompt responses
+      vi.mocked(select).mockResolvedValue('default');
+      vi.mocked(checkbox).mockResolvedValue(['cursor']);
+      vi.mocked(confirm).mockResolvedValue(true);
 
       const options: InitOptions = {};
 
       await initCommand.execute(options);
 
-      expect(prompts).toHaveBeenCalledWith(
-        expect.any(Array),
+      // Should have called select for template
+      expect(select).toHaveBeenCalledWith(
         expect.objectContaining({
-          onCancel: expect.any(Function),
+          message: 'Select a template:',
         })
       );
+
+      // Should have called checkbox for tools
+      expect(checkbox).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Which AI tools do you use?',
+        })
+      );
+
+      // Should have called confirm twice (symlinks and gitignore)
+      expect(confirm).toHaveBeenCalledTimes(2);
     });
 
     it('should throw ConfigError when AGENTS.md exists without force flag', async () => {
@@ -160,7 +188,10 @@ describe('InitCommand', () => {
     });
 
     it('should overwrite AGENTS.md when force flag is set', async () => {
-      vi.mocked(fs.pathExists).mockResolvedValue(true);
+      vi.mocked(fs.pathExists).mockImplementation(async (path: string) => {
+        // AGENTS.md exists, package.json exists
+        return String(path).includes('AGENTS.md') || String(path).includes('package.json');
+      });
       vi.mocked(fs.readFile).mockResolvedValue('# Template');
       vi.mocked(fs.writeFile).mockResolvedValue();
       vi.mocked(fs.ensureDir).mockResolvedValue();
@@ -180,7 +211,9 @@ describe('InitCommand', () => {
 
   describe('template selection', () => {
     it('should use default template when specified', async () => {
-      vi.mocked(fs.pathExists).mockResolvedValue(false);
+      vi.mocked(fs.pathExists).mockImplementation(async (path: string) => {
+        return String(path).includes('package.json');
+      });
       vi.mocked(fs.readFile).mockResolvedValue('# Default Template');
       vi.mocked(fs.writeFile).mockResolvedValue();
       vi.mocked(fs.ensureDir).mockResolvedValue();
@@ -200,7 +233,9 @@ describe('InitCommand', () => {
     });
 
     it('should use typescript-react template when specified', async () => {
-      vi.mocked(fs.pathExists).mockResolvedValue(false);
+      vi.mocked(fs.pathExists).mockImplementation(async (path: string) => {
+        return String(path).includes('package.json');
+      });
       vi.mocked(fs.readFile).mockResolvedValue('# TypeScript React Template');
       vi.mocked(fs.writeFile).mockResolvedValue();
       vi.mocked(fs.ensureDir).mockResolvedValue();
@@ -222,7 +257,9 @@ describe('InitCommand', () => {
 
   describe('tool setup', () => {
     beforeEach(() => {
-      vi.mocked(fs.pathExists).mockResolvedValue(false);
+      vi.mocked(fs.pathExists).mockImplementation(async (path: string) => {
+        return String(path).includes('package.json');
+      });
       vi.mocked(fs.readFile).mockResolvedValue('# Template');
       vi.mocked(fs.writeFile).mockResolvedValue();
       vi.mocked(fs.ensureDir).mockResolvedValue();
@@ -281,7 +318,8 @@ describe('InitCommand', () => {
 
     it('should add AgentSync entries to .gitignore', async () => {
       vi.mocked(fs.pathExists).mockImplementation(async (path: string) => {
-        if (path.toString().includes('.gitignore')) return true;
+        const pathStr = String(path);
+        if (pathStr.includes('.gitignore') || pathStr.includes('package.json')) return true;
         return false;
       });
 
@@ -295,11 +333,6 @@ describe('InitCommand', () => {
         tools: ['cursor'],
       };
 
-      vi.mocked(prompts).mockResolvedValue({
-        updateGitignore: true,
-        useSymlinks: true,
-      });
-
       await initCommand.execute(options);
 
       expect(fs.writeFile).toHaveBeenCalledWith(
@@ -310,7 +343,8 @@ describe('InitCommand', () => {
 
     it('should skip updating .gitignore if already has AgentSync section', async () => {
       vi.mocked(fs.pathExists).mockImplementation(async (path: string) => {
-        if (path.toString().includes('.gitignore')) return true;
+        const pathStr = String(path);
+        if (pathStr.includes('.gitignore') || pathStr.includes('package.json')) return true;
         return false;
       });
 
@@ -327,11 +361,6 @@ describe('InitCommand', () => {
         template: 'default',
         tools: ['cursor'],
       };
-
-      vi.mocked(prompts).mockResolvedValue({
-        updateGitignore: true,
-        useSymlinks: true,
-      });
 
       await initCommand.execute(options);
 
