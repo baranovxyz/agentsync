@@ -6,7 +6,7 @@
 import * as fs from 'fs-extra';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import prompts from 'prompts';
+import { select, checkbox, confirm } from '@inquirer/prompts';
 import picocolors from 'picocolors';
 import { ConfigError, FileSystemError, ErrorCategory, ErrorSeverity } from '../core/errors.js';
 import AuditLogger, { AuditEventType } from '../core/audit.js';
@@ -124,64 +124,55 @@ export class InitCommand {
       );
     }
 
-    const questions: prompts.PromptObject[] = [];
-
-    if (!options.template) {
-      questions.push({
-        type: 'select' as const,
-        name: 'template',
+    try {
+      // Template selection
+      const template = options.template || await select({
         message: 'Select a template:',
         choices: [
-          { title: 'Default (General Purpose)', value: 'default' },
-          { title: 'TypeScript React', value: 'typescript-react' },
-          { title: 'Python FastAPI', value: 'python-fastapi' },
+          { name: 'Default (General Purpose)', value: 'default' },
+          { name: 'TypeScript React', value: 'typescript-react' },
+          { name: 'Python FastAPI', value: 'python-fastapi' },
         ],
-        initial: 0,
+        default: 'default',
       });
-    }
 
-    if (!options.tools || options.tools.length === 0) {
-      questions.push({
-        type: 'multiselect' as const,
-        name: 'tools',
+      // Tool selection
+      const tools = options.tools || await checkbox({
         message: 'Which AI tools do you use?',
         choices: [
-          { title: 'Cursor', value: 'cursor', selected: true },
-          { title: 'Claude Code', value: 'claude', selected: true },
-          { title: 'Cline', value: 'cline' },
-          { title: 'Windsurf', value: 'windsurf' },
-          { title: 'GitHub Copilot', value: 'copilot' },
+          { name: 'Cursor', value: 'cursor', checked: true },
+          { name: 'Claude Code', value: 'claude', checked: true },
+          { name: 'Cline', value: 'cline' },
+          { name: 'Windsurf', value: 'windsurf' },
+          { name: 'GitHub Copilot', value: 'copilot' },
         ],
-        hint: 'Space to select, Enter to confirm',
+      }) as ToolName[];
+
+      // Symlink option
+      const useSymlinks = await confirm({
+        message: 'Use symlinks for tool configurations? (recommended)',
+        default: true,
       });
-    }
 
-    questions.push({
-      type: 'confirm' as const,
-      name: 'useSymlinks',
-      message: 'Use symlinks for tool configurations? (recommended)',
-      initial: true,
-    });
+      // Gitignore update option
+      const updateGitignore = await confirm({
+        message: 'Add AgentSync entries to .gitignore?',
+        default: true,
+      });
 
-    questions.push({
-      type: 'confirm' as const,
-      name: 'updateGitignore',
-      message: 'Add AgentSync entries to .gitignore?',
-      initial: true,
-    });
-
-    const response = await prompts(questions, {
-      onCancel: () => {
+      return {
+        template,
+        tools,
+        useSymlinks,
+        updateGitignore,
+      };
+    } catch (error) {
+      // Handle Ctrl+C cancellation
+      if (error instanceof Error && error.message.includes('User force closed')) {
         throw new ConfigError('Setup cancelled', '', 'Run "agentsync init" again to start over');
       }
-    });
-
-    return {
-      template: options.template || response.template,
-      tools: options.tools || response.tools || [],
-      useSymlinks: response.useSymlinks ?? true,
-      updateGitignore: response.updateGitignore ?? true,
-    };
+      throw error;
+    }
   }
 
   /**
@@ -244,10 +235,10 @@ export class InitCommand {
         tools: [],
       };
 
-      await fs.writeJson(
+      await fs.outputFile(
         path.join(agentSyncDir, 'config.json'),
-        config,
-        { spaces: 2 }
+        JSON.stringify(config, null, 2) + '\n',
+        'utf-8'
       );
 
       console.log(pc.green('  ✓ Created .agentsync directory'));

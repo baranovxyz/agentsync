@@ -3,7 +3,8 @@
  * Loads ~/.agentsync/mcp.json
  */
 
-import * as fs from 'fs-extra';
+import { readFile } from 'node:fs/promises';
+import { pathExists } from 'fs-extra';
 import * as path from 'path';
 import * as os from 'os';
 import type { MCP } from './tokens.js';
@@ -55,7 +56,7 @@ export async function loadGlobalRegistry(
   const filepath = registryPath || getGlobalRegistryPath();
 
   // Check if file exists
-  if (!(await fs.pathExists(filepath))) {
+  if (!(await pathExists(filepath))) {
     throw new Error(
       `Global MCP registry not found at: ~/.agentsync/mcp.json\n\n` +
         `Please create it with your MCP server configurations.\n` +
@@ -73,7 +74,8 @@ export async function loadGlobalRegistry(
   // Read and parse JSON
   let registry: unknown;
   try {
-    registry = await fs.readJson(filepath);
+    const content = await readFile(filepath, 'utf-8');
+    registry = JSON.parse(content);
   } catch (error) {
     throw new Error(
       `Failed to parse global MCP registry at ${filepath}: ${(error as Error).message}`
