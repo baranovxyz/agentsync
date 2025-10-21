@@ -50,11 +50,13 @@ jobs:
       - name: Trigger Install Test workflow
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
           echo "🧪 Triggering E2E install tests before release..."
           gh workflow run "Install Test" \
-            --repo ${{ github.repository }} \
-            --ref ${{ github.ref_name }}
+            --repo "$REPO" \
+            --ref "$REF_NAME"
           echo "✅ E2E tests triggered (will run in background)"
           echo "⚠️  Check install test results before merging release PR"
 
@@ -161,10 +163,14 @@ jobs:
       # Calculate next version (dry-run to preview)
       - name: Calculate next version
         id: bump_version
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          INPUTS_VERSION_TYPE: ${{ inputs.version_type }}
+          INPUTS_PREID: ${{ inputs.preid }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION_TYPE="${{ inputs.version_type }}"
-            PREID="${{ inputs.preid }}"
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            VERSION_TYPE="$INPUTS_VERSION_TYPE"
+            PREID="$INPUTS_PREID"
 
             if [[ "$VERSION_TYPE" == pre* ]]; then
               NEXT=$(npm version $VERSION_TYPE --preid=$PREID --no-git-tag-version | tail -1)
@@ -244,15 +250,20 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Create release branch
+        env:
+          NEXT_VERSION: ${{ needs.pre-release-checks.outputs.next_version }}
         run: |
-          BRANCH="release/${{ needs.pre-release-checks.outputs.next_version }}"
+          BRANCH="release/$NEXT_VERSION"
           git checkout -b "$BRANCH"
           echo "Created branch: $BRANCH"
 
       - name: Bump version in package.json
+        env:
+          INPUTS_VERSION_TYPE: ${{ inputs.version_type }}
+          INPUTS_PREID: ${{ inputs.preid }}
         run: |
-          VERSION_TYPE="${{ inputs.version_type }}"
-          PREID="${{ inputs.preid }}"
+          VERSION_TYPE="$INPUTS_VERSION_TYPE"
+          PREID="$INPUTS_PREID"
 
           if [[ "$VERSION_TYPE" == pre* ]]; then
             npm version $VERSION_TYPE --preid=$PREID --no-git-tag-version
@@ -267,19 +278,21 @@ jobs:
           pnpm build
 
       - name: Commit version bump
+        env:
+          NEXT_VERSION: ${{ needs.pre-release-checks.outputs.next_version }}
         run: |
           git add package.json package-lock.json pnpm-lock.yaml
-          git commit -m "${{ needs.pre-release-checks.outputs.next_version }}"
+          git commit -m "$NEXT_VERSION"
           git push origin HEAD
 
       - name: Create Pull Request
         id: create_pr
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEXT: ${{ needs.pre-release-checks.outputs.next_version }}
+          CURRENT: ${{ needs.pre-release-checks.outputs.current_version }}
+          CHANGELOG: ${{ needs.pre-release-checks.outputs.changelog }}
         run: |
-          NEXT="${{ needs.pre-release-checks.outputs.next_version }}"
-          CURRENT="${{ needs.pre-release-checks.outputs.current_version }}"
-          CHANGELOG="${{ needs.pre-release-checks.outputs.changelog }}"
 
           PR_BODY="## Release $NEXT
 
@@ -415,9 +428,10 @@ jobs:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.pre-release-checks.outputs.next_version }}
+          CHANGELOG: ${{ needs.pre-release-checks.outputs.changelog }}
+          CURRENT_VERSION: ${{ needs.pre-release-checks.outputs.current_version }}
         run: |
-          VERSION="${{ needs.pre-release-checks.outputs.next_version }}"
-          CHANGELOG="${{ needs.pre-release-checks.outputs.changelog }}"
 
           # Determine if prerelease
           if [[ "$VERSION" == *"alpha"* ]] || [[ "$VERSION" == *"beta"* ]] || [[ "$VERSION" == *"rc"* ]]; then
@@ -444,7 +458,7 @@ jobs:
 
           ## Links
           - 📦 [npm package](https://www.npmjs.com/package/agentsync/v/$VERSION)
-          - 📝 [Full Changelog](https://github.com/baranovxyz/agentsync/compare/v${{ needs.pre-release-checks.outputs.current_version }}...$VERSION)"
+          - 📝 [Full Changelog](https://github.com/baranovxyz/agentsync/compare/v$CURRENT_VERSION...$VERSION)"
 
           gh release create "$VERSION" \
             --title "$VERSION" \
@@ -467,8 +481,8 @@ jobs:
       - name: Delete release branch
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.pre-release-checks.outputs.next_version }}
         run: |
-          VERSION="${{ needs.pre-release-checks.outputs.next_version }}"
           BRANCH="release/$VERSION"
 
           # Delete remote branch (local is ephemeral in CI)
@@ -479,9 +493,9 @@ jobs:
       - name: Comment on PR
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.pre-release-checks.outputs.next_version }}
+          PR_NUMBER: ${{ needs.create-release-pr.outputs.pr_number }}
         run: |
-          VERSION="${{ needs.pre-release-checks.outputs.next_version }}"
-          PR_NUMBER="${{ needs.create-release-pr.outputs.pr_number }}"
 
           COMMENT="✅ **Release Complete!**
 
