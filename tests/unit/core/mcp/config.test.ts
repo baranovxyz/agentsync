@@ -65,7 +65,7 @@ describe("loadProjectConfig", () => {
     expect(result.mcpServers).toEqual(["github"]);
   });
 
-  it("prefers agentsync.local.json over other locations", async () => {
+  it("prefers .agentsync/config.json over other locations (team config primary)", async () => {
     await fs.ensureDir(".agentsync");
     await fs.writeJson("agentsync.local.json", { mcpServers: ["local"] });
     await fs.writeJson(".agentsync/config.local.json", {
@@ -75,7 +75,7 @@ describe("loadProjectConfig", () => {
 
     const result = await loadProjectConfig();
 
-    expect(result.mcpServers).toEqual(["local"]);
+    expect(result.mcpServers).toEqual(["team"]);
   });
 
   it("loads config with tools selection", async () => {

@@ -3,10 +3,10 @@
  * Adds MCP server to project configuration
  */
 
-import { loadGlobalRegistry } from '../../core/mcp/registry.js';
-import { loadProjectConfig } from '../../core/mcp/config.js';
-import { writeFile, mkdir } from 'node:fs/promises';
-import * as path from 'path';
+import { loadGlobalRegistry } from "../../core/mcp/registry.js";
+import { loadProjectConfig } from "../../core/mcp/config.js";
+import { writeFile, mkdir } from "node:fs/promises";
+import * as path from "path";
 
 /**
  * Add result
@@ -30,7 +30,7 @@ export async function addMCP(serverName: string): Promise<AddMCPResult> {
   const globalRegistry = await loadGlobalRegistry();
 
   if (!globalRegistry[serverName]) {
-    const available = Object.keys(globalRegistry).join(', ');
+    const available = Object.keys(globalRegistry).join(", ");
     throw new Error(
       `MCP server '${serverName}' not found in global registry.\n\n` +
         `Available MCPs: ${available}`
@@ -51,24 +51,28 @@ export async function addMCP(serverName: string): Promise<AddMCPResult> {
   }
 
   // 3. Load or create project config
-  const configPath = path.join(process.cwd(), '.agentsync', 'config.json');
+  const configPath = path.join(process.cwd(), ".agentsync", "config.json");
   let projectConfig;
 
   try {
     projectConfig = await loadProjectConfig();
   } catch (error) {
     // If config doesn't exist, create it
-    if ((error as Error).message.includes('MCP configuration not found')) {
+    if ((error as Error).message.includes("MCP configuration not found")) {
       // Ensure .agentsync directory exists
-      await mkdir(path.join(process.cwd(), '.agentsync'), { recursive: true });
-      
+      await mkdir(path.join(process.cwd(), ".agentsync"), { recursive: true });
+
       projectConfig = {
-        version: '1.0',
-        tools: ['cursor', 'claude'],
+        version: "1.0",
+        tools: ["cursor", "claude"],
         mcpServers: [serverName],
       };
 
-      await writeFile(configPath, JSON.stringify(projectConfig, null, 2) + '\n', 'utf-8');
+      await writeFile(
+        configPath,
+        JSON.stringify(projectConfig, null, 2) + "\n",
+        "utf-8"
+      );
 
       return {
         added: true,
@@ -99,8 +103,12 @@ export async function addMCP(serverName: string): Promise<AddMCPResult> {
   // 5. Save updated config
   if (added) {
     // Ensure .agentsync directory exists
-    await mkdir(path.join(process.cwd(), '.agentsync'), { recursive: true });
-    await writeFile(configPath, JSON.stringify(projectConfig, null, 2) + '\n', 'utf-8');
+    await mkdir(path.join(process.cwd(), ".agentsync"), { recursive: true });
+    await writeFile(
+      configPath,
+      JSON.stringify(projectConfig, null, 2) + "\n",
+      "utf-8"
+    );
   }
 
   return {

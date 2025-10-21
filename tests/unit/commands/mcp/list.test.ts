@@ -116,6 +116,28 @@ describe("listMCP", () => {
     expect(result.inactive).toHaveLength(3);
   });
 
+  it("auto-creates .agentsync/config.json when no config exists", async () => {
+    // No config files exist
+    const result = await listMCP();
+
+    // Should create .agentsync/config.json (not agentsync.local.json)
+    const configExists = await fs.pathExists(".agentsync/config.json");
+    expect(configExists).toBe(true);
+
+    const localExists = await fs.pathExists("agentsync.local.json");
+    expect(localExists).toBe(false);
+
+    // Should have proper config structure
+    const config = await fs.readJson(".agentsync/config.json");
+    expect(config.version).toBe("1.0");
+    expect(config.tools).toEqual(["cursor", "claude"]);
+    expect(config.mcpServers).toEqual([]);
+
+    // Should return empty active list
+    expect(result.active).toHaveLength(0);
+    expect(result.inactive).toHaveLength(3);
+  });
+
   it("throws error if global registry not found", async () => {
     await fs.remove(path.join(tempHomeDir, ".agentsync", "mcp.json"));
 
