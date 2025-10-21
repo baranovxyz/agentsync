@@ -7,6 +7,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-alpha.10] - 2025-01-20
+
+### Added
+
+- **v0.3.0-beta GitHub Library System** - Complete implementation (100% COMPLETE)
+  - `extends` field in config for GitHub library references (github:org/repo format)
+  - GitHub source parser with SSH/HTTPS fallback
+  - Cache manager for cloned repositories (~/.agentsync/cache/)
+  - Library loader for rules, commands, and MCPs
+  - Namespace-based merger with conflict prevention
+  - Registry orchestrator for end-to-end workflow
+  - Filter support (include/exclude globs)
+  - Last-wins MCP merging strategy
+
+- **Main Sync Command** - Unified sync workflow
+  - `agentsync sync` - Sync all: libraries, rules, commands, MCPs
+  - `--update` flag to refresh GitHub caches
+  - `--dry-run` flag to preview changes
+  - `--tool` flag to sync only to specific tool
+
+- **Library Management Commands**
+  - `agentsync library list` - Show configured libraries and cache status
+  - `agentsync library cache-clear` - Clear project library caches
+  - `agentsync library cache-clear --all` - Clear all library caches
+
+- **Rules & Commands Sync**
+  - RulesSyncTarget for .cursor/rules/ and .claude/rules/
+  - CommandsSyncTarget for .cursor/commands/ and .claude/commands/
+  - Cursor rules use .mdc extension, Claude uses .md
+  - Namespace-based file naming (e.g., "company:typescript.mdc")
+
+- **Comprehensive Documentation**
+  - 7 detailed usage examples in CLAUDE.md
+  - Library repository structure guide
+  - Config format documentation
+  - Namespace merging explanation
+
+### Changed
+
+- **Config Schema** - Updated for v0.3.0-beta
+  - Added `extends` field for library references
+  - Support for both string and object library definitions
+  - Filter support with include/exclude patterns
+  - `mcpServers` field now supports library-based MCPs
+
+- **Init Command** - Creates new v0.3.0-beta config format
+  - Generates config with `extends` field
+  - Updated template structure
+
+### Fixed
+
+- E2E test failures in GitHub library integration tests
+- CLI output snapshots for sync and library commands
+- fs-extra v11 compatibility - replaced `fs.readFile` with native Node.js `readFile` from `node:fs/promises`
+- Snapshot tests now version-agnostic (no longer fail on version bumps)
+
+### Tests
+
+- 86 tests total (82 unit/integration + 4 E2E)
+- 29 unit tests for registry system components
+- 12 unit tests for sync command
+- 9 integration tests for sync workflow
+- 8 integration tests for rules/commands sync
+- 4 E2E tests using real GitHub library (@agentsync/example-typescript)
+
 ## [0.2.0-alpha.8] - 2025-10-20
 
 ### Added

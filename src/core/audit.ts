@@ -3,7 +3,8 @@
  * Provides comprehensive logging and monitoring for security and operations
  */
 
-import * as fs from 'fs-extra';
+import { ensureDir, appendFile, readdir, stat, remove } from '../utils/fs.js';
+import { readFile } from 'node:fs/promises';
 import * as path from 'path';
 import { homedir } from 'os';
 import { ErrorCategory, ErrorSeverity } from './errors';
@@ -113,7 +114,7 @@ export class AuditLogger {
     if (this.isInitialized) return;
 
     // Create log directory
-    await fs.ensureDir(this.options.logDir);
+    await ensureDir(this.options.logDir);
 
     // Rotate old logs if necessary
     await this.rotateLogs();
@@ -318,7 +319,7 @@ export class AuditLogger {
 
     // Check if we need to rotate
     try {
-      const stats = await fs.stat(logFile);
+      const stats = await stat(logFile);
       if (stats.size > this.options.maxFileSize) {
         await this.rotateLogs();
         this.currentLogFile = this.getLogFileName();
@@ -329,7 +330,7 @@ export class AuditLogger {
 
     // Write events as NDJSON
     const lines = events.map(event => JSON.stringify(event)).join('\n') + '\n';
-    await fs.appendFile(logFile, lines, 'utf-8');
+    await appendFile(logFile, lines, 'utf-8');
   }
 
   /**
@@ -351,7 +352,7 @@ export class AuditLogger {
    * Rotate log files
    */
   private async rotateLogs(): Promise<void> {
-    const files = await fs.readdir(this.options.logDir);
+    const files = await readdir(this.options.logDir);
     const logFiles = files
       .filter(f => f.startsWith('audit-') && f.endsWith('.log'))
       .sort()
@@ -361,7 +362,7 @@ export class AuditLogger {
     if (logFiles.length >= this.options.maxFiles) {
       const filesToDelete = logFiles.slice(this.options.maxFiles - 1);
       for (const file of filesToDelete) {
-        await fs.remove(path.join(this.options.logDir, file));
+        await remove(path.join(this.options.logDir, file));
       }
     }
   }
@@ -460,7 +461,7 @@ export class AuditLogger {
     limit?: number;
   }): Promise<AuditEvent[]> {
     const results: AuditEvent[] = [];
-    const files = await fs.readdir(this.options.logDir);
+    const files = await readdir(this.options.logDir);
     const logFiles = files
       .filter(f => f.startsWith('audit-') && f.endsWith('.log'))
       .sort()
@@ -468,7 +469,7 @@ export class AuditLogger {
 
     for (const file of logFiles) {
       const filePath = path.join(this.options.logDir, file);
-      const content = await fs.readFile(filePath, 'utf-8');
+      const content = await readFile(filePath, 'utf-8');
       const lines = content.split('\n').filter(l => l.trim());
 
       for (const line of lines) {

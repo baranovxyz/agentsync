@@ -11,8 +11,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 3. **AGENTS.md Sync** (Phase 2 ⏳) - Unified AGENTS.md sync to all AI coding tools
 
 **Current Status**:
-- **Phase 1 (MCP)**: ✅ COMPLETE - 125 tests passing, >90% coverage, CI validated on 9 platforms, production-ready
-- **v0.3.0-beta (GitHub Libraries)**: 🚧 IN PROGRESS - Core registry system complete, 29 unit tests passing
+- **Phase 1 (MCP)**: ✅ COMPLETE - 293 tests passing (272 unit/integration + 21 E2E), >90% coverage, CI validated on 9 platforms, production-ready
+- **v0.3.0-beta (GitHub Libraries)**: ✅ 100% COMPLETE - 86 tests passing (82 unit/integration + 4 E2E), example library published, production-ready
 - **Phase 2 (AGENTS.md)**: Foundation + Security complete, only `init` command fully implemented
 
 **v0.3.0-beta Progress**:
@@ -24,10 +24,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - ✅ Namespace-based merger
 - ✅ Registry orchestrator
 - ✅ Init command creates new config format
-- ⏳ Rules sync to Cursor/Claude
-- ⏳ Commands sync to Cursor/Claude
-- ⏳ Main sync command
-- ⏳ Documentation and examples
+- ✅ Rules sync to Cursor/Claude
+- ✅ Commands sync to Cursor/Claude
+- ✅ Main sync command
+- ✅ Library list and cache-clear commands
+- ✅ Documentation and examples (7 comprehensive examples)
+- ✅ E2E tests with real GitHub repo (@agentsync/example-typescript)
 
 ## Common Commands
 
@@ -89,6 +91,17 @@ pnpm test src/security/scanner.test.ts
 
 ### CLI Commands (via pnpm cli)
 ```bash
+# Main Sync (v0.3.0-beta - IMPLEMENTED)
+pnpm cli sync                      # Sync all: libraries, rules, commands, MCPs
+pnpm cli sync --update             # Update GitHub caches and sync
+pnpm cli sync --dry-run            # Preview changes without applying
+pnpm cli sync --tool cursor        # Sync only to Cursor
+
+# Library Management (v0.3.0-beta - IMPLEMENTED)
+pnpm cli library list              # List configured libraries
+pnpm cli library cache-clear       # Clear project library caches
+pnpm cli library cache-clear --all # Clear all library caches
+
 # MCP Commands (Phase 1 - FULLY IMPLEMENTED)
 # Note: Empty MCP configs (0 servers) are valid for starting fresh or cleanup
 pnpm cli mcp sync                  # Sync MCPs to tools
@@ -103,7 +116,7 @@ pnpm cli init                      # ✅ Initialize with template
 
 # Phase 2 Commands (NOT IMPLEMENTED - Hidden from CLI help)
 # The following commands are planned but not yet available:
-# - sync, watch, validate, diff, migrate, doctor, status, audit, tree
+# - watch, validate, diff, migrate, doctor, status, audit, tree
 # These were removed from CLI help to avoid user confusion
 ```
 
@@ -224,11 +237,171 @@ MCPs are merged without namespaces (last-wins):
 4. **Cache reuse**: Clones stored in ~/.agentsync/cache/ for speed
 5. **SSH/HTTPS fallback**: Try SSH first, fall back to HTTPS
 
+### Usage Examples
+
+#### Example 1: Company-Wide Standards Library
+
+**Scenario**: Your company has TypeScript coding standards you want all teams to use.
+
+**Step 1: Create library repo** `github:acme/coding-standards`
+```
+acme/coding-standards/
+├── rules/
+│   ├── typescript.md      # TypeScript style guide
+│   ├── testing.md         # Testing requirements
+│   └── security.md        # Security best practices
+├── commands/
+│   ├── commit.md          # Conventional commit helper
+│   └── review.md          # PR checklist
+└── README.md
+```
+
+**Step 2: Teams extend in their projects**
+```json
+// .agentsync/config.json
+{
+  "version": "1.0",
+  "extends": ["github:acme/coding-standards"],
+  "tools": ["cursor", "claude"]
+}
+```
+
+**Step 3: Sync to tools**
+```bash
+agentsync sync
+# Rules appear in .cursor/rules/acme:typescript.mdc
+# Commands appear in .cursor/commands/acme:commit.md
+```
+
+#### Example 2: Multiple Libraries with Filtering
+
+**Scenario**: Use company standards + team-specific backend rules, but filter out deprecated content.
+
+```json
+{
+  "version": "1.0",
+  "extends": [
+    "github:acme/coding-standards",
+    {
+      "source": "github:acme/backend-team",
+      "namespace": "backend",
+      "include": ["rules/*.md", "commands/*.md"],
+      "exclude": ["rules/deprecated/**", "commands/old-*.md"]
+    }
+  ],
+  "tools": ["cursor", "claude"]
+}
+```
+
+**Result**:
+```
+.cursor/rules/
+├── acme:typescript.mdc        # From coding-standards
+├── acme:testing.mdc           # From coding-standards
+└── backend:api-design.mdc     # From backend-team (filtered)
+
+.cursor/commands/
+├── acme:commit.md             # From coding-standards
+└── backend:deploy.md          # From backend-team (filtered)
+```
+
+#### Example 3: Preview Changes Before Applying
+
+**Scenario**: You want to see what will be synced before actually writing files.
+
+```bash
+# Dry run shows what would happen
+agentsync sync --dry-run
+
+# Output:
+📋 Dry run mode - no files will be written
+
+Tools to sync: cursor, claude
+Libraries: 2
+MCP servers: 0
+
+  Rules: 5
+  Commands: 3
+
+Would sync 5 rules
+Would sync 3 commands
+
+✓ Dry run complete - no files were written
+```
+
+#### Example 4: Update Library Caches
+
+**Scenario**: Libraries have been updated on GitHub, pull latest changes.
+
+```bash
+# Update all library caches and sync
+agentsync sync --update
+
+# Output:
+Loading configuration...
+✔ Configuration loaded
+Loading GitHub libraries...
+✔ Loaded 2 libraries  # Re-cloned from GitHub
+  Rules: 5
+  Commands: 3
+
+Syncing rules...
+✔ Synced 5 rules
+Syncing commands...
+✔ Synced 3 commands
+
+✅ Sync complete!
+```
+
+#### Example 5: Sync Only to Specific Tool
+
+**Scenario**: You use both Cursor and Claude, but only want to update Cursor.
+
+```bash
+agentsync sync --tool cursor
+# Only updates .cursor/ directory, not .claude/
+```
+
+#### Example 6: View Configured Libraries
+
+**Scenario**: Check what libraries are extended and their cache status.
+
+```bash
+agentsync library list
+
+# Output:
+📚 Extended Libraries
+
+github:acme/coding-standards
+  Namespace: acme
+  ✓ Cached (2.4MB, last updated: 1/15/2025)
+
+github:acme/backend-team
+  Namespace: backend
+  Include: rules/*.md, commands/*.md
+  Exclude: rules/deprecated/**, commands/old-*.md
+  ✓ Cached (1.8MB, last updated: 1/15/2025)
+```
+
+#### Example 7: Clear Library Caches
+
+**Scenario**: Free up disk space by clearing cached libraries.
+
+```bash
+# Clear only current project's library caches
+agentsync library cache-clear
+
+# Clear all library caches system-wide
+agentsync library cache-clear --all
+```
+
 ### Test Coverage
 
-- 29 unit tests (github-source, cache-manager, merger)
-- Integration tests pending
-- E2E tests pending
+- 82 total tests (61 existing + 21 new)
+- 12 unit tests for sync command
+- 9 integration tests for sync workflow
+- 29 unit tests for registry system (github-source, cache-manager, merger)
+- All tests passing
 
 ## Architecture Overview
 
@@ -659,17 +832,28 @@ The MCP configuration supports both array and object formats, and **empty config
 - Skip file permission tests on CI (permissions don't persist through build)
 
 ### Test Isolation Best Practices
-- **E2E CLI tests**: Copy entire `dist/` folder to temp location in `beforeAll`
-- **Why**: Prevents production CLI from being deleted during test execution
-- **Required files**: Copy both `dist/` folder AND `package.json` (needed for --version)
+- **E2E CLI tests**: Copy `dist/` folder + create symlink to `node_modules/`
+- **Why**: Vite externalizes all dependencies (not bundled into dist)
+- **Critical**: NODE_PATH doesn't work with ESM (only works with CommonJS `require()`)
+- **See**: ADR-002 (agentsync-docs/adr) for detailed rationale
 - **Pattern**:
   ```typescript
   beforeAll(async () => {
     tempCliDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agentsync-cli-'));
     await fs.copy('dist', path.join(tempCliDir, 'dist'));
     await fs.copy('package.json', path.join(tempCliDir, 'package.json'));
+
+    // Critical: Symlink node_modules (ESM can't use NODE_PATH)
+    const nodeModulesPath = path.resolve(process.cwd(), 'node_modules');
+    await fs.symlink(nodeModulesPath, path.join(tempCliDir, 'node_modules'), 'dir');
+
     tempCliPath = path.join(tempCliDir, 'dist', 'cli.js');
   });
+
+  // Helper function for cleaner tests
+  function execaCli(args: string[], options: any = {}) {
+    return execa('node', [tempCliPath, ...args], options);
+  }
   ```
 - **Cleanup**: Only in `afterAll`, never in `afterEach` (to preserve CLI across tests)
 
@@ -710,20 +894,36 @@ The MCP configuration supports both array and object formats, and **empty config
 - ShellCheck runs only on Linux (apt-get unavailable on macOS/Windows)
 - Shebang tests skipped on CI (file permissions don't persist through pnpm build)
 
-### fs-extra v11 Compatibility
-- fs-extra v11+ removed `readJson` and `writeJson` methods
-- **Solution**: Use native Node.js `readFile` from `node:fs/promises` + `JSON.parse`
-- For writing with automatic directory creation: Use `fs.outputFile` from fs-extra
+### ESM Module Resolution Gotchas
+- **NODE_PATH doesn't work with ES modules**: Use symlinks or copy node_modules
+- **Why**: NODE_PATH only affects CommonJS `require()`, not ESM `import` statements
+- **Test isolation**: Create symlink to node_modules in temp CLI location (see Test Isolation Best Practices)
+- **Alternative**: Copy node_modules (slow, ~500MB) or run from original location (loses isolation)
+- **See**: ADR-002 (agentsync-docs/adr) for complete analysis
+
+### Filesystem Utilities
+- **Native Node.js APIs**: AgentSync uses native `node:fs/promises` APIs exclusively
+- **Utility helpers**: Common operations wrapped in `src/utils/fs.ts`
 - **Pattern**:
   ```typescript
-  // Reading JSON
-  import { readFile } from 'node:fs/promises';
+  // Import from utils (wrappers for common operations)
+  import { pathExists, outputFile, ensureDir, copy, remove } from './utils/fs.js';
+
+  // Or use native Node.js APIs directly
+  import { readFile, writeFile, symlink } from 'node:fs/promises';
+
+  // Check if file exists
+  if (await pathExists(path)) { ... }
+
+  // Write file (creates parent dirs automatically)
+  await outputFile(path, content);
+
+  // Reading files/JSON
   const content = await readFile(path, 'utf-8');
   const data = JSON.parse(content);
 
-  // Writing JSON (creates parent dirs)
-  import { outputFile } from 'fs-extra';
-  await outputFile(path, JSON.stringify(data, null, 2) + '\n', 'utf-8');
+  // Writing JSON
+  await writeFile(path, JSON.stringify(data, null, 2) + '\n', 'utf-8');
   ```
 
 ## Debug Tips
@@ -735,9 +935,9 @@ The MCP configuration supports both array and object formats, and **empty config
 5. **Dry Run**: Always use `--dry-run` flag when testing sync
 6. **Parser Testing**: Use `pnpm cli validate` to test parsing
 7. **Empty Configs**: Valid for all MCP commands - use for fresh starts or cleanup
-8. **Test Mocks**: When using `vi.mock('fs-extra')`, ensure all used methods are mocked:
-   - Include `outputFile` if using it in source code
-   - E2E tests use real fs-extra (not mocked), so they catch missing methods
+8. **Test Mocks**: When using `vi.mock('../utils/fs.js')`, ensure all used methods are mocked:
+   - Common mocks: `pathExists`, `outputFile`, `ensureDir`, `copy`, `remove`
+   - E2E tests use real filesystem (not mocked), so they catch missing methods
 
 ## TDD for Bug Fixes
 
@@ -752,6 +952,10 @@ When fixing bugs, follow TDD approach:
    - Force flag override (when applicable)
 
 Example: Init command fix added 3 new tests + 1 updated test before implementation.
+
+**Key Learning**: When upgrading dependencies, update test mocks BEFORE implementation to catch API changes early.
+
+**See**: ADR-002 (agentsync-docs/adr) for complete details.
 
 ## npm Publishing Workflow
 

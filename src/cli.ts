@@ -170,6 +170,52 @@ mcpCommand
     }
   });
 
+// Main sync command (v0.3.0-beta)
+program
+  .command("sync")
+  .description("Sync libraries, rules, commands, and MCPs to AI tools")
+  .option("--update", "Update GitHub library caches (re-clone)")
+  .option("--dry-run", "Preview changes without applying them")
+  .option("--tool <name>", "Sync only to specific tool (cursor, claude)")
+  .action(async (options) => {
+    try {
+      const { sync } = await import("./commands/sync.js");
+      await sync(options);
+    } catch (error) {
+      handleError(error as Error);
+    }
+  });
+
+// Library commands (v0.3.0-beta)
+const libraryCommand = program
+  .command("library")
+  .description("Manage GitHub library sources");
+
+libraryCommand
+  .command("list")
+  .description("List configured library sources")
+  .action(async () => {
+    try {
+      const { listLibraries } = await import("./commands/library/list.js");
+      await listLibraries();
+    } catch (error) {
+      handleError(error as Error);
+    }
+  });
+
+libraryCommand
+  .command("cache-clear")
+  .description("Clear library caches")
+  .option("--all", "Clear all caches (not just project libraries)")
+  .action(async (options) => {
+    try {
+      const { clearCache } = await import("./commands/library/cache-clear.js");
+      await clearCache(options);
+    } catch (error) {
+      handleError(error as Error);
+    }
+  });
+
 // Phase 2 commands (AGENTS.md sync) - Not yet implemented
 // Removed to avoid user confusion. Will be added back as features are completed.
 
@@ -192,11 +238,13 @@ program.on("--help", () => {
   console.log("");
   console.log("Examples:");
   console.log("  $ agentsync init                      # Interactive setup wizard");
+  console.log("  $ agentsync sync                      # Sync libraries, rules, commands, MCPs");
+  console.log("  $ agentsync sync --update             # Update GitHub caches and sync");
+  console.log("  $ agentsync sync --dry-run            # Preview sync changes");
+  console.log("  $ agentsync library list              # List configured libraries");
+  console.log("  $ agentsync library cache-clear       # Clear library caches");
   console.log("  $ agentsync mcp list                  # List available MCPs");
   console.log("  $ agentsync mcp add github            # Add MCP server");
-  console.log("  $ agentsync mcp sync                  # Sync MCPs to tools");
-  console.log("  $ agentsync mcp sync --dry-run        # Preview MCP changes");
-  console.log("  $ agentsync mcp remove github         # Remove MCP server");
   console.log("");
   console.log("Documentation:");
   console.log("  https://github.com/baranovxyz/agentsync");

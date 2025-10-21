@@ -3,7 +3,7 @@
  */
 
 import * as path from 'path';
-import * as fs from 'fs-extra';
+import { pathExists } from '../../utils/fs.js';
 import { readFile } from 'node:fs/promises';
 import fg from 'fast-glob';
 import type { Library, LibraryMetadata } from '../../types/library.js';
@@ -62,7 +62,7 @@ export class LibraryLoader {
   ): Promise<LibraryMetadata | undefined> {
     const metadataPath = path.join(cachePath, '.agentsync', 'library.json');
 
-    if (!(await fs.pathExists(metadataPath))) {
+    if (!(await pathExists(metadataPath))) {
       return undefined;
     }
 
@@ -82,7 +82,7 @@ export class LibraryLoader {
   ): Promise<Map<string, string>> {
     const result = new Map<string, string>();
 
-    if (!(await fs.pathExists(dir))) {
+    if (!(await pathExists(dir))) {
       return result;
     }
 
@@ -113,7 +113,7 @@ export class LibraryLoader {
   private async loadMCPs(cachePath: string): Promise<Record<string, MCP>> {
     const mcpPath = path.join(cachePath, 'mcp.json');
 
-    if (!(await fs.pathExists(mcpPath))) {
+    if (!(await pathExists(mcpPath))) {
       return {};
     }
 

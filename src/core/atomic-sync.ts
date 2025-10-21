@@ -3,13 +3,14 @@
  * Provides transaction-based synchronization with automatic rollback on failure
  */
 
-import * as fs from 'fs-extra';
+import { pathExists, ensureDir, copy, remove, writeFile, access, constants } from '../utils/fs.js';
 import * as path from 'path';
 import * as os from 'os';
 import { EventEmitter } from 'events';
 import { SecurityScanner } from '../security/scanner.js';
 import { UnicodeDetector } from '../security/unicode-detector.js';
 import AuditLogger, { AuditEventType } from './audit.js';
+import { symlink } from 'node:fs/promises';
 import {
   FileSystemError,
   SyncError,
@@ -271,7 +272,7 @@ export class AtomicSyncEngine extends EventEmitter {
     // 3. Check file system permissions
     const configDir = path.join(process.cwd(), '.agentsync');
     try {
-      await fs.access(configDir, fs.constants.W_OK);
+      await access(configDir, constants.W_OK);
     } catch {
       throw new FileSystemError(
         'No write permission for .agentsync directory',
@@ -290,7 +291,7 @@ export class AtomicSyncEngine extends EventEmitter {
       os.tmpdir(),
       `agentsync-backup-${Date.now()}`
     );
-    await fs.ensureDir(this.backupDir);
+    await ensureDir(this.backupDir);
 
     const manifest: BackupManifest = {
       timestamp: new Date(),
@@ -311,10 +312,10 @@ export class AtomicSyncEngine extends EventEmitter {
           path.relative(process.cwd(), file)
         );
 
-        if (await fs.pathExists(file)) {
+        if (await pathExists(file)) {
           // Backup existing file
-          await fs.ensureDir(path.dirname(backupPath));
-          await fs.copy(file, backupPath, { preserveTimestamps: true });
+          await ensureDir(path.dirname(backupPath));
+          await copy(file, backupPath);
 
           manifest.files.push({
             originalPath: file,
@@ -334,10 +335,10 @@ export class AtomicSyncEngine extends EventEmitter {
 
     // Save manifest
     this.backupManifest = manifest;
-    await fs.writeJSON(
+    await writeFile(
       path.join(this.backupDir, 'manifest.json'),
-      manifest,
-      { spaces: 2 }
+      JSON.stringify(manifest, null, 2) + '\n',
+      'utf-8'
     );
 
     await this.audit.log({
@@ -363,7 +364,7 @@ export class AtomicSyncEngine extends EventEmitter {
 
         switch (op.type) {
           case 'create_dir':
-            await fs.ensureDir(op.path);
+            await ensureDir(op.path);
             break;
 
           case 'create':
@@ -372,13 +373,13 @@ export class AtomicSyncEngine extends EventEmitter {
             if (!op.content) {
               throw new Error(`No content provided for ${op.type} operation`);
             }
-            await fs.ensureDir(path.dirname(op.path));
-            await fs.writeFile(op.path, op.content, 'utf-8');
+            await ensureDir(path.dirname(op.path));
+            await writeFile(op.path, op.content, { encoding: 'utf-8' });
             break;
 
           case 'delete':
-            if (await fs.pathExists(op.path)) {
-              await fs.remove(op.path);
+            if (await pathExists(op.path)) {
+              await remove(op.path);
             }
             break;
 
@@ -386,11 +387,11 @@ export class AtomicSyncEngine extends EventEmitter {
             if (!op.target) {
               throw new Error('No target provided for symlink operation');
             }
-            await fs.ensureDir(path.dirname(op.path));
-            if (await fs.pathExists(op.path)) {
-              await fs.remove(op.path);
+            await ensureDir(path.dirname(op.path));
+            if (await pathExists(op.path)) {
+              await remove(op.path);
             }
-            await fs.symlink(op.target, op.path);
+            await symlink(op.target, op.path);
             break;
 
           default:
@@ -421,7 +422,7 @@ export class AtomicSyncEngine extends EventEmitter {
     // Verify all files were created
     for (const op of operations) {
       if (op.type !== 'delete' && op.path) {
-        const exists = await fs.pathExists(op.path);
+        const exists = await pathExists(op.path);
         if (!exists) {
           errors.push(`File not created: ${op.path}`);
         }
@@ -451,15 +452,12 @@ export class AtomicSyncEngine extends EventEmitter {
       try {
         if (file.existed) {
           // Restore backed up file
-          await fs.ensureDir(path.dirname(file.originalPath));
-          await fs.copy(file.backupPath, file.originalPath, {
-            overwrite: true,
-            preserveTimestamps: true,
-          });
+          await ensureDir(path.dirname(file.originalPath));
+          await copy(file.backupPath, file.originalPath);
         } else {
           // Remove file that didn't exist before
-          if (await fs.pathExists(file.originalPath)) {
-            await fs.remove(file.originalPath);
+          if (await pathExists(file.originalPath)) {
+            await remove(file.originalPath);
           }
         }
       } catch (error) {
@@ -494,7 +492,7 @@ export class AtomicSyncEngine extends EventEmitter {
   private async cleanupBackup(): Promise<void> {
     if (this.backupDir) {
       try {
-        await fs.remove(this.backupDir);
+        await remove(this.backupDir);
         this.backupDir = undefined;
         this.backupManifest = undefined;
       } catch (error) {

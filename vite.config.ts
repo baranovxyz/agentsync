@@ -9,31 +9,22 @@ export default defineConfig({
       fileName: 'cli'
     },
     rollupOptions: {
-      external: [
-        'fs',
-        'path',
-        'os',
-        'crypto',
-        'util',
-        'stream',
-        'child_process',
-        'zlib',
-        'url',
-        'http',
-        'https',
-        'net',
-        'tls',
-        'events',
-        'assert',
-        'buffer',
-        'querystring',
-        'string_decoder',
-        'timers',
-        'vm',
-        'process',
-        'module',
-        /^node:/
-      ]
+      external: (id) => {
+        // Externalize all node built-ins
+        if (id.startsWith('node:') || [
+          'fs', 'path', 'os', 'crypto', 'util', 'stream', 'child_process',
+          'zlib', 'url', 'http', 'https', 'net', 'tls', 'events', 'assert',
+          'buffer', 'querystring', 'string_decoder', 'timers', 'vm', 'process', 'module'
+        ].includes(id)) {
+          return true;
+        }
+        // Externalize fs-extra (bundling causes issues with methods like fs.stat)
+        if (id === 'fs-extra' || id.startsWith('fs-extra/')) {
+          return true;
+        }
+        // Externalize all other node_modules
+        return !id.startsWith('.') && !id.startsWith('/');
+      }
     },
     target: 'node18',
     minify: false,
