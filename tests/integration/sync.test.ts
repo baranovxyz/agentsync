@@ -1,88 +1,89 @@
 /**
  * Integration tests for main sync command
- * Tests full workflow including GitHub library loading (mocked)
+ * Tests full workflow including GitHub preset loading (mocked)
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { sync } from '../../src/commands/sync.js';
-import * as path from 'path';
-import * as os from 'os';
-import * as fs from 'fs-extra'; // TODO: migrate to native
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { sync } from "../../src/commands/sync.js";
+import * as path from "path";
+import * as os from "os";
+import * as fs from "../../src/utils/fs.js";
+import { mkdtemp } from "node:fs/promises";
 
-describe('Sync Integration', () => {
+describe("Sync Integration", () => {
   let tempDir: string;
 
   beforeEach(async () => {
-    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agentsync-sync-int-'));
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "agentsync-sync-int-"));
   });
 
   afterEach(async () => {
     await fs.remove(tempDir);
   });
 
-  describe('Full Workflow', () => {
-    it('should sync rules to Cursor', async () => {
+  describe("Full Workflow", () => {
+    it("should sync rules to Cursor", async () => {
       // Setup config
-      const configDir = path.join(tempDir, '.agentsync');
+      const configDir = path.join(tempDir, ".agentsync");
       await fs.ensureDir(configDir);
       await fs.outputFile(
-        path.join(configDir, 'config.json'),
+        path.join(configDir, "config.json"),
         JSON.stringify({
-          version: '1.0',
+          version: "1.0",
           extends: [],
           mcpServers: [],
-          tools: ['cursor'],
+          tools: ["cursor"],
           useSymlinks: true,
         }),
-        'utf-8'
+        { encoding: "utf-8" }
       );
 
       // Run sync
       await sync({ cwd: tempDir });
 
       // Verify rules directory created (even if empty)
-      const rulesDir = path.join(tempDir, '.cursor', 'rules');
+      const rulesDir = path.join(tempDir, ".cursor", "rules");
       expect(await fs.pathExists(rulesDir)).toBe(false); // No rules to sync
     });
 
-    it('should sync rules to Claude', async () => {
+    it("should sync rules to Claude", async () => {
       // Setup config
-      const configDir = path.join(tempDir, '.agentsync');
+      const configDir = path.join(tempDir, ".agentsync");
       await fs.ensureDir(configDir);
       await fs.outputFile(
-        path.join(configDir, 'config.json'),
+        path.join(configDir, "config.json"),
         JSON.stringify({
-          version: '1.0',
+          version: "1.0",
           extends: [],
           mcpServers: [],
-          tools: ['claude'],
+          tools: ["claude"],
           useSymlinks: true,
         }),
-        'utf-8'
+        { encoding: "utf-8" }
       );
 
       // Run sync
       await sync({ cwd: tempDir });
 
       // Verify no rules directory (no rules)
-      const rulesDir = path.join(tempDir, '.claude', 'rules');
+      const rulesDir = path.join(tempDir, ".claude", "rules");
       expect(await fs.pathExists(rulesDir)).toBe(false);
     });
 
-    it('should sync to multiple tools', async () => {
+    it("should sync to multiple tools", async () => {
       // Setup config
-      const configDir = path.join(tempDir, '.agentsync');
+      const configDir = path.join(tempDir, ".agentsync");
       await fs.ensureDir(configDir);
       await fs.outputFile(
-        path.join(configDir, 'config.json'),
+        path.join(configDir, "config.json"),
         JSON.stringify({
-          version: '1.0',
+          version: "1.0",
           extends: [],
           mcpServers: [],
-          tools: ['cursor', 'claude'],
+          tools: ["cursor", "claude"],
           useSymlinks: true,
         }),
-        'utf-8'
+        { encoding: "utf-8" }
       );
 
       // Run sync
@@ -91,53 +92,53 @@ describe('Sync Integration', () => {
       // Should complete without error
     });
 
-    it('should sync only to specified tool when --tool flag used', async () => {
+    it("should sync only to specified tool when --tool flag used", async () => {
       // Setup config with multiple tools
-      const configDir = path.join(tempDir, '.agentsync');
+      const configDir = path.join(tempDir, ".agentsync");
       await fs.ensureDir(configDir);
       await fs.outputFile(
-        path.join(configDir, 'config.json'),
+        path.join(configDir, "config.json"),
         JSON.stringify({
-          version: '1.0',
+          version: "1.0",
           extends: [],
           mcpServers: [],
-          tools: ['cursor', 'claude'],
+          tools: ["cursor", "claude"],
           useSymlinks: true,
         }),
-        'utf-8'
+        { encoding: "utf-8" }
       );
 
       // Run sync with --tool cursor
-      await sync({ cwd: tempDir, tool: 'cursor' });
+      await sync({ cwd: tempDir, tool: "cursor" });
 
       // Should complete without error
     });
   });
 
-  describe('MCPs Sync', () => {
-    it('should sync MCPs when mcpServers configured', async () => {
+  describe("MCPs Sync", () => {
+    it("should sync MCPs when mcpServers configured", async () => {
       // Setup config with MCP
-      const configDir = path.join(tempDir, '.agentsync');
+      const configDir = path.join(tempDir, ".agentsync");
       await fs.ensureDir(configDir);
       await fs.outputFile(
-        path.join(configDir, 'config.json'),
+        path.join(configDir, "config.json"),
         JSON.stringify({
-          version: '1.0',
+          version: "1.0",
           extends: [],
           mcpServers: [],
-          tools: ['cursor'],
+          tools: ["cursor"],
           useSymlinks: true,
         }),
-        'utf-8'
+        { encoding: "utf-8" }
       );
 
       // Create global MCP registry (required for MCP sync)
       const homeDir = os.homedir();
-      const agentsyncDir = path.join(homeDir, '.agentsync');
-      const mcpRegistryPath = path.join(agentsyncDir, 'mcp.json');
+      const agentsyncDir = path.join(homeDir, ".agentsync");
+      const mcpRegistryPath = path.join(agentsyncDir, "mcp.json");
 
-      const mcpRegistryBackup = await fs.pathExists(mcpRegistryPath)
-        ? await fs.readFile(mcpRegistryPath, 'utf-8')
+      const mcpRegistryBackup = (await fs.pathExists(mcpRegistryPath))
+        ? await fs.readFile(mcpRegistryPath, "utf-8")
         : null;
 
       try {
@@ -146,14 +147,14 @@ describe('Sync Integration', () => {
           mcpRegistryPath,
           JSON.stringify({
             github: {
-              command: 'npx',
-              args: ['-y', '@modelcontextprotocol/server-github'],
+              command: "npx",
+              args: ["-y", "@modelcontextprotocol/server-github"],
               env: {
-                GITHUB_PERSONAL_ACCESS_TOKEN: '{GITHUB_TOKEN}',
+                GITHUB_PERSONAL_ACCESS_TOKEN: "{GITHUB_TOKEN}",
               },
             },
           }),
-          'utf-8'
+          { encoding: "utf-8" }
         );
 
         // Run sync
@@ -163,7 +164,9 @@ describe('Sync Integration', () => {
       } finally {
         // Restore original registry
         if (mcpRegistryBackup) {
-          await fs.outputFile(mcpRegistryPath, mcpRegistryBackup, 'utf-8');
+          await fs.outputFile(mcpRegistryPath, mcpRegistryBackup, {
+            encoding: "utf-8",
+          });
         } else {
           await fs.remove(mcpRegistryPath);
         }
@@ -171,68 +174,76 @@ describe('Sync Integration', () => {
     });
   });
 
-  describe('Dry Run', () => {
-    it('should not write files in dry run mode', async () => {
+  describe("Dry Run", () => {
+    it("should not write files in dry run mode", async () => {
       // Setup config
-      const configDir = path.join(tempDir, '.agentsync');
+      const configDir = path.join(tempDir, ".agentsync");
       await fs.ensureDir(configDir);
       await fs.outputFile(
-        path.join(configDir, 'config.json'),
+        path.join(configDir, "config.json"),
         JSON.stringify({
-          version: '1.0',
+          version: "1.0",
           extends: [],
           mcpServers: [],
-          tools: ['cursor'],
+          tools: ["cursor"],
           useSymlinks: true,
         }),
-        'utf-8'
+        { encoding: "utf-8" }
       );
 
       // Run sync in dry run mode
       await sync({ cwd: tempDir, dryRun: true });
 
       // Verify no directories created
-      expect(await fs.pathExists(path.join(tempDir, '.cursor', 'rules'))).toBe(false);
-      expect(await fs.pathExists(path.join(tempDir, '.cursor', 'commands'))).toBe(false);
-      expect(await fs.pathExists(path.join(tempDir, '.cursor', 'mcp.json'))).toBe(false);
+      expect(await fs.pathExists(path.join(tempDir, ".cursor", "rules"))).toBe(
+        false
+      );
+      expect(
+        await fs.pathExists(path.join(tempDir, ".cursor", "commands"))
+      ).toBe(false);
+      expect(
+        await fs.pathExists(path.join(tempDir, ".cursor", "mcp.json"))
+      ).toBe(false);
     });
   });
 
-  describe('Error Scenarios', () => {
-    it('should fail gracefully when config is missing', async () => {
-      await expect(sync({ cwd: tempDir })).rejects.toThrow('configuration not found');
+  describe("Error Scenarios", () => {
+    it("should fail gracefully when config is missing", async () => {
+      await expect(sync({ cwd: tempDir })).rejects.toThrow(
+        "configuration not found"
+      );
     });
 
-    it('should fail when config is invalid JSON', async () => {
-      const configDir = path.join(tempDir, '.agentsync');
+    it("should fail when config is invalid JSON", async () => {
+      const configDir = path.join(tempDir, ".agentsync");
       await fs.ensureDir(configDir);
       await fs.outputFile(
-        path.join(configDir, 'config.json'),
-        'invalid json {',
-        'utf-8'
+        path.join(configDir, "config.json"),
+        "invalid json {",
+        { encoding: "utf-8" }
       );
 
       await expect(sync({ cwd: tempDir })).rejects.toThrow();
     });
 
-    it('should fail when tool is invalid', async () => {
-      const configDir = path.join(tempDir, '.agentsync');
+    it("should fail when tool is invalid", async () => {
+      const configDir = path.join(tempDir, ".agentsync");
       await fs.ensureDir(configDir);
       await fs.outputFile(
-        path.join(configDir, 'config.json'),
+        path.join(configDir, "config.json"),
         JSON.stringify({
-          version: '1.0',
+          version: "1.0",
           extends: [],
           mcpServers: [],
-          tools: ['cursor'],
+          tools: ["cursor"],
           useSymlinks: true,
         }),
-        'utf-8'
+        { encoding: "utf-8" }
       );
 
       await expect(
-        sync({ cwd: tempDir, tool: 'invalid-tool' })
-      ).rejects.toThrow('Unknown tool');
+        sync({ cwd: tempDir, tool: "invalid-tool" })
+      ).rejects.toThrow("Unknown tool");
     });
   });
 });

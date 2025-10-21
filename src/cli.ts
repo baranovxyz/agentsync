@@ -87,35 +87,47 @@ mcpCommand
       const { listMCP } = await import("./commands/mcp/list.js");
       const result = await listMCP();
 
-      console.log(pc.cyan(`\nGlobal MCP Registry (${result.total} servers):\n`));
+      console.log(
+        pc.cyan(`\nGlobal MCP Registry (${result.total} servers):\n`)
+      );
 
       if (result.active.length > 0) {
-        console.log(pc.green(`✓ Active in this project (${result.active.length}):`));
+        console.log(
+          pc.green(`✓ Active in this project (${result.active.length}):`)
+        );
         for (const name of result.active) {
           const mcp = result.mcps[name];
-          console.log(pc.green(`  ${name}`) + pc.gray(` - ${mcp.args.join(' ')}`));
+          console.log(
+            pc.green(`  ${name}`) + pc.gray(` - ${mcp.args.join(" ")}`)
+          );
         }
         console.log();
       } else {
-        console.log(pc.yellow('No MCP servers configured yet\n'));
+        console.log(pc.yellow("No MCP servers configured yet\n"));
       }
 
       if (result.inactive.length > 0) {
         console.log(pc.gray(`○ Available (${result.inactive.length}):`));
         for (const name of result.inactive) {
           const mcp = result.mcps[name];
-          console.log(pc.gray(`  ${name} - ${mcp.args.join(' ')}`));
+          console.log(pc.gray(`  ${name} - ${mcp.args.join(" ")}`));
         }
         console.log();
       }
 
       if (result.active.length === 0) {
-        console.log(pc.bold('Get started:'));
-        console.log(pc.gray('  1. Add an MCP:   ') + pc.cyan('agentsync mcp add github'));
-        console.log(pc.gray('  2. Sync to tools: ') + pc.cyan('agentsync mcp sync'));
+        console.log(pc.bold("Get started:"));
+        console.log(
+          pc.gray("  1. Add an MCP:   ") + pc.cyan("agentsync mcp add github")
+        );
+        console.log(
+          pc.gray("  2. Sync to tools: ") + pc.cyan("agentsync mcp sync")
+        );
       } else {
-        console.log(pc.gray('To add an MCP: ') + pc.cyan('agentsync mcp add <name>'));
-        console.log(pc.gray('To sync:       ') + pc.cyan('agentsync mcp sync'));
+        console.log(
+          pc.gray("To add an MCP: ") + pc.cyan("agentsync mcp add <name>")
+        );
+        console.log(pc.gray("To sync:       ") + pc.cyan("agentsync mcp sync"));
       }
     } catch (error) {
       handleError(error as Error);
@@ -134,12 +146,16 @@ mcpCommand
         console.log(pc.green(`✓ Added '${server}' to .agentsync.json`));
 
         if (result.requiredEnv.length > 0) {
-          console.log(pc.yellow(`\nMCP '${server}' requires environment variables:`));
+          console.log(
+            pc.yellow(`\nMCP '${server}' requires environment variables:`)
+          );
           for (const varName of result.requiredEnv) {
             console.log(pc.yellow(`  - ${varName}`));
           }
           console.log(pc.gray("\nAdd to .env file:"));
-          console.log(pc.gray(`  echo "${result.requiredEnv[0]}=your_token_here" >> .env`));
+          console.log(
+            pc.gray(`  echo "${result.requiredEnv[0]}=your_token_here" >> .env`)
+          );
         }
 
         console.log(pc.gray("\nRun 'agentsync mcp sync' to apply changes."));
@@ -186,30 +202,30 @@ program
     }
   });
 
-// Library commands (v0.3.0-beta)
-const libraryCommand = program
-  .command("library")
-  .description("Manage GitHub library sources");
+// Preset commands (v0.3.0-beta)
+const presetCommand = program
+  .command("preset")
+  .description("Manage GitHub preset sources");
 
-libraryCommand
+presetCommand
   .command("list")
-  .description("List configured library sources")
+  .description("List configured preset sources")
   .action(async () => {
     try {
-      const { listLibraries } = await import("./commands/library/list.js");
-      await listLibraries();
+      const { listPresets } = await import("./commands/preset/list.js");
+      await listPresets();
     } catch (error) {
       handleError(error as Error);
     }
   });
 
-libraryCommand
+presetCommand
   .command("cache-clear")
-  .description("Clear library caches")
-  .option("--all", "Clear all caches (not just project libraries)")
+  .description("Clear preset caches")
+  .option("--all", "Clear all caches (not just project presets)")
   .action(async (options) => {
     try {
-      const { clearCache } = await import("./commands/library/cache-clear.js");
+      const { clearCache } = await import("./commands/preset/cache-clear.js");
       await clearCache(options);
     } catch (error) {
       handleError(error as Error);
@@ -237,12 +253,20 @@ program.on("--help", () => {
   showLogo();
   console.log("");
   console.log("Examples:");
-  console.log("  $ agentsync init                      # Interactive setup wizard");
-  console.log("  $ agentsync sync                      # Sync libraries, rules, commands, MCPs");
-  console.log("  $ agentsync sync --update             # Update GitHub caches and sync");
+  console.log(
+    "  $ agentsync init                      # Interactive setup wizard"
+  );
+  console.log(
+    "  $ agentsync sync                      # Sync libraries, rules, commands, MCPs"
+  );
+  console.log(
+    "  $ agentsync sync --update             # Update GitHub caches and sync"
+  );
   console.log("  $ agentsync sync --dry-run            # Preview sync changes");
-  console.log("  $ agentsync library list              # List configured libraries");
-  console.log("  $ agentsync library cache-clear       # Clear library caches");
+  console.log(
+    "  $ agentsync preset list               # List configured presets"
+  );
+  console.log("  $ agentsync preset cache-clear        # Clear preset caches");
   console.log("  $ agentsync mcp list                  # List available MCPs");
   console.log("  $ agentsync mcp add github            # Add MCP server");
   console.log("");
