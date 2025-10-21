@@ -1,20 +1,20 @@
 /**
  * Main Sync Command
- * Orchestrates syncing of libraries (rules, commands, MCPs) from GitHub to tools
+ * Orchestrates syncing of presets (rules, commands, MCPs) from GitHub to tools
  */
 
-import { RegistryOrchestrator } from '../core/registry/registry-orchestrator.js';
-import { RulesSyncTarget } from '../targets/rules-sync-target.js';
-import { CommandsSyncTarget } from '../targets/commands-sync-target.js';
-import { syncMCP } from './mcp/sync.js';
-import { validateConfig } from '../types/schemas.js';
-import { readFile } from 'node:fs/promises';
-import * as path from 'path';
-import picocolors from 'picocolors';
-import ora from 'ora';
-import AuditLogger, { AuditEventType } from '../core/audit.js';
-import { ConfigError, ErrorCategory, ErrorSeverity } from '../core/errors.js';
-import type { ToolName } from '../types/index.js';
+import { RegistryOrchestrator } from "../core/registry/registry-orchestrator.js";
+import { RulesSyncTarget } from "../targets/rules-sync-target.js";
+import { CommandsSyncTarget } from "../targets/commands-sync-target.js";
+import { syncMCP } from "./mcp/sync.js";
+import { validateConfig } from "../types/schemas.js";
+import { readFile } from "node:fs/promises";
+import * as path from "path";
+import picocolors from "picocolors";
+import ora from "ora";
+import AuditLogger, { AuditEventType } from "../core/audit.js";
+import { ConfigError, ErrorCategory, ErrorSeverity } from "../core/errors.js";
+import type { ToolName } from "../types/index.js";
 
 const pc = picocolors;
 
@@ -34,7 +34,7 @@ export interface MainSyncOptions {
 
 /**
  * Main sync command
- * Loads config, resolves libraries, merges content, syncs to tools
+ * Loads config, resolves presets, merges content, syncs to tools
  */
 export async function sync(options: MainSyncOptions = {}): Promise<void> {
   const cwd = options.cwd || process.cwd();
@@ -43,24 +43,24 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
   // Log sync start
   await audit.log({
     type: AuditEventType.SYNC_START,
-    severity: 'info',
-    category: 'sync',
-    message: 'Starting sync workflow',
+    severity: "info",
+    category: "sync",
+    message: "Starting sync workflow",
     metadata: { options } as Record<string, unknown>,
   });
 
   try {
     // 1. Load and validate config
-    const spinner = ora('Loading configuration...').start();
-    const configPath = path.join(cwd, '.agentsync', 'config.json');
+    const spinner = ora("Loading configuration...").start();
+    const configPath = path.join(cwd, ".agentsync", "config.json");
 
     let configContent: string;
     try {
-      configContent = await readFile(configPath, 'utf-8');
+      configContent = await readFile(configPath, "utf-8");
     } catch (error) {
-      spinner.fail('Configuration not found');
+      spinner.fail("Configuration not found");
       throw new ConfigError(
-        'AgentSync configuration not found',
+        "AgentSync configuration not found",
         configPath,
         'Run "agentsync init" to initialize AgentSync in this project'
       );
@@ -70,7 +70,7 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
     try {
       config = validateConfig(JSON.parse(configContent));
     } catch (error) {
-      spinner.fail('Invalid configuration');
+      spinner.fail("Invalid configuration");
       throw new ConfigError(
         `Invalid AgentSync configuration: ${(error as Error).message}`,
         configPath,
@@ -78,7 +78,7 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
       );
     }
 
-    spinner.succeed('Configuration loaded');
+    spinner.succeed("Configuration loaded");
 
     // Determine which tools to sync to
     const targetTools: ToolName[] = options.tool
@@ -87,36 +87,48 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
 
     // Validate tool if specified
     if (options.tool) {
-      const validTools: ToolName[] = ['cursor', 'claude', 'cline', 'windsurf', 'copilot'];
+      const validTools: ToolName[] = [
+        "cursor",
+        "claude",
+        "cline",
+        "windsurf",
+        "copilot",
+      ];
       if (!validTools.includes(options.tool as ToolName)) {
         throw new ConfigError(
           `Unknown tool: ${options.tool}`,
-          '',
-          `Valid tools: ${validTools.join(', ')}`
+          "",
+          `Valid tools: ${validTools.join(", ")}`
         );
       }
     }
 
     // Show what we'll do
     if (options.dryRun) {
-      console.log(pc.yellow('\n📋 Dry run mode - no files will be written\n'));
+      console.log(pc.yellow("\n📋 Dry run mode - no files will be written\n"));
     }
 
-    console.log(pc.gray('Tools to sync: ') + (targetTools.length > 0 ? targetTools.join(', ') : pc.gray('(none)')));
-    console.log(pc.gray('Libraries: ') + pc.gray(config.extends?.length || 0));
-    console.log(pc.gray('MCP servers: ') + pc.gray(
-      Array.isArray(config.mcpServers)
-        ? config.mcpServers.length
-        : Object.keys(config.mcpServers || {}).length
-    ));
+    console.log(
+      pc.gray("Tools to sync: ") +
+        (targetTools.length > 0 ? targetTools.join(", ") : pc.gray("(none)"))
+    );
+    console.log(pc.gray("Libraries: ") + pc.gray(config.extends?.length || 0));
+    console.log(
+      pc.gray("MCP servers: ") +
+        pc.gray(
+          Array.isArray(config.mcpServers)
+            ? config.mcpServers.length
+            : Object.keys(config.mcpServers || {}).length
+        )
+    );
     console.log();
 
-    // 2. Load and merge GitHub libraries (if any)
+    // 2. Load and merge GitHub presets (if any)
     const orchestrator = new RegistryOrchestrator();
-    let librarySpinner;
+    let presetSpinner;
 
     if (config.extends && config.extends.length > 0) {
-      librarySpinner = ora('Loading GitHub libraries...').start();
+      presetSpinner = ora("Loading GitHub libraries...").start();
     }
 
     let merged;
@@ -125,14 +137,14 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
         update: options.update,
       });
 
-      if (librarySpinner) {
-        librarySpinner.succeed(
-          `Loaded ${config.extends?.length || 0} ${config.extends?.length === 1 ? 'library' : 'libraries'}`
+      if (presetSpinner) {
+        presetSpinner.succeed(
+          `Loaded ${config.extends?.length || 0} ${config.extends?.length === 1 ? "library" : "libraries"}`
         );
       }
     } catch (error) {
-      if (librarySpinner) {
-        librarySpinner.fail('Failed to load libraries');
+      if (presetSpinner) {
+        presetSpinner.fail("Failed to load libraries");
       }
       throw error;
     }
@@ -146,13 +158,13 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
 
     // 3. Sync rules to tools
     if (!options.dryRun && targetTools.length > 0 && merged.rules.size > 0) {
-      const rulesSpinner = ora('Syncing rules...').start();
+      const rulesSpinner = ora("Syncing rules...").start();
       try {
         const rulesSyncTarget = new RulesSyncTarget();
         await rulesSyncTarget.sync(merged.rules, targetTools, cwd);
         rulesSpinner.succeed(`Synced ${merged.rules.size} rules`);
       } catch (error) {
-        rulesSpinner.fail('Failed to sync rules');
+        rulesSpinner.fail("Failed to sync rules");
         throw error;
       }
     } else if (options.dryRun && merged.rules.size > 0) {
@@ -161,19 +173,17 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
 
     // 4. Sync commands to tools
     if (!options.dryRun && targetTools.length > 0 && merged.commands.size > 0) {
-      const commandsSpinner = ora('Syncing commands...').start();
+      const commandsSpinner = ora("Syncing commands...").start();
       try {
         const commandsSyncTarget = new CommandsSyncTarget();
         await commandsSyncTarget.sync(merged.commands, targetTools, cwd);
         commandsSpinner.succeed(`Synced ${merged.commands.size} commands`);
       } catch (error) {
-        commandsSpinner.fail('Failed to sync commands');
+        commandsSpinner.fail("Failed to sync commands");
         throw error;
       }
     } else if (options.dryRun && merged.commands.size > 0) {
-      console.log(
-        pc.gray(`Would sync ${merged.commands.size} commands`)
-      );
+      console.log(pc.gray(`Would sync ${merged.commands.size} commands`));
     }
 
     // 5. Sync MCPs to tools (only if MCP config exists with non-empty servers)
@@ -189,14 +199,14 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
 
     // Also check for local MCP config file (agentsync.local.json or .agentsync/config.local.json)
     const localMcpPaths = [
-      path.join(cwd, 'agentsync.local.json'),
-      path.join(cwd, '.agentsync', 'config.local.json'),
+      path.join(cwd, "agentsync.local.json"),
+      path.join(cwd, ".agentsync", "config.local.json"),
     ];
 
     let hasLocalMcpConfig = false;
     for (const mcpPath of localMcpPaths) {
       try {
-        const content = await readFile(mcpPath, 'utf-8');
+        const content = await readFile(mcpPath, "utf-8");
         const localConfig = JSON.parse(content);
         if (localConfig.mcpServers) {
           if (Array.isArray(localConfig.mcpServers)) {
@@ -211,16 +221,20 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
       }
     }
 
-    if (!options.dryRun && (hasMcpServers || hasLocalMcpConfig) && targetTools.length > 0) {
-      const mcpSpinner = ora('Syncing MCP servers...').start();
+    if (
+      !options.dryRun &&
+      (hasMcpServers || hasLocalMcpConfig) &&
+      targetTools.length > 0
+    ) {
+      const mcpSpinner = ora("Syncing MCP servers...").start();
       try {
         await syncMCP({
           tool: options.tool,
           dryRun: false,
         });
-        mcpSpinner.succeed('Synced MCP servers');
+        mcpSpinner.succeed("Synced MCP servers");
       } catch (error) {
-        mcpSpinner.fail('Failed to sync MCPs');
+        mcpSpinner.fail("Failed to sync MCPs");
         throw error;
       }
     } else if (options.dryRun && hasMcpServers) {
@@ -232,17 +246,17 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
 
     // Success!
     if (!options.dryRun) {
-      console.log(pc.green('\n✅ Sync complete!\n'));
+      console.log(pc.green("\n✅ Sync complete!\n"));
     } else {
-      console.log(pc.gray('\n✓ Dry run complete - no files were written\n'));
+      console.log(pc.gray("\n✓ Dry run complete - no files were written\n"));
     }
 
     // Log success
     await audit.log({
       type: AuditEventType.SYNC_SUCCESS,
-      severity: 'info',
-      category: 'sync',
-      message: 'Sync workflow completed successfully',
+      severity: "info",
+      category: "sync",
+      message: "Sync workflow completed successfully",
       metadata: {
         ...options,
         rulesCount: merged.rules.size,
@@ -256,7 +270,7 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
       error as Error,
       ErrorCategory.SYNC,
       ErrorSeverity.HIGH,
-      { command: 'sync', options }
+      { command: "sync", options }
     );
 
     throw error;
