@@ -11,7 +11,7 @@ name: Install Test
 on:
   schedule:
     # Run every Sunday at midnight UTC
-    - cron: '0 0 * * 0'
+    - cron: "0 0 * * 0"
   workflow_dispatch: # Manual trigger (recommended before releases)
 
 jobs:
@@ -38,7 +38,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
-          cache: 'pnpm'
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

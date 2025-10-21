@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version_type:
-        description: 'Version bump type'
+        description: "Version bump type"
         required: true
         type: choice
         options:
@@ -18,26 +18,26 @@ on:
           - patch
           - minor
           - major
-        default: 'prerelease'
+        default: "prerelease"
       preid:
-        description: 'Pre-release identifier (alpha/beta/rc)'
+        description: "Pre-release identifier (alpha/beta/rc)"
         required: false
-        default: 'alpha'
+        default: "alpha"
       dry_run:
-        description: 'Dry run (no publish)'
+        description: "Dry run (no publish)"
         required: false
         type: boolean
         default: false
 
   push:
     tags:
-      - 'v*.*.*'
+      - "v*.*.*"
 
 # Security: Limit permissions to minimum required
 permissions:
-  contents: write       # Create releases and push tags
-  pull-requests: write  # Create PRs
-  id-token: write       # OIDC token for npm provenance (CRITICAL)
+  contents: write # Create releases and push tags
+  pull-requests: write # Create PRs
+  id-token: write # OIDC token for npm provenance (CRITICAL)
 
 jobs:
   # Job 1: Trigger E2E Install Tests (runs in parallel with pre-release checks)
@@ -68,12 +68,13 @@ jobs:
     outputs:
       current_version: ${{ steps.get_version.outputs.current }}
       next_version: ${{ steps.bump_version.outputs.next }}
+      changelog: ${{ steps.changelog.outputs.changelog }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Full history for changelog generation
+          fetch-depth: 0 # Full history for changelog generation
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup pnpm
@@ -85,7 +86,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -359,8 +360,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          registry-url: 'https://registry.npmjs.org'
-          cache: 'pnpm'
+          registry-url: "https://registry.npmjs.org"
+          cache: "pnpm"
 
       - name: Download build artifacts
         uses: actions/download-artifact@v4
