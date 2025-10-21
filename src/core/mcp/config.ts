@@ -22,19 +22,19 @@ export interface ProjectMCPConfig {
 /**
  * Get MCP config file path with fallback priority:
  * 1. .agentsync/config.json (primary - team config, committed)
- * 2. agentsync.local.json (override - personal overrides, gitignored)
+ * 2. agentsync.local.json (override - personal config, gitignored)
  * 3. .agentsync/config.local.json (backup - hidden directory)
  */
 async function getMCPConfigPath(): Promise<string | null> {
   const cwd = process.cwd();
 
-  // Primary: Team-shared config (committed to git)
+  // Primary: Team-shared config (committed, created by init/add/remove)
   const teamPath = path.join(cwd, ".agentsync", "config.json");
   if (await pathExists(teamPath)) {
     return teamPath;
   }
 
-  // Override: Personal overrides (gitignored)
+  // Override: Personal config (gitignored, user-created)
   const localPath = path.join(cwd, "agentsync.local.json");
   if (await pathExists(localPath)) {
     return localPath;
@@ -76,9 +76,9 @@ export async function loadProjectConfig(
           `  - .agentsync/config.json (team config, committed)\n` +
           `  - agentsync.local.json (personal overrides, gitignored)\n` +
           `  - .agentsync/config.local.json (backup location)\n\n` +
-          `Run 'agentsync init' to create team config, or create agentsync.local.json with:\n` +
-          `  {"mcpServers": []}\n\n` +
-          `Then use 'agentsync mcp add <server>' to select MCPs.`
+          `Create .agentsync/config.json with:\n` +
+          `  {"version": "1.0", "tools": ["cursor", "claude"], "mcpServers": []}\n\n` +
+          `Or run 'agentsync init' to set up the project.`
       );
     }
   }
