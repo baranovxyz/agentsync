@@ -12,31 +12,74 @@
 2. **GitHub Library System** (v0.3.0-beta 🚧) - Share rules, commands, and MCPs via GitHub repositories
 3. **AGENTS.md Sync** (Phase 2 ⏳) - Sync unified AGENTS.md to all AI coding tools
 
-## v0.3.0-beta: GitHub Library System 🚧 IN PROGRESS
+## v0.3.0-beta: GitHub Library System ✅ COMPLETE
 
-Share team coding standards, commands, and MCPs via GitHub repositories. Core infrastructure complete, targeting full release in early 2025.
+Share team coding standards, commands, and MCPs via GitHub repositories. **Production-ready** - all features implemented and tested with real GitHub repository, ready for release.
 
-**Completed:**
-- ✅ GitHub source parser and cache manager
-- ✅ Namespace-based library merging
-- ✅ SSH/HTTPS fallback for private repos
-- ✅ Config schema with `extends` field
-- ✅ 29 unit tests passing
+### Features
 
-**Coming Soon:**
-- Rules/commands sync to Cursor & Claude
-- Main sync command
-- Example library repositories
-- Full documentation
+**✅ All Features Complete:**
+- GitHub library loading & merging (namespace-based collision prevention)
+- Rules sync to Cursor (`.mdc`) & Claude (`.md`)
+- Commands sync to Cursor & Claude
+- Main sync command with `--update`, `--dry-run`, `--tool` flags
+- Library management: `list`, `cache-clear`
+- SSH/HTTPS fallback for private repos
+- Smart MCP detection and integration
+- Example library published: `@agentsync/example-typescript`
+- 86 tests passing (82 unit/integration + 4 E2E with real GitHub repo)
 
-**Preview:**
-```json
+### Quick Start
+
+```bash
+# Initialize project with library support
+agentsync init
+
+# Extend a team library in .agentsync/config.json
 {
-  "extends": ["github:company/standards"],
-  "mcpServers": ["github", "postgres"],
+  "extends": ["github:company/coding-standards"],
+  "tools": ["cursor", "claude"]
+}
+
+# Sync libraries to your tools
+agentsync sync
+
+# Update libraries and sync
+agentsync sync --update
+
+# Preview changes
+agentsync sync --dry-run
+
+# View configured libraries
+agentsync library list
+
+# Clear caches
+agentsync library cache-clear
+```
+
+### Example: Company-Wide Standards
+
+**Create library repo:** `github:acme/coding-standards`
+```
+acme/coding-standards/
+├── rules/
+│   ├── typescript.md      # TypeScript style guide
+│   └── testing.md         # Testing requirements
+├── commands/
+│   └── commit.md          # Commit message helper
+└── README.md
+```
+
+**Use in projects:**
+```json
+// .agentsync/config.json
+{
+  "extends": ["github:acme/coding-standards"],
   "tools": ["cursor", "claude"]
 }
 ```
+
+**Result:** All teams get consistent rules and commands automatically!
 
 Learn more in [CLAUDE.md](./CLAUDE.md#v030-beta-github-library-system)
 

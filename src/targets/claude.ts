@@ -6,7 +6,7 @@
 import type { MCPTarget } from './mcp-base.js';
 import type { MCP } from '../core/mcp/tokens.js';
 import { writeFile } from 'node:fs/promises';
-import { pathExists, ensureDir } from 'fs-extra';
+import { pathExists, ensureDir } from '../utils/fs.js';
 import * as path from 'path';
 
 /**

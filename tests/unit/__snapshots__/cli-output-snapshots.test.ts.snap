@@ -49,6 +49,8 @@ Options:
 Commands:
   init [options]  Initialize AgentSync with interactive setup wizard
   mcp             Manage MCP (Model Context Protocol) servers
+  sync [options]  Sync libraries, rules, commands, and MCPs to AI tools
+  library         Manage GitHub library sources
   help [command]  display help for command"
 `;
 
@@ -122,7 +124,7 @@ Options:
   -h, --help     display help for command"
 `;
 
-exports[`CLI Output Snapshots > Version and Help > --help output matches snapshot 1`] = `
+exports[`CLI Output Snapshots > Version and Help > --help output matches snapshot (version-agnostic) 1`] = `
 "Usage: agentsync [options] [command]
 
 Sync your AGENTS.md to all your AI coding tools - Cursor, Claude Code, Cline,
@@ -135,10 +137,12 @@ Options:
 Commands:
   init [options]  Initialize AgentSync with interactive setup wizard
   mcp             Manage MCP (Model Context Protocol) servers
+  sync [options]  Sync libraries, rules, commands, and MCPs to AI tools
+  library         Manage GitHub library sources
   help [command]  display help for command
 
   ╔═══════════════════════════════════════╗
-  ║     AgentSync v0.2.0-alpha.9              ║
+  ║     AgentSync vX.Y.Z              ║
   ║  The missing infrastructure layer     ║
   ║  for AI agent configuration sync      ║
   ╚═══════════════════════════════════════╝
@@ -146,11 +150,13 @@ Commands:
 
 Examples:
   $ agentsync init                      # Interactive setup wizard
+  $ agentsync sync                      # Sync libraries, rules, commands, MCPs
+  $ agentsync sync --update             # Update GitHub caches and sync
+  $ agentsync sync --dry-run            # Preview sync changes
+  $ agentsync library list              # List configured libraries
+  $ agentsync library cache-clear       # Clear library caches
   $ agentsync mcp list                  # List available MCPs
   $ agentsync mcp add github            # Add MCP server
-  $ agentsync mcp sync                  # Sync MCPs to tools
-  $ agentsync mcp sync --dry-run        # Preview MCP changes
-  $ agentsync mcp remove github         # Remove MCP server
 
 Documentation:
   https://github.com/baranovxyz/agentsync"

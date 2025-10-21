@@ -3,7 +3,8 @@
  * Loads from .env file and merges with process.env
  */
 
-import * as fs from 'fs-extra';
+import { pathExists } from '../../utils/fs.js';
+import { readFile } from 'node:fs/promises';
 import * as path from 'path';
 
 /**
@@ -18,8 +19,8 @@ export async function loadEnv(envPath?: string): Promise<Record<string, string>>
   const env: Record<string, string> = {};
 
   // If .env file exists, parse it first
-  if (await fs.pathExists(filepath)) {
-    const content = await fs.readFile(filepath, 'utf-8');
+  if (await pathExists(filepath)) {
+    const content = await readFile(filepath, 'utf-8');
 
     // Simple .env parser (handles KEY=value format)
     const lines = content.split('\n');

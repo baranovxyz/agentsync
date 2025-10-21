@@ -3,7 +3,7 @@
  * Provides common functionality for all tool-specific translators
  */
 
-import * as fs from 'fs-extra';
+import { pathExists, readdir, remove, ensureDir, writeFile, rename, symlink } from '../utils/fs.js';
 import * as path from 'path';
 import { FileSystemError, ValidationError, ErrorCategory, ErrorSeverity } from '../core/errors.js';
 import type {
@@ -51,14 +51,14 @@ export abstract class BaseTranslator implements Translator {
 
     // Check main config
     const mainPath = path.join(targetDir, paths.mainConfig);
-    if (await fs.pathExists(mainPath)) {
+    if (await pathExists(mainPath)) {
       files.push(mainPath);
     }
 
     // Check config directory
     const configDirPath = path.join(targetDir, paths.configDir);
-    if (await fs.pathExists(configDirPath)) {
-      const dirFiles = await fs.readdir(configDirPath);
+    if (await pathExists(configDirPath)) {
+      const dirFiles = await readdir(configDirPath);
       files.push(...dirFiles.map(f => path.join(configDirPath, f)));
     }
 
@@ -66,7 +66,7 @@ export abstract class BaseTranslator implements Translator {
     if (paths.alternativeConfigs) {
       for (const altConfig of paths.alternativeConfigs) {
         const altPath = path.join(targetDir, altConfig);
-        if (await fs.pathExists(altPath)) {
+        if (await pathExists(altPath)) {
           files.push(altPath);
         }
       }
@@ -101,7 +101,7 @@ export abstract class BaseTranslator implements Translator {
 
     for (const file of files) {
       try {
-        await fs.remove(file);
+        await remove(file);
         await this.audit.logFileOperation('delete', file, true, {
           tool: this.name
         });
@@ -133,21 +133,21 @@ export abstract class BaseTranslator implements Translator {
   protected async createSymlink(source: string, target: string): Promise<void> {
     try {
       // Ensure target directory exists
-      await fs.ensureDir(path.dirname(target));
+      await ensureDir(path.dirname(target));
 
       // Remove existing file/symlink if exists
-      if (await fs.pathExists(target)) {
-        await fs.remove(target);
+      if (await pathExists(target)) {
+        await remove(target);
       }
 
       // Try to create symlink
       try {
-        await fs.symlink(source, target);
+        await symlink(source, target);
       } catch (symlinkError) {
         // Fallback to pointer file if symlink fails
         const pointerContent = `# AgentSync Pointer File\n# This file points to: ${source}\n\n` +
           `Please refer to ${path.relative(path.dirname(target), source)} for the actual configuration.`;
-        await fs.writeFile(target, pointerContent);
+        await writeFile(target, pointerContent);
 
         await this.audit.log({
           type: AuditEventType.CONFIG_UPDATE,
@@ -178,14 +178,14 @@ export abstract class BaseTranslator implements Translator {
   protected async writeFile(filePath: string, content: string): Promise<void> {
     try {
       // Ensure directory exists
-      await fs.ensureDir(path.dirname(filePath));
+      await ensureDir(path.dirname(filePath));
 
       // Write to temp file first
       const tempPath = `${filePath}.tmp`;
-      await fs.writeFile(tempPath, content, 'utf-8');
+      await writeFile(tempPath, content, { encoding: 'utf-8' });
 
       // Rename atomically
-      await fs.rename(tempPath, filePath);
+      await rename(tempPath, filePath);
 
       await this.audit.logFileOperation('write', filePath, true, {
         tool: this.name
@@ -204,7 +204,7 @@ export abstract class BaseTranslator implements Translator {
    */
   protected async ensureDir(dirPath: string): Promise<void> {
     try {
-      await fs.ensureDir(dirPath);
+      await ensureDir(dirPath);
     } catch (error) {
       throw new FileSystemError(
         `Failed to create directory ${dirPath}`,
@@ -285,17 +285,17 @@ export abstract class BaseTranslator implements Translator {
         const testSource = path.join(testDir, 'source.txt');
         const testTarget = path.join(testDir, 'target.txt');
 
-        await fs.ensureDir(testDir);
-        await fs.writeFile(testSource, 'test');
+        await ensureDir(testDir);
+        await writeFile(testSource, 'test');
 
         try {
-          await fs.symlink(testSource, testTarget);
-          await fs.remove(testTarget);
+          await symlink(testSource, testTarget);
+          await remove(testTarget);
           return true;
         } catch {
           return false;
         } finally {
-          await fs.remove(testDir);
+          await remove(testDir);
         }
       } catch {
         return false;
