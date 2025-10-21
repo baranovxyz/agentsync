@@ -60,6 +60,34 @@ describe("CLI Shell Execution", () => {
   }
 
   /**
+   * Helper function to initialize a project with proper config
+   * This follows the natural flow instead of manually creating files
+   */
+  async function initializeProject(
+    options: {
+      template?: string;
+      tools?: string[];
+    } = {}
+  ): Promise<void> {
+    const { template = "default", tools = ["cursor"] } = options;
+
+    const initArgs = [
+      "init",
+      "--template",
+      template,
+      "--tools",
+      tools.join(","),
+    ];
+
+    const { exitCode } = await execaCli(initArgs);
+    expect(exitCode).toBe(0);
+
+    // Verify config was created
+    const configExists = await fs.pathExists(".agentsync/config.json");
+    expect(configExists).toBe(true);
+  }
+
+  /**
    * Cleanup helper with retry logic for Windows file locking issues
    */
   async function cleanupTestEnvironment(): Promise<void> {
@@ -132,6 +160,10 @@ describe("CLI Shell Execution", () => {
     // Copy package.json (needed for version check)
     const packageJson = path.resolve(process.cwd(), "package.json");
     await fs.copy(packageJson, path.join(tempCliDir, "package.json"));
+
+    // Copy templates directory (needed for init command)
+    const templatesDir = path.resolve(process.cwd(), "templates");
+    await fs.copy(templatesDir, path.join(tempCliDir, "templates"));
 
     // Create symlink to node_modules (ESM doesn't support NODE_PATH env var)
     const tempNodeModulesPath = path.join(tempCliDir, "node_modules");
@@ -275,7 +307,10 @@ describe("CLI Shell Execution", () => {
       const configExists = await fs.pathExists(".agentsync/config.json");
       expect(configExists).toBe(true);
 
-      const configContent = await fs.readFile(".agentsync/config.json", "utf-8");
+      const configContent = await fs.readFile(
+        ".agentsync/config.json",
+        "utf-8"
+      );
       const config = JSON.parse(configContent);
       expect(config.mcpServers).toContain("github");
     });
@@ -335,7 +370,10 @@ describe("CLI Shell Execution", () => {
       expect(stdout).toContain("github");
 
       // Verify removed from config but postgres remains
-      const configContent = await fs.readFile(".agentsync/config.json", "utf-8");
+      const configContent = await fs.readFile(
+        ".agentsync/config.json",
+        "utf-8"
+      );
       const config = JSON.parse(configContent);
       expect(config.mcpServers).not.toContain("github");
       expect(config.mcpServers).toContain("postgres");
@@ -392,6 +430,10 @@ describe("CLI Shell Execution", () => {
 
   describe("Error Handling", () => {
     it("shows friendly error for invalid JSON config", async () => {
+      // First, initialize the project properly using init command
+      await initializeProject();
+
+      // Now corrupt the config file
       await fs.writeFile(".agentsync/config.json", "{invalid json}");
 
       try {

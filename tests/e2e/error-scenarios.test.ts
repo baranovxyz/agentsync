@@ -171,6 +171,8 @@ describe("MCP Error Scenarios E2E", () => {
   });
 
   it("should handle invalid JSON in project config gracefully", async () => {
+    // Ensure .agentsync directory exists
+    await fs.ensureDir(".agentsync");
     // Write invalid JSON
     await fs.writeFile(".agentsync/config.json", "{invalid json}");
 
