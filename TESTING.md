@@ -270,6 +270,9 @@ Before publishing to npm:
 
 - [ ] All changes committed
 - [ ] Git status clean
+- [ ] Ensure on main branch after PR merge
+- [ ] Verify branch cleanup: `git branch` should show `* main`
+- [ ] Confirm up to date: `git status` should show "up to date with origin/main"
 - [ ] Create tag: `git tag v0.2.0-alpha.2`
 - [ ] Push tag: `git push --tags`
 

@@ -201,6 +201,20 @@ pnpm cli init                      # ✅ Initialize with template
 
 **Use `/release` command for releases** - it enforces this workflow automatically.
 
+### Post-Merge Workflow
+
+**Always checkout to main after PR merge:**
+
+- ✅ Use `gh pr merge --merge --delete-branch` for automatic cleanup
+- ✅ Verify you're on main branch: `git branch` should show `* main`
+- ✅ Pull latest changes: `git pull origin main`
+- ✅ Confirm clean working tree: `git status` should show "up to date with origin/main"
+
+**Branch naming convention:**
+
+- Use descriptive names: `fix/config-architecture-consistency`
+- Pattern: `{type}/{descriptive-name}` (fix/, feat/, chore/, etc.)
+
 ## v0.3.0-beta: GitHub Preset System
 
 ### Overview
@@ -694,6 +708,56 @@ const configPath = path.join(process.cwd(), ".agentsync", "config.json");
 ```
 
 **Key principle:** Tests should follow natural user workflows, not bypass them with manual setup.
+
+### Commit Strategy
+
+**Atomic Commits:**
+
+- Group related changes into single logical commits
+- Each commit represents one complete change
+- Avoid mixing features with refactoring or fixes
+
+**Comprehensive Commit Messages:**
+
+```
+<type>(<scope>): <subject>
+
+<body>
+
+<footer>
+```
+
+**Example:**
+
+```
+fix(config): standardize config file priority and improve error messages
+
+- Establish .agentsync/config.json as primary team config (committed)
+- Clarify agentsync.local.json as personal override (gitignored)
+- Update error messages to guide users to correct config creation
+- Improve code formatting and import organization
+- Update tests to reflect new architecture priorities
+- Fix test merge conflicts and ensure proper directory creation
+
+This ensures consistent config file handling across all MCP commands
+and provides clearer guidance for users setting up projects.
+```
+
+### Architecture Verification Pattern
+
+**When analyzing commits or implementing changes:**
+
+1. **Analyze the source** - Review commits, PRs, or requirements
+2. **Check implementation status** - Verify what's actually implemented
+3. **Create comprehensive summary** - Document findings with evidence
+4. **Use TODO tracking** - Track analysis progress for complex tasks
+
+**Verification workflow:**
+
+- Extract ideas from commits/PRs
+- Search codebase for implementation evidence
+- Verify all ideas are fully implemented
+- Document status with specific file locations and line numbers
 
 ### Adding a New Command
 
