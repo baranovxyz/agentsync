@@ -73,6 +73,38 @@ pnpm test:e2e
 pnpm test src/security/scanner.test.ts
 ```
 
+#### Test Design Philosophy
+
+**Natural Flow Over Manual Setup:**
+
+- Tests should follow user workflows, not bypass them
+- Use `init` command in tests instead of manually creating config files
+- Create helper functions for common setup patterns
+
+**E2E Test Requirements:**
+
+- Complete CLI environment: `dist/`, `package.json`, `templates/`, `node_modules/`
+- Templates directory required for `init` command to work properly
+- Symlink approach for `node_modules` due to ESM limitations
+
+**Example helper pattern:**
+
+```typescript
+async function initializeProject(options = {}) {
+  const { template = "default", tools = ["cursor"] } = options;
+  const { exitCode } = await execaCli([
+    "init",
+    "--template",
+    template,
+    "--tools",
+    tools.join(","),
+  ]);
+  expect(exitCode).toBe(0);
+  const configExists = await fs.pathExists(".agentsync/config.json");
+  expect(configExists).toBe(true);
+}
+```
+
 ### CI/CD
 
 ```bash
@@ -635,6 +667,34 @@ Total: 87 MCP tests passing, >90% coverage
 
 ## Development Patterns
 
+### Test-Driven Development (TDD) Workflow
+
+**Preferred approach for bug fixes and new features:**
+
+1. **Write failing test first** - Demonstrate the issue or expected behavior
+2. **Fix implementation** - Make the code work correctly
+3. **Verify test passes** - Confirm the fix works
+4. **Run full test suite** - Ensure no regressions
+
+**Example pattern:**
+
+```typescript
+// 1. Write failing test
+it("should write to .agentsync/config.json", async () => {
+  await addMCP("github");
+  const configExists = await fs.pathExists(".agentsync/config.json");
+  expect(configExists).toBe(true);
+});
+
+// 2. Fix implementation
+const configPath = path.join(process.cwd(), ".agentsync", "config.json");
+
+// 3. Verify test passes
+// 4. Run full suite
+```
+
+**Key principle:** Tests should follow natural user workflows, not bypass them with manual setup.
+
 ### Adding a New Command
 
 1. Create handler in `src/commands/[name].ts`
@@ -692,6 +752,10 @@ Total: 87 MCP tests passing, >90% coverage
 4. Test with dry-run mode
 
 ## Configuration
+
+### Architecture Consistency
+
+**Critical requirement:** All components must follow the documented file hierarchy consistently. Any deviation from `.agentsync/config.json` as primary is considered a bug.
 
 ### Config File Responsibilities
 

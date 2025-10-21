@@ -3,11 +3,11 @@
  * Lists available vs active MCP servers
  */
 
-import { outputFile } from '../../utils/fs.js';
-import * as path from 'path';
-import picocolors from 'picocolors';
-import { loadGlobalRegistry } from '../../core/mcp/registry.js';
-import { loadProjectConfig } from '../../core/mcp/config.js';
+import { outputFile, ensureDir } from "../../utils/fs.js";
+import * as path from "path";
+import picocolors from "picocolors";
+import { loadGlobalRegistry } from "../../core/mcp/registry.js";
+import { loadProjectConfig } from "../../core/mcp/config.js";
 
 const pc = picocolors;
 
@@ -15,13 +15,27 @@ const pc = picocolors;
  * Auto-create empty MCP configuration with helpful onboarding
  */
 async function autoCreateMCPConfig(): Promise<void> {
-  console.log(pc.yellow('⚠ No MCP configuration found\n'));
-  console.log(pc.gray('Creating agentsync.local.json with empty MCP configuration...\n'));
+  console.log(pc.yellow("⚠ No MCP configuration found\n"));
+  console.log(
+    pc.gray("Creating .agentsync/config.json with empty MCP configuration...\n")
+  );
 
-  const configPath = path.join(process.cwd(), 'agentsync.local.json');
-  await outputFile(configPath, JSON.stringify({ mcpServers: [] }, null, 2) + '\n', { encoding: 'utf-8' });
+  const configPath = path.join(process.cwd(), ".agentsync", "config.json");
 
-  console.log(pc.green('✓ Created agentsync.local.json\n'));
+  // Ensure .agentsync directory exists
+  await ensureDir(path.dirname(configPath));
+
+  const config = {
+    version: "1.0",
+    tools: ["cursor", "claude"],
+    mcpServers: [],
+  };
+
+  await outputFile(configPath, JSON.stringify(config, null, 2) + "\n", {
+    encoding: "utf-8",
+  });
+
+  console.log(pc.green("✓ Created .agentsync/config.json\n"));
 }
 
 /**
@@ -59,7 +73,9 @@ export interface ListMCPResult {
  * @param options - List options
  * @returns List result with active/inactive MCPs
  */
-export async function listMCP(options: ListMCPOptions = {}): Promise<ListMCPResult> {
+export async function listMCP(
+  options: ListMCPOptions = {}
+): Promise<ListMCPResult> {
   // 1. Load global registry
   const globalRegistry = await loadGlobalRegistry();
 
@@ -78,7 +94,7 @@ export async function listMCP(options: ListMCPOptions = {}): Promise<ListMCPResu
       }
     } catch (error) {
       // If no project config, auto-create with helpful message
-      if ((error as Error).message.includes('MCP configuration not found')) {
+      if ((error as Error).message.includes("MCP configuration not found")) {
         await autoCreateMCPConfig();
         // Continue with empty activeMCPs
       } else {
