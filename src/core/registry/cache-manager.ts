@@ -1,21 +1,20 @@
 /**
- * Cache manager for GitHub library clones
+ * Cache manager for GitHub preset clones
  * Stores cloned repos in ~/.agentsync/cache/
  */
 
-import * as path from 'path';
-import { pathExists, remove, ensureDir } from '../../utils/fs.js';
-import { stat, readdir } from 'node:fs/promises';
-import * as os from 'os';
-import { GitHubSource, GitHubSourceParser } from './github-source.js';
+import * as path from "path";
+import { pathExists, remove, ensureDir } from "../../utils/fs.js";
+import { stat, readdir } from "node:fs/promises";
+import * as os from "os";
+import { GitHubSource, GitHubSourceParser } from "./github-source.js";
 
 export class CacheManager {
   private cacheDir: string;
   private parser = new GitHubSourceParser();
 
   constructor(cacheDir?: string) {
-    this.cacheDir =
-      cacheDir || path.join(os.homedir(), '.agentsync', 'cache');
+    this.cacheDir = cacheDir || path.join(os.homedir(), ".agentsync", "cache");
   }
 
   /**
@@ -33,7 +32,7 @@ export class CacheManager {
     const cachePath = this.getCachePath(source);
 
     // Check if directory exists and has .git
-    const gitDir = path.join(cachePath, '.git');
+    const gitDir = path.join(cachePath, ".git");
     return await pathExists(gitDir);
   }
 
