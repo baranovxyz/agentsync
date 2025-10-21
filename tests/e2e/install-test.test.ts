@@ -253,7 +253,7 @@ describe("Production Package Installation", () => {
 
       // Verify config created
       const config = await fs.readJson(
-        path.join(tempTestDir, "agentsync.local.json")
+        path.join(tempTestDir, ".agentsync/config.json")
       );
       expect(config.mcpServers).toContain("github");
     });
@@ -271,7 +271,7 @@ describe("Production Package Installation", () => {
 
       // Verify both in config
       const config = await fs.readJson(
-        path.join(tempTestDir, "agentsync.local.json")
+        path.join(tempTestDir, ".agentsync/config.json")
       );
       expect(config.mcpServers).toContain("github");
       expect(config.mcpServers).toContain("filesystem");
@@ -383,7 +383,7 @@ describe("Production Package Installation", () => {
 
       // Verify config updated
       const config = await fs.readJson(
-        path.join(tempTestDir, "agentsync.local.json")
+        path.join(tempTestDir, ".agentsync/config.json")
       );
       expect(config.mcpServers).not.toContain("github");
       expect(config.mcpServers).toContain("filesystem");

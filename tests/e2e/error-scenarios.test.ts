@@ -98,7 +98,7 @@ describe("MCP Error Scenarios E2E", () => {
     expect(result.added).toBe(false);
 
     const config = JSON.parse(
-      await fs.readFile("agentsync.local.json", "utf-8")
+      await fs.readFile(".agentsync/config.json", "utf-8")
     );
     expect(config.mcpServers).toEqual(["github"]); // No duplicate
   });
@@ -120,14 +120,14 @@ describe("MCP Error Scenarios E2E", () => {
 
     // Config should have empty array
     const config = JSON.parse(
-      await fs.readFile("agentsync.local.json", "utf-8")
+      await fs.readFile(".agentsync/config.json", "utf-8")
     );
     expect(config.mcpServers).toEqual([]);
 
     // Should still be able to add MCPs after
     await addMCP("postgres");
     const configAfter = JSON.parse(
-      await fs.readFile("agentsync.local.json", "utf-8")
+      await fs.readFile(".agentsync/config.json", "utf-8")
     );
     expect(configAfter.mcpServers).toEqual(["postgres"]);
   });
@@ -172,23 +172,23 @@ describe("MCP Error Scenarios E2E", () => {
 
   it("should handle invalid JSON in project config gracefully", async () => {
     // Write invalid JSON
-    await fs.writeFile("agentsync.local.json", "{invalid json}");
+    await fs.writeFile(".agentsync/config.json", "{invalid json}");
 
     // Should error with helpful message (not crash)
     await expect(listMCP()).rejects.toThrow(/parse/i);
   });
 
   it("should auto-create empty config when missing", async () => {
-    // Don't create agentsync.local.json
-    expect(await fs.pathExists("agentsync.local.json")).toBe(false);
+    // Don't create .agentsync/config.json
+    expect(await fs.pathExists(".agentsync/config.json")).toBe(false);
 
     // List should auto-create empty config
     const result = await listMCP();
 
     // Config should now exist with empty array
-    expect(await fs.pathExists("agentsync.local.json")).toBe(true);
+    expect(await fs.pathExists(".agentsync/config.json")).toBe(true);
     const config = JSON.parse(
-      await fs.readFile("agentsync.local.json", "utf-8")
+      await fs.readFile(".agentsync/config.json", "utf-8")
     );
     expect(config.mcpServers).toEqual([]);
 

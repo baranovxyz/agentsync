@@ -4,7 +4,7 @@
  */
 
 import { loadProjectConfig } from '../../core/mcp/config.js';
-import { writeFile } from 'node:fs/promises';
+import { writeFile, mkdir } from 'node:fs/promises';
 import * as path from 'path';
 
 /**
@@ -26,7 +26,7 @@ export interface RemoveMCPResult {
 export async function removeMCP(serverName: string): Promise<RemoveMCPResult> {
   // 1. Load project config
   const projectConfig = await loadProjectConfig();
-  const configPath = path.join(process.cwd(), 'agentsync.local.json');
+  const configPath = path.join(process.cwd(), '.agentsync', 'config.json');
 
   let removed = false;
 
@@ -49,6 +49,8 @@ export async function removeMCP(serverName: string): Promise<RemoveMCPResult> {
 
   // 3. Save updated config
   if (removed) {
+    // Ensure .agentsync directory exists
+    await mkdir(path.join(process.cwd(), '.agentsync'), { recursive: true });
     await writeFile(configPath, JSON.stringify(projectConfig, null, 2) + '\n', 'utf-8');
   }
 

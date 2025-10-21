@@ -5,7 +5,7 @@
 
 import { loadGlobalRegistry } from '../../core/mcp/registry.js';
 import { loadProjectConfig } from '../../core/mcp/config.js';
-import { writeFile } from 'node:fs/promises';
+import { writeFile, mkdir } from 'node:fs/promises';
 import * as path from 'path';
 
 /**
@@ -51,7 +51,7 @@ export async function addMCP(serverName: string): Promise<AddMCPResult> {
   }
 
   // 3. Load or create project config
-  const configPath = path.join(process.cwd(), 'agentsync.local.json');
+  const configPath = path.join(process.cwd(), '.agentsync', 'config.json');
   let projectConfig;
 
   try {
@@ -59,7 +59,12 @@ export async function addMCP(serverName: string): Promise<AddMCPResult> {
   } catch (error) {
     // If config doesn't exist, create it
     if ((error as Error).message.includes('MCP configuration not found')) {
+      // Ensure .agentsync directory exists
+      await mkdir(path.join(process.cwd(), '.agentsync'), { recursive: true });
+      
       projectConfig = {
+        version: '1.0',
+        tools: ['cursor', 'claude'],
         mcpServers: [serverName],
       };
 
@@ -93,6 +98,8 @@ export async function addMCP(serverName: string): Promise<AddMCPResult> {
 
   // 5. Save updated config
   if (added) {
+    // Ensure .agentsync directory exists
+    await mkdir(path.join(process.cwd(), '.agentsync'), { recursive: true });
     await writeFile(configPath, JSON.stringify(projectConfig, null, 2) + '\n', 'utf-8');
   }
 
