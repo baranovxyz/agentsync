@@ -174,6 +174,7 @@ describe("MCP Error Scenarios E2E", () => {
     // Ensure .agentsync directory exists
     await fs.ensureDir(".agentsync");
     // Write invalid JSON
+    await fs.ensureDir(".agentsync");
     await fs.writeFile(".agentsync/config.json", "{invalid json}");
 
     // Should error with helpful message (not crash)
