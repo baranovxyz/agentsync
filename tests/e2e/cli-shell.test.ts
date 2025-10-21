@@ -430,14 +430,10 @@ describe("CLI Shell Execution", () => {
 
   describe("Error Handling", () => {
     it("shows friendly error for invalid JSON config", async () => {
-<<<<<<< Updated upstream
       // First, initialize the project properly using init command
       await initializeProject();
 
       // Now corrupt the config file
-=======
-      await fs.ensureDir(".agentsync");
->>>>>>> Stashed changes
       await fs.writeFile(".agentsync/config.json", "{invalid json}");
 
       try {
