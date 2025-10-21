@@ -193,10 +193,30 @@ program
   .option("--update", "Update GitHub library caches (re-clone)")
   .option("--dry-run", "Preview changes without applying them")
   .option("--tool <name>", "Sync only to specific tool (cursor, claude)")
+  .option("--selections", "Use interactive selections for selective loading")
   .action(async (options) => {
     try {
       const { sync } = await import("./commands/sync.js");
-      await sync(options);
+
+      // Load selections if requested
+      let selections;
+      if (options.selections) {
+        try {
+          const { loadSelectionsForProject } = await import(
+            "./core/config/interactive-selection-merger.js"
+          );
+          selections = await loadSelectionsForProject(process.cwd());
+        } catch (error) {
+          console.log(
+            pc.yellow(
+              "⚠️  Could not load selections, proceeding without selective loading"
+            )
+          );
+          // Continue without selections for backward compatibility
+        }
+      }
+
+      await sync({ ...options, selections });
     } catch (error) {
       handleError(error as Error);
     }
@@ -210,10 +230,11 @@ const presetCommand = program
 presetCommand
   .command("list")
   .description("List configured preset sources")
-  .action(async () => {
+  .option("--verbose", "Show detailed information including selections")
+  .action(async (options) => {
     try {
       const { listPresets } = await import("./commands/preset/list.js");
-      await listPresets();
+      await listPresets(options);
     } catch (error) {
       handleError(error as Error);
     }
@@ -266,6 +287,22 @@ presetCommand
     }
   });
 
+presetCommand
+  .command("add <source>")
+  .description("Add a preset source to project configuration")
+  .option("--selection", "Configure selection for the preset")
+  .option("--yes", "Skip confirmation prompts")
+  .action(async (source: string, options) => {
+    try {
+      const { handleAddPresetCommand } = await import(
+        "./commands/preset/add.js"
+      );
+      await handleAddPresetCommand(source, options);
+    } catch (error) {
+      handleError(error as Error);
+    }
+  });
+
 // Phase 2 commands (AGENTS.md sync) - Not yet implemented
 // Removed to avoid user confusion. Will be added back as features are completed.
 
@@ -306,6 +343,9 @@ program.on("--help", () => {
   );
   console.log(
     "  $ agentsync preset interactive-remove # Interactively remove presets"
+  );
+  console.log(
+    "  $ agentsync preset add github:org/repo  # Add preset to configuration"
   );
   console.log("  $ agentsync mcp list                  # List available MCPs");
   console.log("  $ agentsync mcp add github            # Add MCP server");

@@ -30,6 +30,8 @@ export interface MainSyncOptions {
   dryRun?: boolean;
   /** Sync only to specific tool */
   tool?: string;
+  /** Selective loading options for presets */
+  selections?: Record<string, import("../types/index.js").PresetSelection>;
 }
 
 /**
@@ -133,14 +135,51 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
 
     let merged;
     try {
-      merged = await orchestrator.loadAndMerge(cwd, {
-        update: options.update,
-      });
-
-      if (presetSpinner) {
-        presetSpinner.succeed(
-          `Loaded ${config.extends?.length || 0} ${config.extends?.length === 1 ? "library" : "libraries"}`
+      // Use selective loading if selections are provided
+      if (options.selections && Object.keys(options.selections).length > 0) {
+        // Validate selections first
+        const validation = await orchestrator.validateSelections(
+          cwd,
+          options.selections,
+          {
+            update: options.update,
+          }
         );
+
+        if (!validation.valid) {
+          if (presetSpinner) {
+            presetSpinner.fail("Invalid selections");
+          }
+          throw new Error(
+            `Invalid selections:\n${validation.errors.map((e) => `  - ${e}`).join("\n")}`
+          );
+        }
+
+        merged = await orchestrator.loadAndMergeSelective(
+          cwd,
+          options.selections,
+          {
+            update: options.update,
+          }
+        );
+
+        if (presetSpinner) {
+          const selectionCount = Object.keys(options.selections).length;
+          presetSpinner.succeed(
+            `Loaded ${config.extends?.length || 0} ${config.extends?.length === 1 ? "library" : "libraries"} with ${selectionCount} selection${selectionCount === 1 ? "" : "s"}`
+          );
+        }
+      } else {
+        // Use regular loading for backward compatibility
+        merged = await orchestrator.loadAndMerge(cwd, {
+          update: options.update,
+        });
+
+        if (presetSpinner) {
+          presetSpinner.succeed(
+            `Loaded ${config.extends?.length || 0} ${config.extends?.length === 1 ? "library" : "libraries"}`
+          );
+        }
       }
     } catch (error) {
       if (presetSpinner) {

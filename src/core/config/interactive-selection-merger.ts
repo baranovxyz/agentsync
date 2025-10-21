@@ -11,6 +11,9 @@ import type {
 } from "../../types/index.js";
 import type { Preset } from "../../types/preset.js";
 import { isMatch } from "micromatch";
+import { readFile, writeFile } from "node:fs/promises";
+import * as path from "path";
+import { validateInteractiveSelectionConfig } from "../../types/schemas.js";
 
 /**
  * Merged configuration result
@@ -274,9 +277,93 @@ export class ConfigMerger {
 
     return merged;
   }
+
+  /**
+   * Load selections for a project from the interactive selection config
+   */
+  async loadSelectionsForProject(
+    cwd: string
+  ): Promise<Record<string, PresetSelection>> {
+    const configPath = path.join(
+      cwd,
+      ".agentsync",
+      "interactive-selection.json"
+    );
+
+    try {
+      const configContent = await readFile(configPath, "utf-8");
+      const config = validateInteractiveSelectionConfig(
+        JSON.parse(configContent)
+      );
+      const mergedConfig = this.mergeConfig(config);
+      return mergedConfig.selections;
+    } catch (error) {
+      // If file doesn't exist or is invalid, return empty selections
+      return {};
+    }
+  }
+
+  /**
+   * Save selections for a project to the interactive selection config
+   */
+  async saveSelectionsForProject(
+    cwd: string,
+    selections: Record<string, PresetSelection>
+  ): Promise<void> {
+    const configPath = path.join(
+      cwd,
+      ".agentsync",
+      "interactive-selection.json"
+    );
+
+    try {
+      let config: InteractiveSelectionConfig;
+
+      try {
+        // Load existing config
+        const configContent = await readFile(configPath, "utf-8");
+        config = validateInteractiveSelectionConfig(JSON.parse(configContent));
+      } catch {
+        // Create new config if file doesn't exist
+        config = { version: "2.0" };
+      }
+
+      // Ensure project config exists
+      if (!config.project) {
+        config.project = {};
+      }
+
+      // Update selections
+      config.project.selections = selections;
+
+      // Save updated config
+      await writeFile(configPath, JSON.stringify(config, null, 2), "utf-8");
+    } catch (error) {
+      throw new Error(`Failed to save selections: ${(error as Error).message}`);
+    }
+  }
 }
 
 /**
  * Default merger instance
  */
 export const configMerger = new ConfigMerger();
+
+/**
+ * Load selections for a project (convenience function)
+ */
+export async function loadSelectionsForProject(
+  cwd: string
+): Promise<Record<string, PresetSelection>> {
+  return configMerger.loadSelectionsForProject(cwd);
+}
+
+/**
+ * Save selections for a project (convenience function)
+ */
+export async function saveSelectionsForProject(
+  cwd: string,
+  selections: Record<string, PresetSelection>
+): Promise<void> {
+  return configMerger.saveSelectionsForProject(cwd, selections);
+}
