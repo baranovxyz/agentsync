@@ -3,7 +3,7 @@
  * Initializes AgentSync in a project
  */
 
-import * as fs from 'fs-extra';
+import { pathExists, outputFile, ensureDir, copy } from '../utils/fs.js';
 import { readFile, symlink } from 'node:fs/promises';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -28,7 +28,7 @@ async function findPackageRoot(startDir: string): Promise<string> {
 
   while (currentDir !== root) {
     const packageJsonPath = path.join(currentDir, 'package.json');
-    if (await fs.pathExists(packageJsonPath)) {
+    if (await pathExists(packageJsonPath)) {
       return currentDir;
     }
     currentDir = path.dirname(currentDir);
@@ -78,7 +78,7 @@ export class InitCommand {
 
     // Check what's configured
     const agentsMdPath = path.join(process.cwd(), 'AGENTS.md');
-    const agentsMdExists = await fs.pathExists(agentsMdPath);
+    const agentsMdExists = await pathExists(agentsMdPath);
 
     const mcpConfigPath = await this.getMCPConfigPath();
     const mcpConfigExists = mcpConfigPath !== null;
@@ -156,7 +156,7 @@ export class InitCommand {
     ];
 
     for (const p of paths) {
-      if (await fs.pathExists(p)) {
+      if (await pathExists(p)) {
         return p;
       }
     }
@@ -170,7 +170,7 @@ export class InitCommand {
     try {
       // Check if .agentsync/config.json already exists (source of truth)
       const configPath = path.join(process.cwd(), '.agentsync', 'config.json');
-      if (await fs.pathExists(configPath) && !options.force) {
+      if (await pathExists(configPath) && !options.force) {
         // Show helpful status instead of blocking error
         await this.showCurrentStatus();
         return;
@@ -181,7 +181,7 @@ export class InitCommand {
 
       // Create AGENTS.md from template (skip if already exists unless forced)
       const agentsPath = path.join(process.cwd(), 'AGENTS.md');
-      const shouldCreateAgentsMd = !await fs.pathExists(agentsPath) || options.force;
+      const shouldCreateAgentsMd = !await pathExists(agentsPath) || options.force;
       if (shouldCreateAgentsMd) {
         await this.createAgentsMd(config.template);
       } else {
@@ -343,7 +343,7 @@ export class InitCommand {
       // Use native Node.js readFile (fs-extra v11+ removed readFile/writeFile)
       const templateContent = await readFile(templatePath, 'utf-8');
       // Use fs-extra's outputFile to ensure parent directory exists
-      await fs.outputFile(targetPath, templateContent);
+      await outputFile(targetPath, templateContent);
       console.log(pc.green('  ✓ Created AGENTS.md'));
     } catch (error) {
       // Enhanced error message with debugging info
@@ -351,7 +351,7 @@ export class InitCommand {
         `Failed to create AGENTS.md from template`,
         `  Template path: ${templatePath}`,
         `  Package root: ${packageRoot}`,
-        `  Template exists: ${await fs.pathExists(templatePath)}`,
+        `  Template exists: ${await pathExists(templatePath)}`,
         `  Error: ${(error as Error).message}`,
       ].join('\n');
 
@@ -379,7 +379,7 @@ export class InitCommand {
 
     try {
       for (const dir of dirs) {
-        await fs.ensureDir(dir);
+        await ensureDir(dir);
       }
 
       // Create config file (v0.3.0-beta format)
@@ -392,10 +392,10 @@ export class InitCommand {
         createdAt: new Date().toISOString(),
       };
 
-      await fs.outputFile(
+      await outputFile(
         path.join(agentSyncDir, 'config.json'),
         JSON.stringify(config, null, 2) + '\n',
-        'utf-8'
+        { encoding: 'utf-8' }
       );
 
       console.log(pc.green('  ✓ Created .agentsync directory'));
@@ -426,12 +426,12 @@ export class InitCommand {
 
         try {
           // Create directory if needed
-          await fs.ensureDir(dir);
+          await ensureDir(dir);
 
           // Create symlink or copy
           if (useSymlinks) {
             // Check if symlink already exists
-            const exists = await fs.pathExists(fullPath);
+            const exists = await pathExists(fullPath);
             if (!exists) {
               // Use native Node.js symlink (fs-extra v11+ removed symlink)
               await symlink(
@@ -441,7 +441,7 @@ export class InitCommand {
               console.log(pc.green(`  ✓ Created symlink for ${tool}: ${configPath}`));
             }
           } else {
-            await fs.copy(agentsPath, fullPath);
+            await copy(agentsPath, fullPath);
             console.log(pc.green(`  ✓ Created copy for ${tool}: ${configPath}`));
           }
         } catch (error) {
@@ -471,7 +471,7 @@ export class InitCommand {
 
     try {
       let content = '';
-      if (await fs.pathExists(gitignorePath)) {
+      if (await pathExists(gitignorePath)) {
         content = await readFile(gitignorePath, 'utf-8');
       }
 
@@ -479,7 +479,7 @@ export class InitCommand {
       if (!content.includes('# AgentSync')) {
         content += '\n' + entries.join('\n') + '\n';
         // Use fs.outputFile for consistency (creates parent dirs if needed)
-        await fs.outputFile(gitignorePath, content);
+        await outputFile(gitignorePath, content);
         console.log(pc.green('  ✓ Updated .gitignore'));
       } else {
         console.log(pc.gray('  ✓ .gitignore already contains AgentSync entries'));

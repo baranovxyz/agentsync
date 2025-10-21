@@ -4,7 +4,7 @@
  */
 
 import * as path from 'path';
-import { outputFile } from 'fs-extra';
+import { outputFile } from '../utils/fs.js';
 import { CursorCommandsConverter } from './commands/cursor-commands-converter.js';
 import { ClaudeCommandsConverter } from './commands/claude-commands-converter.js';
 import type { ToolName } from '../types/index.js';
@@ -42,7 +42,7 @@ export class CommandsSyncTarget {
         content
       );
       const outputPath = path.join(commandsDir, converted.filename);
-      await outputFile(outputPath, converted.content, 'utf-8');
+      await outputFile(outputPath, converted.content, { encoding: 'utf-8' });
     }
   }
 
@@ -58,7 +58,7 @@ export class CommandsSyncTarget {
         content
       );
       const outputPath = path.join(commandsDir, converted.filename);
-      await outputFile(outputPath, converted.content, 'utf-8');
+      await outputFile(outputPath, converted.content, { encoding: 'utf-8' });
     }
   }
 }
