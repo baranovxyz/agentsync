@@ -3,7 +3,7 @@
  * Lists available vs active MCP servers
  */
 
-import { outputFile } from 'fs-extra';
+import { outputFile } from '../../utils/fs.js';
 import * as path from 'path';
 import picocolors from 'picocolors';
 import { loadGlobalRegistry } from '../../core/mcp/registry.js';
@@ -19,7 +19,7 @@ async function autoCreateMCPConfig(): Promise<void> {
   console.log(pc.gray('Creating agentsync.local.json with empty MCP configuration...\n'));
 
   const configPath = path.join(process.cwd(), 'agentsync.local.json');
-  await outputFile(configPath, JSON.stringify({ mcpServers: [] }, null, 2) + '\n', 'utf-8');
+  await outputFile(configPath, JSON.stringify({ mcpServers: [] }, null, 2) + '\n', { encoding: 'utf-8' });
 
   console.log(pc.green('✓ Created agentsync.local.json\n'));
 }

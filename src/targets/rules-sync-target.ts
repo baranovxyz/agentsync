@@ -4,7 +4,7 @@
  */
 
 import * as path from 'path';
-import { outputFile } from 'fs-extra';
+import { outputFile } from '../utils/fs.js';
 import { CursorRulesConverter } from './rules/cursor-rules-converter.js';
 import { ClaudeRulesConverter } from './rules/claude-rules-converter.js';
 import type { ToolName } from '../types/index.js';
@@ -43,7 +43,7 @@ export class RulesSyncTarget {
     for (const [namespacedFilename, content] of rules) {
       const converted = this.cursorConverter.convert(namespacedFilename, content);
       const outputPath = path.join(rulesDir, converted.filename);
-      await outputFile(outputPath, converted.content, 'utf-8');
+      await outputFile(outputPath, converted.content, { encoding: 'utf-8' });
     }
   }
 
@@ -59,7 +59,7 @@ export class RulesSyncTarget {
     for (const [namespacedFilename, content] of rules) {
       const converted = this.claudeConverter.convert(namespacedFilename, content);
       const outputPath = path.join(rulesDir, converted.filename);
-      await outputFile(outputPath, converted.content, 'utf-8');
+      await outputFile(outputPath, converted.content, { encoding: 'utf-8' });
     }
   }
 }
