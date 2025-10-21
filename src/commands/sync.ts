@@ -197,10 +197,10 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
       }
     }
 
-    // Also check for local MCP config file (agentsync.local.json or .agentsync/config.local.json)
+    // Also check for personal override files (agentsync.local.json or .agentsync/config.local.json)
     const localMcpPaths = [
-      path.join(cwd, "agentsync.local.json"),
-      path.join(cwd, ".agentsync", "config.local.json"),
+      path.join(cwd, "agentsync.local.json"), // Personal overrides
+      path.join(cwd, ".agentsync", "config.local.json"), // Backup location
     ];
 
     let hasLocalMcpConfig = false;

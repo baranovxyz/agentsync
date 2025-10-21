@@ -54,6 +54,57 @@ pnpm test tests/e2e/install-test.test.ts   # Production package validation
 
 ---
 
+## Test Design Best Practices
+
+### Natural Flow Over Manual Setup
+
+**Key principle:** Tests should follow user workflows, not bypass them with manual file creation.
+
+**❌ Avoid:**
+
+```typescript
+// Manual setup bypasses user workflow
+await fs.writeFile(".agentsync/config.json", "{invalid json}");
+```
+
+**✅ Prefer:**
+
+```typescript
+// Natural user workflow
+await initializeProject();
+await fs.writeFile(".agentsync/config.json", "{invalid json}");
+```
+
+### Helper Functions for Common Setup
+
+Create reusable helper functions for common test setup patterns:
+
+```typescript
+async function initializeProject(options = {}) {
+  const { template = "default", tools = ["cursor"] } = options;
+  const { exitCode } = await execaCli([
+    "init",
+    "--template",
+    template,
+    "--tools",
+    tools.join(","),
+  ]);
+  expect(exitCode).toBe(0);
+  const configExists = await fs.pathExists(".agentsync/config.json");
+  expect(configExists).toBe(true);
+}
+```
+
+### E2E Test Environment Requirements
+
+E2E tests require complete CLI environment setup:
+
+- **Required files:** `dist/`, `package.json`, `templates/`, `node_modules/`
+- **Templates directory:** Required for `init` command to work properly
+- **Node modules:** Use symlink approach due to ESM limitations
+
+---
+
 ## Automated Testing
 
 ### Vitest (Primary)
