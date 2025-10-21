@@ -249,6 +249,23 @@ presetCommand
     }
   });
 
+presetCommand
+  .command("interactive-remove")
+  .description(
+    "Interactively remove presets and their selections from configuration"
+  )
+  .option("--yes", "Skip confirmation prompts")
+  .action(async (options) => {
+    try {
+      const { interactiveRemovePreset } = await import(
+        "./commands/preset/interactive-remove.js"
+      );
+      await interactiveRemovePreset(options);
+    } catch (error) {
+      handleError(error as Error);
+    }
+  });
+
 // Phase 2 commands (AGENTS.md sync) - Not yet implemented
 // Removed to avoid user confusion. Will be added back as features are completed.
 
@@ -286,6 +303,9 @@ program.on("--help", () => {
   console.log("  $ agentsync preset cache-clear        # Clear preset caches");
   console.log(
     "  $ agentsync preset interactive-select # Interactively select presets"
+  );
+  console.log(
+    "  $ agentsync preset interactive-remove # Interactively remove presets"
   );
   console.log("  $ agentsync mcp list                  # List available MCPs");
   console.log("  $ agentsync mcp add github            # Add MCP server");
