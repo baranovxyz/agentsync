@@ -7,6 +7,10 @@ Thanks for your interest in contributing!
 - Create feature branches; do not push to `main` directly.
 - Write tests for new features and bug fixes.
 - Keep commits small and focused; use Conventional Commits.
+  - Types: feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert
+  - Format: `type(scope): summary` (max 72 chars)
+  - Scopes (suggested): core, cli, mcp, targets, parser, registry, security, tests, docs, ci, release, init
+  - Use `pnpm cz` for guided messages (Commitizen)
 
 ## Development
 
@@ -22,9 +26,11 @@ Thanks for your interest in contributing!
 
 ## PR Checklist
 
+- [ ] Conventional commit title
+- [ ] Small, atomic PR (split if >800 LOC changed)
 - [ ] Tests added/updated
-- [ ] CI green
 - [ ] Docs updated (if needed)
+- [ ] CI green
 
 ## License
 
