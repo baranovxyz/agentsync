@@ -408,6 +408,44 @@ export const InteractiveSelectionConfigSchema = z.object({
   local: LocalConfigSchema.optional(),
 });
 
+// User Preset Registry Schema
+export const UserPresetSchema = z.object({
+  name: z.string().min(1, "Preset name cannot be empty"),
+  description: z.string().min(1, "Preset description cannot be empty"),
+  version: z
+    .string()
+    .regex(/^\d+\.\d+\.\d+$/, "Version must be in semver format (x.y.z)"),
+  source: z
+    .string()
+    .regex(
+      /^github:[^/]+\/[^/]+$/,
+      "Source must be in format 'github:org/repo'"
+    ),
+  namespace: z.string().min(1, "Namespace cannot be empty"),
+  metadata: z
+    .object({
+      author: z.string().optional(),
+      tags: z.array(z.string()).optional(),
+      license: z.string().optional(),
+      homepage: z.string().url().optional(),
+      repository: z.string().url().optional(),
+      createdAt: z.string().datetime().optional(),
+      updatedAt: z.string().datetime().optional(),
+    })
+    .optional(),
+});
+
+// User Preset Registry Storage Schema
+export const UserPresetRegistrySchema = z.object({
+  version: z.string().default("1.0"),
+  presets: z.record(z.string(), UserPresetSchema),
+  metadata: z.object({
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+    totalPresets: z.number(),
+  }),
+});
+
 // Type exports for interactive selection configuration
 export type FileSelection = z.infer<typeof FileSelectionSchema>;
 export type PresetSelection = z.infer<typeof PresetSelectionSchema>;
@@ -417,6 +455,10 @@ export type ProjectConfig = z.infer<typeof ProjectConfigSchema>;
 export type InteractiveSelectionConfig = z.infer<
   typeof InteractiveSelectionConfigSchema
 >;
+
+// Type exports for user preset registry
+export type UserPreset = z.infer<typeof UserPresetSchema>;
+export type UserPresetRegistryData = z.infer<typeof UserPresetRegistrySchema>;
 
 /**
  * Validate interactive selection configuration
@@ -436,6 +478,52 @@ export function safeParseInteractiveSelectionConfig(
   | { success: true; data: InteractiveSelectionConfig }
   | { success: false; error: z.ZodError } {
   const result = InteractiveSelectionConfigSchema.safeParse(data);
+  if (result.success) {
+    return { success: true, data: result.data };
+  } else {
+    return { success: false, error: result.error };
+  }
+}
+
+/**
+ * Validate user preset
+ */
+export function validateUserPreset(data: unknown): UserPreset {
+  return UserPresetSchema.parse(data);
+}
+
+/**
+ * Validate user preset registry data
+ */
+export function validateUserPresetRegistry(
+  data: unknown
+): UserPresetRegistryData {
+  return UserPresetRegistrySchema.parse(data);
+}
+
+/**
+ * Safe parse user preset with error details
+ */
+export function safeParseUserPreset(
+  data: unknown
+): { success: true; data: UserPreset } | { success: false; error: z.ZodError } {
+  const result = UserPresetSchema.safeParse(data);
+  if (result.success) {
+    return { success: true, data: result.data };
+  } else {
+    return { success: false, error: result.error };
+  }
+}
+
+/**
+ * Safe parse user preset registry with error details
+ */
+export function safeParseUserPresetRegistry(
+  data: unknown
+):
+  | { success: true; data: UserPresetRegistryData }
+  | { success: false; error: z.ZodError } {
+  const result = UserPresetRegistrySchema.safeParse(data);
   if (result.success) {
     return { success: true, data: result.data };
   } else {
