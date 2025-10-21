@@ -889,26 +889,29 @@ The MCP configuration supports both array and object formats, and **empty config
 - **Alternative**: Copy node_modules (slow, ~500MB) or run from original location (loses isolation)
 - **See**: ADR-002 (agentsync-docs/adr) for complete analysis
 
-### fs-extra v11 Compatibility
-- fs-extra v11+ removed `readJson`, `writeJson`, `readFile`, `writeFile`, and `symlink` methods
-- **Solution**: Use native Node.js functions from `node:fs/promises`
-- For writing with automatic directory creation: Use `fs.outputFile` from fs-extra
-- **See**: ADR-002 (agentsync-docs/adr) for complete migration guide
+### Filesystem Utilities
+- **Native Node.js APIs**: AgentSync uses native `node:fs/promises` APIs exclusively
+- **Utility helpers**: Common operations wrapped in `src/utils/fs.ts`
 - **Pattern**:
   ```typescript
-  // Import native functions
-  import { readFile, symlink } from 'node:fs/promises';
-  import { outputFile } from 'fs-extra';
+  // Import from utils (wrappers for common operations)
+  import { pathExists, outputFile, ensureDir, copy, remove } from './utils/fs.js';
+
+  // Or use native Node.js APIs directly
+  import { readFile, writeFile, symlink } from 'node:fs/promises';
+
+  // Check if file exists
+  if (await pathExists(path)) { ... }
+
+  // Write file (creates parent dirs automatically)
+  await outputFile(path, content);
 
   // Reading files/JSON
   const content = await readFile(path, 'utf-8');
   const data = JSON.parse(content);
 
-  // Writing files (creates parent dirs)
-  await outputFile(path, JSON.stringify(data, null, 2) + '\n', 'utf-8');
-
-  // Creating symlinks
-  await symlink(target, linkPath);
+  // Writing JSON
+  await writeFile(path, JSON.stringify(data, null, 2) + '\n', 'utf-8');
   ```
 
 ## Debug Tips
@@ -920,9 +923,9 @@ The MCP configuration supports both array and object formats, and **empty config
 5. **Dry Run**: Always use `--dry-run` flag when testing sync
 6. **Parser Testing**: Use `pnpm cli validate` to test parsing
 7. **Empty Configs**: Valid for all MCP commands - use for fresh starts or cleanup
-8. **Test Mocks**: When using `vi.mock('fs-extra')`, ensure all used methods are mocked:
-   - Include `outputFile` if using it in source code
-   - E2E tests use real fs-extra (not mocked), so they catch missing methods
+8. **Test Mocks**: When using `vi.mock('../utils/fs.js')`, ensure all used methods are mocked:
+   - Common mocks: `pathExists`, `outputFile`, `ensureDir`, `copy`, `remove`
+   - E2E tests use real filesystem (not mocked), so they catch missing methods
 
 ## TDD for Bug Fixes
 
@@ -937,15 +940,6 @@ When fixing bugs, follow TDD approach:
    - Force flag override (when applicable)
 
 Example: Init command fix added 3 new tests + 1 updated test before implementation.
-
-### Example: fs-extra v11 Compatibility Fix
-**Bug**: Init command failing with "fs.readFile is not a function"
-
-**TDD Approach**:
-1. Updated test mocks to use `fsPromises.readFile` (from `node:fs/promises`)
-2. Fixed all test expectations to match new imports
-3. Updated implementation to use native Node.js functions
-4. Verified: All 16 unit tests + 21 E2E tests passing
 
 **Key Learning**: When upgrading dependencies, update test mocks BEFORE implementation to catch API changes early.
 
