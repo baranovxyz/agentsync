@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { CommandsSyncTarget } from '../../src/targets/commands-sync-target.js';
-import * as fs from 'fs-extra';
+import * as fs from 'fs-extra'; // TODO: migrate to native
 import * as path from 'path';
 import * as os from 'os';
 

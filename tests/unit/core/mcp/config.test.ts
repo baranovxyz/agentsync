@@ -6,7 +6,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { loadProjectConfig, filterSelectedMCPs, type ProjectMCPConfig } from '../../../../src/core/mcp/config.js';
 import type { MCP } from '../../../../src/core/mcp/tokens.js';
-import * as fs from 'fs-extra';
+import * as fs from 'fs-extra'; // TODO: migrate to native
 import * as path from 'path';
 import * as os from 'os';
 

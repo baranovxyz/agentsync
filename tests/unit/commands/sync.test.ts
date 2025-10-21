@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { sync, type MainSyncOptions } from '../../../src/commands/sync.js';
 import * as path from 'path';
 import * as os from 'os';
-import * as fs from 'fs-extra';
+import * as fs from 'fs-extra'; // TODO: migrate to native
 
 describe('Sync Command', () => {
   let tempDir: string;
