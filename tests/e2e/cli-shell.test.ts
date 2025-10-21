@@ -6,7 +6,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { execa } from 'execa';
-import * as fs from 'fs-extra';
+import * as fs from 'fs-extra'; // TODO: migrate to native
 import * as path from 'path';
 import * as os from 'os';
 import { processTracker } from '../utils/process-tracker.js';
