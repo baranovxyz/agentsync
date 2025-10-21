@@ -1,15 +1,16 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { CacheManager } from '../../../../src/core/registry/cache-manager.js';
-import * as fs from 'fs-extra'; // TODO: migrate to native
-import * as path from 'path';
-import * as os from 'os';
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { CacheManager } from "../../../../src/core/registry/cache-manager.js";
+import * as fs from "../../../../src/utils/fs.js";
+import * as path from "path";
+import * as os from "os";
+import { mkdtemp } from "node:fs/promises";
 
-describe('CacheManager', () => {
+describe("CacheManager", () => {
   let tempDir: string;
   let cacheManager: CacheManager;
 
   beforeEach(async () => {
-    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agentsync-test-'));
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "agentsync-test-"));
     cacheManager = new CacheManager(tempDir);
   });
 
@@ -17,23 +18,23 @@ describe('CacheManager', () => {
     await fs.remove(tempDir);
   });
 
-  describe('getCachePath', () => {
-    it('returns correct cache path', () => {
-      const source = { org: 'company', repo: 'standards', ref: 'main' };
+  describe("getCachePath", () => {
+    it("returns correct cache path", () => {
+      const source = { org: "company", repo: "standards", ref: "main" };
       const cachePath = cacheManager.getCachePath(source);
-      expect(cachePath).toBe(path.join(tempDir, 'github-company-standards'));
+      expect(cachePath).toBe(path.join(tempDir, "github-company-standards"));
     });
   });
 
-  describe('isCached', () => {
-    it('returns false when not cached', async () => {
-      const source = { org: 'company', repo: 'standards', ref: 'main' };
+  describe("isCached", () => {
+    it("returns false when not cached", async () => {
+      const source = { org: "company", repo: "standards", ref: "main" };
       const isCached = await cacheManager.isCached(source);
       expect(isCached).toBe(false);
     });
 
-    it('returns false when directory exists but no .git', async () => {
-      const source = { org: 'company', repo: 'standards', ref: 'main' };
+    it("returns false when directory exists but no .git", async () => {
+      const source = { org: "company", repo: "standards", ref: "main" };
       const cachePath = cacheManager.getCachePath(source);
       await fs.ensureDir(cachePath);
 
@@ -41,21 +42,21 @@ describe('CacheManager', () => {
       expect(isCached).toBe(false);
     });
 
-    it('returns true when .git directory exists', async () => {
-      const source = { org: 'company', repo: 'standards', ref: 'main' };
+    it("returns true when .git directory exists", async () => {
+      const source = { org: "company", repo: "standards", ref: "main" };
       const cachePath = cacheManager.getCachePath(source);
-      await fs.ensureDir(path.join(cachePath, '.git'));
+      await fs.ensureDir(path.join(cachePath, ".git"));
 
       const isCached = await cacheManager.isCached(source);
       expect(isCached).toBe(true);
     });
   });
 
-  describe('clearAll', () => {
-    it('removes all cache directories', async () => {
+  describe("clearAll", () => {
+    it("removes all cache directories", async () => {
       // Create some fake cache directories
-      await fs.ensureDir(path.join(tempDir, 'github-org1-repo1', '.git'));
-      await fs.ensureDir(path.join(tempDir, 'github-org2-repo2', '.git'));
+      await fs.ensureDir(path.join(tempDir, "github-org1-repo1", ".git"));
+      await fs.ensureDir(path.join(tempDir, "github-org2-repo2", ".git"));
 
       await cacheManager.clearAll();
 
@@ -64,13 +65,13 @@ describe('CacheManager', () => {
     });
   });
 
-  describe('clear', () => {
-    it('removes specific cache directory', async () => {
-      const source1 = { org: 'org1', repo: 'repo1', ref: 'main' };
-      const source2 = { org: 'org2', repo: 'repo2', ref: 'main' };
+  describe("clear", () => {
+    it("removes specific cache directory", async () => {
+      const source1 = { org: "org1", repo: "repo1", ref: "main" };
+      const source2 = { org: "org2", repo: "repo2", ref: "main" };
 
-      await fs.ensureDir(path.join(tempDir, 'github-org1-repo1', '.git'));
-      await fs.ensureDir(path.join(tempDir, 'github-org2-repo2', '.git'));
+      await fs.ensureDir(path.join(tempDir, "github-org1-repo1", ".git"));
+      await fs.ensureDir(path.join(tempDir, "github-org2-repo2", ".git"));
 
       await cacheManager.clear(source1);
 
@@ -79,18 +80,18 @@ describe('CacheManager', () => {
     });
   });
 
-  describe('getCacheMetadata', () => {
-    it('returns exists: false when not cached', async () => {
-      const source = { org: 'company', repo: 'standards', ref: 'main' };
+  describe("getCacheMetadata", () => {
+    it("returns exists: false when not cached", async () => {
+      const source = { org: "company", repo: "standards", ref: "main" };
       const metadata = await cacheManager.getCacheMetadata(source);
       expect(metadata).toEqual({ exists: false });
     });
 
-    it('returns metadata when cached', async () => {
-      const source = { org: 'company', repo: 'standards', ref: 'main' };
+    it("returns metadata when cached", async () => {
+      const source = { org: "company", repo: "standards", ref: "main" };
       const cachePath = cacheManager.getCachePath(source);
-      await fs.ensureDir(path.join(cachePath, '.git'));
-      await fs.writeFile(path.join(cachePath, 'test.txt'), 'content');
+      await fs.ensureDir(path.join(cachePath, ".git"));
+      await fs.writeFile(path.join(cachePath, "test.txt"), "content");
 
       const metadata = await cacheManager.getCacheMetadata(source);
       expect(metadata.exists).toBe(true);

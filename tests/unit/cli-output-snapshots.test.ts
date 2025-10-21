@@ -2,9 +2,9 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { execa } from "execa";
 import stripAnsi from "strip-ansi";
 import * as path from "path";
-import * as fs from "fs-extra";
+import * as fs from "../../src/utils/fs.js";
 import * as os from "os";
-import { readFile } from "node:fs/promises";
+import { readFile, mkdtemp } from "node:fs/promises";
 
 const cliPath = path.resolve(__dirname, "../../dist/cli.js");
 
@@ -37,7 +37,10 @@ describe("CLI Output Snapshots", () => {
       const { stdout } = await execa("node", [cliPath, "--help"]);
       let clean = stripAnsi(stdout);
       // Replace version number with placeholder to make test version-agnostic
-      clean = clean.replace(/AgentSync v\d+\.\d+\.\d+(-[a-z]+\.\d+)?/g, "AgentSync vX.Y.Z");
+      clean = clean.replace(
+        /AgentSync v\d+\.\d+\.\d+(-[a-z]+\.\d+)?/g,
+        "AgentSync vX.Y.Z"
+      );
       expect(clean).toMatchSnapshot();
     });
   });
@@ -50,13 +53,23 @@ describe("CLI Output Snapshots", () => {
     });
 
     it("mcp list --help output matches snapshot", async () => {
-      const { stdout } = await execa("node", [cliPath, "mcp", "list", "--help"]);
+      const { stdout } = await execa("node", [
+        cliPath,
+        "mcp",
+        "list",
+        "--help",
+      ]);
       const clean = stripAnsi(stdout);
       expect(clean).toMatchSnapshot();
     });
 
     it("mcp sync --help output matches snapshot", async () => {
-      const { stdout } = await execa("node", [cliPath, "mcp", "sync", "--help"]);
+      const { stdout } = await execa("node", [
+        cliPath,
+        "mcp",
+        "sync",
+        "--help",
+      ]);
       const clean = stripAnsi(stdout);
       expect(clean).toMatchSnapshot();
     });
@@ -99,7 +112,7 @@ describe("CLI Output Snapshots", () => {
     });
 
     it("missing MCP registry error matches snapshot", async () => {
-      const tempHome = await fs.mkdtemp(
+      const tempHome = await mkdtemp(
         path.join(os.tmpdir(), "snapshot-no-registry-")
       );
 
@@ -120,23 +133,30 @@ describe("CLI Output Snapshots", () => {
     });
 
     it("mcp sync without project config error matches snapshot", async () => {
-      const tempHome = await fs.mkdtemp(
+      const tempHome = await mkdtemp(
         path.join(os.tmpdir(), "snapshot-no-config-")
       );
-      const tempProject = await fs.mkdtemp(
+      const tempProject = await mkdtemp(
         path.join(os.tmpdir(), "snapshot-project-")
       );
 
       // Create global registry
       const agentsyncDir = path.join(tempHome, ".agentsync");
       await fs.ensureDir(agentsyncDir);
-      await fs.writeJson(path.join(agentsyncDir, "mcp.json"), {
-        github: {
-          command: "npx",
-          args: ["-y", "@modelcontextprotocol/server-github"],
-          env: { GITHUB_TOKEN: "{GITHUB_TOKEN}" },
-        },
-      });
+      await fs.outputFile(
+        path.join(agentsyncDir, "mcp.json"),
+        JSON.stringify(
+          {
+            github: {
+              command: "npx",
+              args: ["-y", "@modelcontextprotocol/server-github"],
+              env: { GITHUB_TOKEN: "{GITHUB_TOKEN}" },
+            },
+          },
+          null,
+          2
+        )
+      );
 
       try {
         await execa("node", [cliPath, "mcp", "sync"], {
@@ -150,8 +170,14 @@ describe("CLI Output Snapshots", () => {
       } catch (error: any) {
         let clean = stripAnsi(error.stderr || error.stdout || "");
         // Normalize temp directory paths to make snapshot stable
-        clean = clean.replace(/\/private\/var\/folders\/[^/]+\/[^/]+\/T\/snapshot-project-[^/]+/g, "/tmp/snapshot-project-XXXXXX");
-        clean = clean.replace(/C:\\Users\\[^\\]+\\AppData\\Local\\Temp\\snapshot-project-[^\\]+/g, "C:\\Temp\\snapshot-project-XXXXXX");
+        clean = clean.replace(
+          /\/private\/var\/folders\/[^/]+\/[^/]+\/T\/snapshot-project-[^/]+/g,
+          "/tmp/snapshot-project-XXXXXX"
+        );
+        clean = clean.replace(
+          /C:\\Users\\[^\\]+\\AppData\\Local\\Temp\\snapshot-project-[^\\]+/g,
+          "C:\\Temp\\snapshot-project-XXXXXX"
+        );
         expect(clean).toMatchSnapshot();
       } finally {
         await fs.remove(tempHome);
@@ -160,27 +186,41 @@ describe("CLI Output Snapshots", () => {
     });
 
     it("mcp add non-existent server error matches snapshot", async () => {
-      const tempHome = await fs.mkdtemp(
+      const tempHome = await mkdtemp(
         path.join(os.tmpdir(), "snapshot-no-server-")
       );
-      const tempProject = await fs.mkdtemp(
+      const tempProject = await mkdtemp(
         path.join(os.tmpdir(), "snapshot-project-add-")
       );
 
       // Create global registry with one server
       const agentsyncDir = path.join(tempHome, ".agentsync");
       await fs.ensureDir(agentsyncDir);
-      await fs.writeJson(path.join(agentsyncDir, "mcp.json"), {
-        github: {
-          command: "npx",
-          args: ["-y", "@modelcontextprotocol/server-github"],
-        },
-      });
+      await fs.outputFile(
+        path.join(agentsyncDir, "mcp.json"),
+        JSON.stringify(
+          {
+            github: {
+              command: "npx",
+              args: ["-y", "@modelcontextprotocol/server-github"],
+            },
+          },
+          null,
+          2
+        )
+      );
 
       // Create empty project config
-      await fs.writeJson(path.join(tempProject, ".agentsync.json"), {
-        mcpServers: [],
-      });
+      await fs.outputFile(
+        path.join(tempProject, ".agentsync.json"),
+        JSON.stringify(
+          {
+            mcpServers: [],
+          },
+          null,
+          2
+        )
+      );
 
       try {
         await execa("node", [cliPath, "mcp", "add", "nonexistent-server"], {

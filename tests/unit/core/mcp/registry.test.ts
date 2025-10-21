@@ -3,25 +3,25 @@
  * Loads ~/.agentsync/mcp.json
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { loadGlobalRegistry } from '../../../../src/core/mcp/registry.js';
-import * as fs from 'fs-extra'; // TODO: migrate to native
-import * as path from 'path';
-import * as os from 'os';
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { loadGlobalRegistry } from "../../../../src/core/mcp/registry.js";
+import * as fs from "../../../../src/utils/fs.js";
+import * as path from "path";
+import * as os from "os";
 
-describe('loadGlobalRegistry', () => {
+describe("loadGlobalRegistry", () => {
   let tempHomeDir: string;
   let originalHome: string | undefined;
   let originalUserProfile: string | undefined;
 
   beforeEach(async () => {
     // Create temp home directory
-    tempHomeDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agentsync-test-'));
+    tempHomeDir = await fs.mkdtemp(path.join(os.tmpdir(), "agentsync-test-"));
     originalHome = process.env.HOME;
     process.env.HOME = tempHomeDir;
 
     // On Windows, also set USERPROFILE (os.homedir() uses this on Windows)
-    if (process.platform === 'win32') {
+    if (process.platform === "win32") {
       originalUserProfile = process.env.USERPROFILE;
       process.env.USERPROFILE = tempHomeDir;
     }
@@ -40,28 +40,28 @@ describe('loadGlobalRegistry', () => {
     await fs.remove(tempHomeDir);
   });
 
-  it('loads global registry from ~/.agentsync/mcp.json', async () => {
-    const agentsyncDir = path.join(tempHomeDir, '.agentsync');
+  it("loads global registry from ~/.agentsync/mcp.json", async () => {
+    const agentsyncDir = path.join(tempHomeDir, ".agentsync");
     await fs.ensureDir(agentsyncDir);
 
     const registry = {
       github: {
-        command: 'npx',
-        args: ['-y', '@modelcontextprotocol/server-github'],
+        command: "npx",
+        args: ["-y", "@modelcontextprotocol/server-github"],
         env: {
-          GITHUB_TOKEN: '{GITHUB_TOKEN}',
+          GITHUB_TOKEN: "{GITHUB_TOKEN}",
         },
       },
       postgres: {
-        command: 'npx',
-        args: ['-y', '@modelcontextprotocol/server-postgres'],
+        command: "npx",
+        args: ["-y", "@modelcontextprotocol/server-postgres"],
         env: {
-          POSTGRES_URL: '{DATABASE_URL}',
+          POSTGRES_URL: "{DATABASE_URL}",
         },
       },
     };
 
-    await fs.writeJson(path.join(agentsyncDir, 'mcp.json'), registry);
+    await fs.writeJson(path.join(agentsyncDir, "mcp.json"), registry);
 
     const result = await loadGlobalRegistry();
 
@@ -71,54 +71,62 @@ describe('loadGlobalRegistry', () => {
     expect(result.postgres).toBeDefined();
   });
 
-  it('throws error if ~/.agentsync/mcp.json does not exist', async () => {
-    await expect(loadGlobalRegistry()).rejects.toThrow(/Global MCP registry not found/);
+  it("throws error if ~/.agentsync/mcp.json does not exist", async () => {
+    await expect(loadGlobalRegistry()).rejects.toThrow(
+      /Global MCP registry not found/
+    );
   });
 
-  it('throws error if registry is not valid JSON', async () => {
-    const agentsyncDir = path.join(tempHomeDir, '.agentsync');
+  it("throws error if registry is not valid JSON", async () => {
+    const agentsyncDir = path.join(tempHomeDir, ".agentsync");
     await fs.ensureDir(agentsyncDir);
-    await fs.writeFile(path.join(agentsyncDir, 'mcp.json'), 'invalid json{');
+    await fs.writeFile(path.join(agentsyncDir, "mcp.json"), "invalid json{");
 
-    await expect(loadGlobalRegistry()).rejects.toThrow(/Failed to parse global MCP registry/);
+    await expect(loadGlobalRegistry()).rejects.toThrow(
+      /Failed to parse global MCP registry/
+    );
   });
 
-  it('throws error if registry is empty object', async () => {
-    const agentsyncDir = path.join(tempHomeDir, '.agentsync');
+  it("throws error if registry is empty object", async () => {
+    const agentsyncDir = path.join(tempHomeDir, ".agentsync");
     await fs.ensureDir(agentsyncDir);
-    await fs.writeJson(path.join(agentsyncDir, 'mcp.json'), {});
+    await fs.writeJson(path.join(agentsyncDir, "mcp.json"), {});
 
-    await expect(loadGlobalRegistry()).rejects.toThrow(/Global MCP registry is empty/);
+    await expect(loadGlobalRegistry()).rejects.toThrow(
+      /Global MCP registry is empty/
+    );
   });
 
-  it('validates MCP structure (requires command and args)', async () => {
-    const agentsyncDir = path.join(tempHomeDir, '.agentsync');
+  it("validates MCP structure (requires command and args)", async () => {
+    const agentsyncDir = path.join(tempHomeDir, ".agentsync");
     await fs.ensureDir(agentsyncDir);
 
     const invalidRegistry = {
       github: {
         // Missing command field
-        args: ['-y', '@modelcontextprotocol/server-github'],
+        args: ["-y", "@modelcontextprotocol/server-github"],
       },
     };
 
-    await fs.writeJson(path.join(agentsyncDir, 'mcp.json'), invalidRegistry);
+    await fs.writeJson(path.join(agentsyncDir, "mcp.json"), invalidRegistry);
 
-    await expect(loadGlobalRegistry()).rejects.toThrow(/Invalid MCP configuration for 'github'/);
+    await expect(loadGlobalRegistry()).rejects.toThrow(
+      /Invalid MCP configuration for 'github'/
+    );
   });
 
-  it('allows MCPs without env section', async () => {
-    const agentsyncDir = path.join(tempHomeDir, '.agentsync');
+  it("allows MCPs without env section", async () => {
+    const agentsyncDir = path.join(tempHomeDir, ".agentsync");
     await fs.ensureDir(agentsyncDir);
 
     const registry = {
       filesystem: {
-        command: 'npx',
-        args: ['-y', '@modelcontextprotocol/server-filesystem', '/workspace'],
+        command: "npx",
+        args: ["-y", "@modelcontextprotocol/server-filesystem", "/workspace"],
       },
     };
 
-    await fs.writeJson(path.join(agentsyncDir, 'mcp.json'), registry);
+    await fs.writeJson(path.join(agentsyncDir, "mcp.json"), registry);
 
     const result = await loadGlobalRegistry();
 
@@ -126,13 +134,13 @@ describe('loadGlobalRegistry', () => {
     expect(result.filesystem.env).toBeUndefined();
   });
 
-  it('supports custom registry path', async () => {
-    const customPath = path.join(tempHomeDir, 'custom-mcp.json');
+  it("supports custom registry path", async () => {
+    const customPath = path.join(tempHomeDir, "custom-mcp.json");
 
     const registry = {
       github: {
-        command: 'npx',
-        args: ['-y', '@modelcontextprotocol/server-github'],
+        command: "npx",
+        args: ["-y", "@modelcontextprotocol/server-github"],
       },
     };
 
@@ -143,14 +151,14 @@ describe('loadGlobalRegistry', () => {
     expect(result.github).toBeDefined();
   });
 
-  it('provides helpful error message with path to create registry', async () => {
+  it("provides helpful error message with path to create registry", async () => {
     try {
       await loadGlobalRegistry();
-      expect.fail('Should have thrown error');
+      expect.fail("Should have thrown error");
     } catch (error) {
       const errorMsg = (error as Error).message;
-      expect(errorMsg).toContain('~/.agentsync/mcp.json');
-      expect(errorMsg).toContain('create');
+      expect(errorMsg).toContain("~/.agentsync/mcp.json");
+      expect(errorMsg).toContain("create");
     }
   });
 });

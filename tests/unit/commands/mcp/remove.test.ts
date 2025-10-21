@@ -3,18 +3,18 @@
  * Tests removing MCP server from project config
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { removeMCP } from '../../../../src/commands/mcp/remove.js';
-import * as fs from 'fs-extra'; // TODO: migrate to native
-import * as path from 'path';
-import * as os from 'os';
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { removeMCP } from "../../../../src/commands/mcp/remove.js";
+import * as fs from "../../../../src/utils/fs.js";
+import * as path from "path";
+import * as os from "os";
 
-describe('removeMCP', () => {
+describe("removeMCP", () => {
   let tempDir: string;
   let originalCwd: string;
 
   beforeEach(async () => {
-    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agentsync-remove-'));
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "agentsync-remove-"));
     originalCwd = process.cwd();
     process.chdir(tempDir);
   });
@@ -24,91 +24,93 @@ describe('removeMCP', () => {
     await fs.remove(tempDir);
   });
 
-  it('removes MCP from array config', async () => {
+  it("removes MCP from array config", async () => {
     const projectConfig = {
-      mcpServers: ['github', 'postgres', 'linear'],
+      mcpServers: ["github", "postgres", "linear"],
     };
-    await fs.writeJson('agentsync.local.json', projectConfig);
+    await fs.writeJson("agentsync.local.json", projectConfig);
 
-    await removeMCP('postgres');
+    await removeMCP("postgres");
 
-    const updated = await fs.readJson('agentsync.local.json');
-    expect(updated.mcpServers).toEqual(['github', 'linear']);
+    const updated = await fs.readJson("agentsync.local.json");
+    expect(updated.mcpServers).toEqual(["github", "linear"]);
   });
 
-  it('does nothing if MCP not in config', async () => {
+  it("does nothing if MCP not in config", async () => {
     const projectConfig = {
-      mcpServers: ['github'],
+      mcpServers: ["github"],
     };
-    await fs.writeJson('agentsync.local.json', projectConfig);
+    await fs.writeJson("agentsync.local.json", projectConfig);
 
-    await removeMCP('postgres');
+    await removeMCP("postgres");
 
-    const updated = await fs.readJson('agentsync.local.json');
-    expect(updated.mcpServers).toEqual(['github']); // Unchanged
+    const updated = await fs.readJson("agentsync.local.json");
+    expect(updated.mcpServers).toEqual(["github"]); // Unchanged
   });
 
-  it('throws error if agentsync.local.json does not exist', async () => {
-    await expect(removeMCP('github')).rejects.toThrow(/MCP configuration not found/);
+  it("throws error if agentsync.local.json does not exist", async () => {
+    await expect(removeMCP("github")).rejects.toThrow(
+      /MCP configuration not found/
+    );
   });
 
-  it('allows removing last MCP, resulting in empty array', async () => {
+  it("allows removing last MCP, resulting in empty array", async () => {
     const projectConfig = {
-      mcpServers: ['github'],
+      mcpServers: ["github"],
     };
-    await fs.writeJson('agentsync.local.json', projectConfig);
+    await fs.writeJson("agentsync.local.json", projectConfig);
 
-    const result = await removeMCP('github');
+    const result = await removeMCP("github");
 
     expect(result.removed).toBe(true);
-    expect(result.serverName).toBe('github');
+    expect(result.serverName).toBe("github");
 
-    const updated = await fs.readJson('agentsync.local.json');
+    const updated = await fs.readJson("agentsync.local.json");
     expect(updated.mcpServers).toEqual([]);
   });
 
-  it('handles object format config', async () => {
+  it("handles object format config", async () => {
     const projectConfig = {
       mcpServers: {
         github: true,
         postgres: true,
       },
     };
-    await fs.writeJson('agentsync.local.json', projectConfig);
+    await fs.writeJson("agentsync.local.json", projectConfig);
 
-    await removeMCP('postgres');
+    await removeMCP("postgres");
 
-    const updated = await fs.readJson('agentsync.local.json');
+    const updated = await fs.readJson("agentsync.local.json");
     expect(updated.mcpServers.github).toBe(true);
     expect(updated.mcpServers.postgres).toBeUndefined();
   });
 
-  it('returns result with removed status', async () => {
+  it("returns result with removed status", async () => {
     const projectConfig = {
-      mcpServers: ['github', 'postgres'],
+      mcpServers: ["github", "postgres"],
     };
-    await fs.writeJson('agentsync.local.json', projectConfig);
+    await fs.writeJson("agentsync.local.json", projectConfig);
 
-    const result = await removeMCP('postgres');
+    const result = await removeMCP("postgres");
 
     expect(result.removed).toBe(true);
-    expect(result.serverName).toBe('postgres');
+    expect(result.serverName).toBe("postgres");
   });
 
-  it('allows removing last MCP in object format, resulting in empty object', async () => {
+  it("allows removing last MCP in object format, resulting in empty object", async () => {
     const projectConfig = {
       mcpServers: {
         github: true,
       },
     };
-    await fs.writeJson('agentsync.local.json', projectConfig);
+    await fs.writeJson("agentsync.local.json", projectConfig);
 
-    const result = await removeMCP('github');
+    const result = await removeMCP("github");
 
     expect(result.removed).toBe(true);
-    expect(result.serverName).toBe('github');
+    expect(result.serverName).toBe("github");
 
-    const updated = await fs.readJson('agentsync.local.json');
+    const updated = await fs.readJson("agentsync.local.json");
     expect(updated.mcpServers).toEqual({});
   });
 });

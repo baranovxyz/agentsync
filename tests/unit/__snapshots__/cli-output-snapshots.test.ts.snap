@@ -50,7 +50,7 @@ Commands:
   init [options]  Initialize AgentSync with interactive setup wizard
   mcp             Manage MCP (Model Context Protocol) servers
   sync [options]  Sync libraries, rules, commands, and MCPs to AI tools
-  library         Manage GitHub library sources
+  preset          Manage GitHub preset sources
   help [command]  display help for command"
 `;
 
@@ -138,7 +138,7 @@ Commands:
   init [options]  Initialize AgentSync with interactive setup wizard
   mcp             Manage MCP (Model Context Protocol) servers
   sync [options]  Sync libraries, rules, commands, and MCPs to AI tools
-  library         Manage GitHub library sources
+  preset          Manage GitHub preset sources
   help [command]  display help for command
 
   ╔═══════════════════════════════════════╗
@@ -153,8 +153,8 @@ Examples:
   $ agentsync sync                      # Sync libraries, rules, commands, MCPs
   $ agentsync sync --update             # Update GitHub caches and sync
   $ agentsync sync --dry-run            # Preview sync changes
-  $ agentsync library list              # List configured libraries
-  $ agentsync library cache-clear       # Clear library caches
+  $ agentsync preset list               # List configured presets
+  $ agentsync preset cache-clear        # Clear preset caches
   $ agentsync mcp list                  # List available MCPs
   $ agentsync mcp add github            # Add MCP server
 
