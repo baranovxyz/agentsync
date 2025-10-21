@@ -1,5 +1,5 @@
 /**
- * GitHub source parser for library references
+ * GitHub source parser for preset references
  * Parses github:org/repo[@ref] format
  */
 
@@ -18,7 +18,7 @@ export class GitHubSourceParser {
    */
   parse(source: string): GitHubSource {
     // Format: github:org/repo[@ref]
-    if (!source.startsWith('github:')) {
+    if (!source.startsWith("github:")) {
       throw new Error(
         `Invalid GitHub source: ${source}. Must start with "github:"`
       );
@@ -27,10 +27,10 @@ export class GitHubSourceParser {
     const withoutPrefix = source.slice(7); // Remove "github:"
 
     // Split ref if present
-    const [repoPath, ref = 'main'] = withoutPrefix.split('@');
+    const [repoPath, ref = "main"] = withoutPrefix.split("@");
 
     // Split org/repo
-    const parts = repoPath.split('/');
+    const parts = repoPath.split("/");
     if (parts.length !== 2) {
       throw new Error(
         `Invalid GitHub source: ${source}. Format: github:org/repo[@ref]`
@@ -47,7 +47,7 @@ export class GitHubSourceParser {
     }
 
     // v0.3.0-beta: Only support @main
-    if (ref !== 'main') {
+    if (ref !== "main") {
       throw new Error(
         `GitHub ref "${ref}" not supported in v0.3.0-beta.\n` +
           `Only @main is supported. Version tags coming in v0.4.0.`
