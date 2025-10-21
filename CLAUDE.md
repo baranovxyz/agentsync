@@ -7,16 +7,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **AgentSync** is the missing infrastructure layer for AI coding agent configuration management with three main features:
 
 1. **MCP Context Optimizer** (Phase 1 ✅) - Project-specific MCP server selection to reduce AI context bloat
-2. **GitHub Preset System** (v0.3.0-alpha (Testing) 🧪) - Share rules, commands, and MCPs via GitHub repositories
+2. **GitHub Preset System** (v0.2.0-alpha (Testing) 🧪) - Share rules, commands, and MCPs via GitHub repositories
 3. **AGENTS.md Sync** (Phase 2 ⏳) - Unified AGENTS.md sync to all AI coding tools
 
 **Current Status**:
 
 - **Phase 1 (MCP)**: ✅ COMPLETE - 293 tests passing (272 unit/integration + 21 E2E), >90% coverage, CI validated on 9 platforms, production-ready
-- **v0.3.0-alpha (GitHub Presets)**: ✅ 100% COMPLETE - 86 tests passing (82 unit/integration + 4 E2E), example preset published, alpha testing phase
+- **v0.2.0-alpha (GitHub Presets)**: ✅ 100% COMPLETE - 86 tests passing (82 unit/integration + 4 E2E), example preset published, alpha testing phase
 - **Phase 2 (AGENTS.md)**: Foundation + Security complete, only `init` command fully implemented
 
-**v0.3.0-beta Progress**:
+**v0.2.0-beta Progress**:
 
 - ✅ Config schema updated with `extends` and `mcpServers` fields
 - ✅ GitHub source parser (github:org/repo format)
@@ -129,13 +129,13 @@ async function initializeProject(options = {}) {
 ### CLI Commands (via pnpm cli)
 
 ```bash
-# Main Sync (v0.3.0-beta - IMPLEMENTED)
+# Main Sync (v0.2.0-beta - IMPLEMENTED)
 pnpm cli sync                      # Sync all: presets, rules, commands, MCPs
 pnpm cli sync --update             # Update GitHub caches and sync
 pnpm cli sync --dry-run            # Preview changes without applying
 pnpm cli sync --tool cursor        # Sync only to Cursor
 
-# Preset Management (v0.3.0-beta - IMPLEMENTED)
+# Preset Management (v0.2.0-beta - IMPLEMENTED)
 pnpm cli preset list              # List configured presets
 pnpm cli preset cache-clear       # Clear project preset caches
 pnpm cli preset cache-clear --all # Clear all preset caches
@@ -215,7 +215,7 @@ pnpm cli init                      # ✅ Initialize with template
 - Use descriptive names: `fix/config-architecture-consistency`
 - Pattern: `{type}/{descriptive-name}` (fix/, feat/, chore/, etc.)
 
-## v0.3.0-beta: GitHub Preset System
+## v0.2.0-beta: GitHub Preset System
 
 ### Overview
 
@@ -233,7 +233,7 @@ src/core/registry/
 └── registry-orchestrator.ts  # End-to-end workflow orchestration
 ```
 
-### Config Format (v0.3.0-beta)
+### Config Format (v0.2.0-beta)
 
 ```json
 {
@@ -289,8 +289,8 @@ MCPs are merged without namespaces (last-wins):
 
 ### Key Design Decisions
 
-1. **@main only**: Version tags deferred to v0.4.0
-2. **GitHub only**: No npm, no URLs (simplest for v0.3.0-beta)
+1. **@main only**: Version tags deferred to v0.3.0
+2. **GitHub only**: No npm, no URLs (simplest for v0.2.0-beta)
 3. **Namespace required**: Extracted from org name by default
 4. **Cache reuse**: Clones stored in ~/.agentsync/cache/ for speed
 5. **SSH/HTTPS fallback**: Try SSH first, fall back to HTTPS
@@ -828,14 +828,14 @@ AgentSync uses separate config files with distinct purposes:
 **`.agentsync/config.json`** (Project-level, committed):
 
 - Created by: `agentsync init`
-- Modified by: `agentsync mcp add/remove` (v0.3.0+)
+- Modified by: `agentsync mcp add/remove` (v0.2.0+)
 - Purpose: Team-shared settings (tools, MCP servers, extends, security)
 - Git: Committed to repository
 
 **`agentsync.local.json`** (User-level, gitignored):
 
-- Created by: User manually (v0.3.0) or `--scope local` (v0.4.0+)
-- Modified by: User manually (v0.3.0) or MCP commands with `--scope local` (v0.4.0+)
+- Created by: User manually (v0.2.0) or `--scope local` (v0.3.0+)
+- Modified by: User manually (v0.2.0) or MCP commands with `--scope local` (v0.3.0+)
 - Purpose: Personal MCP overrides that differ from team config
 - Git: NOT committed (in .gitignore)
 
@@ -881,7 +881,7 @@ This file is committed to git and shared with the team.
 
 ### 2. MCP Configuration (`agentsync.local.json`) - GITIGNORED
 
-**Created by:** User manually (v0.3.0) or `agentsync mcp add --scope local` (v0.4.0+)
+**Created by:** User manually (v0.2.0) or `agentsync mcp add --scope local` (v0.3.0+)
 **Purpose:** User-specific/machine-specific MCP selections
 **Git:** NOT committed (in .gitignore)
 
@@ -919,8 +919,8 @@ The MCP configuration supports both array and object formats, and **empty config
 
 **How to create:**
 
-1. **Recommended:** Run `agentsync mcp add <server>` - automatically creates file and adds MCP
-2. **Manual:** Create file yourself: `echo '{"mcpServers": []}' > agentsync.local.json`
+1. **Manual:** Create file yourself: `echo '{"mcpServers": []}' > agentsync.local.json`
+2. **Future (v0.3.0):** `agentsync mcp add --scope local` (creates file automatically)
 
 **Use Cases for Empty Configs:**
 
@@ -1178,8 +1178,8 @@ Note: Pre-release versions like `0.2.0-alpha.5` don't need `--tag alpha` - the v
   - `.env` - Environment variables (gitignored)
 - **Configuration Loading**:
   - Reading priority: `.agentsync/config.json` → `agentsync.local.json` → `.agentsync/config.local.json`
-  - Writing (v0.3.0): CLI always writes to `.agentsync/config.json`
-  - Writing (v0.4.0+): CLI respects `--scope` flag (local|user|project)
+- Writing (v0.2.0): CLI always writes to `.agentsync/config.json`
+- Writing (v0.3.0+): CLI respects `--scope` flag (local|user|project)
 - **AGENTS.md (Phase 2)**:
   - `.agentsync/config.json` - Project configuration
   - `AGENTS.md` - Source of truth

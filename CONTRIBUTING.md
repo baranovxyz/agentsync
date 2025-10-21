@@ -1,6 +1,18 @@
 # Contributing to AgentSync
 
-Thanks for your interest in contributing!
+Thanks for your interest in contributing to AgentSync! We welcome contributions from the community. Please read through the following guidelines to ensure a smooth and effective contribution process.
+
+## Code of Conduct
+
+This project and everyone participating in it is governed by the [Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code.
+
+## How to Contribute
+
+1.  **Find an issue:** Look for existing issues or create your own. Good first issues are a great place to start.
+2.  **Fork the repo:** Create your own copy of the project to work on.
+3.  **Create a branch:** Use a descriptive branch name like `feat/new-command` or `fix/config-bug`.
+4.  **Develop:** Make your changes, following the ground rules below.
+5.  **Submit a PR:** Open a pull request with a clear title and description.
 
 ## Ground Rules
 
@@ -22,7 +34,7 @@ Thanks for your interest in contributing!
 ## Security
 
 - Do not include secrets in issues, PRs, code, or tests.
-- Follow guidance in `SECURITY.md`.
+- Follow guidance in [SECURITY.md](SECURITY.md).
 
 ## PR Checklist
 

@@ -10,10 +10,44 @@
 **AgentSync** provides three powerful features:
 
 1. **MCP Context Optimizer** (Phase 1 ✅) - Reduce AI context bloat with project-specific MCP server selection
-2. **GitHub Preset System** (v0.3.0-alpha (Testing) 🧪) - Share rules, commands, and MCPs via GitHub repositories
+2. **GitHub Preset System** (v0.2.0-alpha) - Share rules, commands, and MCPs via GitHub repositories
 3. **AGENTS.md Sync** (Phase 2 ⏳) - Sync unified AGENTS.md to all AI coding tools
 
-## v0.3.0-alpha: GitHub Preset System ✅ COMPLETE
+## Installation
+
+### Prerequisites
+
+- Node.js >= 18.0.0
+- npm, pnpm, or yarn
+
+### From npm (Recommended)
+
+```bash
+# Install globally
+npm install -g agentsync
+
+# Or with pnpm
+pnpm add -g agentsync
+
+# Or with yarn
+yarn global add agentsync
+```
+
+### From Source (Development)
+
+```bash
+# Clone the repository
+git clone https://github.com/baranovxyz/agentsync
+cd agentsync
+
+# Install dependencies
+pnpm install
+
+# Run in development
+pnpm dev
+```
+
+## v0.2.0-alpha: GitHub Preset System ✅ COMPLETE
 
 Share team coding standards, commands, and MCPs via GitHub repositories. **Alpha testing** - GitHub Preset System complete, awaiting validation.
 
@@ -119,7 +153,7 @@ Result: 70-90% context reduction, 2-3x faster AI responses
 # Install AgentSync
 npm install -g agentsync
 
-# Add MCP servers to your project (creates agentsync.local.json)
+# Add MCP servers to your project (creates .agentsync/config.json)
 agentsync mcp add github
 agentsync mcp add postgres
 
@@ -174,7 +208,7 @@ Add MCP server to project
 agentsync mcp add linear
 
 # Output:
-# ✓ Added 'linear' to agentsync.local.json
+# ✓ Added 'linear' to .agentsync/config.json
 #
 # MCP 'linear' requires environment variables:
 #   - LINEAR_API_KEY
@@ -191,14 +225,14 @@ Remove MCP server from project
 agentsync mcp remove linear
 
 # Output:
-# ✓ Removed 'linear' from agentsync.local.json
+# ✓ Removed 'linear' from .agentsync/config.json
 # Run 'agentsync mcp sync' to apply changes.
 ```
 
 ### How It Works
 
 1. **Global Registry** - Define all MCP servers once in `~/.agentsync/mcp.json`
-2. **Project Selection** - Select which MCPs each project needs in `agentsync.local.json`
+2. **Project Selection** - Select which MCPs each project needs in `.agentsync/config.json` (team-shared) or `agentsync.local.json` (personal overrides)
 3. **Token Substitution** - Securely replace `{GITHUB_TOKEN}` with actual env values
 4. **Validation** - Verify all required tokens exist before syncing
 5. **Multi-Target Sync** - Write tool-specific configs (Cursor uses wrapper, Claude doesn't)
@@ -231,12 +265,35 @@ agentsync mcp remove linear
 }
 ```
 
-#### User MCP Overrides (`agentsync.local.json`)
+#### Project Configuration (`.agentsync/config.json`) - COMMITTED
 
-**Purpose:** Personal MCP selections that override project config
-**Created by:** User manually (v0.3.0) or `agentsync mcp add --scope local` (v0.4.0+)
-**Git:** NOT committed (in .gitignore)
-**User-specific:** Each developer has their own
+**Purpose:** Team-shared project settings (tools, presets, security rules, MCPs)
+**Created by:** `agentsync init` command
+**Modified by:** `agentsync mcp add/remove` commands
+**Git:** Committed to repository
+
+```json
+{
+  "version": "1.0",
+  "extends": ["github:acme/coding-standards"],
+  "tools": ["cursor", "claude"],
+  "mcpServers": ["github", "postgres"],
+  "useSymlinks": true
+}
+```
+
+**How to manage team MCPs:**
+
+- **Add team MCP:** `agentsync mcp add <server>` - adds to team config
+- **Remove team MCP:** `agentsync mcp remove <server>` - removes from team config
+
+#### User MCP Overrides (`agentsync.local.json`) - GITIGNORED
+
+**Purpose:** Personal MCP selections that override team/project config
+**Created by:** User manually
+**Git:** NOT committed (in `.gitignore`)
+
+Each developer maintains their own `agentsync.local.json` to select the MCPs they need for a project, which may differ from their teammates.
 
 ```json
 {
@@ -244,33 +301,16 @@ agentsync mcp remove linear
 }
 ```
 
-**How to create (v0.3.0):**
+**How to create:**
 
-- Manual: `echo '{"mcpServers": []}' > agentsync.local.json`
-- Then edit to add personal MCPs that differ from team config
-
-**Future (v0.4.0):**
-
-- `agentsync mcp add linear --scope local` (creates file automatically)
-
-#### Project Settings (`.agentsync/config.json`)
-
-**Purpose:** Team-shared project configuration
-**Created by:** `agentsync init` command
-**Git:** Committed to repository
-
-```json
-{
-  "version": "1.0",
-  "tools": ["cursor", "claude"],
-  "useSymlinks": true
-}
-```
+- **To override and use zero MCPs:** Create the file manually with `echo '{"mcpServers": []}' > agentsync.local.json`. This is useful for temporarily disabling all MCPs, including team-shared ones.
+- **To add personal MCPs:** Create the file manually and add your personal MCP selections that differ from the team config.
 
 #### Environment Variables (`.env`)
 
-**Purpose:** Store actual tokens (gitignored)
+**Purpose:** Store actual tokens and secrets
 **Created by:** User manually
+**Git:** NOT committed (in `.gitignore`)
 
 ```bash
 GITHUB_TOKEN=ghp_your_token_here
@@ -304,10 +344,12 @@ Sync your unified AGENTS.md to all AI coding tools - Cursor, Claude Code, Cline,
 **Working Commands:**
 
 - ✅ `agentsync init` - Initialize AgentSync with AGENTS.md template
+- ✅ `agentsync sync` - Sync presets, rules, commands, and MCPs to AI tools
+- ✅ `agentsync preset list` - List configured preset sources
+- ✅ `agentsync preset cache-clear` - Clear preset caches
 
 **Not Yet Implemented:**
 
-- ⏳ `agentsync sync` - Sync AGENTS.md to all tools
 - ⏳ `agentsync watch` - Auto-sync on file changes
 - ⏳ `agentsync validate` - Validate AGENTS.md format
 - ⏳ `agentsync diff` - Preview sync changes
@@ -331,39 +373,11 @@ agentsync init
 # This creates:
 # - AGENTS.md in your project root
 # - .agentsync/config.json configuration
+# - .agentsync/{logs,backups,cache}/ directories
 # - Symlinks to tool-specific directories
 ```
 
 ---
-
-## Installation
-
-### From npm (Recommended)
-
-```bash
-# Install globally
-npm install -g agentsync
-
-# Or with pnpm
-pnpm add -g agentsync
-
-# Or with yarn
-yarn global add agentsync
-```
-
-### From Source (Development)
-
-```bash
-# Clone the repository
-git clone https://github.com/baranovxyz/agentsync
-cd agentsync
-
-# Install dependencies
-pnpm install
-
-# Run in development
-pnpm dev
-```
 
 ## Architecture
 
@@ -480,55 +494,6 @@ pnpm cli mcp --help
 
 **See:** [TESTING.md](TESTING.md) for complete testing strategy and guides.
 
-## Configuration
-
-### MCP Configuration (`agentsync.local.json`)
-
-**Created by:** `agentsync mcp add` OR user manually
-**Git:** NOT committed (each developer has their own)
-
-```json
-{
-  "mcpServers": ["github", "postgres", "linear"]
-}
-```
-
-**Starting fresh?** Empty configs are valid:
-
-```bash
-# Start with no MCPs configured (valid)
-echo '{"mcpServers": []}' > agentsync.local.json
-agentsync mcp list  # Shows all MCPs as inactive
-agentsync mcp add github  # Add your first MCP (auto-creates file if missing)
-```
-
-### Project Configuration (`.agentsync/config.json`)
-
-**Created by:** `agentsync init` command
-**Git:** Committed to repository (team-shared)
-
-```json
-{
-  "version": "1.0",
-  "tools": ["cursor", "claude", "cline"],
-  "useSymlinks": true,
-  "security": {
-    "secretScanning": {
-      "enabled": true,
-      "blockOnHighSeverity": true
-    },
-    "unicodeDetection": {
-      "enabled": true,
-      "blockOnHighRisk": true
-    },
-    "auditLogging": {
-      "enabled": true,
-      "retentionDays": 90
-    }
-  }
-}
-```
-
 ## Contributing
 
 This project follows Apple engineering standards:
@@ -538,11 +503,14 @@ This project follows Apple engineering standards:
 - Test coverage >80% (MCP modules >90%)
 - Clear error messages with actionable steps
 
+For more details, please see our [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Roadmap
 
-- [x] **Phase 1: MCP Context Optimizer** - Project-specific MCP selection (COMPLETE)
-- [ ] **Phase 2: AGENTS.md Sync** - Unified config sync to all tools (IN PROGRESS)
-- [ ] **Phase 3: Advanced Features** - Watch mode, team presets, validation
+- [x] **Phase 1: MCP Context Optimizer** - Project-specific MCP selection
+- [x] **v0.2.0: GitHub Preset System** - Shareable rules, commands, and MCPs
+- [ ] **Phase 2: AGENTS.md Sync** - Unified config sync to all tools
+- [ ] **Phase 3: Advanced Features** - Watch mode, validation, monorepo support
 - [ ] **Phase 4: Additional Tools** - Windsurf, Cline, RooCode, GitHub Copilot
 
 ## License
