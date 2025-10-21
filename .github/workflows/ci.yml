@@ -1,4 +1,4 @@
-name: Tests with BATS
+name: Main CI
 
 on:
   push:
