@@ -7,13 +7,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **AgentSync** is the missing infrastructure layer for AI coding agent configuration management with three main features:
 
 1. **MCP Context Optimizer** (Phase 1 ✅) - Project-specific MCP server selection to reduce AI context bloat
-2. **GitHub Preset System** (v0.3.0-beta 🚧) - Share rules, commands, and MCPs via GitHub repositories
+2. **GitHub Preset System** (v0.3.0-alpha (Testing) 🧪) - Share rules, commands, and MCPs via GitHub repositories
 3. **AGENTS.md Sync** (Phase 2 ⏳) - Unified AGENTS.md sync to all AI coding tools
 
 **Current Status**:
 
 - **Phase 1 (MCP)**: ✅ COMPLETE - 293 tests passing (272 unit/integration + 21 E2E), >90% coverage, CI validated on 9 platforms, production-ready
-- **v0.3.0-beta (GitHub Presets)**: ✅ 100% COMPLETE - 86 tests passing (82 unit/integration + 4 E2E), example preset published, production-ready
+- **v0.3.0-alpha (GitHub Presets)**: ✅ 100% COMPLETE - 86 tests passing (82 unit/integration + 4 E2E), example preset published, alpha testing phase
 - **Phase 2 (AGENTS.md)**: Foundation + Security complete, only `init` command fully implemented
 
 **v0.3.0-beta Progress**:
