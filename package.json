@@ -26,6 +26,7 @@
     "cli": "tsx src/cli.ts",
     "lint": "tsc --noEmit",
     "lint:fix": "prettier --write src tests",
+    "cz": "cz",
     "commitlint": "commitlint --from=origin/main --to=HEAD",
     "release:version": "npm version --message \"chore(release): %s\"",
     "prepare": "husky install",
