@@ -146,7 +146,7 @@ Commands:
   ║  The missing infrastructure layer     ║
   ║  for AI agent configuration sync      ║
   ╚═══════════════════════════════════════╝
-
+  
 
 Examples:
   $ agentsync init                      # Interactive setup wizard
