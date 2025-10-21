@@ -20,7 +20,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { execa } from 'execa';
-import * as fs from 'fs-extra';
+import * as fs from 'fs-extra'; // TODO: migrate to native
 import * as path from 'path';
 import * as os from 'os';
 
