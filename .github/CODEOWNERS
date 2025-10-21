@@ -1,0 +1,9 @@
+# CODEOWNERS - Review enforcement
+# Default owners
+* @baranovxyz
+
+# Workflows
+.github/workflows/ @baranovxyz
+
+# Security
+SECURITY.md @baranovxyz
