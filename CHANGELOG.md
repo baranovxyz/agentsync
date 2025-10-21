@@ -11,26 +11,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **v0.3.0-beta GitHub Library System** - Complete implementation (100% COMPLETE)
-  - `extends` field in config for GitHub library references (github:org/repo format)
+- **v0.3.0-beta GitHub Preset System** - Complete implementation (100% COMPLETE)
+  - `extends` field in config for GitHub preset references (github:org/repo format)
   - GitHub source parser with SSH/HTTPS fallback
   - Cache manager for cloned repositories (~/.agentsync/cache/)
-  - Library loader for rules, commands, and MCPs
+  - Preset loader for rules, commands, and MCPs
   - Namespace-based merger with conflict prevention
   - Registry orchestrator for end-to-end workflow
   - Filter support (include/exclude globs)
   - Last-wins MCP merging strategy
 
 - **Main Sync Command** - Unified sync workflow
-  - `agentsync sync` - Sync all: libraries, rules, commands, MCPs
+  - `agentsync sync` - Sync all: presets, rules, commands, MCPs
   - `--update` flag to refresh GitHub caches
   - `--dry-run` flag to preview changes
   - `--tool` flag to sync only to specific tool
 
-- **Library Management Commands**
-  - `agentsync library list` - Show configured libraries and cache status
-  - `agentsync library cache-clear` - Clear project library caches
-  - `agentsync library cache-clear --all` - Clear all library caches
+- **Preset Management Commands**
+  - `agentsync preset list` - Show configured presets and cache status
+  - `agentsync preset cache-clear` - Clear project preset caches
+  - `agentsync preset cache-clear --all` - Clear all preset caches
 
 - **Rules & Commands Sync**
   - RulesSyncTarget for .cursor/rules/ and .claude/rules/
@@ -40,17 +40,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Comprehensive Documentation**
   - 7 detailed usage examples in CLAUDE.md
-  - Library repository structure guide
+  - Preset repository structure guide
   - Config format documentation
   - Namespace merging explanation
 
 ### Changed
 
 - **Config Schema** - Updated for v0.3.0-beta
-  - Added `extends` field for library references
-  - Support for both string and object library definitions
+  - Added `extends` field for preset references
+  - Support for both string and object preset definitions
   - Filter support with include/exclude patterns
-  - `mcpServers` field now supports library-based MCPs
+  - `mcpServers` field now supports preset-based MCPs
 
 - **Init Command** - Creates new v0.3.0-beta config format
   - Generates config with `extends` field
@@ -58,8 +58,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- E2E test failures in GitHub library integration tests
-- CLI output snapshots for sync and library commands
+- E2E test failures in GitHub preset integration tests
+- CLI output snapshots for sync and preset commands
 - fs-extra v11 compatibility - replaced `fs.readFile` with native Node.js `readFile` from `node:fs/promises`
 - Snapshot tests now version-agnostic (no longer fail on version bumps)
 
@@ -70,7 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 12 unit tests for sync command
 - 9 integration tests for sync workflow
 - 8 integration tests for rules/commands sync
-- 4 E2E tests using real GitHub library (@agentsync/example-typescript)
+- 4 E2E tests using real GitHub preset (@agentsync/example-typescript)
 
 ## [0.2.0-alpha.8] - 2025-10-20
 
@@ -141,6 +141,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Breaking Changes
 
 **MCP Config File Location Changed**
+
 - **Before**: `.agentsync.json` (root)
 - **After**: `agentsync.local.json` (root, gitignored by default)
 - **Reason**: Fixes confusing UX where `init` and `mcp` commands used different config files
@@ -186,6 +187,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.0-alpha.5] - 2025-10-20
 
 ### Fixed
+
 - **Init Command** - Use `.agentsync/config.json` as source of truth instead of `AGENTS.md`
   - Previously failed when `AGENTS.md` already existed, blocking legitimate workflows
   - Now skips `AGENTS.md` template creation if file exists (unless `--force` used)
@@ -195,12 +197,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.0-alpha.4] - 2025-10-20
 
 ### Fixed
+
 - **Init Command** - Template path resolution for production packages
   - Fixed "Failed to create AGENTS.md from template" error when running via `npx agentsync@latest init`
   - Implemented robust package root detection with dual strategy (filesystem traversal + require.resolve)
   - Now works reliably in all contexts: development, bundled, npm installs, npx executions
 
 ### Added
+
 - **E2E Init Testing** - Production package validation for init command (4 new tests)
   - Tests all 3 templates (default, typescript-react, python-fastapi)
   - Validates templates exist in tarball and load correctly
@@ -208,6 +212,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Total install tests: 17 → 21
 
 ### Changed
+
 - **Test Coverage** - Updated total automated tests: 240 → 244
   - 166 Vitest tests (>90% coverage)
   - 21 Install tests (production validation)
@@ -217,6 +222,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.0-alpha.3] - 2025-10-20
 
 ### Added
+
 - **Install Test** - Automated production package validation (21 E2E tests)
   - Validates complete `pnpm pack` → `npm install -g` workflow
   - Tests tarball creation, bin linking, template inclusion, shebang
@@ -238,6 +244,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Running `mcp sync` with empty config clears all MCPs (idempotent)
 
 ### Fixed
+
 - **fs-extra v11 Migration** - Migrate from deprecated methods
   - Replaced `readJson`/`writeJson` with native Node.js `fs/promises`
   - Use `fs.outputFile` for atomic writes with directory creation
@@ -245,6 +252,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - No breaking changes to public API
 
 ### Changed
+
 - **CI/CD Improvements**
   - Add ShellCheck configuration and proper error handling
   - BATS test warnings now informational (non-blocking)
@@ -262,6 +270,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Update test counts throughout
 
 ### Removed
+
 - **Manual Tester Subagent** - Replaced by automated install test
   - `.claude/agents/manual-tester.md` removed
   - Install test provides same validation automatically
@@ -270,6 +279,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.0-alpha.2] - 2025-01-18
 
 ### Fixed
+
 - **`agentsync init`** - Fixed immediate cancellation error in non-interactive environments
   - Now properly detects when running in non-TTY environments (npx, CI/CD, automated scripts)
   - Shows helpful error message when required options are missing: `--template <name> --tools <tool1,tool2>`
@@ -281,6 +291,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - 100% coverage of init command functionality
 
 ### Changed
+
 - **`agentsync init`** - Improved error messages and user experience
   - Clear distinction between user cancellation and environment issues
   - Better guidance for non-interactive usage
@@ -294,6 +305,7 @@ This release introduces the **MCP Context Optimizer**, a complete and production
 ### Added
 
 #### MCP Commands (Phase 1 - COMPLETE)
+
 - **`agentsync mcp sync`** - Sync selected MCP servers to AI coding tools
   - Auto-detects Cursor and Claude Code
   - Token substitution from environment variables
@@ -315,6 +327,7 @@ This release introduces the **MCP Context Optimizer**, a complete and production
   - Preserves other settings
 
 #### MCP Core Engine
+
 - **Global Registry Loader** (`src/core/mcp/registry.ts`)
   - Loads `~/.agentsync/mcp.json`
   - Validates MCP structure (command, args, env)
@@ -335,6 +348,7 @@ This release introduces the **MCP Context Optimizer**, a complete and production
   - Simple KEY=value format support
 
 #### MCP Targets
+
 - **Cursor Target** (`src/targets/cursor.ts`)
   - Writes `.cursor/mcp.json`
   - Uses `{"mcpServers": {...}}` wrapper format
@@ -364,11 +378,11 @@ This release introduces the **MCP Context Optimizer**, a complete and production
 
 MCP Context Optimizer delivers measurable performance improvements:
 
-| Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| Context tokens | ~15,000 | ~2,000 | **87% reduction** |
-| AI response time | 8-12 sec | 3-5 sec | **2-3x faster** |
-| Irrelevant tools | High | None | **Quality boost** |
+| Metric           | Before   | After   | Improvement       |
+| ---------------- | -------- | ------- | ----------------- |
+| Context tokens   | ~15,000  | ~2,000  | **87% reduction** |
+| AI response time | 8-12 sec | 3-5 sec | **2-3x faster**   |
+| Irrelevant tools | High     | None    | **Quality boost** |
 
 ### Documentation
 
@@ -381,6 +395,7 @@ MCP Context Optimizer delivers measurable performance improvements:
 ### Configuration Format
 
 #### Global Registry (`~/.agentsync/mcp.json`)
+
 ```json
 {
   "github": {
@@ -394,6 +409,7 @@ MCP Context Optimizer delivers measurable performance improvements:
 ```
 
 #### Project Config (`.agentsync.json`)
+
 ```json
 {
   "mcpServers": ["github", "postgres"]
@@ -419,6 +435,7 @@ This is the first public alpha release of AgentSync. Phase 1 (Foundation + Secur
 ### Added
 
 #### Core Features (AGENTS.md)
+
 - **`init` command** - Interactive setup wizard to initialize AgentSync in a project
   - Template selection (default, typescript-react, python-fastapi)
   - Multi-tool selection (Cursor, Claude Code, Cline, Windsurf, GitHub Copilot)
@@ -426,6 +443,7 @@ This is the first public alpha release of AgentSync. Phase 1 (Foundation + Secur
   - Automatic .gitignore updates
 
 #### Security Layer
+
 - **Secret Scanner** - Detects 25+ patterns of API keys, tokens, and credentials
   - AWS, GitHub, Google, Azure, database connection strings
   - Entropy-based detection for high-entropy strings
@@ -440,6 +458,7 @@ This is the first public alpha release of AgentSync. Phase 1 (Foundation + Secur
   - Automatic log rotation
 
 #### Infrastructure
+
 - **AGENTS.md Parser** - Remark-based markdown parser for configuration files
 - **Error System** - Typed error classes with recovery suggestions
 - **File Watcher** - Chokidar-based file watching with debouncing
@@ -447,7 +466,9 @@ This is the first public alpha release of AgentSync. Phase 1 (Foundation + Secur
 - **Type System** - Full TypeScript with strict mode and Zod validation
 
 ### Not Yet Implemented (AGENTS.md)
+
 The following commands are scaffolded but not functional:
+
 - `sync` - One-time sync to all tools
 - `watch` - Watch for changes and auto-sync
 - `validate` - Validate AGENTS.md format
@@ -459,12 +480,14 @@ The following commands are scaffolded but not functional:
 - `tree` - Show workspace configuration tree
 
 ### Known Issues
+
 - Translator implementations for all tools not complete
 - Atomic sync with rollback not fully tested
 - No monorepo workspace detection
 - Remote audit log shipping not implemented
 
 ### Technical Details
+
 - **Runtime:** Node.js 18+ required
 - **Package Manager:** pnpm recommended
 - **Build:** Vite for fast CLI builds
@@ -472,6 +495,7 @@ The following commands are scaffolded but not functional:
 - **Dependencies:** 15 production, 11 development
 
 ### Security Note
+
 This release includes comprehensive security scanning to prevent accidental exposure of secrets and protection against Unicode-based attacks. All file operations are validated before execution.
 
 [0.2.0-alpha.1]: https://github.com/baranovxyz/agentsync/releases/tag/v0.2.0-alpha.1

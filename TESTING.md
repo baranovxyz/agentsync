@@ -7,6 +7,7 @@
 AgentSync uses a comprehensive, fully-automated testing strategy to ensure CLI reliability, UX quality, and production readiness.
 
 **Test Philosophy:**
+
 - **Unit tests** catch regressions and validate functionality
 - **Integration tests** ensure components work together
 - **E2E tests** validate complete workflows and production package
@@ -39,15 +40,15 @@ pnpm test tests/e2e/install-test.test.ts   # Production package validation
 
 ## Test Types
 
-| Type | Count | Speed | Coverage | Purpose | Documentation |
-|------|-------|-------|----------|---------|---------------|
-| **Vitest (Unit/Integration)** | 166 | ~2s | >90% | Core functionality | [automated.md](docs/testing/automated.md) |
-| **E2E Workflow Tests** | 5 | ~1s | - | MCP lifecycle | [automated.md](docs/testing/automated.md#e2e-workflow-tests) |
-| **E2E Error Scenarios** | 11 | ~1s | - | Edge cases & errors | [automated.md](docs/testing/automated.md#e2e-error-scenarios) |
-| **Install Test (Production)** | 22 | ~30-60s | - | Package validation + new UX | [automated.md](docs/testing/automated.md#install-test-production-package-validation) |
-| **Shell Tests (Vitest + execa)** | 24 | ~2s | - | Real CLI execution | [shell-implementation.md](docs/testing/shell-implementation.md) |
-| **BATS (Shell Scripts)** | 26 | ~5s | - | Shell validation | [shell-implementation.md](docs/testing/shell-implementation.md) |
-| **Total** | **207** | ~10s | >90% | Complete coverage | - |
+| Type                             | Count   | Speed   | Coverage | Purpose                     | Documentation                                                                        |
+| -------------------------------- | ------- | ------- | -------- | --------------------------- | ------------------------------------------------------------------------------------ |
+| **Vitest (Unit/Integration)**    | 166     | ~2s     | >90%     | Core functionality          | [automated.md](docs/testing/automated.md)                                            |
+| **E2E Workflow Tests**           | 5       | ~1s     | -        | MCP lifecycle               | [automated.md](docs/testing/automated.md#e2e-workflow-tests)                         |
+| **E2E Error Scenarios**          | 11      | ~1s     | -        | Edge cases & errors         | [automated.md](docs/testing/automated.md#e2e-error-scenarios)                        |
+| **Install Test (Production)**    | 22      | ~30-60s | -        | Package validation + new UX | [automated.md](docs/testing/automated.md#install-test-production-package-validation) |
+| **Shell Tests (Vitest + execa)** | 24      | ~2s     | -        | Real CLI execution          | [shell-implementation.md](docs/testing/shell-implementation.md)                      |
+| **BATS (Shell Scripts)**         | 26      | ~5s     | -        | Shell validation            | [shell-implementation.md](docs/testing/shell-implementation.md)                      |
+| **Total**                        | **207** | ~10s    | >90%     | Complete coverage           | -                                                                                    |
 
 **All tests are automated** - no manual testing required. E2E tests cover all workflows previously done manually.
 
@@ -71,6 +72,7 @@ pnpm test:coverage
 ```
 
 **What's tested:**
+
 - ✅ MCP commands (list, add, sync, remove)
 - ✅ Token substitution
 - ✅ Configuration loading
@@ -92,6 +94,7 @@ pnpm test:bats
 ```
 
 **What's tested:**
+
 - ✅ `agentsync --version`, `--help`
 - ✅ Shebang execution (`#!/usr/bin/env node`)
 - ✅ Exit codes (0 for success, non-zero for errors)
@@ -100,22 +103,28 @@ pnpm test:bats
 
 **Details:** [docs/testing/shell-implementation.md](docs/testing/shell-implementation.md)
 
-### Handling Library Updates
+### Handling Preset Updates
 
 When major dependencies are updated, common issues include:
 
 **fs-extra v11+ Migration:**
+
 - Removed: `readJson`, `writeJson`
 - Solution: Use native `node:fs/promises` + manual JSON parsing
 - Test mocks must include all methods used (add `outputFile` to vi.mock)
 - Helper pattern for E2E tests:
   ```typescript
   async function writeJson(filePath: string, data: unknown): Promise<void> {
-    await fs.outputFile(filePath, JSON.stringify(data, null, 2) + '\n', 'utf-8');
+    await fs.outputFile(
+      filePath,
+      JSON.stringify(data, null, 2) + "\n",
+      "utf-8"
+    );
   }
   ```
 
 **Test Isolation:**
+
 - Copy production artifacts (dist/, package.json) to temp directories
 - Use `beforeAll` for expensive setup (CLI copying), `beforeEach` for test-specific setup
 - Clean up shared resources only in `afterAll`, not `afterEach`
@@ -127,11 +136,13 @@ When major dependencies are updated, common issues include:
 Comprehensive end-to-end tests covering complete workflows and error scenarios.
 
 **Test Files:**
+
 - `tests/e2e/mcp-workflow.test.ts` - Complete MCP lifecycle (add → sync → remove)
 - `tests/e2e/error-scenarios.test.ts` - Edge cases and error handling
 - `tests/e2e/install-test.test.ts` - Production package validation
 
 **Workflow Tests** (5 tests):
+
 - Complete MCP lifecycle workflow
 - Token substitution in real files
 - Multi-tool sync
@@ -140,6 +151,7 @@ Comprehensive end-to-end tests covering complete workflows and error scenarios.
 - Removing last MCP (empty config)
 
 **Error Scenarios** (11 tests):
+
 - Invalid MCP names
 - Duplicate MCP addition
 - Removing non-existent MCPs
@@ -152,6 +164,7 @@ Comprehensive end-to-end tests covering complete workflows and error scenarios.
 - Auto-creating missing config
 
 **Run:**
+
 ```bash
 # Run all E2E tests
 pnpm test tests/e2e/
@@ -163,6 +176,7 @@ pnpm test tests/e2e/install-test.test.ts
 ```
 
 **Benefits:**
+
 - ✅ Fully automated - no human intervention
 - ✅ Consistent results
 - ✅ Fast execution (~10s total)
@@ -176,6 +190,7 @@ pnpm test tests/e2e/install-test.test.ts
 Before publishing to npm:
 
 ### 1. Automated Tests ✅
+
 - [ ] All tests pass: `pnpm test` (207 tests)
 - [ ] E2E tests pass: `pnpm test tests/e2e/`
 - [ ] Shell tests pass: `pnpm test:shell`
@@ -187,24 +202,28 @@ Before publishing to npm:
 **All testing is automated** - no manual steps required!
 
 ### 2. Build & Package ✅
+
 - [ ] Clean build: `rm -rf dist && pnpm build`
 - [ ] Install test passes (validates tarball creation & installation)
 - [ ] ~~Pack tarball manually~~ (install test does this)
 - [ ] ~~Install from tarball~~ (install test does this)
 
 ### 4. Documentation ✅
+
 - [ ] README.md updated
 - [ ] CHANGELOG.md updated with version changes
 - [ ] Version number correct in `package.json`
 - [ ] Examples work correctly
 
 ### 5. Git ✅
+
 - [ ] All changes committed
 - [ ] Git status clean
 - [ ] Create tag: `git tag v0.2.0-alpha.2`
 - [ ] Push tag: `git push --tags`
 
 ### 6. Publish ✅
+
 ```bash
 # Dry run (verify what will be published)
 npm publish --dry-run
@@ -285,6 +304,7 @@ When adding new features:
 5. ✅ Document testing approach
 
 **Test Coverage Requirements:**
+
 - Unit tests for all new functions
 - E2E tests for user-facing workflows
 - Error scenario tests for edge cases
