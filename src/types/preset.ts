@@ -1,13 +1,13 @@
 /**
- * Library types for GitHub registry system
+ * Preset types for GitHub registry system
  */
 
-import type { MCP } from '../core/mcp/tokens.js';
+import type { MCP } from "../core/mcp/tokens.js";
 
 /**
- * A library loaded from a GitHub repo
+ * A preset loaded from a GitHub repo
  */
-export interface Library {
+export interface Preset {
   /** Source identifier (e.g., "github:company/standards") */
   source: string;
 
@@ -26,14 +26,14 @@ export interface Library {
   /** MCP servers from mcp.json */
   mcps: Record<string, MCP>;
 
-  /** Optional metadata from .agentsync/library.json */
-  metadata?: LibraryMetadata;
+  /** Optional metadata from .agentsync/preset.json */
+  metadata?: PresetMetadata;
 }
 
 /**
- * Optional library metadata
+ * Optional preset metadata
  */
-export interface LibraryMetadata {
+export interface PresetMetadata {
   name?: string;
   version?: string;
   description?: string;

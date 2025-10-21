@@ -3,10 +3,13 @@
  */
 
 // Re-export schema types
-export * from './schemas';
+export * from "./schemas";
+
+// Re-export preset types
+export * from "./preset";
 
 // Tool types
-export type ToolName = 'cursor' | 'claude' | 'cline' | 'windsurf' | 'copilot';
+export type ToolName = "cursor" | "claude" | "cline" | "windsurf" | "copilot";
 
 // Translator interface
 export interface Translator {
@@ -19,7 +22,7 @@ export interface Translator {
 
 // File operation types
 export interface FileOperation {
-  type: 'create' | 'write' | 'modify' | 'delete' | 'symlink' | 'create_dir';
+  type: "create" | "write" | "modify" | "delete" | "symlink" | "create_dir";
   path: string;
   content?: string;
   target?: string;
@@ -29,7 +32,7 @@ export interface FileOperation {
 // Sync operation types
 export interface SyncOperation extends FileOperation {
   tool: ToolName;
-  status?: 'pending' | 'in-progress' | 'success' | 'failed';
+  status?: "pending" | "in-progress" | "success" | "failed";
   error?: Error;
 }
 
@@ -78,7 +81,7 @@ export interface DoctorOptions {
 
 export interface AuditOptions {
   command?: string;
-  result?: 'success' | 'failure' | 'partial';
+  result?: "success" | "failure" | "partial";
   after?: string;
   before?: string;
   limit?: number;
@@ -105,12 +108,12 @@ export interface SecurityCheckResult {
 }
 
 // Import necessary types from other modules
-import type { AgentsMd, TranslateResult } from './schemas';
+import type { AgentsMd, TranslateResult } from "./schemas";
 
 // Temporary type definitions until we implement the full modules
 export interface SecretFinding {
   type: string;
-  severity: 'low' | 'medium' | 'high' | 'critical';
+  severity: "low" | "medium" | "high" | "critical";
   match: string;
   line: number;
   column: number;
@@ -118,7 +121,7 @@ export interface SecretFinding {
 
 export interface UnicodeFinding {
   type: string;
-  risk: 'low' | 'medium' | 'high';
+  risk: "low" | "medium" | "high";
   position: number;
   character: string;
   description: string;
