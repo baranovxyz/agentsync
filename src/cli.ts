@@ -232,6 +232,23 @@ presetCommand
     }
   });
 
+presetCommand
+  .command("interactive-select")
+  .description(
+    "Interactively select presets and configure file-level selections"
+  )
+  .option("--yes", "Skip confirmation prompts")
+  .action(async (options) => {
+    try {
+      const { interactiveSelectPreset } = await import(
+        "./commands/preset/interactive-select.js"
+      );
+      await interactiveSelectPreset(options);
+    } catch (error) {
+      handleError(error as Error);
+    }
+  });
+
 // Phase 2 commands (AGENTS.md sync) - Not yet implemented
 // Removed to avoid user confusion. Will be added back as features are completed.
 
@@ -267,6 +284,9 @@ program.on("--help", () => {
     "  $ agentsync preset list               # List configured presets"
   );
   console.log("  $ agentsync preset cache-clear        # Clear preset caches");
+  console.log(
+    "  $ agentsync preset interactive-select # Interactively select presets"
+  );
   console.log("  $ agentsync mcp list                  # List available MCPs");
   console.log("  $ agentsync mcp add github            # Add MCP server");
   console.log("");
