@@ -168,14 +168,14 @@ export class InitCommand {
   }
 
   /**
-   * Get MCP config file path (checks multiple locations)
+   * Get MCP config file path (checks multiple locations with team config priority)
    */
   private async getMCPConfigPath(): Promise<string | null> {
     const cwd = process.cwd();
     const paths = [
-      path.join(cwd, "agentsync.local.json"),
-      path.join(cwd, ".agentsync", "config.local.json"),
-      path.join(cwd, ".agentsync", "config.json"),
+      path.join(cwd, ".agentsync", "config.json"), // Team config first
+      path.join(cwd, "agentsync.local.json"), // Personal overrides
+      path.join(cwd, ".agentsync", "config.local.json"), // Backup
     ];
 
     for (const p of paths) {
