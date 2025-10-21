@@ -10,12 +10,12 @@
 **AgentSync** provides three powerful features:
 
 1. **MCP Context Optimizer** (Phase 1 ✅) - Reduce AI context bloat with project-specific MCP server selection
-2. **GitHub Preset System** (v0.3.0-beta 🚧) - Share rules, commands, and MCPs via GitHub repositories
+2. **GitHub Preset System** (v0.3.0-alpha (Testing) 🧪) - Share rules, commands, and MCPs via GitHub repositories
 3. **AGENTS.md Sync** (Phase 2 ⏳) - Sync unified AGENTS.md to all AI coding tools
 
-## v0.3.0-beta: GitHub Preset System ✅ COMPLETE
+## v0.3.0-alpha: GitHub Preset System ✅ COMPLETE
 
-Share team coding standards, commands, and MCPs via GitHub repositories. **Production-ready** - all features implemented and tested with real GitHub repository, ready for release.
+Share team coding standards, commands, and MCPs via GitHub repositories. **Alpha testing** - GitHub Preset System complete, awaiting validation.
 
 ### Features
 
