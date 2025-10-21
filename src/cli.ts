@@ -143,7 +143,7 @@ mcpCommand
       const result = await addMCP(server);
 
       if (result.added) {
-        console.log(pc.green(`✓ Added '${server}' to .agentsync.json`));
+        console.log(pc.green(`✓ Added '${server}' to .agentsync/config.json`));
 
         if (result.requiredEnv.length > 0) {
           console.log(
