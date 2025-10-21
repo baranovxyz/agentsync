@@ -1,14 +1,14 @@
 /**
- * Merger - combines multiple libraries with namespace-based conflict prevention
+ * Merger - combines multiple presets with namespace-based conflict prevention
  */
 
-import type { Library } from '../../types/library.js';
-import type { MCP } from '../mcp/tokens.js';
+import type { Preset } from "../../types/preset.js";
+import type { MCP } from "../mcp/tokens.js";
 
 /**
- * Merged result from all libraries
+ * Merged result from all presets
  */
-export interface MergedLibraries {
+export interface MergedPresets {
   /** Namespaced commands: Map<"team:commit.md", content> */
   commands: Map<string, string>;
 
@@ -21,33 +21,33 @@ export interface MergedLibraries {
 
 export class Merger {
   /**
-   * Merge multiple libraries with namespace-based conflict prevention
+   * Merge multiple presets with namespace-based conflict prevention
    */
-  merge(libraries: Library[]): MergedLibraries {
-    const result: MergedLibraries = {
+  merge(presets: Preset[]): MergedPresets {
+    const result: MergedPresets = {
       commands: new Map(),
       rules: new Map(),
       mcps: {},
     };
 
-    // Process libraries in order (last-wins within namespace)
-    for (const library of libraries) {
+    // Process presets in order (last-wins within namespace)
+    for (const preset of presets) {
       // Merge commands
-      for (const [filename, content] of library.commands) {
-        const namespacedKey = `${library.namespace}:${filename}`;
+      for (const [filename, content] of preset.commands) {
+        const namespacedKey = `${preset.namespace}:${filename}`;
         result.commands.set(namespacedKey, content);
       }
 
       // Merge rules
-      for (const [filename, content] of library.rules) {
-        const namespacedKey = `${library.namespace}:${filename}`;
+      for (const [filename, content] of preset.rules) {
+        const namespacedKey = `${preset.namespace}:${filename}`;
         result.rules.set(namespacedKey, content);
       }
 
       // Merge MCPs (no namespace, just override)
       result.mcps = {
         ...result.mcps,
-        ...library.mcps,
+        ...preset.mcps,
       };
     }
 
@@ -61,16 +61,16 @@ export class Merger {
   /**
    * Check for namespace collisions (should never happen with our design)
    */
-  validateNoCollisions(libraries: Library[]): void {
-    const namespaces = libraries.map((lib) => lib.namespace);
+  validateNoCollisions(presets: Preset[]): void {
+    const namespaces = presets.map((preset) => preset.namespace);
     const duplicates = namespaces.filter(
       (ns, i) => namespaces.indexOf(ns) !== i
     );
 
     if (duplicates.length > 0) {
       throw new Error(
-        `Namespace collision detected: ${duplicates.join(', ')}\n\n` +
-          `Each library must have a unique namespace. ` +
+        `Namespace collision detected: ${duplicates.join(", ")}\n\n` +
+          `Each preset must have a unique namespace. ` +
           `Override with: extends: [{source: "...", namespace: "unique-name"}]`
       );
     }

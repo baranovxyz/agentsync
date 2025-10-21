@@ -1,17 +1,17 @@
 /**
- * Library loader - loads rules, commands, and MCPs from cached GitHub repos
+ * Preset loader - loads rules, commands, and MCPs from cached GitHub repos
  */
 
-import * as path from 'path';
-import { pathExists } from '../../utils/fs.js';
-import { readFile } from 'node:fs/promises';
-import fg from 'fast-glob';
-import type { Library, LibraryMetadata } from '../../types/library.js';
-import type { MCP } from '../mcp/tokens.js';
+import * as path from "path";
+import { pathExists } from "../../utils/fs.js";
+import { readFile } from "node:fs/promises";
+import fg from "fast-glob";
+import type { Preset, PresetMetadata } from "../../types/preset.js";
+import type { MCP } from "../mcp/tokens.js";
 
-export class LibraryLoader {
+export class PresetLoader {
   /**
-   * Load library from cached repo
+   * Load preset from cached repo
    */
   async load(
     source: string,
@@ -21,7 +21,7 @@ export class LibraryLoader {
       include?: string[];
       exclude?: string[];
     }
-  ): Promise<Library> {
+  ): Promise<Preset> {
     // Load optional metadata
     const metadata = await this.loadMetadata(cachePath);
 
@@ -30,13 +30,13 @@ export class LibraryLoader {
 
     // Load commands
     const commands = await this.loadMarkdownFiles(
-      path.join(cachePath, 'commands'),
+      path.join(cachePath, "commands"),
       filters
     );
 
     // Load rules
     const rules = await this.loadMarkdownFiles(
-      path.join(cachePath, 'rules'),
+      path.join(cachePath, "rules"),
       filters
     );
 
@@ -55,18 +55,18 @@ export class LibraryLoader {
   }
 
   /**
-   * Load .agentsync/library.json if exists
+   * Load .agentsync/preset.json if exists
    */
   private async loadMetadata(
     cachePath: string
-  ): Promise<LibraryMetadata | undefined> {
-    const metadataPath = path.join(cachePath, '.agentsync', 'library.json');
+  ): Promise<PresetMetadata | undefined> {
+    const metadataPath = path.join(cachePath, ".agentsync", "preset.json");
 
     if (!(await pathExists(metadataPath))) {
       return undefined;
     }
 
-    const content = await readFile(metadataPath, 'utf-8');
+    const content = await readFile(metadataPath, "utf-8");
     return JSON.parse(content);
   }
 
@@ -87,7 +87,7 @@ export class LibraryLoader {
     }
 
     // Build glob pattern
-    const includePatterns = filters?.include || ['**/*.md'];
+    const includePatterns = filters?.include || ["**/*.md"];
     const excludePatterns = filters?.exclude || [];
 
     // Find files
@@ -100,7 +100,7 @@ export class LibraryLoader {
     // Load content
     for (const file of files) {
       const filePath = path.join(dir, file);
-      const content = await readFile(filePath, 'utf-8');
+      const content = await readFile(filePath, "utf-8");
       result.set(file, content);
     }
 
@@ -111,13 +111,13 @@ export class LibraryLoader {
    * Load mcp.json if exists
    */
   private async loadMCPs(cachePath: string): Promise<Record<string, MCP>> {
-    const mcpPath = path.join(cachePath, 'mcp.json');
+    const mcpPath = path.join(cachePath, "mcp.json");
 
     if (!(await pathExists(mcpPath))) {
       return {};
     }
 
-    const content = await readFile(mcpPath, 'utf-8');
+    const content = await readFile(mcpPath, "utf-8");
     return JSON.parse(content);
   }
 }
