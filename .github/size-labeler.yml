@@ -1,0 +1,11 @@
+size/XS:
+  changes: 0..99
+size/S:
+  changes: 100..299
+size/M:
+  changes: 300..799
+size/L:
+  changes: 800..1499
+size/XL:
+  changes: 1500..
+
