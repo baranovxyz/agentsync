@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { syncMCP } from '../../../../src/commands/mcp/sync.js';
-import * as fs from 'fs-extra';
+import * as fs from 'fs-extra'; // TODO: migrate to native
 import * as path from 'path';
 import * as os from 'os';
 

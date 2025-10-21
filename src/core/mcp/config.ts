@@ -4,7 +4,7 @@
  */
 
 import { readFile } from 'node:fs/promises';
-import { pathExists } from 'fs-extra';
+import { pathExists } from '../../utils/fs.js';
 import * as path from 'path';
 import type { MCP } from './tokens.js';
 

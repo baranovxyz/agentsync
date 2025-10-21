@@ -4,7 +4,8 @@
  */
 
 import * as path from 'path';
-import * as fs from 'fs-extra';
+import { pathExists, remove, ensureDir } from '../../utils/fs.js';
+import { stat, readdir } from 'node:fs/promises';
 import * as os from 'os';
 import { GitHubSource, GitHubSourceParser } from './github-source.js';
 
@@ -33,15 +34,15 @@ export class CacheManager {
 
     // Check if directory exists and has .git
     const gitDir = path.join(cachePath, '.git');
-    return await fs.pathExists(gitDir);
+    return await pathExists(gitDir);
   }
 
   /**
    * Clear all caches
    */
   async clearAll(): Promise<void> {
-    await fs.remove(this.cacheDir);
-    await fs.ensureDir(this.cacheDir);
+    await remove(this.cacheDir);
+    await ensureDir(this.cacheDir);
   }
 
   /**
@@ -49,7 +50,7 @@ export class CacheManager {
    */
   async clear(source: GitHubSource): Promise<void> {
     const cachePath = this.getCachePath(source);
-    await fs.remove(cachePath);
+    await remove(cachePath);
   }
 
   /**
@@ -68,7 +69,7 @@ export class CacheManager {
     }
 
     // Get directory stats
-    const stats = await fs.stat(cachePath);
+    const stats = await stat(cachePath);
 
     return {
       exists: true,
@@ -82,14 +83,14 @@ export class CacheManager {
    */
   private async getDirectorySize(dir: string): Promise<number> {
     let size = 0;
-    const files = await fs.readdir(dir, { withFileTypes: true });
+    const files = await readdir(dir, { withFileTypes: true });
 
     for (const file of files) {
       const filePath = path.join(dir, file.name);
       if (file.isDirectory()) {
         size += await this.getDirectorySize(filePath);
       } else {
-        const stats = await fs.stat(filePath);
+        const stats = await stat(filePath);
         size += stats.size;
       }
     }
