@@ -3,10 +3,8 @@
  * Provides comprehensive logging and monitoring for security and operations
  */
 
-import fse from 'fs-extra';
+import { ensureDir, appendFile, readdir, stat, remove } from '../utils/fs.js';
 import { readFile } from 'node:fs/promises';
-
-const { ensureDir, appendFile, readdir, stat, remove } = fse;
 import * as path from 'path';
 import { homedir } from 'os';
 import { ErrorCategory, ErrorSeverity } from './errors';

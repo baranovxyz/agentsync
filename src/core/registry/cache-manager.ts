@@ -4,7 +4,7 @@
  */
 
 import * as path from 'path';
-import * as fs from 'fs-extra';
+import { pathExists, remove, ensureDir } from '../../utils/fs.js';
 import { stat, readdir } from 'node:fs/promises';
 import * as os from 'os';
 import { GitHubSource, GitHubSourceParser } from './github-source.js';
@@ -34,15 +34,15 @@ export class CacheManager {
 
     // Check if directory exists and has .git
     const gitDir = path.join(cachePath, '.git');
-    return await fs.pathExists(gitDir);
+    return await pathExists(gitDir);
   }
 
   /**
    * Clear all caches
    */
   async clearAll(): Promise<void> {
-    await fs.remove(this.cacheDir);
-    await fs.ensureDir(this.cacheDir);
+    await remove(this.cacheDir);
+    await ensureDir(this.cacheDir);
   }
 
   /**
@@ -50,7 +50,7 @@ export class CacheManager {
    */
   async clear(source: GitHubSource): Promise<void> {
     const cachePath = this.getCachePath(source);
-    await fs.remove(cachePath);
+    await remove(cachePath);
   }
 
   /**
