@@ -69,44 +69,55 @@ describe("addMCP", () => {
   });
 
   it("adds MCP to existing array config", async () => {
+    await fs.ensureDir(".agentsync");
     const projectConfig = {
+      version: "1.0",
+      tools: ["cursor", "claude"],
       mcpServers: ["github"],
     };
-    await fs.writeJson("agentsync.local.json", projectConfig);
+    await fs.writeJson(".agentsync/config.json", projectConfig);
 
     await addMCP("postgres");
 
-    const updated = await fs.readJson("agentsync.local.json");
+    const updated = await fs.readJson(".agentsync/config.json");
     expect(updated.mcpServers).toEqual(["github", "postgres"]);
   });
 
   it("does not add duplicate MCP", async () => {
+    await fs.ensureDir(".agentsync");
     const projectConfig = {
+      version: "1.0",
+      tools: ["cursor", "claude"],
       mcpServers: ["github", "postgres"],
     };
-    await fs.writeJson("agentsync.local.json", projectConfig);
+    await fs.writeJson(".agentsync/config.json", projectConfig);
 
     await addMCP("github");
 
-    const updated = await fs.readJson("agentsync.local.json");
+    const updated = await fs.readJson(".agentsync/config.json");
     expect(updated.mcpServers).toEqual(["github", "postgres"]); // No duplicate
   });
 
-  it("creates agentsync.local.json if it does not exist", async () => {
+  it("creates .agentsync/config.json if it does not exist", async () => {
     await addMCP("github");
 
-    const exists = await fs.pathExists("agentsync.local.json");
+    const exists = await fs.pathExists(".agentsync/config.json");
     expect(exists).toBe(true);
 
-    const config = await fs.readJson("agentsync.local.json");
+    const config = await fs.readJson(".agentsync/config.json");
     expect(config.mcpServers).toEqual(["github"]);
+    expect(config.version).toBe("1.0");
+    expect(config.tools).toEqual(["cursor", "claude"]);
   });
 
   it("throws error if MCP not in global registry", async () => {
+    await fs.ensureDir(".agentsync");
     const projectConfig = {
+      version: "1.0",
+      tools: ["cursor", "claude"],
       mcpServers: ["github"],
     };
-    await fs.writeJson("agentsync.local.json", projectConfig);
+    await fs.writeJson(".agentsync/config.json", projectConfig);
 
     await expect(addMCP("nonexistent")).rejects.toThrow(
       /MCP server 'nonexistent' not found in global registry/
@@ -114,10 +125,13 @@ describe("addMCP", () => {
   });
 
   it("returns info about required environment variables", async () => {
+    await fs.ensureDir(".agentsync");
     const projectConfig = {
+      version: "1.0",
+      tools: ["cursor", "claude"],
       mcpServers: ["postgres"],
     };
-    await fs.writeJson("agentsync.local.json", projectConfig);
+    await fs.writeJson(".agentsync/config.json", projectConfig);
 
     const result = await addMCP("github");
 
@@ -126,17 +140,55 @@ describe("addMCP", () => {
   });
 
   it("handles object format config", async () => {
+    await fs.ensureDir(".agentsync");
     const projectConfig = {
+      version: "1.0",
+      tools: ["cursor", "claude"],
       mcpServers: {
         github: true,
       },
     };
-    await fs.writeJson("agentsync.local.json", projectConfig);
+    await fs.writeJson(".agentsync/config.json", projectConfig);
 
     await addMCP("postgres");
 
-    const updated = await fs.readJson("agentsync.local.json");
+    const updated = await fs.readJson(".agentsync/config.json");
     expect(updated.mcpServers.github).toBe(true);
     expect(updated.mcpServers.postgres).toBe(true);
+  });
+
+  it("writes to .agentsync/config.json instead of agentsync.local.json", async () => {
+    // Create .agentsync directory
+    await fs.ensureDir(".agentsync");
+    
+    // Create initial config
+    const projectConfig = {
+      version: "1.0",
+      tools: ["cursor", "claude"],
+      mcpServers: ["github"],
+    };
+    await fs.writeJson(".agentsync/config.json", projectConfig);
+
+    await addMCP("postgres");
+
+    // Should write to .agentsync/config.json
+    const updated = await fs.readJson(".agentsync/config.json");
+    expect(updated.mcpServers).toEqual(["github", "postgres"]);
+    
+    // Should NOT create agentsync.local.json
+    const localExists = await fs.pathExists("agentsync.local.json");
+    expect(localExists).toBe(false);
+  });
+
+  it("creates .agentsync/config.json if it does not exist", async () => {
+    await addMCP("github");
+
+    const exists = await fs.pathExists(".agentsync/config.json");
+    expect(exists).toBe(true);
+
+    const config = await fs.readJson(".agentsync/config.json");
+    expect(config.mcpServers).toEqual(["github"]);
+    expect(config.version).toBe("1.0");
+    expect(config.tools).toEqual(["cursor", "claude"]);
   });
 });

@@ -105,7 +105,7 @@ describe("MCP E2E Workflow", () => {
     expect(addResult1.requiredEnv).toContain("GITHUB_TOKEN");
 
     // Verify config created
-    const config1 = await fs.readJson("agentsync.local.json");
+    const config1 = await fs.readJson(".agentsync/config.json");
     expect(config1.mcpServers).toEqual(["github"]);
 
     // Step 2: Add second MCP
@@ -113,7 +113,7 @@ describe("MCP E2E Workflow", () => {
     expect(addResult2.added).toBe(true);
 
     // Verify config updated
-    const config2 = await fs.readJson("agentsync.local.json");
+    const config2 = await fs.readJson(".agentsync/config.json");
     expect(config2.mcpServers).toEqual(["github", "postgres"]);
 
     // Step 3: List MCPs
@@ -148,7 +148,7 @@ describe("MCP E2E Workflow", () => {
     expect(removeResult.removed).toBe(true);
 
     // Verify config updated
-    const config3 = await fs.readJson("agentsync.local.json");
+    const config3 = await fs.readJson(".agentsync/config.json");
     expect(config3.mcpServers).toEqual(["postgres"]);
 
     // Step 6: Sync again to update targets
@@ -171,7 +171,7 @@ describe("MCP E2E Workflow", () => {
     const result = await addMCP("github");
     expect(result.added).toBe(false);
 
-    const config = await fs.readJson("agentsync.local.json");
+    const config = await fs.readJson(".agentsync/config.json");
     expect(config.mcpServers).toEqual(["github"]); // No duplicate
   });
 
