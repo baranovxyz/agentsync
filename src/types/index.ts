@@ -16,6 +16,8 @@ export type {
   LocalConfig,
   ProjectConfig,
   InteractiveSelectionConfig,
+  UserPreset,
+  UserPresetRegistryData,
 } from "./schemas";
 
 // Tool types

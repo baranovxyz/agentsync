@@ -8,9 +8,6 @@ import type {
   InteractiveSelectionConfig,
   PresetSelection,
   FileSelection,
-  ProjectConfig,
-  LocalConfig,
-  UserRegistryConfig,
 } from "../../types/index.js";
 import type { Preset } from "../../types/preset.js";
 import { isMatch } from "micromatch";

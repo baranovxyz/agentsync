@@ -3,13 +3,7 @@
  * Handles migration from legacy configuration format to new interactive selection format
  */
 
-import type { AgentSyncConfig } from "../../types/schemas.js";
-import type {
-  InteractiveSelectionConfig,
-  UserRegistryConfig,
-  ProjectConfig,
-  LocalConfig,
-} from "../../types/schemas.js";
+import type { InteractiveSelectionConfig } from "../../types/schemas.js";
 import { validateInteractiveSelectionConfig } from "../../types/schemas.js";
 
 /**
@@ -246,8 +240,8 @@ export class ConfigMigrator {
    * Auto-migrate configuration file
    */
   async migrateConfigFile(
-    legacyConfigPath: string,
-    newConfigPath: string
+    _legacyConfigPath: string,
+    _newConfigPath: string
   ): Promise<MigrationResult> {
     // This would be implemented with actual file I/O
     // For now, it's a placeholder for the interface
