@@ -3,13 +3,13 @@
  * Ensures compliance with the official AGENTS.md specification
  */
 
-import { z } from 'zod';
+import { z } from "zod";
 
 // Command schema for build and test commands
 export const CommandSchema = z.object({
   description: z.string().min(1),
   command: z.string().min(1),
-  scope: z.enum(['file', 'project']).default('project'),
+  scope: z.enum(["file", "project"]).default("project"),
 });
 
 // Rule schema for code style and git workflow
@@ -29,7 +29,7 @@ export const PermissionRuleSchema = z.object({
 
 // Git rule schema
 export const GitRuleSchema = z.object({
-  type: z.enum(['commit', 'branch', 'pr', 'merge']),
+  type: z.enum(["commit", "branch", "pr", "merge"]),
   rule: z.string(),
   description: z.string().optional(),
 });
@@ -77,7 +77,7 @@ export const AgentsMdSchema = z.object({
 
 // Configuration schema for .agentsync/config.json
 export const AgentSyncConfigSchema = z.object({
-  version: z.string().default('1.0'),
+  version: z.string().default("1.0"),
 
   // GitHub registry sources (v0.3.0-beta)
   extends: z
@@ -112,9 +112,7 @@ export const AgentSyncConfigSchema = z.object({
     ])
     .optional(),
 
-  tools: z.array(
-    z.enum(['cursor', 'claude', 'cline', 'windsurf', 'copilot'])
-  ),
+  tools: z.array(z.enum(["cursor", "claude", "cline", "windsurf", "copilot"])),
   useSymlinks: z.boolean().default(true),
   security: z
     .object({
@@ -128,7 +126,7 @@ export const AgentSyncConfigSchema = z.object({
               z.object({
                 name: z.string(),
                 pattern: z.string(),
-                severity: z.enum(['high', 'medium', 'low']),
+                severity: z.enum(["high", "medium", "low"]),
                 description: z.string(),
               })
             )
@@ -146,7 +144,7 @@ export const AgentSyncConfigSchema = z.object({
       auditLogging: z
         .object({
           enabled: z.boolean().default(true),
-          logPath: z.string().default('.agentsync/logs/audit.jsonl'),
+          logPath: z.string().default(".agentsync/logs/audit.jsonl"),
           maxSizeBytes: z.number().default(10485760),
           retentionDays: z.number().default(90),
           compressRotated: z.boolean().default(true),
@@ -169,12 +167,12 @@ export const TranslateResultSchema = z.object({
   operations: z.array(
     z.object({
       type: z.enum([
-        'create',
-        'write',
-        'modify',
-        'delete',
-        'symlink',
-        'create_dir',
+        "create",
+        "write",
+        "modify",
+        "delete",
+        "symlink",
+        "create_dir",
       ]),
       path: z.string(),
       content: z.string().optional(),
@@ -196,7 +194,7 @@ export const SyncResultSchema = z.object({
         z.object({
           type: z.string(),
           path: z.string(),
-          status: z.enum(['success', 'failed', 'skipped']),
+          status: z.enum(["success", "failed", "skipped"]),
           error: z.string().optional(),
         })
       ),
@@ -208,7 +206,7 @@ export const SyncResultSchema = z.object({
 
 // Workspace schema for monorepo support
 export const WorkspaceSchema = z.object({
-  type: z.enum(['nx', 'turborepo', 'pnpm', 'npm', 'yarn', 'single']),
+  type: z.enum(["nx", "turborepo", "pnpm", "npm", "yarn", "single"]),
   root: z.string(),
   packages: z.array(
     z.object({
@@ -225,7 +223,7 @@ export const WorkspaceSchema = z.object({
 export const DiffResultSchema = z.object({
   changes: z.array(
     z.object({
-      type: z.enum(['create', 'modify', 'delete']),
+      type: z.enum(["create", "modify", "delete"]),
       path: z.string(),
       diff: z.string().optional(),
       oldContent: z.string().optional(),
@@ -249,7 +247,7 @@ export const ValidationResultSchema = z.object({
       message: z.string(),
       line: z.number().optional(),
       column: z.number().optional(),
-      severity: z.enum(['error', 'warning', 'info']),
+      severity: z.enum(["error", "warning", "info"]),
     })
   ),
   warnings: z.array(
@@ -262,8 +260,8 @@ export const ValidationResultSchema = z.object({
   ),
   securityIssues: z.array(
     z.object({
-      type: z.enum(['secret', 'unicode']),
-      severity: z.enum(['high', 'medium', 'low']),
+      type: z.enum(["secret", "unicode"]),
+      severity: z.enum(["high", "medium", "low"]),
       description: z.string(),
       location: z.string(),
     })
@@ -328,12 +326,12 @@ export interface ExtendsEntry {
  * normalizeExtends(['github:company/standards']) → [{source: 'github:company/standards', namespace: 'company'}]
  */
 export function normalizeExtends(
-  extends_?: AgentSyncConfig['extends']
+  extends_?: AgentSyncConfig["extends"]
 ): ExtendsEntry[] {
   if (!extends_) return [];
 
   return extends_.map((entry) => {
-    if (typeof entry === 'string') {
+    if (typeof entry === "string") {
       // Extract namespace from source: github:company/standards → namespace: company
       const namespace = extractNamespace(entry);
       return { source: entry, namespace };
@@ -364,4 +362,83 @@ function extractNamespace(source: string): string {
     );
   }
   return match[1];
+}
+
+// Interactive Selection Configuration Schema (v2.0)
+
+// File-level selection schema
+export const FileSelectionSchema = z.object({
+  include: z.array(z.string()).min(1, "Include patterns cannot be empty"),
+  exclude: z.array(z.string()).optional(),
+});
+
+// Preset selection schema for rules, commands, and MCPs
+export const PresetSelectionSchema = z.object({
+  rules: FileSelectionSchema.optional(),
+  commands: FileSelectionSchema.optional(),
+  mcps: z.array(z.string()).optional(),
+});
+
+// User registry configuration
+export const UserRegistryConfigSchema = z.object({
+  presets: z.array(z.string()).min(1, "User presets cannot be empty"),
+  defaultSelections: z.record(z.string(), PresetSelectionSchema).optional(),
+});
+
+// Local configuration (personal overrides)
+export const LocalConfigSchema = z.object({
+  selections: z.record(z.string(), PresetSelectionSchema).optional(),
+  overrides: z.record(z.string(), z.any()).optional(),
+});
+
+// Project configuration (team-shared)
+export const ProjectConfigSchema = z.object({
+  selections: z.record(z.string(), PresetSelectionSchema).optional(),
+  overrides: z.record(z.string(), z.any()).optional(),
+  tools: z
+    .array(z.enum(["cursor", "claude", "cline", "windsurf", "copilot"]))
+    .optional(),
+});
+
+// Main interactive selection configuration schema
+export const InteractiveSelectionConfigSchema = z.object({
+  version: z.string().default("2.0"),
+  user: UserRegistryConfigSchema.optional(),
+  project: ProjectConfigSchema.optional(),
+  local: LocalConfigSchema.optional(),
+});
+
+// Type exports for interactive selection configuration
+export type FileSelection = z.infer<typeof FileSelectionSchema>;
+export type PresetSelection = z.infer<typeof PresetSelectionSchema>;
+export type UserRegistryConfig = z.infer<typeof UserRegistryConfigSchema>;
+export type LocalConfig = z.infer<typeof LocalConfigSchema>;
+export type ProjectConfig = z.infer<typeof ProjectConfigSchema>;
+export type InteractiveSelectionConfig = z.infer<
+  typeof InteractiveSelectionConfigSchema
+>;
+
+/**
+ * Validate interactive selection configuration
+ */
+export function validateInteractiveSelectionConfig(
+  data: unknown
+): InteractiveSelectionConfig {
+  return InteractiveSelectionConfigSchema.parse(data);
+}
+
+/**
+ * Safe parse interactive selection configuration with error details
+ */
+export function safeParseInteractiveSelectionConfig(
+  data: unknown
+):
+  | { success: true; data: InteractiveSelectionConfig }
+  | { success: false; error: z.ZodError } {
+  const result = InteractiveSelectionConfigSchema.safeParse(data);
+  if (result.success) {
+    return { success: true, data: result.data };
+  } else {
+    return { success: false, error: result.error };
+  }
 }
