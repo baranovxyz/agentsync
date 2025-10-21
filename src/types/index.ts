@@ -8,6 +8,16 @@ export * from "./schemas";
 // Re-export preset types
 export * from "./preset";
 
+// Re-export interactive selection types
+export type {
+  FileSelection,
+  PresetSelection,
+  UserRegistryConfig,
+  LocalConfig,
+  ProjectConfig,
+  InteractiveSelectionConfig,
+} from "./schemas";
+
 // Tool types
 export type ToolName = "cursor" | "claude" | "cline" | "windsurf" | "copilot";
 
