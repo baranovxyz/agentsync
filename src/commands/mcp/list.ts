@@ -3,7 +3,7 @@
  * Lists available vs active MCP servers
  */
 
-import { outputFile, pathExists, ensureDir } from "../../utils/fs.js";
+import { outputFile, ensureDir } from "../../utils/fs.js";
 import * as path from "path";
 import picocolors from "picocolors";
 import { loadGlobalRegistry } from "../../core/mcp/registry.js";
