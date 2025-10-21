@@ -8,34 +8,36 @@
 > The missing infrastructure layer for AI coding agent configuration management.
 
 **AgentSync** provides three powerful features:
+
 1. **MCP Context Optimizer** (Phase 1 ✅) - Reduce AI context bloat with project-specific MCP server selection
-2. **GitHub Library System** (v0.3.0-beta 🚧) - Share rules, commands, and MCPs via GitHub repositories
+2. **GitHub Preset System** (v0.3.0-beta 🚧) - Share rules, commands, and MCPs via GitHub repositories
 3. **AGENTS.md Sync** (Phase 2 ⏳) - Sync unified AGENTS.md to all AI coding tools
 
-## v0.3.0-beta: GitHub Library System ✅ COMPLETE
+## v0.3.0-beta: GitHub Preset System ✅ COMPLETE
 
 Share team coding standards, commands, and MCPs via GitHub repositories. **Production-ready** - all features implemented and tested with real GitHub repository, ready for release.
 
 ### Features
 
 **✅ All Features Complete:**
-- GitHub library loading & merging (namespace-based collision prevention)
+
+- GitHub preset loading & merging (namespace-based collision prevention)
 - Rules sync to Cursor (`.mdc`) & Claude (`.md`)
 - Commands sync to Cursor & Claude
 - Main sync command with `--update`, `--dry-run`, `--tool` flags
-- Library management: `list`, `cache-clear`
+- Preset management: `list`, `cache-clear`
 - SSH/HTTPS fallback for private repos
 - Smart MCP detection and integration
-- Example library published: `@agentsync/example-typescript`
+- Example preset published: `@agentsync/example-typescript`
 - 86 tests passing (82 unit/integration + 4 E2E with real GitHub repo)
 
 ### Quick Start
 
 ```bash
-# Initialize project with library support
+# Initialize project with preset support
 agentsync init
 
-# Extend a team library in .agentsync/config.json
+# Extend a team preset in .agentsync/config.json
 {
   "extends": ["github:company/coding-standards"],
   "tools": ["cursor", "claude"]
@@ -44,22 +46,23 @@ agentsync init
 # Sync libraries to your tools
 agentsync sync
 
-# Update libraries and sync
+# Update presets and sync
 agentsync sync --update
 
 # Preview changes
 agentsync sync --dry-run
 
-# View configured libraries
-agentsync library list
+# View configured presets
+agentsync preset list
 
 # Clear caches
-agentsync library cache-clear
+agentsync preset cache-clear
 ```
 
 ### Example: Company-Wide Standards
 
-**Create library repo:** `github:acme/coding-standards`
+**Create preset repo:** `github:acme/coding-standards`
+
 ```
 acme/coding-standards/
 ├── rules/
@@ -71,6 +74,7 @@ acme/coding-standards/
 ```
 
 **Use in projects:**
+
 ```json
 // .agentsync/config.json
 {
@@ -81,7 +85,7 @@ acme/coding-standards/
 
 **Result:** All teams get consistent rules and commands automatically!
 
-Learn more in [CLAUDE.md](./CLAUDE.md#v030-beta-github-library-system)
+Learn more in [CLAUDE.md](./CLAUDE.md#v030-beta-github-preset-system)
 
 ## Phase 1: MCP Context Optimizer ✅ COMPLETE
 
@@ -135,6 +139,7 @@ agentsync mcp sync
 All MCP commands are fully functional and tested (87 tests, >90% coverage):
 
 #### `agentsync mcp sync`
+
 Sync selected MCPs to detected AI tools (Cursor, Claude Code)
 
 ```bash
@@ -144,6 +149,7 @@ agentsync mcp sync --dry-run      # Preview without applying
 ```
 
 #### `agentsync mcp list`
+
 Show available vs active MCP servers
 
 ```bash
@@ -161,6 +167,7 @@ agentsync mcp list
 ```
 
 #### `agentsync mcp add <server>`
+
 Add MCP server to project
 
 ```bash
@@ -177,6 +184,7 @@ agentsync mcp add linear
 ```
 
 #### `agentsync mcp remove <server>`
+
 Remove MCP server from project
 
 ```bash
@@ -198,6 +206,7 @@ agentsync mcp remove linear
 ### Configuration Files
 
 #### Global Registry (`~/.agentsync/mcp.json`)
+
 **Purpose:** Define all your MCP servers once
 **Created by:** User manually
 **Location:** Home directory
@@ -223,6 +232,7 @@ agentsync mcp remove linear
 ```
 
 #### User MCP Overrides (`agentsync.local.json`)
+
 **Purpose:** Personal MCP selections that override project config
 **Created by:** User manually (v0.3.0) or `agentsync mcp add --scope local` (v0.4.0+)
 **Git:** NOT committed (in .gitignore)
@@ -235,13 +245,16 @@ agentsync mcp remove linear
 ```
 
 **How to create (v0.3.0):**
+
 - Manual: `echo '{"mcpServers": []}' > agentsync.local.json`
 - Then edit to add personal MCPs that differ from team config
 
 **Future (v0.4.0):**
+
 - `agentsync mcp add linear --scope local` (creates file automatically)
 
 #### Project Settings (`.agentsync/config.json`)
+
 **Purpose:** Team-shared project configuration
 **Created by:** `agentsync init` command
 **Git:** Committed to repository
@@ -255,6 +268,7 @@ agentsync mcp remove linear
 ```
 
 #### Environment Variables (`.env`)
+
 **Purpose:** Store actual tokens (gitignored)
 **Created by:** User manually
 
@@ -265,12 +279,12 @@ DATABASE_URL=postgresql://localhost:5432/mydb
 
 ### Performance Impact
 
-| Metric | Before AgentSync | After AgentSync | Improvement |
-|--------|-----------------|-----------------|-------------|
-| Context tokens | ~15,000 | ~2,000 | **87% reduction** |
-| AI response time | 8-12 sec | 3-5 sec | **2-3x faster** |
-| Irrelevant tools | High | None | **Quality boost** |
-| Token cost | Higher | Lower | **Cost savings** |
+| Metric           | Before AgentSync | After AgentSync | Improvement       |
+| ---------------- | ---------------- | --------------- | ----------------- |
+| Context tokens   | ~15,000          | ~2,000          | **87% reduction** |
+| AI response time | 8-12 sec         | 3-5 sec         | **2-3x faster**   |
+| Irrelevant tools | High             | None            | **Quality boost** |
+| Token cost       | Higher           | Lower           | **Cost savings**  |
 
 ### Security Features
 
@@ -288,9 +302,11 @@ Sync your unified AGENTS.md to all AI coding tools - Cursor, Claude Code, Cline,
 ### Current Status
 
 **Working Commands:**
+
 - ✅ `agentsync init` - Initialize AgentSync with AGENTS.md template
 
 **Not Yet Implemented:**
+
 - ⏳ `agentsync sync` - Sync AGENTS.md to all tools
 - ⏳ `agentsync watch` - Auto-sync on file changes
 - ⏳ `agentsync validate` - Validate AGENTS.md format
@@ -456,6 +472,7 @@ pnpm cli mcp --help
 ```
 
 **Test Coverage:**
+
 - **207 fully automated tests** (166 Unit, 16 E2E, 24 Shell, 26 BATS)
 - **>90% code coverage** for MCP functionality
 - **Real CLI testing** in bash/zsh environments
@@ -477,6 +494,7 @@ pnpm cli mcp --help
 ```
 
 **Starting fresh?** Empty configs are valid:
+
 ```bash
 # Start with no MCPs configured (valid)
 echo '{"mcpServers": []}' > agentsync.local.json
@@ -524,7 +542,7 @@ This project follows Apple engineering standards:
 
 - [x] **Phase 1: MCP Context Optimizer** - Project-specific MCP selection (COMPLETE)
 - [ ] **Phase 2: AGENTS.md Sync** - Unified config sync to all tools (IN PROGRESS)
-- [ ] **Phase 3: Advanced Features** - Watch mode, team libraries, validation
+- [ ] **Phase 3: Advanced Features** - Watch mode, team presets, validation
 - [ ] **Phase 4: Additional Tools** - Windsurf, Cline, RooCode, GitHub Copilot
 
 ## License
