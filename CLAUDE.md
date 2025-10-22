@@ -145,6 +145,8 @@ pnpm cli sync --tool cursor        # Sync only to Cursor
 pnpm cli preset list              # List configured presets
 pnpm cli preset cache-clear       # Clear project preset caches
 pnpm cli preset cache-clear --all # Clear all preset caches
+pnpm cli preset select            # Interactively select presets and file-level selections
+pnpm cli preset remove            # Interactively remove presets and their selections
 
 # MCP Commands (Phase 1 - FULLY IMPLEMENTED)
 # Note: Empty MCP configs (0 servers) are valid for starting fresh or cleanup
@@ -204,8 +206,18 @@ pnpm cli init                      # ✅ Initialize with template
 - Pushed commits directly to main (init fix + docs)
 - Should have created `fix/init-local-config` branch first
 - Should have created PR before merging
+- Used `mv` instead of `git mv` for file renames (loses git history)
 
 **Use `/release` command for releases** - it enforces this workflow automatically.
+
+### File Operations
+
+**CRITICAL: Always preserve git history during refactoring:**
+
+- ✅ Use `git mv old-file.ts new-file.ts` for file renames
+- ❌ NEVER use `mv old-file.ts new-file.ts` (loses git history)
+- ✅ Use `git mv` for directory renames: `git mv old-dir/ new-dir/`
+- ✅ Commit renames separately from content changes for cleaner history
 
 ### Post-Merge Workflow
 
@@ -250,7 +262,12 @@ src/core/registry/
       "source": "github:team/backend-rules",
       "namespace": "backend",
       "include": ["rules/*.md"],
-      "exclude": ["rules/deprecated/**"]
+      "exclude": ["rules/deprecated/**"],
+      "select": {
+        "rules": ["rules/typescript.md", "rules/testing.md"],
+        "commands": ["commands/*.md"],
+        "mcps": ["github", "postgres"]
+      }
     }
   ],
   "mcpServers": ["github", "postgres"],
@@ -259,6 +276,32 @@ src/core/registry/
   "createdAt": "..."
 }
 ```
+
+### File-Level Selection (`select` field)
+
+The `select` field allows fine-grained control over which files are included from each preset:
+
+- **`rules`**: Array of rule file patterns (supports glob patterns)
+- **`commands`**: Array of command file patterns (supports glob patterns)
+- **`mcps`**: Array of MCP server names to include
+
+**Examples:**
+
+```json
+{
+  "select": {
+    "rules": ["rules/typescript.md", "rules/testing.md"],
+    "commands": ["commands/*.md"],
+    "mcps": ["github", "postgres"]
+  }
+}
+```
+
+**Glob Pattern Support:**
+
+- `"rules/*.md"` - All markdown files in rules directory
+- `"commands/deploy-*.md"` - All deploy-related command files
+- `"rules/frontend/**"` - All files in frontend subdirectory
 
 ### Preset Repository Structure
 
@@ -470,6 +513,30 @@ agentsync preset cache-clear --all
 - 9 integration tests for sync workflow
 - 29 unit tests for registry system (github-source, cache-manager, merger)
 - All tests passing
+
+### Architecture Refactoring Guidelines
+
+**Interactive Selection Architecture:**
+
+- Store selections in `extends[].select` field instead of separate `interactiveSelection` object
+- Support glob patterns in file selections: `"rules/*.md"`, `"commands/deploy-*.md"`
+- Use three-level configuration hierarchy:
+  - User: `~/.agentsync/config.json` (global user settings)
+  - Project: `.agentsync/config.json` (team-shared settings)
+  - Local: `agentsync.local.json` (personal overrides, gitignored)
+
+**Command Standardization:**
+
+- Rename commands from `interactive-select`/`interactive-remove` to `select`/`remove`
+- Always use `git mv` instead of `mv` for file renames to preserve git history
+- Update CLI help and documentation to reflect new command names
+
+**Test Strategy for Major Refactoring:**
+
+- Focus on critical tests first (error handling, core functionality)
+- Fix module resolution systematically using `@` alias
+- Expect 75-80% pass rate during major architecture changes
+- Update test expectations to match new error handling patterns
 
 ## Architecture Overview
 
@@ -1017,6 +1084,8 @@ The MCP configuration supports both array and object formats, and **empty config
 - Include context and recovery suggestions
 - Log errors to audit before throwing
 - Never throw plain strings
+- **Unified Error Wrapping**: Wrap all errors in `AgentSyncError` with user-friendly messages and suggestions
+- **Migration Pattern**: When refactoring, migrate from specific error types (`ConfigError`, `SelectionValidationError`) to unified `AgentSyncError` wrapping
 
 ### Security
 
@@ -1025,12 +1094,33 @@ The MCP configuration supports both array and object formats, and **empty config
 - Unicode attacks detected and blocked
 - File operations use atomic writes
 
+### Module Resolution Best Practices
+
+**Vitest Configuration for TypeScript Projects:**
+
+- Use `@` alias for all imports in tests: `import { something } from "@/path/to/module"`
+- Configure `tsconfig.json` with `"moduleResolution": "node"` and `"include": ["src/**/*", "tests/**/*"]`
+- Avoid `.js` extensions in TypeScript imports (bad practice)
+- Fix "Cannot find module" errors by updating Vitest config with proper alias resolution
+
+**Pattern:**
+
+```typescript
+// ✅ Correct
+import { UserPresetRegistry } from "@/core/registry/user-preset-registry";
+
+// ❌ Avoid
+import { UserPresetRegistry } from "../../../src/core/registry/user-preset-registry.js";
+```
+
 ### Testing
 
 - Unit tests for all public APIs
 - Integration tests for command flows
 - Coverage target: >80%
 - Use test fixtures in `tests/fixtures/`
+- **Major Refactoring Strategy**: Focus on critical tests first, fix module resolution systematically, expect 75-80% pass rate during architecture changes
+- **Test Import Pattern**: Use `@` alias for all test imports to avoid module resolution issues
 
 #### Install Test (Production Package Validation)
 

@@ -114,6 +114,101 @@ E2E tests require complete CLI environment setup:
 
 ---
 
+## Module Resolution Testing Patterns
+
+### Vitest Configuration Requirements
+
+When working with TypeScript projects, ensure proper module resolution:
+
+**tsconfig.json:**
+
+```json
+{
+  "compilerOptions": {
+    "moduleResolution": "node",
+    "include": ["src/**/*", "tests/**/*"]
+  }
+}
+```
+
+**vitest.config.ts:**
+
+```typescript
+export default defineConfig({
+  resolve: {
+    alias: {
+      "@": resolve(__dirname, "./src"),
+    },
+  },
+});
+```
+
+### Troubleshooting "Cannot find module" Errors
+
+**Common Issues:**
+
+- Tests importing with `.js` extensions (bad practice)
+- Missing `@` alias configuration
+- Incorrect `moduleResolution` setting
+
+**Solutions:**
+
+1. Use `@` alias for all test imports: `import { something } from "@/path/to/module"`
+2. Configure `tsconfig.json` with `"moduleResolution": "node"`
+3. Include tests in TypeScript compilation: `"include": ["src/**/*", "tests/**/*"]`
+4. Update Vitest config with proper alias resolution
+
+**Pattern:**
+
+```typescript
+// ✅ Correct
+import { UserPresetRegistry } from "@/core/registry/user-preset-registry";
+
+// ❌ Avoid
+import { UserPresetRegistry } from "../../../src/core/registry/user-preset-registry.js";
+```
+
+### Major Refactoring Test Strategy
+
+When performing major architecture changes:
+
+1. **Focus on Critical Tests First**: Error handling, core functionality
+2. **Fix Module Resolution Systematically**: Update all imports to use `@` alias
+3. **Expect 75-80% Pass Rate**: During major refactoring, some tests will fail due to API changes
+4. **Update Test Expectations**: Match new error handling patterns and API behavior
+5. **Preserve Test Coverage**: Maintain >80% coverage target throughout refactoring
+
+### Error Handling Test Updates
+
+When migrating to unified error handling:
+
+**Before (Specific Error Types):**
+
+```typescript
+await expect(function()).rejects.toThrow(ConfigError);
+```
+
+**After (Unified Error Wrapping):**
+
+```typescript
+await expect(function()).rejects.toThrow(AgentSyncError);
+```
+
+**Pattern for Error Message Testing:**
+
+```typescript
+try {
+  await function();
+} catch (error) {
+  expect(error).toBeInstanceOf(AgentSyncError);
+  if (error instanceof AgentSyncError) {
+    expect(error.getUserMessage()).toContain("expected message");
+  }
+}
+```
+
+---
+
 ## Automated Testing
 
 ### Vitest (Primary)
