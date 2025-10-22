@@ -765,6 +765,28 @@ and provides clearer guidance for users setting up projects.
 - Verify all ideas are fully implemented
 - Document status with specific file locations and line numbers
 
+### Refactoring Patterns
+
+**Cognitive Complexity Reduction:**
+
+- Extract helper functions for complex operations
+- Use single-purpose functions that orchestrate workflows
+- Target complexity <15 (Biome threshold)
+- Test after each refactoring to ensure functionality preservation
+
+**Type Safety Improvements:**
+
+- Replace implicit `any` variables with proper type annotations
+- Replace explicit `any` types with specific TypeScript types
+- Use type assertions for compatibility when necessary
+- Import proper types from schemas and interfaces
+
+**Testing After Refactoring:**
+
+- Run specific test files for modified functions
+- Verify all tests pass before proceeding
+- Use `pnpm test tests/unit/commands/[module]/[file].test.ts` for targeted testing
+
 ### Adding a New Command
 
 1. Create handler in `src/commands/[name].ts`
@@ -956,6 +978,9 @@ The MCP configuration supports both array and object formats, and **empty config
 - Use type-only imports when possible
 - Prefer interfaces over types for objects
 - Use const assertions for literals
+- Replace implicit `any` variables with proper type annotations
+- Replace explicit `any` types with specific TypeScript types
+- Use type assertions for compatibility when needed (`as Record<string, any>`)
 
 ### Code Formatting and Linting
 
@@ -966,6 +991,25 @@ The MCP configuration supports both array and object formats, and **empty config
 - Run `pnpm lint` for type checking + linting
 - Run `pnpm lint:fix` for auto-fixing issues
 - Run `pnpm format` for formatting only
+
+#### Linting Best Practices
+
+- Always run `pnpm lint:fix` first to auto-fix formatting issues
+- Then manually fix remaining errors (complexity, types)
+- This prevents wasting time on issues Biome can fix automatically
+
+#### Cognitive Complexity Reduction
+
+- Target cognitive complexity <15 (Biome default threshold)
+- Extract helper functions to reduce complexity instead of inline logic
+- Use single-purpose functions that orchestrate complex operations
+- Example pattern: Extract → Orchestrate → Reduce complexity
+
+#### Performance Optimization
+
+- Use `undefined` assignment instead of `delete` operator for better performance
+- Biome flags `delete` operator usage as performance concern
+- Pattern: `obj.property = undefined` instead of `delete obj.property`
 
 ### Error Handling
 
