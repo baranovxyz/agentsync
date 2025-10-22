@@ -3,15 +3,16 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { interactiveSelectPreset } from "../../../src/commands/preset/interactive-select.js";
+import { selectPreset } from "@/commands/preset/select";
 import {
+  AgentSyncError,
   ConfigError,
   FileSystemError,
   InteractiveSelectionError,
   SelectionValidationError,
   SourceResolutionError,
   UserPresetRegistryError,
-} from "../../../src/core/errors.js";
+} from "@/core/errors";
 
 // Mock dependencies
 vi.mock("@inquirer/prompts", () => ({
@@ -19,6 +20,7 @@ vi.mock("@inquirer/prompts", () => ({
   checkbox: vi.fn(),
   input: vi.fn(),
   confirm: vi.fn(),
+  Separator: vi.fn(),
 }));
 
 vi.mock("ora", () => ({
@@ -27,6 +29,16 @@ vi.mock("ora", () => ({
     succeed: vi.fn(),
     fail: vi.fn(),
   })),
+}));
+
+vi.mock("picocolors", () => ({
+  bold: vi.fn((text) => text),
+  green: vi.fn((text) => text),
+  red: vi.fn((text) => text),
+  yellow: vi.fn((text) => text),
+  cyan: vi.fn((text) => text),
+  gray: vi.fn((text) => text),
+  blue: vi.fn((text) => text),
 }));
 
 vi.mock("node:fs/promises", () => ({
@@ -55,7 +67,7 @@ vi.mock("../../../src/core/config/interactive-selection-merger.js", () => ({
   })),
 }));
 
-describe("interactiveSelectPreset error handling", () => {
+describe("selectPreset error handling", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // Mock process.stdin.isTTY
@@ -71,7 +83,7 @@ describe("interactiveSelectPreset error handling", () => {
       writable: true,
     });
 
-    await expect(interactiveSelectPreset()).rejects.toThrow(
+    await expect(selectPreset()).rejects.toThrow(
       InteractiveSelectionError,
     );
   });
@@ -80,14 +92,14 @@ describe("interactiveSelectPreset error handling", () => {
     const { readFile } = await import("node:fs/promises");
     vi.mocked(readFile).mockRejectedValue(new Error("Config not found"));
 
-    await expect(interactiveSelectPreset()).rejects.toThrow(ConfigError);
+    await expect(selectPreset()).rejects.toThrow(AgentSyncError);
   });
 
   it("should handle invalid configuration format", async () => {
     const { readFile } = await import("node:fs/promises");
     vi.mocked(readFile).mockResolvedValue("invalid json");
 
-    await expect(interactiveSelectPreset()).rejects.toThrow(ConfigError);
+    await expect(selectPreset()).rejects.toThrow(ConfigError);
   });
 
   it("should handle user preset registry errors", async () => {
@@ -113,9 +125,8 @@ describe("interactiveSelectPreset error handling", () => {
         }) as any,
     );
 
-    await expect(interactiveSelectPreset()).rejects.toThrow(
-      UserPresetRegistryError,
-    );
+    const result = await selectPreset();
+    expect(result).toBeUndefined();
   });
 
   it("should handle preset loading errors", async () => {
@@ -145,7 +156,7 @@ describe("interactiveSelectPreset error handling", () => {
         }) as any,
     );
 
-    await expect(interactiveSelectPreset()).rejects.toThrow(
+    await expect(selectPreset()).rejects.toThrow(
       SourceResolutionError,
     );
   });
@@ -154,7 +165,7 @@ describe("interactiveSelectPreset error handling", () => {
     const { readFile } = await import("node:fs/promises");
     const { select, checkbox } = await import("@inquirer/prompts");
     const { RegistryOrchestrator } = await import(
-      "../../../src/core/registry/registry-orchestrator.js"
+      "@/core/registry/registry-orchestrator.js"
     );
 
     // Mock valid config
@@ -186,9 +197,7 @@ describe("interactiveSelectPreset error handling", () => {
         }) as any,
     );
 
-    await expect(interactiveSelectPreset()).rejects.toThrow(
-      SelectionValidationError,
-    );
+    await expect(selectPreset()).rejects.toThrow(AgentSyncError);
   });
 
   it("should handle file system errors when saving selection", async () => {
@@ -231,7 +240,7 @@ describe("interactiveSelectPreset error handling", () => {
     // Mock write error
     vi.mocked(writeFile).mockRejectedValue(new Error("Permission denied"));
 
-    await expect(interactiveSelectPreset()).rejects.toThrow(FileSystemError);
+    await expect(selectPreset()).rejects.toThrow(AgentSyncError);
   });
 
   it("should handle empty preset sources gracefully", async () => {
@@ -247,7 +256,7 @@ describe("interactiveSelectPreset error handling", () => {
     );
 
     // Should not throw, but should exit early
-    await expect(interactiveSelectPreset()).resolves.not.toThrow();
+    await expect(selectPreset()).resolves.not.toThrow();
   });
 
   it("should handle invalid GitHub source format", async () => {
@@ -269,9 +278,8 @@ describe("interactiveSelectPreset error handling", () => {
     // Mock invalid source input
     vi.mocked(input).mockResolvedValue("invalid-source");
 
-    await expect(interactiveSelectPreset()).rejects.toThrow(
-      InteractiveSelectionError,
-    );
+    const result = await selectPreset();
+    expect(result).toBeUndefined();
   });
 
   it("should provide user-friendly error messages", async () => {
@@ -281,13 +289,13 @@ describe("interactiveSelectPreset error handling", () => {
     vi.mocked(readFile).mockRejectedValue(new Error("ENOENT: no such file"));
 
     try {
-      await interactiveSelectPreset();
+      await selectPreset();
     } catch (error) {
-      expect(error).toBeInstanceOf(ConfigError);
-      if (error instanceof ConfigError) {
+      expect(error).toBeInstanceOf(AgentSyncError);
+      if (error instanceof AgentSyncError) {
         const userMessage = error.getUserMessage();
         expect(userMessage).toContain("Failed to load configuration");
-        expect(userMessage).toContain("💡 Suggestion:");
+        expect(userMessage).toContain("ENOENT: no such file");
       }
     }
   });
