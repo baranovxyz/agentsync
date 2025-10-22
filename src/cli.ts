@@ -19,8 +19,8 @@ import { removeMCP as removeMcp } from "./commands/mcp/remove.js";
 import { syncMCP as syncMcp } from "./commands/mcp/sync.js";
 import { handleAddPresetCommand } from "./commands/preset/add.js";
 import { clearCache } from "./commands/preset/cache-clear.js";
-import { interactiveRemovePreset } from "./commands/preset/interactive-remove.js";
-import { interactiveSelectPreset } from "./commands/preset/interactive-select.js";
+import { removePreset } from "./commands/preset/remove.js";
+import { selectPreset } from "./commands/preset/select.js";
 import { listPresets } from "./commands/preset/list.js";
 import { sync } from "./commands/sync.js";
 import type { PresetSelection } from "./types/schemas.js";
@@ -146,19 +146,19 @@ presetCommand
   });
 
 presetCommand
-  .command("interactive-select")
+  .command("select")
   .description("Interactively select presets and file-level selections")
   .option("-y, --yes", "Skip confirmation prompts")
   .action(async (options) => {
-    await interactiveSelectPreset(options);
+    await selectPreset(options);
   });
 
 presetCommand
-  .command("interactive-remove")
+  .command("remove")
   .description("Interactively remove presets and their selections")
   .option("-y, --yes", "Skip confirmation prompts")
   .action(async (options) => {
-    await interactiveRemovePreset(options);
+    await removePreset(options);
   });
 
 // Error handling

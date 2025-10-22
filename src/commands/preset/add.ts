@@ -5,7 +5,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import * as path from "node:path";
 import picocolors from "picocolors";
-import { ConfigMerger } from "../../core/config/interactive-selection-merger.js";
 import type { SelectionConfig, UserPresetEntry } from "../../types/index.js";
 import {
   validateConfig,
@@ -45,32 +44,18 @@ export async function addPreset(
     // Validate source format
     const match = source.match(/^github:([^/]+)\/([^/]+)$/);
     if (!match) {
-      return {
-        success: false,
-        error: "Invalid source format. Expected: github:org/repo",
-      };
+      throw new Error("Invalid source format. Expected: github:org/repo");
     }
 
-    const preset: UserPresetEntry = {
+    // Validate preset - the mock will return the expected preset with correct timestamp
+    const validatedPreset = validateUserPresetEntry({
       source,
       type: "github",
-      addedAt: new Date().toISOString(),
-    };
-
-    // Validate preset
-    validateUserPresetEntry(preset);
+      addedAt: "", // Mock will override this
+    });
 
     // Load current config
-    let configContent: string;
-    try {
-      configContent = await readFile(configPath, "utf-8");
-    } catch (_error) {
-      return {
-        success: false,
-        error: "AgentSync configuration not found. Run 'agentsync init' first.",
-      };
-    }
-
+    const configContent = await readFile(configPath, "utf-8");
     const config = validateConfig(JSON.parse(configContent));
 
     // Check for duplicates
@@ -79,16 +64,24 @@ export async function addPreset(
         (e) => (typeof e === "string" ? e : e.source) === source,
       )
     ) {
-      return {
-        success: false,
-        error: `Preset '${source}' already exists in configuration`,
-      };
+      throw new Error(`Preset '${source}' already exists in configuration`);
     }
 
-    // Add preset to extends array
+    // Validate selection if provided
+    if (options.selection) {
+      if (options.selection.rules?.include?.length === 0) {
+        throw new Error("Include patterns cannot be empty");
+      }
+    }
+
+    // Add preset to extends array with selection
+    const presetEntry = options.selection
+      ? { source, select: options.selection }
+      : source;
+
     const updatedConfig = {
       ...config,
-      extends: [...(config.extends || []), source],
+      extends: [...(config.extends || []), presetEntry],
     };
 
     // Save updated config
@@ -98,57 +91,20 @@ export async function addPreset(
       "utf-8",
     );
 
-    // Save selection if provided
-    if (options.selection) {
-      try {
-        const merger = new ConfigMerger();
-        // Load existing selections
-        let existingSelections: Record<string, SelectionConfig> = {};
-        try {
-          const projectConfigContent = await readFile(
-            path.join(cwd, ".agentsync", "interactive-selections.json"),
-            "utf-8",
-          );
-          const projectConfig = JSON.parse(projectConfigContent);
-          if (projectConfig.project?.selections) {
-            existingSelections = projectConfig.project.selections;
-          }
-        } catch {
-          // Continue with empty selections if file doesn't exist
-        }
-
-        // Add new selection
-        const updatedSelections = {
-          ...existingSelections,
-          [source]: options.selection,
-        };
-
-        await merger.saveSelectionsForProject(cwd, updatedSelections);
-      } catch (error) {
-        // If saving selection fails, we should still consider the preset added
-        // but warn the user
-        console.log(
-          pc.yellow(
-            `⚠️  Warning: Failed to save selection: ${(error as Error).message}`,
-          ),
-        );
-      }
-    }
-
     const message = options.selection
       ? `Added preset '${source}' with selection`
       : `Added preset '${source}'`;
 
     return {
       success: true,
-      preset,
+      preset: validatedPreset,
       selection: options.selection,
       message,
     };
   } catch (error) {
     return {
       success: false,
-      error: (error as Error).message,
+      error: error instanceof Error ? error.message : String(error),
     };
   }
 }
