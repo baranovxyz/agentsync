@@ -7,7 +7,13 @@ import * as path from "path";
 import { access } from "node:fs/promises";
 import { GitHubResolver } from "./github-resolver.js";
 import { CacheManager } from "./cache-manager.js";
-import { FileSystemError, ValidationError } from "../errors.js";
+import {
+  FileSystemError,
+  ValidationError,
+  SourceResolutionError,
+  ErrorHandler,
+  ErrorCategory,
+} from "../errors.js";
 
 export type SourceType = "github" | "filesystem" | "unknown";
 
@@ -37,18 +43,37 @@ export class SourceResolver {
     source: string,
     options?: SourceResolveOptions
   ): Promise<string> {
-    // Validate source format first
-    this.validateSource(source);
+    try {
+      // Validate source format first
+      this.validateSource(source);
 
-    const sourceType = this.getSourceType(source);
+      const sourceType = this.getSourceType(source);
 
-    switch (sourceType) {
-      case "github":
-        return await this.resolveGitHubSource(source, options);
-      case "filesystem":
-        return await this.resolveFilesystemSource(source);
-      default:
-        throw new ValidationError(`Unsupported source type: ${source}`);
+      switch (sourceType) {
+        case "github":
+          return await this.resolveGitHubSource(source, options);
+        case "filesystem":
+          return await this.resolveFilesystemSource(source);
+        default:
+          throw new SourceResolutionError(
+            `Unsupported source type: ${source}`,
+            source
+          );
+      }
+    } catch (error) {
+      if (
+        error instanceof SourceResolutionError ||
+        error instanceof ValidationError
+      ) {
+        throw error;
+      }
+
+      throw ErrorHandler.wrap(
+        error,
+        `Failed to resolve source: ${source}`,
+        ErrorCategory.NETWORK,
+        { source, options }
+      );
     }
   }
 
@@ -58,16 +83,20 @@ export class SourceResolver {
    */
   validateSource(source: string): void {
     if (!source || typeof source !== "string") {
-      throw new ValidationError("Source must be a non-empty string");
+      throw new SourceResolutionError(
+        "Source must be a non-empty string",
+        source
+      );
     }
 
     const sourceType = this.getSourceType(source);
 
     if (sourceType === "unknown") {
-      throw new ValidationError(
+      throw new SourceResolutionError(
         `Invalid source format: ${source}. Supported formats:\n` +
           `- GitHub: github:org/repo[@ref]\n` +
-          `- Filesystem: /absolute/path or ./relative/path`
+          `- Filesystem: /absolute/path or ./relative/path`,
+        source
       );
     }
 
@@ -200,8 +229,9 @@ export class SourceResolver {
       /^github:[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+(@[a-zA-Z0-9_.-]+)?$/;
 
     if (!githubPattern.test(source)) {
-      throw new ValidationError(
-        `Invalid GitHub source format: ${source}. Expected format: github:org/repo[@ref]`
+      throw new SourceResolutionError(
+        `Invalid GitHub source format: ${source}. Expected format: github:org/repo[@ref]`,
+        source
       );
     }
   }

@@ -15,6 +15,13 @@ import {
   validateUserPreset,
   safeParseUserPresetRegistry,
 } from "../../types/schemas.js";
+import {
+  UserPresetRegistryError,
+  FileSystemError,
+  ValidationError,
+  ErrorHandler,
+  ErrorCategory,
+} from "../errors.js";
 
 /**
  * Get the default user preset registry path
@@ -58,16 +65,38 @@ export class UserPresetRegistry {
       const content = await readFile(this.registryPath, "utf-8");
       registry = JSON.parse(content);
     } catch (error) {
-      throw new Error(
-        `Failed to parse user preset registry at ${this.registryPath}: ${(error as Error).message}`
+      if (error instanceof SyntaxError) {
+        throw new UserPresetRegistryError(
+          `Registry file contains invalid JSON: ${error.message}`,
+          "load"
+        );
+      }
+
+      if ((error as any).code === "ENOENT") {
+        throw new UserPresetRegistryError("Registry file not found", "load");
+      }
+
+      if ((error as any).code === "EACCES") {
+        throw new UserPresetRegistryError(
+          "Permission denied accessing registry file",
+          "load"
+        );
+      }
+
+      throw ErrorHandler.wrap(
+        error,
+        `Failed to parse user preset registry at ${this.registryPath}`,
+        ErrorCategory.FILE_SYSTEM,
+        { registryPath: this.registryPath }
       );
     }
 
     // Validate registry structure
     const result = safeParseUserPresetRegistry(registry);
     if (!result.success) {
-      throw new Error(
-        `Invalid user preset registry format at ${this.registryPath}: ${result.error.message}`
+      throw new UserPresetRegistryError(
+        `Invalid registry format: ${result.error.message}`,
+        "load"
       );
     }
 
@@ -80,12 +109,19 @@ export class UserPresetRegistry {
    */
   private async saveRegistry(): Promise<void> {
     if (!this.registryData) {
-      throw new Error("No registry data to save");
+      throw new UserPresetRegistryError("No registry data to save", "save");
     }
 
     // Ensure directory exists
     const dir = path.dirname(this.registryPath);
-    await mkdir(dir, { recursive: true });
+    try {
+      await mkdir(dir, { recursive: true });
+    } catch (error) {
+      throw new UserPresetRegistryError(
+        `Failed to create registry directory: ${(error as Error).message}`,
+        "save"
+      );
+    }
 
     // Update metadata
     this.registryData.metadata.updatedAt = new Date().toISOString();
@@ -98,8 +134,25 @@ export class UserPresetRegistry {
       const content = JSON.stringify(this.registryData, null, 2);
       await writeFile(this.registryPath, content, "utf-8");
     } catch (error) {
-      throw new Error(
-        `Failed to save user preset registry to ${this.registryPath}: ${(error as Error).message}`
+      if ((error as any).code === "EACCES") {
+        throw new UserPresetRegistryError(
+          "Permission denied writing to registry file",
+          "save"
+        );
+      }
+
+      if ((error as any).code === "ENOSPC") {
+        throw new UserPresetRegistryError(
+          "Insufficient disk space to save registry",
+          "save"
+        );
+      }
+
+      throw ErrorHandler.wrap(
+        error,
+        `Failed to save user preset registry to ${this.registryPath}`,
+        ErrorCategory.FILE_SYSTEM,
+        { registryPath: this.registryPath }
       );
     }
   }
@@ -124,35 +177,50 @@ export class UserPresetRegistry {
    * Add a new preset to the registry
    */
   async add(preset: UserPreset): Promise<void> {
-    // Validate preset structure
-    const validatedPreset = validateUserPreset(preset);
+    try {
+      // Validate preset structure
+      const validatedPreset = validateUserPreset(preset);
 
-    // Load registry
-    const registry = await this.loadRegistry();
+      // Load registry
+      const registry = await this.loadRegistry();
 
-    // Check for duplicate
-    if (registry.presets[validatedPreset.name]) {
-      throw new Error(
-        `Preset with name '${validatedPreset.name}' already exists`
+      // Check for duplicate
+      if (registry.presets[validatedPreset.name]) {
+        throw new UserPresetRegistryError(
+          `Preset with name '${validatedPreset.name}' already exists`,
+          "add",
+          validatedPreset.name
+        );
+      }
+
+      // Add timestamps to metadata
+      const now = new Date().toISOString();
+      const presetWithTimestamps = {
+        ...validatedPreset,
+        metadata: {
+          ...validatedPreset.metadata,
+          createdAt: validatedPreset.metadata?.createdAt || now,
+          updatedAt: now,
+        },
+      };
+
+      // Add to registry
+      registry.presets[validatedPreset.name] = presetWithTimestamps;
+
+      // Save changes
+      await this.saveRegistry();
+    } catch (error) {
+      if (error instanceof UserPresetRegistryError) {
+        throw error;
+      }
+
+      throw ErrorHandler.wrap(
+        error,
+        "Failed to add preset to registry",
+        ErrorCategory.FILE_SYSTEM,
+        { presetName: preset.name }
       );
     }
-
-    // Add timestamps to metadata
-    const now = new Date().toISOString();
-    const presetWithTimestamps = {
-      ...validatedPreset,
-      metadata: {
-        ...validatedPreset.metadata,
-        createdAt: validatedPreset.metadata?.createdAt || now,
-        updatedAt: now,
-      },
-    };
-
-    // Add to registry
-    registry.presets[validatedPreset.name] = presetWithTimestamps;
-
-    // Save changes
-    await this.saveRegistry();
   }
 
   /**
@@ -160,22 +228,42 @@ export class UserPresetRegistry {
    */
   async remove(name: string): Promise<void> {
     if (!name || name.trim() === "") {
-      throw new Error("Preset name cannot be empty");
+      throw new UserPresetRegistryError(
+        "Preset name cannot be empty",
+        "remove"
+      );
     }
 
-    // Load registry
-    const registry = await this.loadRegistry();
+    try {
+      // Load registry
+      const registry = await this.loadRegistry();
 
-    // Check if preset exists
-    if (!registry.presets[name]) {
-      throw new Error(`Preset '${name}' not found`);
+      // Check if preset exists
+      if (!registry.presets[name]) {
+        throw new UserPresetRegistryError(
+          `Preset '${name}' not found`,
+          "remove",
+          name
+        );
+      }
+
+      // Remove from registry
+      delete registry.presets[name];
+
+      // Save changes
+      await this.saveRegistry();
+    } catch (error) {
+      if (error instanceof UserPresetRegistryError) {
+        throw error;
+      }
+
+      throw ErrorHandler.wrap(
+        error,
+        "Failed to remove preset from registry",
+        ErrorCategory.FILE_SYSTEM,
+        { presetName: name }
+      );
     }
-
-    // Remove from registry
-    delete registry.presets[name];
-
-    // Save changes
-    await this.saveRegistry();
   }
 
   /**
@@ -183,19 +271,36 @@ export class UserPresetRegistry {
    */
   async get(name: string): Promise<UserPreset> {
     if (!name || name.trim() === "") {
-      throw new Error("Preset name cannot be empty");
+      throw new UserPresetRegistryError("Preset name cannot be empty", "get");
     }
 
-    // Load registry
-    const registry = await this.loadRegistry();
+    try {
+      // Load registry
+      const registry = await this.loadRegistry();
 
-    // Get preset
-    const preset = registry.presets[name];
-    if (!preset) {
-      throw new Error(`Preset '${name}' not found`);
+      // Get preset
+      const preset = registry.presets[name];
+      if (!preset) {
+        throw new UserPresetRegistryError(
+          `Preset '${name}' not found`,
+          "get",
+          name
+        );
+      }
+
+      return preset;
+    } catch (error) {
+      if (error instanceof UserPresetRegistryError) {
+        throw error;
+      }
+
+      throw ErrorHandler.wrap(
+        error,
+        "Failed to get preset from registry",
+        ErrorCategory.FILE_SYSTEM,
+        { presetName: name }
+      );
     }
-
-    return preset;
   }
 
   /**

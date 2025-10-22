@@ -4,6 +4,12 @@
 
 import type { Preset, PresetSelection } from "../../types/index.js";
 import { isMatch } from "micromatch";
+import {
+  SelectiveLoadingError,
+  SelectionValidationError,
+  ErrorHandler,
+  ErrorCategory,
+} from "../errors.js";
 
 /**
  * Result of selective preset loading
@@ -33,49 +39,112 @@ export class SelectivePresetLoader {
     preset: Preset,
     selection?: PresetSelection
   ): Promise<SelectivePresetResult> {
-    const result: SelectivePresetResult = {
-      commands: new Map(),
-      rules: new Map(),
-      mcps: {},
-    };
+    try {
+      // Validate preset structure
+      if (!preset || typeof preset !== "object") {
+        throw new SelectiveLoadingError(
+          "Invalid preset data provided",
+          (preset as any)?.source,
+          "preset"
+        );
+      }
 
-    if (!selection) {
-      // If no selection provided, return all content
-      return {
-        commands: new Map(preset.commands),
-        rules: new Map(preset.rules),
-        mcps: { ...preset.mcps },
+      if (!preset.rules || !preset.commands || !preset.mcps) {
+        throw new SelectiveLoadingError(
+          "Preset data is missing required properties",
+          (preset as any)?.source,
+          "preset"
+        );
+      }
+
+      const result: SelectivePresetResult = {
+        commands: new Map(),
+        rules: new Map(),
+        mcps: {},
       };
-    }
 
-    // Filter rules based on selection
-    if (selection.rules) {
-      for (const [filename, content] of preset.rules.entries()) {
-        if (this.matchesPattern(filename, selection.rules)) {
-          result.rules.set(filename, content);
+      if (!selection) {
+        // If no selection provided, return all content
+        return {
+          commands: new Map(preset.commands),
+          rules: new Map(preset.rules),
+          mcps: { ...preset.mcps },
+        };
+      }
+
+      // Validate selection structure
+      if (typeof selection !== "object") {
+        throw new SelectiveLoadingError(
+          "Invalid selection data provided",
+          preset?.source,
+          "selection"
+        );
+      }
+
+      // Filter rules based on selection
+      if (selection.rules) {
+        if (typeof selection.rules !== "object") {
+          throw new SelectiveLoadingError(
+            "Invalid rules selection configuration",
+            preset?.source,
+            "rules"
+          );
+        }
+
+        for (const [filename, content] of preset.rules.entries()) {
+          if (this.matchesPattern(filename, selection.rules)) {
+            result.rules.set(filename, content);
+          }
         }
       }
-    }
 
-    // Filter commands based on selection
-    if (selection.commands) {
-      for (const [filename, content] of preset.commands.entries()) {
-        if (this.matchesPattern(filename, selection.commands)) {
-          result.commands.set(filename, content);
+      // Filter commands based on selection
+      if (selection.commands) {
+        if (typeof selection.commands !== "object") {
+          throw new SelectiveLoadingError(
+            "Invalid commands selection configuration",
+            preset?.source,
+            "commands"
+          );
+        }
+
+        for (const [filename, content] of preset.commands.entries()) {
+          if (this.matchesPattern(filename, selection.commands)) {
+            result.commands.set(filename, content);
+          }
         }
       }
-    }
 
-    // Filter MCPs based on selection
-    if (selection.mcps) {
-      for (const mcpName of selection.mcps) {
-        if (preset.mcps[mcpName]) {
-          result.mcps[mcpName] = preset.mcps[mcpName];
+      // Filter MCPs based on selection
+      if (selection.mcps) {
+        if (!Array.isArray(selection.mcps)) {
+          throw new SelectiveLoadingError(
+            "Invalid MCPs selection configuration",
+            preset?.source,
+            "mcps"
+          );
+        }
+
+        for (const mcpName of selection.mcps) {
+          if (preset.mcps[mcpName]) {
+            result.mcps[mcpName] = preset.mcps[mcpName];
+          }
         }
       }
-    }
 
-    return result;
+      return result;
+    } catch (error) {
+      if (error instanceof SelectiveLoadingError) {
+        throw error;
+      }
+
+      throw ErrorHandler.wrap(
+        error,
+        "Failed to load preset content selectively",
+        ErrorCategory.PARSE,
+        { presetSource: preset?.source, selection }
+      );
+    }
   }
 
   /**

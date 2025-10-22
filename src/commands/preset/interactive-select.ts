@@ -18,6 +18,17 @@ import {
 } from "../../types/schemas.js";
 import type { PresetSelection, UserPreset } from "../../types/index.js";
 import { isMatch } from "micromatch";
+import {
+  InteractiveSelectionError,
+  SelectionValidationError,
+  SourceResolutionError,
+  UserPresetRegistryError,
+  ConfigError,
+  FileSystemError,
+  ErrorHandler,
+  ErrorSeverity,
+  ErrorCategory,
+} from "../../core/errors.js";
 
 /**
  * Options for interactive preset selection
@@ -49,7 +60,11 @@ export async function interactiveSelectPreset(
 
   // Check if running in interactive environment
   if (!process.stdin.isTTY) {
-    throw new Error("Interactive preset selection requires a terminal");
+    throw new InteractiveSelectionError(
+      "Interactive preset selection requires a terminal",
+      ErrorSeverity.HIGH,
+      { environment: "non-interactive" }
+    );
   }
 
   console.log(pc.blue("🎯 Interactive Preset Selection\n"));
@@ -113,8 +128,15 @@ export async function interactiveSelectPreset(
     console.log(pc.green("✅ Selection saved successfully!"));
     console.log(pc.gray("Run 'agentsync sync' to apply the selection."));
   } catch (error) {
-    console.error(pc.red(`Error: ${(error as Error).message}`));
-    throw error;
+    const wrappedError = ErrorHandler.wrap(
+      error,
+      "Interactive preset selection failed",
+      ErrorCategory.CONFIG,
+      { cwd, options }
+    );
+
+    console.error(pc.red(`❌ ${wrappedError.getUserMessage()}`));
+    throw wrappedError;
   }
 }
 
@@ -128,8 +150,35 @@ async function loadConfig(cwd: string): Promise<any> {
     const configContent = await readFile(configPath, "utf-8");
     return validateConfig(JSON.parse(configContent));
   } catch (error) {
-    throw new Error(
-      `Failed to load configuration: ${(error as Error).message}`
+    if (error instanceof SyntaxError) {
+      throw new ConfigError(
+        `Configuration file contains invalid JSON: ${error.message}`,
+        configPath,
+        "Check the syntax of your configuration file and ensure it's valid JSON"
+      );
+    }
+
+    if ((error as any).code === "ENOENT") {
+      throw new ConfigError(
+        "Configuration file not found",
+        configPath,
+        "Run 'agentsync init' to create a configuration file"
+      );
+    }
+
+    if ((error as any).code === "EACCES") {
+      throw new ConfigError(
+        "Permission denied accessing configuration file",
+        configPath,
+        "Check file permissions and try running with appropriate access rights"
+      );
+    }
+
+    throw ErrorHandler.wrap(
+      error,
+      "Failed to load configuration",
+      ErrorCategory.CONFIG,
+      { configPath }
     );
   }
 }
@@ -170,6 +219,12 @@ async function getAvailablePresetSources(
     }
   } catch (error) {
     // User registry might not exist, continue without it
+    // Log the error for debugging but don't fail the operation
+    console.warn(
+      pc.yellow(
+        `Warning: Could not load user preset registry: ${(error as Error).message}`
+      )
+    );
   }
 
   // Add option to add new GitHub source
@@ -217,6 +272,18 @@ async function addNewGitHubSource(): Promise<string> {
       if (!input.startsWith("github:") || !input.includes("/")) {
         return "Invalid format. Expected: github:org/repo";
       }
+
+      // Additional validation for GitHub source format
+      const parts = input.split(":");
+      if (parts.length !== 2 || !parts[1]) {
+        return "Invalid format. Expected: github:org/repo";
+      }
+
+      const repoParts = parts[1].split("/");
+      if (repoParts.length < 2 || !repoParts[0] || !repoParts[1]) {
+        return "Invalid format. Expected: github:org/repo";
+      }
+
       return true;
     },
   });
@@ -234,6 +301,12 @@ async function addNewGitHubSource(): Promise<string> {
         if (!input.trim()) {
           return "Name cannot be empty";
         }
+
+        // Validate preset name format
+        if (!/^[a-zA-Z0-9_-]+$/.test(input.trim())) {
+          return "Name can only contain letters, numbers, hyphens, and underscores";
+        }
+
         return true;
       },
     });
@@ -257,11 +330,25 @@ async function addNewGitHubSource(): Promise<string> {
       await userRegistry.add(userPreset);
       console.log(pc.green(`✓ Added '${name}' to user registry`));
     } catch (error) {
-      console.log(
-        pc.yellow(
-          `⚠️  Failed to add to user registry: ${(error as Error).message}`
-        )
-      );
+      if (error instanceof UserPresetRegistryError) {
+        console.log(
+          pc.yellow(
+            `⚠️  Failed to add to user registry: ${error.getUserMessage()}`
+          )
+        );
+      } else {
+        const wrappedError = ErrorHandler.wrap(
+          error,
+          "Failed to add preset to user registry",
+          ErrorCategory.FILE_SYSTEM,
+          { source, presetName: name }
+        );
+        console.log(
+          pc.yellow(
+            `⚠️  Failed to add to user registry: ${wrappedError.getUserMessage()}`
+          )
+        );
+      }
     }
   }
 
@@ -298,7 +385,24 @@ async function loadPresetContent(
     // Load the preset
     return await orchestrator.loadAndMerge(cwd);
   } catch (error) {
-    throw new Error(`Failed to load preset: ${(error as Error).message}`);
+    if (error instanceof UserPresetRegistryError) {
+      throw new SourceResolutionError(
+        `Failed to load user preset: ${error.message}`,
+        presetSource,
+        error
+      );
+    }
+
+    if (error instanceof SourceResolutionError) {
+      throw error;
+    }
+
+    throw ErrorHandler.wrap(
+      error,
+      "Failed to load preset content",
+      ErrorCategory.NETWORK,
+      { presetSource, cwd }
+    );
   }
 }
 
@@ -396,7 +500,16 @@ async function configureFileTypePatterns(
           // Test if pattern is valid glob
           isMatch("test", pattern);
         } catch (error) {
-          return `Invalid glob pattern: ${pattern}`;
+          throw new SelectionValidationError(
+            `Invalid glob pattern: ${pattern}`,
+            [
+              {
+                path: [type, "include"],
+                message: `Pattern "${pattern}" is not a valid glob pattern`,
+              },
+            ],
+            { type, pattern, availableFiles }
+          );
         }
       }
 
@@ -406,6 +519,32 @@ async function configureFileTypePatterns(
 
   const excludePatterns = await input({
     message: `Exclude patterns for ${type} (comma-separated, optional):`,
+    validate: (input) => {
+      if (!input.trim()) {
+        return true; // Optional field
+      }
+
+      const patterns = input.split(",").map((p) => p.trim());
+      for (const pattern of patterns) {
+        try {
+          // Test if pattern is valid glob
+          isMatch("test", pattern);
+        } catch (error) {
+          throw new SelectionValidationError(
+            `Invalid glob pattern: ${pattern}`,
+            [
+              {
+                path: [type, "exclude"],
+                message: `Pattern "${pattern}" is not a valid glob pattern`,
+              },
+            ],
+            { type, pattern, availableFiles }
+          );
+        }
+      }
+
+      return true;
+    },
   });
 
   const result: { include: string[]; exclude?: string[] } = {
@@ -459,10 +598,34 @@ async function validateSelection(
     });
 
     if (!validation.valid) {
-      throw new Error(`Validation failed:\n${validation.errors.join("\n")}`);
+      throw new SelectionValidationError(
+        `Selection validation failed`,
+        validation.errors.map((error, index) => ({
+          path: ["selection", String(index)],
+          message: error,
+        })),
+        { presetSource, selection, validationErrors: validation.errors }
+      );
     }
   } catch (error) {
-    throw new Error(`Selection validation failed: ${(error as Error).message}`);
+    if (error instanceof SelectionValidationError) {
+      throw error;
+    }
+
+    if (error instanceof UserPresetRegistryError) {
+      throw new SelectionValidationError(
+        `Failed to validate selection: ${error.message}`,
+        [],
+        { presetSource, selection, originalError: error }
+      );
+    }
+
+    throw ErrorHandler.wrap(
+      error,
+      "Selection validation failed",
+      ErrorCategory.VALIDATION,
+      { presetSource, selection }
+    );
   }
 }
 
@@ -556,6 +719,38 @@ async function saveSelection(
     validateInteractiveSelectionConfig(config.interactiveSelection);
     await writeFile(configPath, JSON.stringify(config, null, 2), "utf-8");
   } catch (error) {
-    throw new Error(`Failed to save selection: ${(error as Error).message}`);
+    if (error instanceof SyntaxError) {
+      throw new ConfigError(
+        `Configuration file contains invalid JSON: ${error.message}`,
+        configPath,
+        "Check the syntax of your configuration file and ensure it's valid JSON"
+      );
+    }
+
+    if ((error as any).code === "ENOENT") {
+      throw new FileSystemError("Configuration file not found", configPath);
+    }
+
+    if ((error as any).code === "EACCES") {
+      throw new FileSystemError(
+        "Permission denied writing to configuration file",
+        configPath
+      );
+    }
+
+    if (error instanceof UserPresetRegistryError) {
+      throw new FileSystemError(
+        `Failed to resolve user preset: ${error.message}`,
+        configPath,
+        error
+      );
+    }
+
+    throw ErrorHandler.wrap(
+      error,
+      "Failed to save selection to configuration",
+      ErrorCategory.FILE_SYSTEM,
+      { configPath, presetSource, selection }
+    );
   }
 }
