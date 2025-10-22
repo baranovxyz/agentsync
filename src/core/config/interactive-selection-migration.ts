@@ -3,8 +3,7 @@
  * Handles migration from legacy configuration format to new interactive selection format
  */
 
-import type { InteractiveSelectionConfig } from "../../types/schemas.js";
-import { validateInteractiveSelectionConfig } from "../../types/schemas.js";
+import type { AgentSyncConfig } from "../../types/schemas.js";
 
 /**
  * Legacy configuration format (v1.x)
@@ -23,7 +22,7 @@ interface LegacyAgentSyncConfig {
  * Migration result
  */
 export interface MigrationResult {
-  config: InteractiveSelectionConfig;
+  config: AgentSyncConfig;
   warnings: string[];
 }
 
@@ -36,87 +35,21 @@ export class ConfigMigrator {
    */
   migrateFromLegacy(legacyConfig: LegacyAgentSyncConfig): MigrationResult {
     const warnings: string[] = [];
-    const newConfig: InteractiveSelectionConfig = {
+    const newConfig: AgentSyncConfig = {
       version: "2.0",
+      extends: [],
+      tools: [],
+      useSymlinks: true,
     };
 
-    // Migrate extends to user.presets
-    if (legacyConfig.extends && legacyConfig.extends.length > 0) {
-      newConfig.user = {
-        presets: legacyConfig.extends,
-      };
+    if (legacyConfig.extends) {
+      newConfig.extends = legacyConfig.extends;
     }
 
-    // Migrate tools to project.tools
-    if (legacyConfig.tools && legacyConfig.tools.length > 0) {
-      // Filter and validate tools to match the expected enum values
-      const validTools = legacyConfig.tools.filter((tool) =>
+    if (legacyConfig.tools) {
+      newConfig.tools = legacyConfig.tools.filter((tool) =>
         ["cursor", "claude", "cline", "windsurf", "copilot"].includes(tool)
-      ) as ("cursor" | "claude" | "cline" | "windsurf" | "copilot")[];
-
-      if (validTools.length > 0) {
-        newConfig.project = {
-          ...newConfig.project,
-          tools: validTools,
-        };
-      }
-    }
-
-    // Migrate mcpServers to project.overrides
-    if (legacyConfig.mcpServers) {
-      newConfig.project = {
-        ...newConfig.project,
-        overrides: {
-          ...newConfig.project?.overrides,
-          mcpServers: legacyConfig.mcpServers,
-        },
-      };
-    }
-
-    // Migrate other settings to project.overrides
-    const otherSettings: Record<string, any> = {};
-    if (legacyConfig.useSymlinks !== undefined) {
-      otherSettings.useSymlinks = legacyConfig.useSymlinks;
-    }
-    if (legacyConfig.security) {
-      otherSettings.security = legacyConfig.security;
-    }
-    if (legacyConfig.watch) {
-      otherSettings.watch = legacyConfig.watch;
-    }
-
-    if (Object.keys(otherSettings).length > 0) {
-      newConfig.project = {
-        ...newConfig.project,
-        overrides: {
-          ...newConfig.project?.overrides,
-          ...otherSettings,
-        },
-      };
-    }
-
-    // Add warnings for potentially breaking changes
-    if (legacyConfig.extends && legacyConfig.extends.length > 0) {
-      warnings.push(
-        "The 'extends' field has been moved to 'user.presets'. " +
-          "File-level selections can now be configured in 'user.defaultSelections'."
-      );
-    }
-
-    if (legacyConfig.mcpServers) {
-      warnings.push(
-        "The 'mcpServers' field has been moved to 'project.overrides.mcpServers'. " +
-          "Consider using file-level selections for more granular control."
-      );
-    }
-
-    // Validate the migrated configuration
-    try {
-      validateInteractiveSelectionConfig(newConfig);
-    } catch (error) {
-      warnings.push(
-        `Migration validation warning: ${(error as Error).message}`
-      );
+      ) as any;
     }
 
     return {
@@ -139,35 +72,6 @@ export class ConfigMigrator {
       config.project === undefined &&
       config.local === undefined
     );
-  }
-
-  /**
-   * Validate migrated configuration
-   */
-  validateMigratedConfig(config: InteractiveSelectionConfig): {
-    valid: boolean;
-    errors: string[];
-  } {
-    const errors: string[] = [];
-
-    try {
-      validateInteractiveSelectionConfig(config);
-    } catch (error) {
-      errors.push((error as Error).message);
-      return { valid: false, errors };
-    }
-
-    if (
-      config.user &&
-      (!config.user.presets || config.user.presets.length === 0)
-    ) {
-      errors.push("User presets cannot be empty when user config is present");
-    }
-
-    return {
-      valid: errors.length === 0,
-      errors,
-    };
   }
 
   /**

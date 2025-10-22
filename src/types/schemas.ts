@@ -50,21 +50,25 @@ export const FileMappingSchema = z.object({
   purpose: z.string().optional(),
 });
 
-// Interactive Selection Configuration Schema (v2.0)
-
-// File-level selection schema
-export const FileSelectionSchema = z.object({
-  include: z.array(z.string()).min(1, "Include patterns cannot be empty"),
-  exclude: z.array(z.string()).optional(),
-});
-
-// Preset selection schema for rules, commands, and MCPs
+// Preset selection schema (for selective preset loading)
 export const PresetSelectionSchema = z.object({
-  rules: FileSelectionSchema.optional(),
-  commands: FileSelectionSchema.optional(),
+  rules: z
+    .object({
+      include: z.array(z.string()).optional(),
+      exclude: z.array(z.string()).optional(),
+    })
+    .optional(),
+  commands: z
+    .object({
+      include: z.array(z.string()).optional(),
+      exclude: z.array(z.string()).optional(),
+    })
+    .optional(),
   mcps: z.array(z.string()).optional(),
 });
 
+// Selection configuration schema (alias for backward compatibility)
+export const SelectionConfigSchema = PresetSelectionSchema;
 
 // Main AGENTS.md schema
 export const AgentsMdSchema = z.object({
@@ -91,26 +95,28 @@ export const AgentsMdSchema = z.object({
   }),
 });
 
-// Configuration schema for .agentsync/config.json
-export const AgentSyncConfigSchema = z.object({
+// Extends schema for config
+export const ExtendsSchema = z.union([
+  z.string(), // Simple: "github:company/standards"
+  z.object({
+    source: z.string(),
+    namespace: z.string().optional(), // Override default namespace
+    include: z.array(z.string()).optional(), // File patterns to include
+    exclude: z.array(z.string()).optional(), // File patterns to exclude
+    select: PresetSelectionSchema.optional(), // Selection criteria for this preset
+  }),
+]);
+
+// Local configuration schema for .agentsync/config.json (project-level)
+export const LocalConfigSchema = z.object({
   version: z.string().default("1.0"),
 
   // GitHub registry sources (v0.3.0-beta)
-  extends: z
-    .array(
-      z.union([
-        z.string(), // Simple: "github:company/standards"
-        z.object({
-          source: z.string(),
-          namespace: z.string().optional(), // Override default namespace
-          include: z.array(z.string()).optional(), // Glob patterns
-          exclude: z.array(z.string()).optional(), // Glob patterns
-          select: PresetSelectionSchema.optional(), // Selection patterns
-        }),
-      ])
-    )
-    .optional(),
+  extends: z.array(ExtendsSchema).optional(),
+});
 
+// Configuration schema for .agentsync/config.json
+export const AgentSyncConfigSchema = LocalConfigSchema.extend({
   // MCP servers (moved to main config in v0.3.0-beta)
   mcpServers: z
     .union([
@@ -197,7 +203,6 @@ export const TranslateResultSchema = z.object({
       expectedContent: z.string().optional(),
     })
   ),
-  errors: z.array(z.string()).optional(),
   warnings: z.array(z.string()).optional(),
 });
 
@@ -292,7 +297,15 @@ export type Rule = z.infer<typeof RuleSchema>;
 export type GitRule = z.infer<typeof GitRuleSchema>;
 export type McpServer = z.infer<typeof McpServerSchema>;
 export type FileMapping = z.infer<typeof FileMappingSchema>;
+export type Extends = z.infer<typeof ExtendsSchema>;
+export type ExtendsEntry =
+  z.infer<typeof ExtendsSchema> extends (infer U)[]
+    ? U
+    : z.infer<typeof ExtendsSchema>;
+export type PresetSelection = z.infer<typeof PresetSelectionSchema>;
 export type AgentSyncConfig = z.infer<typeof AgentSyncConfigSchema>;
+export type LocalConfig = z.infer<typeof LocalConfigSchema>;
+export type SelectionConfig = z.infer<typeof SelectionConfigSchema>;
 export type TranslateResult = z.infer<typeof TranslateResultSchema>;
 export type SyncResult = z.infer<typeof SyncResultSchema>;
 export type Workspace = z.infer<typeof WorkspaceSchema>;
@@ -307,10 +320,109 @@ export function validateAgentsMd(data: unknown): AgentsMd {
 }
 
 /**
+ * Validate local configuration file
+ */
+export function validateLocalConfig(data: unknown): LocalConfig {
+  return LocalConfigSchema.parse(data);
+}
+/**
+ * Normalize extends entries to a consistent format
+ * Converts string entries to objects and extracts namespace from source
+ */
+export function normalizeExtends(
+  extends_: (string | Record<string, unknown>)[] | undefined
+): Array<{
+  source: string;
+  namespace: string;
+  include?: string[];
+  exclude?: string[];
+  select?: PresetSelection;
+}> {
+  if (!extends_ || extends_.length === 0) {
+    return [];
+  }
+
+  return extends_.map((entry) => {
+    if (typeof entry === "string") {
+      // Parse "github:org/repo" format
+      const match = entry.match(/^github:([^/]+)\/(.+)$/);
+      if (!match) {
+        throw new Error(
+          `Invalid GitHub source: ${entry}. Expected format: github:org/repo`
+        );
+      }
+      return {
+        source: entry,
+        namespace: match[1],
+      };
+    }
+
+    // Handle object entries
+    const obj = entry as Record<string, unknown>;
+    const source = obj.source as string;
+
+    if (!source) {
+      throw new Error("Source is required in extends entry");
+    }
+
+    // Extract namespace from source if not provided
+    let namespace = obj.namespace as string | undefined;
+    if (!namespace) {
+      const match = source.match(/^github:([^/]+)\/(.+)$/);
+      if (!match) {
+        throw new Error(
+          `Invalid GitHub source: ${source}. Expected format: github:org/repo`
+        );
+      }
+      namespace = match[1];
+    }
+
+    const result: {
+      source: string;
+      namespace: string;
+      include?: string[];
+      exclude?: string[];
+      select?: PresetSelection;
+    } = {
+      source,
+      namespace,
+    };
+
+    if (obj.include) {
+      result.include = obj.include as string[];
+    }
+    if (obj.exclude) {
+      result.exclude = obj.exclude as string[];
+    }
+    if (obj.select) {
+      result.select = obj.select as PresetSelection;
+    }
+
+    return result;
+  });
+}
+
+/**
  * Validate configuration file
  */
 export function validateConfig(data: unknown): AgentSyncConfig {
   return AgentSyncConfigSchema.parse(data);
+}
+
+/**
+ * Safe parse local config with error details
+ */
+export function safeParseLocalConfig(
+  data: unknown
+):
+  | { success: true; data: LocalConfig }
+  | { success: false; error: z.ZodError } {
+  const result = LocalConfigSchema.safeParse(data);
+  if (result.success) {
+    return { success: true, data: result.data };
+  } else {
+    return { success: false, error: result.error };
+  }
 }
 
 /**
@@ -326,103 +438,6 @@ export function safeParseAgentsMd(
     return { success: false, error: result.error };
   }
 }
-
-/**
- * Parsed extends entry with normalized namespace
- */
-export interface ExtendsEntry {
-  source: string;
-  namespace: string;
-  include?: string[];
-  exclude?: string[];
-  select?: PresetSelection;
-}
-
-/**
- * Parse extends field to normalized format with extracted namespaces
- * @example
- * normalizeExtends(['github:company/standards']) → [{source: 'github:company/standards', namespace: 'company'}]
- */
-export function normalizeExtends(
-  extends_?: AgentSyncConfig["extends"]
-): ExtendsEntry[] {
-  if (!extends_) return [];
-
-  return extends_.map((entry) => {
-    if (typeof entry === "string") {
-      // Extract namespace from source: github:company/standards → namespace: company
-      const namespace = extractNamespace(entry);
-      return { source: entry, namespace };
-    }
-
-    return {
-      source: entry.source,
-      namespace: entry.namespace || extractNamespace(entry.source),
-      include: entry.include,
-      exclude: entry.exclude,
-      select: entry.select,
-    };
-  });
-}
-
-/**
- * Extract namespace from GitHub source
- * @example
- * extractNamespace('github:company/standards') → 'company'
- * extractNamespace('github:acme-corp/backend-rules') → 'acme-corp'
- */
-function extractNamespace(source: string): string {
-  // github:company/standards → company
-  // github:acme-corp/backend-rules → acme-corp
-  const match = source.match(/^github:([^/]+)\//);
-  if (!match) {
-    throw new Error(
-      `Invalid GitHub source: ${source}. Expected format: github:org/repo`
-    );
-  }
-  return match[1];
-}
-
-
-// User registry configuration
-export const UserRegistryConfigSchema = z.object({
-  presets: z.array(z.string()).min(1, "User presets cannot be empty"),
-  defaultSelections: z.record(z.string(), PresetSelectionSchema).optional(),
-});
-
-// Local configuration for agentsync.local.json
-export const LocalConfigSchema = z.object({
-  version: z.string().default("1.0"),
-  extends: z
-    .array(
-      z.union([
-        z.string(),
-        z.object({
-          source: z.string(),
-          namespace: z.string().optional(),
-          select: PresetSelectionSchema.optional(),
-        }),
-      ])
-    )
-    .optional(),
-});
-
-// Project configuration (team-shared)
-export const ProjectConfigSchema = z.object({
-  selections: z.record(z.string(), PresetSelectionSchema).optional(),
-  overrides: z.record(z.string(), z.any()).optional(),
-  tools: z
-    .array(z.enum(["cursor", "claude", "cline", "windsurf", "copilot"]))
-    .optional(),
-});
-
-// Main interactive selection configuration schema
-export const InteractiveSelectionConfigSchema = z.object({
-  version: z.string().default("2.0"),
-  user: UserRegistryConfigSchema.optional(),
-  project: ProjectConfigSchema.optional(),
-  local: LocalConfigSchema.optional(),
-});
 
 // User Preset Entry Schema (Simplified)
 export const UserPresetEntrySchema = z.object({
@@ -461,16 +476,6 @@ export const UserPresetRegistrySchema = z.object({
   lastUpdated: z.string().datetime().optional(),
 });
 
-// Type exports for interactive selection configuration
-export type FileSelection = z.infer<typeof FileSelectionSchema>;
-export type PresetSelection = z.infer<typeof PresetSelectionSchema>;
-export type UserRegistryConfig = z.infer<typeof UserRegistryConfigSchema>;
-export type LocalConfig = z.infer<typeof LocalConfigSchema>;
-export type ProjectConfig = z.infer<typeof ProjectConfigSchema>;
-export type InteractiveSelectionConfig = z.infer<
-  typeof InteractiveSelectionConfigSchema
->;
-
 // Type exports for user config
 export type UserPresetEntry = z.infer<typeof UserPresetEntrySchema>;
 export type UserConfig = z.infer<typeof UserConfigSchema>;
@@ -478,38 +483,6 @@ export type UserConfig = z.infer<typeof UserConfigSchema>;
 // Type exports for user preset registry (legacy)
 export type UserPreset = z.infer<typeof UserPresetSchema>;
 export type UserPresetRegistryData = z.infer<typeof UserPresetRegistrySchema>;
-
-/**
- * Validate interactive selection configuration
- */
-export function validateInteractiveSelectionConfig(
-  data: unknown
-): InteractiveSelectionConfig {
-  return InteractiveSelectionConfigSchema.parse(data);
-}
-
-/**
- * Safe parse interactive selection configuration with error details
- */
-export function safeParseInteractiveSelectionConfig(
-  data: unknown
-):
-  | { success: true; data: InteractiveSelectionConfig }
-  | { success: false; error: z.ZodError } {
-  const result = InteractiveSelectionConfigSchema.safeParse(data);
-  if (result.success) {
-    return { success: true, data: result.data };
-  } else {
-    return { success: false, error: result.error };
-  }
-}
-
-/**
- * Validate local config
- */
-export function validateLocalConfig(data: unknown): LocalConfig {
-  return LocalConfigSchema.parse(data);
-}
 
 /**
  * Validate user preset entry
@@ -542,27 +515,13 @@ export function validateUserPresetRegistry(
 }
 
 /**
- * Safe parse local config with error details
- */
-export function safeParseLocalConfig(
-  data: unknown
-):
-  | { success: true; data: LocalConfig }
-  | { success: false; error: z.ZodError } {
-  const result = LocalConfigSchema.safeParse(data);
-  if (result.success) {
-    return { success: true, data: result.data };
-  } else {
-    return { success: false, error: result.error };
-  }
-}
-
-/**
  * Safe parse user preset entry with error details
  */
 export function safeParseUserPresetEntry(
   data: unknown
-): { success: true; data: UserPresetEntry } | { success: false; error: z.ZodError } {
+):
+  | { success: true; data: UserPresetEntry }
+  | { success: false; error: z.ZodError } {
   const result = UserPresetEntrySchema.safeParse(data);
   if (result.success) {
     return { success: true, data: result.data };
@@ -576,9 +535,7 @@ export function safeParseUserPresetEntry(
  */
 export function safeParseUserConfig(
   data: unknown
-):
-  | { success: true; data: UserConfig }
-  | { success: false; error: z.ZodError } {
+): { success: true; data: UserConfig } | { success: false; error: z.ZodError } {
   const result = UserConfigSchema.safeParse(data);
   if (result.success) {
     return { success: true, data: result.data };

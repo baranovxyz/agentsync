@@ -12,23 +12,18 @@ import { RegistryOrchestrator } from "../../core/registry/registry-orchestrator.
 import { UserPresetRegistry } from "../../core/registry/user-preset-registry.js";
 import { SourceResolver } from "../../core/registry/source-resolver.js";
 import { ConfigMerger } from "../../core/config/interactive-selection-merger.js";
-import {
-  validateConfig,
-  validateInteractiveSelectionConfig,
-} from "../../types/schemas.js";
-import type { PresetSelection, UserPreset } from "../../types/index.js";
-import { isMatch } from "micromatch";
+import { validateConfig } from "../../types/schemas.js";
+import type { SelectionConfig } from "../../types/index.js";
 import {
   InteractiveSelectionError,
   SelectionValidationError,
   SourceResolutionError,
-  UserPresetRegistryError,
   ConfigError,
-  FileSystemError,
   ErrorHandler,
   ErrorSeverity,
   ErrorCategory,
 } from "../../core/errors.js";
+import { Separator } from "@inquirer/prompts";
 
 /**
  * Options for interactive preset selection
@@ -38,16 +33,6 @@ export interface InteractiveSelectOptions {
   cwd?: string;
   /** Skip confirmation prompts */
   yes?: boolean;
-}
-
-/**
- * Interactive preset selection result
- */
-interface InteractiveSelectResult {
-  presetSource: string;
-  selection: PresetSelection;
-  saveToConfig: boolean;
-  configLevel: "user" | "project" | "local";
 }
 
 /**
@@ -74,7 +59,7 @@ export async function interactiveSelectPreset(
     const config = await loadConfig(cwd);
 
     // 2. Get available preset sources
-    const presetSources = await getAvailablePresetSources(cwd, config);
+    const presetSources = await getAvailablePresetSources(config);
 
     if (presetSources.length === 0) {
       console.log(pc.yellow("No presets available."));
@@ -89,7 +74,7 @@ export async function interactiveSelectPreset(
 
     // 4. Load preset content
     const spinner = ora("Loading preset content...").start();
-    const presetContent = await loadPresetContent(cwd, presetSource);
+    const presetContent = await loadPresetContent(presetSource);
     spinner.succeed("Preset loaded");
 
     // 5. Let user select content types
@@ -187,7 +172,6 @@ async function loadConfig(cwd: string): Promise<any> {
  * Get available preset sources from config and user registry
  */
 async function getAvailablePresetSources(
-  cwd: string,
   config: any
 ): Promise<Array<{ name: string; value: string; description?: string }>> {
   const sources: Array<{ name: string; value: string; description?: string }> =
@@ -198,40 +182,30 @@ async function getAvailablePresetSources(
     for (const source of config.extends) {
       const sourceStr = typeof source === "string" ? source : source.source;
       sources.push({
-        name: `📦 ${sourceStr}`,
+        name: sourceStr,
         value: sourceStr,
-        description: typeof source === "object" ? source.namespace : undefined,
+        description: "From .agentsync/config.json",
       });
     }
   }
 
-  // Add user presets from registry
+  // Add user-registered presets
   try {
     const userRegistry = new UserPresetRegistry();
     const userPresets = await userRegistry.list();
-
-    for (const preset of userPresets) {
-      sources.push({
-        name: `👤 ${preset.name}`,
-        value: `user:${preset.name}`,
-        description: preset.description,
-      });
+    for (const [name, preset] of Object.entries(userPresets)) {
+      // Avoid duplicates
+      if (!sources.some((s) => s.value === preset.source)) {
+        sources.push({
+          name: `${name} (user)`,
+          value: preset.source,
+          description: preset.description || `User-registered preset`,
+        });
+      }
     }
   } catch (error) {
-    // User registry might not exist, continue without it
-    // Log the error for debugging but don't fail the operation
-    console.warn(
-      pc.yellow(
-        `Warning: Could not load user preset registry: ${(error as Error).message}`
-      )
-    );
+    // Silently ignore if user registry fails to load
   }
-
-  // Add option to add new GitHub source
-  sources.push({
-    name: `➕ Add new GitHub source`,
-    value: "add-new",
-  });
 
   return sources;
 }
@@ -242,230 +216,80 @@ async function getAvailablePresetSources(
 async function selectPresetSource(
   sources: Array<{ name: string; value: string; description?: string }>
 ): Promise<string> {
-  const choice = await select({
-    message: "Select a preset source:",
-    choices: sources.map((source) => ({
-      name: source.description
-        ? `${source.name} - ${pc.gray(source.description)}`
-        : source.name,
-      value: source.value,
-    })),
+  const addNew = { name: "Add new GitHub source...", value: "add_new" };
+
+  return select({
+    message: "Select a preset to configure:",
+    choices: [
+      ...sources.map((source) => ({
+        name: source.name,
+        value: source.value,
+        description: source.description,
+      })),
+      new Separator(),
+      addNew,
+    ],
   });
-
-  if (choice === "add-new") {
-    return await addNewGitHubSource();
-  }
-
-  return choice;
-}
-
-/**
- * Add new GitHub source
- */
-async function addNewGitHubSource(): Promise<string> {
-  const source = await input({
-    message: "Enter GitHub source (format: github:org/repo):",
-    validate: (input) => {
-      if (!input.trim()) {
-        return "Source cannot be empty";
-      }
-      if (!input.startsWith("github:") || !input.includes("/")) {
-        return "Invalid format. Expected: github:org/repo";
-      }
-
-      // Additional validation for GitHub source format
-      const parts = input.split(":");
-      if (parts.length !== 2 || !parts[1]) {
-        return "Invalid format. Expected: github:org/repo";
-      }
-
-      const repoParts = parts[1].split("/");
-      if (repoParts.length < 2 || !repoParts[0] || !repoParts[1]) {
-        return "Invalid format. Expected: github:org/repo";
-      }
-
-      return true;
-    },
-  });
-
-  // Ask if user wants to add to user registry
-  const addToRegistry = await confirm({
-    message: "Add this source to your user preset registry?",
-    default: true,
-  });
-
-  if (addToRegistry) {
-    const name = await input({
-      message: "Enter a name for this preset:",
-      validate: (input) => {
-        if (!input.trim()) {
-          return "Name cannot be empty";
-        }
-
-        // Validate preset name format
-        if (!/^[a-zA-Z0-9_-]+$/.test(input.trim())) {
-          return "Name can only contain letters, numbers, hyphens, and underscores";
-        }
-
-        return true;
-      },
-    });
-
-    const description = await input({
-      message: "Enter a description (optional):",
-    });
-
-    try {
-      const userRegistry = new UserPresetRegistry();
-      const namespace = source.split(":")[1].split("/")[0];
-
-      const userPreset: UserPreset = {
-        name: name.trim(),
-        description: description.trim() || `${name} preset`,
-        source,
-        namespace,
-      };
-
-      await userRegistry.add(userPreset);
-      console.log(pc.green(`✓ Added '${name}' to user registry`));
-    } catch (error) {
-      if (error instanceof UserPresetRegistryError) {
-        console.log(
-          pc.yellow(
-            `⚠️  Failed to add to user registry: ${error.getUserMessage()}`
-          )
-        );
-      } else {
-        const wrappedError = ErrorHandler.wrap(
-          error,
-          "Failed to add preset to user registry",
-          ErrorCategory.FILE_SYSTEM,
-          { source, presetName: name }
-        );
-        console.log(
-          pc.yellow(
-            `⚠️  Failed to add to user registry: ${wrappedError.getUserMessage()}`
-          )
-        );
-      }
-    }
-  }
-
-  return source;
 }
 
 /**
  * Load preset content
  */
-async function loadPresetContent(
-  cwd: string,
-  presetSource: string
-): Promise<any> {
+async function loadPresetContent(presetSource: string): Promise<any> {
   const orchestrator = new RegistryOrchestrator();
+  const sourceResolver = new SourceResolver();
 
   try {
-    // If it's a user preset, get the actual GitHub source
-    let actualSource = presetSource;
-    if (presetSource.startsWith("user:")) {
-      const userRegistry = new UserPresetRegistry();
-      const presetName = presetSource.replace("user:", "");
-      const userPreset = await userRegistry.get(presetName);
-      actualSource = userPreset.source;
-    }
-
-    // Create a temporary config with just this preset
-    const tempConfig = {
-      version: "1.0",
-      extends: [actualSource],
-      tools: [],
-      useSymlinks: true,
-    };
-
-    // Load the preset
-    return await orchestrator.loadAndMerge(cwd);
+    const resolved = await sourceResolver.resolve(presetSource, {
+      update: true,
+    });
+    const preset = await orchestrator.loadAndMerge(resolved);
+    return preset;
   } catch (error) {
-    if (error instanceof UserPresetRegistryError) {
-      throw new SourceResolutionError(
-        `Failed to load user preset: ${error.message}`,
-        presetSource,
-        error
-      );
-    }
-
-    if (error instanceof SourceResolutionError) {
-      throw error;
-    }
-
-    throw ErrorHandler.wrap(
-      error,
-      "Failed to load preset content",
-      ErrorCategory.NETWORK,
-      { presetSource, cwd }
+    throw new SourceResolutionError(
+      `Failed to load preset content from ${presetSource}: ${
+        (error as Error).message
+      }`,
+      presetSource
     );
   }
 }
 
 /**
- * Let user select content types
+ * Let user select content types to configure
  */
 async function selectContentTypes(presetContent: any): Promise<string[]> {
-  const availableTypes: Array<{
-    name: string;
-    value: string;
-    disabled?: boolean;
-  }> = [];
+  const choices = [];
+  if (presetContent.rules.size > 0)
+    choices.push({ name: "Rules", value: "rules" });
+  if (presetContent.commands.size > 0)
+    choices.push({ name: "Commands", value: "commands" });
+  if (Object.keys(presetContent.mcps).length > 0)
+    choices.push({ name: "MCPs", value: "mcps" });
 
-  if (presetContent.rules && presetContent.rules.size > 0) {
-    availableTypes.push({
-      name: `📋 Rules (${presetContent.rules.size} files)`,
-      value: "rules",
-    });
-  }
-
-  if (presetContent.commands && presetContent.commands.size > 0) {
-    availableTypes.push({
-      name: `⚡ Commands (${presetContent.commands.size} files)`,
-      value: "commands",
-    });
-  }
-
-  if (presetContent.mcps && Object.keys(presetContent.mcps).length > 0) {
-    availableTypes.push({
-      name: `🔌 MCPs (${Object.keys(presetContent.mcps).length} servers)`,
-      value: "mcps",
-    });
-  }
-
-  if (availableTypes.length === 0) {
+  if (choices.length === 0) {
+    console.log(pc.yellow("Preset has no configurable content."));
     return [];
   }
 
-  return await checkbox({
+  return checkbox({
     message: "Select content types to configure:",
-    choices: availableTypes,
+    choices,
   });
 }
 
 /**
- * Configure file patterns for selected content types
+ * Configure file patterns for each selected type
  */
 async function configureFilePatterns(
   selectedTypes: string[],
   presetContent: any
-): Promise<PresetSelection> {
-  const selection: PresetSelection = {};
+): Promise<SelectionConfig> {
+  const selection: SelectionConfig = {};
 
   for (const type of selectedTypes) {
-    if (type === "rules") {
-      selection.rules = await configureFileTypePatterns(
-        "rules",
-        Array.from(presetContent.rules.keys())
-      );
-    } else if (type === "commands") {
-      selection.commands = await configureFileTypePatterns(
-        "commands",
-        Array.from(presetContent.commands.keys())
-      );
+    if (type === "rules" || type === "commands") {
+      selection[type] = await configureFileTypePatterns(type);
     } else if (type === "mcps") {
       selection.mcps = await configureMcpSelection(
         Object.keys(presetContent.mcps)
@@ -477,97 +301,43 @@ async function configureFilePatterns(
 }
 
 /**
- * Configure file patterns for a specific content type
+ * Configure include/exclude patterns for a file type
  */
 async function configureFileTypePatterns(
-  type: string,
-  availableFiles: string[]
+  type: "rules" | "commands"
 ): Promise<{ include: string[]; exclude?: string[] }> {
-  console.log(pc.cyan(`\n📁 Available ${type} files:`));
-  availableFiles.forEach((file) => console.log(pc.gray(`  ${file}`)));
+  console.log(pc.cyan(`\nConfiguring ${type} selection:`));
 
-  const includePatterns = await input({
-    message: `Include patterns for ${type} (comma-separated):`,
+  const include = await input({
+    message: `Include patterns (comma-separated, e.g., *, **/*.js):`,
     validate: (input) => {
-      if (!input.trim()) {
+      if (!input) {
         return "Include patterns cannot be empty";
       }
-
-      const patterns = input.split(",").map((p) => p.trim());
-      for (const pattern of patterns) {
-        try {
-          // Test if pattern is valid glob
-          isMatch("test", pattern);
-        } catch (error) {
-          throw new SelectionValidationError(
-            `Invalid glob pattern: ${pattern}`,
-            [
-              {
-                path: [type, "include"],
-                message: `Pattern "${pattern}" is not a valid glob pattern`,
-              },
-            ],
-            { type, pattern, availableFiles }
-          );
-        }
-      }
-
       return true;
     },
   });
 
-  const excludePatterns = await input({
-    message: `Exclude patterns for ${type} (comma-separated, optional):`,
-    validate: (input) => {
-      if (!input.trim()) {
-        return true; // Optional field
-      }
-
-      const patterns = input.split(",").map((p) => p.trim());
-      for (const pattern of patterns) {
-        try {
-          // Test if pattern is valid glob
-          isMatch("test", pattern);
-        } catch (error) {
-          throw new SelectionValidationError(
-            `Invalid glob pattern: ${pattern}`,
-            [
-              {
-                path: [type, "exclude"],
-                message: `Pattern "${pattern}" is not a valid glob pattern`,
-              },
-            ],
-            { type, pattern, availableFiles }
-          );
-        }
-      }
-
-      return true;
-    },
+  const exclude = await input({
+    message: `Exclude patterns (optional, comma-separated):`,
   });
 
-  const result: { include: string[]; exclude?: string[] } = {
-    include: includePatterns.split(",").map((p) => p.trim()),
+  return {
+    include: include.split(",").map((p) => p.trim()),
+    exclude: exclude ? exclude.split(",").map((p) => p.trim()) : undefined,
   };
-
-  if (excludePatterns.trim()) {
-    result.exclude = excludePatterns.split(",").map((p) => p.trim());
-  }
-
-  return result;
 }
 
 /**
- * Configure MCP server selection
+ * Configure MCP selection
  */
 async function configureMcpSelection(
   availableMcps: string[]
 ): Promise<string[]> {
-  console.log(pc.cyan(`\n🔌 Available MCP servers:`));
-  availableMcps.forEach((mcp) => console.log(pc.gray(`  ${mcp}`)));
+  console.log(pc.cyan(`\nConfiguring MCP selection:`));
 
-  return await checkbox({
-    message: "Select MCP servers:",
+  return checkbox({
+    message: "Select MCPs to include:",
     choices: availableMcps.map((mcp) => ({ name: mcp, value: mcp })),
   });
 }
@@ -578,92 +348,59 @@ async function configureMcpSelection(
 async function validateSelection(
   cwd: string,
   presetSource: string,
-  selection: PresetSelection
-): Promise<void> {
+  selection: SelectionConfig
+) {
   const orchestrator = new RegistryOrchestrator();
+  const validation = await orchestrator.validateSelections(cwd, {
+    [presetSource]: selection,
+  });
 
-  try {
-    // If it's a user preset, get the actual GitHub source
-    let actualSource = presetSource;
-    if (presetSource.startsWith("user:")) {
-      const userRegistry = new UserPresetRegistry();
-      const presetName = presetSource.replace("user:", "");
-      const userPreset = await userRegistry.get(presetName);
-      actualSource = userPreset.source;
-    }
-
-    const validation = await orchestrator.validateSelections(cwd, {
-      [actualSource]: selection,
-    });
-
-    if (!validation.valid) {
-      throw new SelectionValidationError(
-        `Selection validation failed`,
-        validation.errors.map((error, index) => ({
-          path: ["selection", String(index)],
-          message: error,
-        })),
-        { presetSource, selection, validationErrors: validation.errors }
-      );
-    }
-  } catch (error) {
-    if (error instanceof SelectionValidationError) {
-      throw error;
-    }
-
-    if (error instanceof UserPresetRegistryError) {
-      throw new SelectionValidationError(
-        `Failed to validate selection: ${error.message}`,
-        [],
-        { presetSource, selection, originalError: error }
-      );
-    }
-
-    throw ErrorHandler.wrap(
-      error,
+  if (!validation.valid) {
+    throw new SelectionValidationError(
       "Selection validation failed",
-      ErrorCategory.VALIDATION,
-      { presetSource, selection }
+      validation.errors.map((error) => ({
+        path: [],
+        message: error,
+      }))
     );
   }
 }
 
 /**
- * Show preview of selected content
+ * Show preview of the selection
  */
 async function showPreview(
   presetContent: any,
-  selection: PresetSelection
+  selection: SelectionConfig
 ): Promise<void> {
-  console.log(pc.blue("\n📋 Preview of Selection:\n"));
+  console.log(pc.cyan("\n📝 Selection Preview"));
+  console.log(pc.gray("--------------------"));
 
   const merger = new ConfigMerger();
   const applied = merger.applySelections(presetContent, selection);
 
   if (applied.rules.size > 0) {
-    console.log(pc.cyan(`📋 Rules (${applied.rules.size} files):`));
-    for (const [filename] of applied.rules.entries()) {
-      console.log(pc.gray(`  ✓ ${filename}`));
+    console.log(pc.bold("Rules:"));
+    for (const filename of applied.rules.keys()) {
+      console.log(pc.green(`  + ${filename}`));
     }
   }
 
   if (applied.commands.size > 0) {
-    console.log(pc.cyan(`⚡ Commands (${applied.commands.size} files):`));
-    for (const [filename] of applied.commands.entries()) {
-      console.log(pc.gray(`  ✓ ${filename}`));
+    console.log(pc.bold("Commands:"));
+    for (const filename of applied.commands.keys()) {
+      console.log(pc.green(`  + ${filename}`));
     }
   }
 
   if (Object.keys(applied.mcps).length > 0) {
-    console.log(
-      pc.cyan(`🔌 MCPs (${Object.keys(applied.mcps).length} servers):`)
-    );
+    console.log(pc.bold("MCPs:"));
     for (const mcpName of Object.keys(applied.mcps)) {
-      console.log(pc.gray(`  ✓ ${mcpName}`));
+      console.log(pc.green(`  + ${mcpName}`));
     }
   }
 
-  console.log();
+  console.log(pc.gray("--------------------"));
 }
 
 /**
@@ -672,84 +409,40 @@ async function showPreview(
 async function saveSelection(
   cwd: string,
   presetSource: string,
-  selection: PresetSelection
+  selection: SelectionConfig
 ): Promise<void> {
   const configPath = path.join(cwd, ".agentsync", "config.json");
+  const configContent = await readFile(configPath, "utf-8");
+  const config = validateConfig(JSON.parse(configContent));
 
-  try {
-    // Load current config
-    const configContent = await readFile(configPath, "utf-8");
-    const config = JSON.parse(configContent);
+  // Find the preset in the extends array
+  const extendsIndex = config.extends?.findIndex(
+    (e) => (typeof e === "string" ? e : e.source) === presetSource
+  );
 
-    // Initialize interactive selection if not present
-    if (!config.interactiveSelection) {
-      config.interactiveSelection = {
-        version: "2.0",
-        project: {
-          selections: {},
-        },
+  if (extendsIndex === undefined || extendsIndex === -1) {
+    // If not found, add it
+    if (!config.extends) {
+      config.extends = [];
+    }
+    config.extends.push({ source: presetSource, select: selection });
+  } else {
+    // If found, update it
+    const extendsEntry = config.extends![extendsIndex];
+    if (typeof extendsEntry === "string") {
+      // Convert string entry to object with selection
+      config.extends![extendsIndex] = {
+        source: extendsEntry,
+        select: selection,
+      };
+    } else {
+      // Update existing object entry
+      config.extends![extendsIndex] = {
+        ...extendsEntry,
+        select: selection,
       };
     }
-
-    // Initialize project selections if not present
-    if (!config.interactiveSelection.project) {
-      config.interactiveSelection.project = {
-        selections: {},
-      };
-    }
-
-    if (!config.interactiveSelection.project.selections) {
-      config.interactiveSelection.project.selections = {};
-    }
-
-    // If it's a user preset, get the actual GitHub source
-    let actualSource = presetSource;
-    if (presetSource.startsWith("user:")) {
-      const userRegistry = new UserPresetRegistry();
-      const presetName = presetSource.replace("user:", "");
-      const userPreset = await userRegistry.get(presetName);
-      actualSource = userPreset.source;
-    }
-
-    // Add/update selection
-    config.interactiveSelection.project.selections[actualSource] = selection;
-
-    // Validate and save
-    validateInteractiveSelectionConfig(config.interactiveSelection);
-    await writeFile(configPath, JSON.stringify(config, null, 2), "utf-8");
-  } catch (error) {
-    if (error instanceof SyntaxError) {
-      throw new ConfigError(
-        `Configuration file contains invalid JSON: ${error.message}`,
-        configPath,
-        "Check the syntax of your configuration file and ensure it's valid JSON"
-      );
-    }
-
-    if ((error as any).code === "ENOENT") {
-      throw new FileSystemError("Configuration file not found", configPath);
-    }
-
-    if ((error as any).code === "EACCES") {
-      throw new FileSystemError(
-        "Permission denied writing to configuration file",
-        configPath
-      );
-    }
-
-    if (error instanceof UserPresetRegistryError) {
-      throw new FileSystemError(
-        `Failed to resolve user preset: ${error.message}`,
-        configPath,
-        error
-      );
-    }
-
-    throw ErrorHandler.wrap(
-      error,
-      "Failed to save selection to configuration",
-      ErrorCategory.FILE_SYSTEM,
-      { configPath, presetSource, selection }
-    );
   }
+
+  await writeFile(configPath, JSON.stringify(config, null, 2), "utf-8");
 }

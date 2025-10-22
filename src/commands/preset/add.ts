@@ -4,10 +4,10 @@
 
 import picocolors from "picocolors";
 import { validateConfig, validateUserPreset } from "../../types/schemas.js";
-import { saveSelectionsForProject } from "../../core/config/interactive-selection-merger.js";
+import { ConfigMerger } from "../../core/config/interactive-selection-merger.js";
 import { readFile, writeFile } from "node:fs/promises";
 import * as path from "path";
-import type { UserPreset, PresetSelection } from "../../types/index.js";
+import type { UserPreset, SelectionConfig } from "../../types/index.js";
 
 const pc = picocolors;
 
@@ -15,7 +15,7 @@ export interface AddPresetOptions {
   /** Working directory (defaults to process.cwd()) */
   cwd?: string;
   /** Selection to apply to the preset */
-  selection?: PresetSelection;
+  selection?: SelectionConfig;
   /** Skip confirmation prompts */
   yes?: boolean;
 }
@@ -23,7 +23,7 @@ export interface AddPresetOptions {
 export interface AddPresetResult {
   success: boolean;
   preset?: UserPreset;
-  selection?: PresetSelection;
+  selection?: SelectionConfig;
   message?: string;
   error?: string;
 }
@@ -56,7 +56,11 @@ export async function addPreset(
     const config = validateConfig(JSON.parse(configContent));
 
     // Check for duplicates
-    if (config.extends?.includes(preset.source)) {
+    if (
+      config.extends?.find(
+        (e) => (typeof e === "string" ? e : e.source) === preset.source
+      )
+    ) {
       return {
         success: false,
         error: `Preset '${preset.source}' already exists in configuration`,
@@ -79,13 +83,18 @@ export async function addPreset(
     // Save selection if provided
     if (options.selection) {
       try {
+        const merger = new ConfigMerger();
         // Load existing selections
-        let existingSelections: Record<string, PresetSelection> = {};
+        let existingSelections: Record<string, SelectionConfig> = {};
         try {
-          const { loadSelectionsForProject } = await import(
-            "../../core/config/interactive-selection-merger.js"
+          const projectConfigContent = await readFile(
+            path.join(cwd, ".agentsync", "interactive-selections.json"),
+            "utf-8"
           );
-          existingSelections = await loadSelectionsForProject(cwd);
+          const projectConfig = JSON.parse(projectConfigContent);
+          if (projectConfig.project?.selections) {
+            existingSelections = projectConfig.project.selections;
+          }
         } catch {
           // Continue with empty selections if file doesn't exist
         }
@@ -96,7 +105,7 @@ export async function addPreset(
           [preset.source]: options.selection,
         };
 
-        await saveSelectionsForProject(cwd, updatedSelections);
+        await merger.saveSelectionsForProject(cwd, updatedSelections);
       } catch (error) {
         // If saving selection fails, we should still consider the preset added
         // but warn the user
@@ -160,7 +169,7 @@ export async function handleAddPresetCommand(
   source: string,
   options: { selection?: boolean; yes?: boolean }
 ): Promise<void> {
-  let selection: PresetSelection | undefined;
+  let selection: SelectionConfig | undefined;
 
   // If selection flag is provided, prompt for selection details
   if (options.selection) {
@@ -198,6 +207,5 @@ export async function handleAddPresetCommand(
     console.log(pc.gray("\nRun 'agentsync sync' to apply changes"));
   } else {
     console.log(pc.red(`✗ Failed to add preset: ${result.error}`));
-    process.exit(1);
   }
 }

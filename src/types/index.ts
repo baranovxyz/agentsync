@@ -10,15 +10,17 @@ export * from "./preset";
 
 // Re-export interactive selection types
 export type {
-  FileSelection,
-  PresetSelection,
-  UserRegistryConfig,
-  LocalConfig,
-  ProjectConfig,
-  InteractiveSelectionConfig,
   UserPreset,
   UserPresetRegistryData,
+  SelectionConfig,
+  Extends,
+  ExtendsEntry,
+  PresetSelection,
+  LocalConfig,
 } from "./schemas";
+
+// Re-export utility functions
+export { normalizeExtends } from "./schemas";
 
 // Tool types
 export type ToolName = "cursor" | "claude" | "cline" | "windsurf" | "copilot";

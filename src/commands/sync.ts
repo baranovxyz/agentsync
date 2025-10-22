@@ -31,7 +31,7 @@ export interface MainSyncOptions {
   /** Sync only to specific tool */
   tool?: string;
   /** Selective loading options for presets */
-  selections?: Record<string, import("../types/index.js").PresetSelection>;
+  selections?: Record<string, import("../types/index.js").SelectionConfig>;
 }
 
 /**
@@ -135,36 +135,49 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
 
     let merged;
     try {
-      // Use selective loading if selections are provided
-      if (options.selections && Object.keys(options.selections).length > 0) {
-        // Validate selections first
-        const validation = await orchestrator.validateSelections(
-          cwd,
-          options.selections,
-          {
-            update: options.update,
-          }
-        );
+      // Check if any extends entries have selection criteria
+      const hasSelections = config.extends?.some(
+        (entry) => typeof entry !== "string" && entry.select
+      );
 
-        if (!validation.valid) {
-          if (presetSpinner) {
-            presetSpinner.fail("Invalid selections");
-          }
-          throw new Error(
-            `Invalid selections:\n${validation.errors.map((e) => `  - ${e}`).join("\n")}`
+      if (
+        hasSelections ||
+        (options.selections && Object.keys(options.selections).length > 0)
+      ) {
+        // Use selective loading when selections are present in config or options
+        if (options.selections && Object.keys(options.selections).length > 0) {
+          // Validate selections first
+          const validation = await orchestrator.validateSelections(
+            cwd,
+            options.selections,
+            {
+              update: options.update,
+            }
           );
+
+          if (!validation.valid) {
+            if (presetSpinner) {
+              presetSpinner.fail("Invalid selections");
+            }
+            throw new Error(
+              `Invalid selections:\n${validation.errors.map((e) => `  - ${e}`).join("\n")}`
+            );
+          }
         }
 
         merged = await orchestrator.loadAndMergeSelective(
           cwd,
-          options.selections,
+          options.selections || {},
           {
             update: options.update,
           }
         );
 
         if (presetSpinner) {
-          const selectionCount = Object.keys(options.selections).length;
+          const selectionCount =
+            config.extends?.filter(
+              (entry) => typeof entry !== "string" && entry.select
+            ).length || 0;
           presetSpinner.succeed(
             `Loaded ${config.extends?.length || 0} ${config.extends?.length === 1 ? "library" : "libraries"} with ${selectionCount} selection${selectionCount === 1 ? "" : "s"}`
           );

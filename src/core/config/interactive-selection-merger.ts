@@ -4,23 +4,18 @@
  * and applying file-level selections from presets
  */
 
-import type {
-  InteractiveSelectionConfig,
-  PresetSelection,
-  FileSelection,
-} from "../../types/index.js";
+import type { SelectionConfig } from "../../types/index.js";
 import type { Preset } from "../../types/preset.js";
 import { isMatch } from "micromatch";
 import { readFile, writeFile } from "node:fs/promises";
 import * as path from "path";
-import { validateInteractiveSelectionConfig } from "../../types/schemas.js";
 
 /**
  * Merged configuration result
  */
 export interface MergedConfig {
   presets: string[];
-  selections: Record<string, PresetSelection>;
+  selections: Record<string, SelectionConfig>;
   overrides: Record<string, any>;
   tools: string[];
 }
@@ -39,76 +34,11 @@ export interface AppliedSelection {
  */
 export class ConfigMerger {
   /**
-   * Merge configurations from user/project/local levels
-   * Priority order: user -> project -> local (later levels override earlier ones)
-   */
-  mergeConfig(config: InteractiveSelectionConfig): MergedConfig {
-    const presets: string[] = [];
-    const selections: Record<string, PresetSelection> = {};
-    const overrides: Record<string, any> = {};
-    const tools: string[] = [];
-
-    // Collect presets from user level
-    if (config.user?.presets) {
-      presets.push(...config.user.presets);
-    }
-
-    // Merge selections in priority order: user -> project -> local
-    // Later levels override earlier ones for the same preset, but merge at field level
-    if (config.user?.defaultSelections) {
-      for (const [preset, selection] of Object.entries(
-        config.user.defaultSelections
-      )) {
-        selections[preset] = { ...selection };
-      }
-    }
-    if (config.project?.selections) {
-      for (const [preset, selection] of Object.entries(
-        config.project.selections
-      )) {
-        // Merge with existing selection if it exists
-        const existing = selections[preset] || {};
-        selections[preset] = {
-          ...existing,
-          ...selection,
-        };
-      }
-    }
-    if (config.local?.selections) {
-      for (const [preset, selection] of Object.entries(
-        config.local.selections
-      )) {
-        // Merge with existing selection if it exists
-        const existing = selections[preset] || {};
-        selections[preset] = {
-          ...existing,
-          ...selection,
-        };
-      }
-    }
-
-    // Merge overrides in priority order: project -> local
-    if (config.project?.overrides) {
-      Object.assign(overrides, config.project.overrides);
-    }
-    if (config.local?.overrides) {
-      Object.assign(overrides, config.local.overrides);
-    }
-
-    // Collect tools from project level
-    if (config.project?.tools) {
-      tools.push(...config.project.tools);
-    }
-
-    return { presets, selections, overrides, tools };
-  }
-
-  /**
    * Apply file-level selections to preset content
    */
   applySelections(
     preset: Preset,
-    selection: PresetSelection
+    selection: SelectionConfig
   ): AppliedSelection {
     const result: AppliedSelection = {
       commands: new Map(),
@@ -151,7 +81,7 @@ export class ConfigMerger {
    */
   private matchesPattern(
     filename: string,
-    fileSelection: FileSelection
+    fileSelection: { include?: string[]; exclude?: string[] }
   ): boolean {
     if (
       !fileSelection ||
@@ -195,7 +125,7 @@ export class ConfigMerger {
    */
   validateMCPSelection(
     preset: Preset,
-    selection: PresetSelection
+    selection: SelectionConfig
   ): { valid: boolean; errors: string[] } {
     const errors: string[] = [];
 
@@ -221,7 +151,7 @@ export class ConfigMerger {
   getEffectiveSelection(
     presetSource: string,
     mergedConfig: MergedConfig
-  ): PresetSelection | undefined {
+  ): SelectionConfig | undefined {
     return mergedConfig.selections[presetSource];
   }
 
@@ -233,8 +163,8 @@ export class ConfigMerger {
     if (!selection) return false;
 
     return !!(
-      (selection.rules && selection.rules.include.length > 0) ||
-      (selection.commands && selection.commands.include.length > 0) ||
+      (selection.rules?.include && selection.rules.include.length > 0) ||
+      (selection.commands?.include && selection.commands.include.length > 0) ||
       (selection.mcps && selection.mcps.length > 0)
     );
   }
@@ -278,92 +208,31 @@ export class ConfigMerger {
     return merged;
   }
 
-  /**
-   * Load selections for a project from the interactive selection config
-   */
-  async loadSelectionsForProject(
-    cwd: string
-  ): Promise<Record<string, PresetSelection>> {
-    const configPath = path.join(
-      cwd,
-      ".agentsync",
-      "interactive-selection.json"
-    );
-
-    try {
-      const configContent = await readFile(configPath, "utf-8");
-      const config = validateInteractiveSelectionConfig(
-        JSON.parse(configContent)
-      );
-      const mergedConfig = this.mergeConfig(config);
-      return mergedConfig.selections;
-    } catch (error) {
-      // If file doesn't exist or is invalid, return empty selections
-      return {};
-    }
-  }
-
-  /**
-   * Save selections for a project to the interactive selection config
-   */
   async saveSelectionsForProject(
     cwd: string,
-    selections: Record<string, PresetSelection>
+    selections: Record<string, SelectionConfig>
   ): Promise<void> {
     const configPath = path.join(
       cwd,
       ".agentsync",
-      "interactive-selection.json"
+      "interactive-selections.json"
     );
+    let config: any;
 
     try {
-      let config: InteractiveSelectionConfig;
-
-      try {
-        // Load existing config
-        const configContent = await readFile(configPath, "utf-8");
-        config = validateInteractiveSelectionConfig(JSON.parse(configContent));
-      } catch {
-        // Create new config if file doesn't exist
-        config = { version: "2.0" };
-      }
-
-      // Ensure project config exists
-      if (!config.project) {
-        config.project = {};
-      }
-
-      // Update selections
-      config.project.selections = selections;
-
-      // Save updated config
-      await writeFile(configPath, JSON.stringify(config, null, 2), "utf-8");
+      const content = await readFile(configPath, "utf-8");
+      config = JSON.parse(content);
     } catch (error) {
-      throw new Error(`Failed to save selections: ${(error as Error).message}`);
+      // If file doesn't exist or is invalid, create a new one
+      config = { version: "2.0" };
     }
+
+    // Update project-level selections
+    config.project = {
+      ...config.project,
+      selections,
+    };
+
+    await writeFile(configPath, JSON.stringify(config, null, 2), "utf-8");
   }
-}
-
-/**
- * Default merger instance
- */
-export const configMerger = new ConfigMerger();
-
-/**
- * Load selections for a project (convenience function)
- */
-export async function loadSelectionsForProject(
-  cwd: string
-): Promise<Record<string, PresetSelection>> {
-  return configMerger.loadSelectionsForProject(cwd);
-}
-
-/**
- * Save selections for a project (convenience function)
- */
-export async function saveSelectionsForProject(
-  cwd: string,
-  selections: Record<string, PresetSelection>
-): Promise<void> {
-  return configMerger.saveSelectionsForProject(cwd, selections);
 }
