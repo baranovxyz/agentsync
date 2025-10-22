@@ -50,7 +50,7 @@ pnpm cli --help
 # Type checking only (no emit)
 pnpm lint
 
-# Format code with Prettier
+# Format and lint code with Biome
 pnpm lint:fix
 ```
 
@@ -956,6 +956,16 @@ The MCP configuration supports both array and object formats, and **empty config
 - Use type-only imports when possible
 - Prefer interfaces over types for objects
 - Use const assertions for literals
+
+### Code Formatting and Linting
+
+- **Biome** for all linting and formatting (replaces Prettier + ESLint)
+- 2-space indentation, double quotes, 80-char line width
+- Automatic import sorting and organization
+- Strict linting rules enabled (no unused variables, prefer const, etc.)
+- Run `pnpm lint` for type checking + linting
+- Run `pnpm lint:fix` for auto-fixing issues
+- Run `pnpm format` for formatting only
 
 ### Error Handling
 
