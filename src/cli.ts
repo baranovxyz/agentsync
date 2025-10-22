@@ -335,8 +335,12 @@ program.on("--help", () => {
   );
   console.log("  $ agentsync sync --dry-run            # Preview sync changes");
   console.log(
+    "  $ agentsync sync --selections         # Sync with interactive selections"
+  );
+  console.log(
     "  $ agentsync preset list               # List configured presets"
   );
+  console.log("  $ agentsync preset list --verbose     # List with selections");
   console.log("  $ agentsync preset cache-clear        # Clear preset caches");
   console.log(
     "  $ agentsync preset interactive-select # Interactively select presets"
@@ -346,6 +350,9 @@ program.on("--help", () => {
   );
   console.log(
     "  $ agentsync preset add github:org/repo  # Add preset to configuration"
+  );
+  console.log(
+    "  $ agentsync preset add github:org/repo --selection  # Add with selection"
   );
   console.log("  $ agentsync mcp list                  # List available MCPs");
   console.log("  $ agentsync mcp add github            # Add MCP server");
