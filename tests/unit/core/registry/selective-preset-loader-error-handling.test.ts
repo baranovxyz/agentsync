@@ -6,9 +6,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ErrorCategory,
   SelectiveLoadingError,
-} from "../../../src/core/errors.js";
-import { SelectivePresetLoader } from "../../../src/core/registry/selective-preset-loader.js";
-import type { Preset, PresetSelection } from "../../../src/types/index.js";
+} from "@/core/errors";
+import { SelectivePresetLoader } from "@/core/registry/selective-preset-loader";
+import type { Preset, PresetSelection } from "@/types/index";
 
 describe("SelectivePresetLoader error handling", () => {
   let loader: SelectivePresetLoader;

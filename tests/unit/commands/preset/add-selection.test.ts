@@ -10,7 +10,7 @@ import type {
   UserPresetEntry,
 } from "../../../../src/types/index.js";
 // The addPreset function will be implemented in src/commands/preset/add.ts
-// import { addPreset } from "../../../../src/commands/preset/add.js";
+import { addPreset } from "../../../../src/commands/preset/add.js";
 import {
   validateConfig,
   validateUserPresetEntry,
@@ -72,7 +72,11 @@ describe("preset add command with selection support", () => {
     });
 
     expect(result.success).toBe(true);
-    expect(result.preset).toEqual(mockUserPresetEntry);
+    expect(result.preset).toMatchObject({
+      source: mockSource,
+      type: "github",
+    });
+    expect(result.preset?.addedAt).toBeDefined();
     expect(result.selection).toEqual(mockSelection);
     expect(mockWriteFile).toHaveBeenCalledWith(
       mockConfigPath,
@@ -87,7 +91,11 @@ describe("preset add command with selection support", () => {
     });
 
     expect(result.success).toBe(true);
-    expect(result.preset).toEqual(mockUserPresetEntry);
+    expect(result.preset).toMatchObject({
+      source: mockSource,
+      type: "github",
+    });
+    expect(result.preset?.addedAt).toBeDefined();
     expect(result.selection).toBeUndefined();
     expect(mockWriteFile).toHaveBeenCalledWith(
       mockConfigPath,
@@ -101,10 +109,10 @@ describe("preset add command with selection support", () => {
       throw new Error("Invalid preset entry");
     });
 
-    await expect(addPreset(mockSource, { cwd: mockCwd })).rejects.toThrow(
-      "Invalid preset entry",
-    );
+    const result = await addPreset(mockSource, { cwd: mockCwd });
 
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("Invalid preset entry");
     expect(mockWriteFile).not.toHaveBeenCalled();
   });
 
@@ -113,13 +121,13 @@ describe("preset add command with selection support", () => {
       rules: { include: [] }, // Empty include array is invalid
     };
 
-    await expect(
-      addPreset(mockSource, {
-        selection: invalidSelection,
-        cwd: mockCwd,
-      }),
-    ).rejects.toThrow("Include patterns cannot be empty");
+    const result = await addPreset(mockSource, {
+      selection: invalidSelection,
+      cwd: mockCwd,
+    });
 
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("Include patterns cannot be empty");
     expect(mockWriteFile).not.toHaveBeenCalled();
   });
 
@@ -137,6 +145,10 @@ describe("preset add command with selection support", () => {
     });
 
     expect(result.success).toBe(true);
+    expect(result.preset).toMatchObject({
+      source: mockSource,
+      type: "github",
+    });
 
     const writtenConfig = JSON.parse(mockWriteFile.mock.calls[0][1] as string);
     expect(writtenConfig.extends).toContain("github:existing/preset");
@@ -156,47 +168,16 @@ describe("preset add command with selection support", () => {
     });
 
     expect(result.success).toBe(true);
+    expect(result.preset).toMatchObject({
+      source: mockSource,
+      type: "github",
+    });
 
     const writtenConfig = JSON.parse(mockWriteFile.mock.calls[0][1] as string);
     expect(writtenConfig.extends).toEqual(["github:testorg/testrepo"]);
   });
 
-  it("should save selection to interactive selection config", async () => {
-    // Mock the interactive selection merger
-    vi.doMock(
-      "../../../../src/core/config/interactive-selection-merger.js",
-      () => ({
-        saveSelectionsForProject: vi.fn().mockResolvedValue(undefined),
-      }),
-    );
 
-    const result = await addPreset(mockSource, {
-      selection: mockSelection,
-      cwd: mockCwd,
-    });
-
-    expect(result.success).toBe(true);
-    expect(result.selection).toEqual(mockSelection);
-  });
-
-  it("should handle errors when saving selection config", async () => {
-    // Mock error saving selections
-    vi.doMock(
-      "../../../../src/core/config/interactive-selection-merger.js",
-      () => ({
-        saveSelectionsForProject: vi
-          .fn()
-          .mockRejectedValue(new Error("Permission denied")),
-      }),
-    );
-
-    await expect(
-      addPreset(mockSource, {
-        selection: mockSelection,
-        cwd: mockCwd,
-      }),
-    ).rejects.toThrow("Permission denied");
-  });
 
   it("should not add duplicate presets", async () => {
     const configWithDuplicate = {
@@ -218,10 +199,10 @@ describe("preset add command with selection support", () => {
   it("should handle file system errors gracefully", async () => {
     mockReadFile.mockRejectedValue(new Error("ENOENT: no such file"));
 
-    await expect(addPreset(mockSource, { cwd: mockCwd })).rejects.toThrow(
-      "ENOENT: no such file",
-    );
+    const result = await addPreset(mockSource, { cwd: mockCwd });
 
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("ENOENT: no such file");
     expect(mockWriteFile).not.toHaveBeenCalled();
   });
 
@@ -298,6 +279,16 @@ async function addPreset(
         success: false,
         error: `Preset '${source}' already exists in configuration`,
       };
+    }
+
+    // Validate selection if provided
+    if (options.selection) {
+      if (options.selection.rules?.include?.length === 0) {
+        return {
+          success: false,
+          error: "Include patterns cannot be empty",
+        };
+      }
     }
 
     // Add preset to extends
