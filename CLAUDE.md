@@ -81,6 +81,12 @@ pnpm test src/security/scanner.test.ts
 - Use `init` command in tests instead of manually creating config files
 - Create helper functions for common setup patterns
 
+**Architecture-First Testing:**
+
+- When fixing architectural issues, write integration tests with real file system operations
+- Identify root cause before fixing symptoms - architectural mismatches often hide behind passing mocks
+- Use helper functions for common file operations in tests instead of mocking when testing file system interactions
+
 **E2E Test Requirements:**
 
 - Complete CLI environment: `dist/`, `package.json`, `templates/`, `node_modules/`
@@ -1092,12 +1098,14 @@ The MCP configuration supports both array and object formats, and **empty config
 - **Why**: NODE_PATH only affects CommonJS `require()`, not ESM `import` statements
 - **Test isolation**: Create symlink to node_modules in temp CLI location (see Test Isolation Best Practices)
 - **Alternative**: Copy node_modules (slow, ~500MB) or run from original location (loses isolation)
+- **Integration tests**: Use real file system operations instead of mocking when testing file system interactions
 - **See**: ADR-002 (agentsync-docs/adr) for complete analysis
 
 ### Filesystem Utilities
 
 - **Native Node.js APIs**: AgentSync uses native `node:fs/promises` APIs exclusively
 - **Utility helpers**: Common operations wrapped in `src/utils/fs.ts`
+- **Preference**: Use `src/utils/fs.js` helpers in tests for consistency with implementation
 - **Pattern**:
 
   ```typescript
@@ -1148,6 +1156,12 @@ When fixing bugs, follow TDD approach:
    - Force flag override (when applicable)
 
 Example: Init command fix added 3 new tests + 1 updated test before implementation.
+
+**Architecture-First Debugging:**
+
+- Identify root cause before fixing symptoms - architectural mismatches often hide behind passing mocks
+- When tests pass with mocks but fail in real usage, investigate architectural consistency
+- Use helper functions for common file operations in tests instead of mocking when testing file system interactions
 
 **Key Learning**: When upgrading dependencies, update test mocks BEFORE implementation to catch API changes early.
 
