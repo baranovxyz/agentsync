@@ -23,6 +23,7 @@ import { interactiveRemovePreset } from "./commands/preset/interactive-remove.js
 import { interactiveSelectPreset } from "./commands/preset/interactive-select.js";
 import { listPresets } from "./commands/preset/list.js";
 import { sync } from "./commands/sync.js";
+import type { PresetSelection } from "./types/schemas.js";
 
 const pc = picocolors;
 
@@ -57,7 +58,7 @@ program
   .option("-t, --tool <tool>", "Sync only to a specific tool")
   .option("-s, --selections", "Sync with interactive selections")
   .action(async (options) => {
-    let selections;
+    let selections: PresetSelection | undefined;
     if (options.selections) {
       try {
         const projectConfigContent = await readFile(
@@ -77,7 +78,7 @@ program
       dryRun: options.dryRun,
       update: options.update,
       tool: options.tool,
-      selections,
+      selections: selections as Record<string, any>,
     });
   });
 
