@@ -322,7 +322,6 @@ async function addNewGitHubSource(): Promise<string> {
       const userPreset: UserPreset = {
         name: name.trim(),
         description: description.trim() || `${name} preset`,
-        version: "1.0.0",
         source,
         namespace,
       };

@@ -146,7 +146,6 @@ export async function addPresetFromSource(
   const preset: UserPreset = {
     name: repo,
     description: `Preset from ${org}/${repo}`,
-    version: "1.0.0",
     source,
     namespace: org,
   };
