@@ -123,11 +123,8 @@ export class UserPresetRegistry {
       );
     }
 
-    // Update metadata
-    this.registryData.metadata.updatedAt = new Date().toISOString();
-    this.registryData.metadata.totalPresets = Object.keys(
-      this.registryData.presets
-    ).length;
+    // Update lastUpdated timestamp
+    this.registryData.lastUpdated = new Date().toISOString();
 
     // Write to file
     try {
@@ -163,13 +160,8 @@ export class UserPresetRegistry {
   private createEmptyRegistry(): UserPresetRegistryData {
     const now = new Date().toISOString();
     return {
-      version: "1.0",
       presets: {},
-      metadata: {
-        createdAt: now,
-        updatedAt: now,
-        totalPresets: 0,
-      },
+      lastUpdated: now,
     };
   }
 
@@ -193,19 +185,15 @@ export class UserPresetRegistry {
         );
       }
 
-      // Add timestamps to metadata
+      // Add timestamp
       const now = new Date().toISOString();
-      const presetWithTimestamps = {
+      const presetWithTimestamp = {
         ...validatedPreset,
-        metadata: {
-          ...validatedPreset.metadata,
-          createdAt: validatedPreset.metadata?.createdAt || now,
-          updatedAt: now,
-        },
+        addedAt: validatedPreset.addedAt || now,
       };
 
       // Add to registry
-      registry.presets[validatedPreset.name] = presetWithTimestamps;
+      registry.presets[validatedPreset.name] = presetWithTimestamp;
 
       // Save changes
       await this.saveRegistry();
@@ -339,11 +327,7 @@ export class UserPresetRegistry {
     const now = new Date().toISOString();
     const presetWithTimestamp = {
       ...validatedPreset,
-      metadata: {
-        ...validatedPreset.metadata,
-        createdAt: existingPreset.metadata?.createdAt || now,
-        updatedAt: now,
-      },
+      addedAt: existingPreset.addedAt || now,
     };
 
     // Update registry
@@ -370,11 +354,14 @@ export class UserPresetRegistry {
   /**
    * Get registry metadata
    */
-  async getMetadata(): Promise<UserPresetRegistryData["metadata"]> {
+  async getMetadata(): Promise<{ lastUpdated?: string; totalPresets: number }> {
     // Load registry
     const registry = await this.loadRegistry();
 
-    return { ...registry.metadata };
+    return {
+      lastUpdated: registry.lastUpdated,
+      totalPresets: Object.keys(registry.presets).length,
+    };
   }
 
   /**
