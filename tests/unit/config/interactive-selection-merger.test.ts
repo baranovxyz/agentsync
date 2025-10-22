@@ -4,18 +4,25 @@
  * and applying file-level selections from presets
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   ConfigMerger,
   type MergedConfig,
   type AppliedSelection,
+  type InteractiveSelectionConfig,
 } from "../../../src/core/config/interactive-selection-merger.js";
-import type {
-  InteractiveSelectionConfig,
-  PresetSelection,
-  FileSelection,
-} from "../../../src/types/schemas.js";
+import type { PresetSelection } from "../../../src/types/schemas.js";
 import type { Preset } from "../../../src/types/preset.js";
+import * as path from "path";
+import * as os from "os";
+import * as fs from "../../../src/utils/fs.js";
+import { mkdtemp } from "node:fs/promises";
+
+// Define FileSelection locally as it's not exported from schemas
+interface FileSelection {
+  include?: string[];
+  exclude?: string[];
+}
 
 describe("Interactive Selection Configuration Merger", () => {
   let merger: ConfigMerger;
@@ -110,6 +117,125 @@ describe("Interactive Selection Configuration Merger", () => {
       });
       expect(result.selections["github:team/backend"]).toEqual({
         commands: { include: ["docker-compose.yml"] },
+      });
+    });
+  });
+
+  describe("Configuration merging from files", () => {
+    let tempDir: string;
+
+    beforeEach(async () => {
+      tempDir = await mkdtemp(path.join(os.tmpdir(), "agentsync-merger-"));
+    });
+
+    afterEach(async () => {
+      await fs.remove(tempDir);
+    });
+
+    it("should merge project and local configs", async () => {
+      // Create project config
+      await fs.ensureDir(path.join(tempDir, ".agentsync"));
+      await fs.outputFile(
+        path.join(tempDir, ".agentsync", "config.json"),
+        JSON.stringify({
+          version: "1.0",
+          extends: [
+            {
+              source: "github:company/standards",
+              select: { rules: { include: ["*.md"] } },
+            },
+          ],
+          tools: ["cursor"],
+        }),
+        { encoding: "utf-8" }
+      );
+
+      // Create local config
+      await fs.outputFile(
+        path.join(tempDir, "agentsync.local.json"),
+        JSON.stringify({
+          version: "1.0",
+          extends: [
+            {
+              source: "github:personal/rules",
+              select: { commands: { include: ["*.sh"] } },
+            },
+          ],
+        }),
+        { encoding: "utf-8" }
+      );
+
+      const merger = new ConfigMerger();
+      const result = await merger.mergeConfigs(tempDir);
+
+      expect(result.presets).toEqual([
+        "github:company/standards",
+        "github:personal/rules",
+      ]);
+      expect(result.selections["github:company/standards"]).toEqual({
+        rules: { include: ["*.md"] },
+      });
+      expect(result.selections["github:personal/rules"]).toEqual({
+        commands: { include: ["*.sh"] },
+      });
+    });
+
+    it("should handle missing local config", async () => {
+      // Create project config only
+      await fs.ensureDir(path.join(tempDir, ".agentsync"));
+      await fs.outputFile(
+        path.join(tempDir, ".agentsync", "config.json"),
+        JSON.stringify({
+          version: "1.0",
+          extends: [
+            {
+              source: "github:company/standards",
+              select: { rules: { include: ["*.md"] } },
+            },
+          ],
+          tools: ["cursor"],
+        }),
+        { encoding: "utf-8" }
+      );
+
+      const merger = new ConfigMerger();
+      const result = await merger.mergeConfigs(tempDir);
+
+      expect(result.presets).toEqual(["github:company/standards"]);
+      expect(result.selections["github:company/standards"]).toEqual({
+        rules: { include: ["*.md"] },
+      });
+    });
+
+    it("should handle presets without selections", async () => {
+      // Create config with mixed presets
+      await fs.ensureDir(path.join(tempDir, ".agentsync"));
+      await fs.outputFile(
+        path.join(tempDir, ".agentsync", "config.json"),
+        JSON.stringify({
+          version: "1.0",
+          extends: [
+            "github:company/standards",
+            {
+              source: "github:team/rules",
+              select: { rules: { include: ["*.py"] } },
+            },
+          ],
+          tools: ["cursor"],
+        }),
+        { encoding: "utf-8" }
+      );
+
+      const merger = new ConfigMerger();
+      const result = await merger.mergeConfigs(tempDir);
+
+      expect(result.presets).toEqual([
+        "github:company/standards",
+        "github:team/rules",
+      ]);
+      expect(result.selections["github:company/standards"]).toBeUndefined();
+      expect(result.selections["github:team/rules"]).toEqual({
+        rules: { include: ["*.py"] },
       });
     });
   });

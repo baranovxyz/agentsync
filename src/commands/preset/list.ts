@@ -35,41 +35,34 @@ export async function listPresets(
       return;
     }
 
-    // Load selections for display
-    let selections: Record<
-      string,
-      import("../../types/index.js").SelectionConfig
-    > = {};
+    // Load local config if exists
+    const localConfigPath = path.join(cwd, "agentsync.local.json");
+    let localConfig = { extends: [] };
     try {
-      const projectConfigContent = await readFile(
-        path.join(cwd, ".agentsync", "interactive-selections.json"),
-        "utf-8"
-      );
-      const projectConfig = JSON.parse(projectConfigContent);
-      if (projectConfig.project?.selections) {
-        selections = projectConfig.project.selections;
-      }
-    } catch {
-      // Silently continue if selections can't be loaded
+      const localContent = await readFile(localConfigPath, "utf-8");
+      localConfig = JSON.parse(localContent);
+    } catch (error) {
+      // Local config doesn't exist, continue with empty extends
     }
+
+    // Merge extends arrays
+    const allExtends = [...extendsEntries, ...(localConfig.extends || [])];
 
     const cacheManager = new CacheManager();
     const parser = new GitHubSourceParser();
 
-    for (const entry of extendsEntries) {
+    for (const entry of allExtends) {
       const source = typeof entry === "string" ? entry : entry.source;
       const namespace = typeof entry === "string" ? "" : entry.namespace;
+      const selection = typeof entry === "object" ? entry.select : undefined;
+      
       console.log(pc.bold(source));
       if (namespace) {
         console.log(pc.gray(`  Namespace: ${namespace}`));
       }
 
-      // Display selection information if available and verbose mode is on
-      const selection = selections[source];
-      if (
-        selection &&
-        (options.verbose || Object.keys(selections).length > 0)
-      ) {
+      // Display selection information if available
+      if (selection && (options.verbose || Object.keys(selection).length > 0)) {
         console.log(pc.cyan("  Selections:"));
 
         if (selection.rules?.include) {
@@ -112,7 +105,10 @@ export async function listPresets(
     }
 
     // Show selection summary if any selections exist and verbose mode is on
-    const selectionCount = Object.keys(selections).length;
+    const selectionCount = allExtends.filter(e => 
+      typeof e === "object" && e.select && Object.keys(e.select).length > 0
+    ).length;
+    
     if (selectionCount > 0 && options.verbose) {
       console.log(
         pc.cyan(

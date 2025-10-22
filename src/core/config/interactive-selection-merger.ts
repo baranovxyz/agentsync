@@ -5,8 +5,10 @@
  */
 
 import type { SelectionConfig } from "../../types/index.js";
+import type { PresetSelection, AgentSyncConfig } from "../../types/schemas.js";
 import type { Preset } from "../../types/preset.js";
-import { isMatch } from "micromatch";
+import { validateConfig } from "../../types/schemas.js";
+import micromatch from "micromatch";
 import { readFile, writeFile } from "node:fs/promises";
 import * as path from "path";
 
@@ -30,9 +32,68 @@ export interface AppliedSelection {
 }
 
 /**
+ * Represents a single level of the configuration hierarchy (user, project, or local)
+ */
+interface ConfigLevel {
+  extends?: string[];
+  presets?: string[];
+  selections?: Record<string, PresetSelection>;
+  defaultSelections?: Record<string, PresetSelection>;
+  overrides?: Record<string, any>;
+  tools?: string[];
+}
+
+/**
+ * Represents the three-level configuration structure for interactive selection
+ */
+export interface InteractiveSelectionConfig {
+  version: string;
+  user?: ConfigLevel;
+  project?: ConfigLevel;
+  local?: ConfigLevel;
+}
+
+/**
  * Configuration merger for interactive selection system
  */
 export class ConfigMerger {
+  mergeConfig(config: InteractiveSelectionConfig): MergedConfig {
+    const projectConfig = config.project || {};
+    const localConfig = config.local || {};
+    const userConfig = config.user || {};
+
+    const merged: MergedConfig = {
+      presets: userConfig.presets || [],
+      selections: {},
+      overrides: localConfig.overrides || {},
+      tools: projectConfig.tools || [],
+    };
+
+    const defaultSelections = userConfig.defaultSelections || {};
+    const projectSelections = projectConfig.selections || {};
+    const localSelections = localConfig.selections || {};
+
+    const allPresetSources = new Set([
+      ...Object.keys(defaultSelections),
+      ...Object.keys(projectSelections),
+      ...Object.keys(localSelections),
+    ]);
+
+    for (const source of allPresetSources) {
+      const userS = defaultSelections[source] || {};
+      const projectS = projectSelections[source] || {};
+      const localS = localSelections[source] || {};
+
+      merged.selections[source] = {
+        ...userS,
+        ...projectS,
+        ...localS,
+      };
+    }
+
+    return merged;
+  }
+
   /**
    * Apply file-level selections to preset content
    */
@@ -117,7 +178,7 @@ export class ConfigMerger {
    * Supports * and ** patterns, can be replaced with fast-glob if needed
    */
   private simpleGlobMatch(filename: string, pattern: string): boolean {
-    return isMatch(filename, pattern);
+    return micromatch.isMatch(filename, pattern);
   }
 
   /**
@@ -206,6 +267,51 @@ export class ConfigMerger {
     }
 
     return merged;
+  }
+
+  async mergeConfigs(cwd: string): Promise<MergedConfig> {
+    const projectConfig = await this.loadProjectConfig(cwd);
+    const localConfig = await this.loadLocalConfig(cwd);
+
+    // Extract selections from extends arrays
+    const selections: Record<string, SelectionConfig> = {};
+
+    for (const entry of [
+      ...(projectConfig.extends || []),
+      ...(localConfig.extends || []),
+    ]) {
+      if (typeof entry === "object" && entry.select) {
+        selections[entry.source] = entry.select;
+      }
+    }
+
+    return {
+      presets: [
+        ...(projectConfig.extends || []),
+        ...(localConfig.extends || []),
+      ].map((e) => (typeof e === "string" ? e : e.source)),
+      selections,
+      overrides: {},
+      tools: projectConfig.tools || [],
+    };
+  }
+
+  private async loadProjectConfig(cwd: string): Promise<AgentSyncConfig> {
+    const configPath = path.join(cwd, ".agentsync", "config.json");
+    const content = await readFile(configPath, "utf-8");
+    return validateConfig(JSON.parse(content));
+  }
+
+  private async loadLocalConfig(
+    cwd: string
+  ): Promise<Partial<AgentSyncConfig>> {
+    const configPath = path.join(cwd, "agentsync.local.json");
+    try {
+      const content = await readFile(configPath, "utf-8");
+      return JSON.parse(content);
+    } catch (error) {
+      return { extends: [] };
+    }
   }
 
   async saveSelectionsForProject(
