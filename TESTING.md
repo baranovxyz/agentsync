@@ -373,6 +373,25 @@ When adding new features:
 - Error scenario tests for edge cases
 - All tests automated (no manual steps)
 
+## Refactoring Testing
+
+**After Code Refactoring:**
+
+- Run specific test files for modified functions
+- Verify functionality is preserved: `pnpm test tests/unit/commands/[module]/[file].test.ts`
+- Ensure all tests pass before proceeding with further changes
+- Focus on unit tests for modified files to catch regressions early
+
+**Pattern:**
+
+```bash
+# Test specific module after refactoring
+pnpm test tests/unit/commands/mcp/add.test.ts
+
+# Verify broader functionality
+pnpm test tests/unit/commands/mcp/
+```
+
 ---
 
 **Version**: 0.2.0-alpha.2
