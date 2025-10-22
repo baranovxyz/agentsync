@@ -89,6 +89,7 @@ export const AgentSyncConfigSchema = z.object({
           namespace: z.string().optional(), // Override default namespace
           include: z.array(z.string()).optional(), // Glob patterns
           exclude: z.array(z.string()).optional(), // Glob patterns
+          select: z.array(z.string()).optional(), // Selection patterns
         }),
       ])
     )
@@ -318,6 +319,7 @@ export interface ExtendsEntry {
   namespace: string;
   include?: string[];
   exclude?: string[];
+  select?: string[];
 }
 
 /**
@@ -342,6 +344,7 @@ export function normalizeExtends(
       namespace: entry.namespace || extractNamespace(entry.source),
       include: entry.include,
       exclude: entry.exclude,
+      select: entry.select,
     };
   });
 }
