@@ -14,6 +14,15 @@ AgentSync uses a comprehensive, fully-automated testing strategy to ensure CLI r
 - **Shell tests** verify real-world CLI execution
 - **All tests automated** - no manual testing required
 
+## Architecture-First Testing
+
+When fixing architectural issues, follow these principles:
+
+- **Identify root cause before fixing symptoms** - architectural mismatches often hide behind passing mocks
+- **Use real file system operations** in integration tests instead of mocking when testing file system interactions
+- **Create helper functions** for common file operations in tests for consistency with implementation
+- **When tests pass with mocks but fail in real usage**, investigate architectural consistency
+
 ---
 
 ## Quick Start
