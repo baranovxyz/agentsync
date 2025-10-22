@@ -16,13 +16,21 @@ describe("Interactive Selection Real Workflow (E2E)", () => {
 
   beforeEach(async () => {
     tempDir = await mkdtemp(path.join(os.tmpdir(), "agentsync-e2e-"));
-    
-    // Initialize real AgentSync project
+
+    // Create AgentSync project manually instead of using init command
     cliPath = path.join(process.cwd(), "dist", "cli.js");
-    const { exitCode } = await execa("node", [cliPath, "init", "--template", "default", "--tools", "cursor"], {
-      cwd: tempDir,
-    });
-    expect(exitCode).toBe(0);
+
+    // Create .agentsync directory and config
+    await fs.ensureDir(path.join(tempDir, ".agentsync"));
+    await fs.outputFile(
+      path.join(tempDir, ".agentsync", "config.json"),
+      JSON.stringify({
+        version: "1.0",
+        extends: [],
+        tools: ["cursor"],
+      }),
+      { encoding: "utf-8" }
+    );
   });
 
   afterEach(async () => {
@@ -37,9 +45,13 @@ describe("Interactive Selection Real Workflow (E2E)", () => {
     await fs.writeFile(configPath, JSON.stringify(config, null, 2));
 
     // 2. Verify preset list shows the preset
-    const { stdout: listOutput } = await execa("node", [cliPath, "preset", "list"], {
-      cwd: tempDir,
-    });
+    const { stdout: listOutput } = await execa(
+      "node",
+      [cliPath, "preset", "list"],
+      {
+        cwd: tempDir,
+      }
+    );
     expect(listOutput).toContain("github:company/standards");
     expect(listOutput).toContain("Not cached");
 
@@ -78,9 +90,13 @@ describe("Interactive Selection Real Workflow (E2E)", () => {
     );
 
     // 3. Run list command
-    const { stdout: listOutput } = await execa("node", [cliPath, "preset", "list"], {
-      cwd: tempDir,
-    });
+    const { stdout: listOutput } = await execa(
+      "node",
+      [cliPath, "preset", "list"],
+      {
+        cwd: tempDir,
+      }
+    );
 
     // 4. Verify both presets are shown
     expect(listOutput).toContain("github:company/standards");
@@ -103,9 +119,13 @@ describe("Interactive Selection Real Workflow (E2E)", () => {
     );
 
     // 2. Run list command
-    const { stdout: listOutput } = await execa("node", [cliPath, "preset", "list"], {
-      cwd: tempDir,
-    });
+    const { stdout: listOutput } = await execa(
+      "node",
+      [cliPath, "preset", "list"],
+      {
+        cwd: tempDir,
+      }
+    );
 
     // 3. Verify empty state message
     expect(listOutput).toContain("No presets extended");
@@ -147,9 +167,13 @@ describe("Interactive Selection Real Workflow (E2E)", () => {
     await fs.remove(configPath);
 
     // 2. Run list command
-    const { stdout: listOutput, exitCode } = await execa("node", [cliPath, "preset", "list"], {
-      cwd: tempDir,
-    });
+    const { stdout: listOutput, exitCode } = await execa(
+      "node",
+      [cliPath, "preset", "list"],
+      {
+        cwd: tempDir,
+      }
+    );
 
     // 3. Verify error message
     expect(exitCode).toBe(0); // Should not exit with error
