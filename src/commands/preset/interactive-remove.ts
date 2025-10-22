@@ -9,7 +9,7 @@ import { checkbox, confirm, select } from "@inquirer/prompts";
 import ora from "ora";
 import pc from "picocolors";
 import { UserPresetRegistry } from "../../core/registry/user-preset-registry.js";
-import { validateConfig } from "../../types/schemas.js";
+import { type AgentSyncConfig, validateConfig } from "../../types/schemas.js";
 
 /**
  * Options for interactive preset removal
@@ -132,7 +132,7 @@ export async function interactiveRemovePreset(
 /**
  * Load current configuration
  */
-async function loadConfig(cwd: string): Promise<any> {
+async function loadConfig(cwd: string): Promise<AgentSyncConfig> {
   const configPath = path.join(cwd, ".agentsync", "config.json");
 
   try {
@@ -146,9 +146,36 @@ async function loadConfig(cwd: string): Promise<any> {
 }
 
 /**
+ * Create preset source entry for configured presets
+ */
+function createPresetSourceEntry(
+  source: string,
+  existingSources: Array<{
+    name: string;
+    value: string;
+    description?: string;
+    configLevels: string[];
+  }>,
+): void {
+  const existingSource = existingSources.find((s) => s.value === source);
+  if (existingSource) {
+    existingSource.configLevels.push("project");
+  } else {
+    existingSources.push({
+      name: source.startsWith("user:")
+        ? `${source.replace("user:", "")} (user)`
+        : source,
+      value: source,
+      description: "Configured at project level",
+      configLevels: ["project"],
+    });
+  }
+}
+
+/**
  * Get configured preset sources from config
  */
-async function getConfiguredPresetSources(config: any): Promise<
+async function getConfiguredPresetSources(config: AgentSyncConfig): Promise<
   Array<{
     name: string;
     value: string;
@@ -167,20 +194,7 @@ async function getConfiguredPresetSources(config: any): Promise<
   if (config.extends && Array.isArray(config.extends)) {
     for (const entry of config.extends) {
       if (typeof entry === "object" && entry.select) {
-        const source = entry.source;
-        const existingSource = sources.find((s) => s.value === source);
-        if (existingSource) {
-          existingSource.configLevels.push("project");
-        } else {
-          sources.push({
-            name: source.startsWith("user:")
-              ? `${source.replace("user:", "")} (user)`
-              : source,
-            value: source,
-            description: "Configured at project level",
-            configLevels: ["project"],
-          });
-        }
+        createPresetSourceEntry(entry.source, sources);
       }
     }
   }
@@ -213,7 +227,7 @@ async function selectPresetForRemoval(
  * Get available configuration levels for a preset
  */
 function getAvailableConfigLevels(
-  config: any,
+  config: AgentSyncConfig,
   presetSource: string,
 ): Array<"user" | "project" | "local"> {
   const levels: Array<"user" | "project" | "local"> = [];
@@ -258,7 +272,7 @@ async function selectConfigLevel(
  * Let user choose removal type
  */
 async function selectRemovalType(
-  config: any,
+  config: AgentSyncConfig,
   presetSource: string,
   _configLevel: "user" | "project" | "local",
 ): Promise<"entire" | "specific"> {
@@ -296,7 +310,7 @@ async function selectRemovalType(
  * Let user select content types for removal
  */
 async function selectContentTypesForRemoval(
-  config: any,
+  config: AgentSyncConfig,
   presetSource: string,
   _configLevel: "user" | "project" | "local",
 ): Promise<string[]> {
@@ -332,13 +346,65 @@ async function selectContentTypesForRemoval(
 }
 
 /**
+ * Find selection for a preset source
+ */
+function findPresetSelection(
+  config: AgentSyncConfig,
+  presetSource: string,
+): PresetSelection | null {
+  if (!(config.extends && Array.isArray(config.extends))) {
+    return null;
+  }
+
+  for (const entry of config.extends) {
+    if (typeof entry === "object" && entry.source === presetSource) {
+      return entry.select || null;
+    }
+  }
+  return null;
+}
+
+/**
+ * Get selection value by type
+ */
+function getSelectionValue(selection: PresetSelection, type: string): unknown {
+  switch (type) {
+    case "rules":
+      return selection.rules;
+    case "commands":
+      return selection.commands;
+    case "mcps":
+      return selection.mcps;
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Display specific removals for a preset
+ */
+function displaySpecificRemovals(
+  config: AgentSyncConfig,
+  presetSource: string,
+  removedTypes: string[],
+): void {
+  const selection = findPresetSelection(config, presetSource);
+  if (!selection) return;
+
+  for (const type of removedTypes) {
+    const value = getSelectionValue(selection, type);
+    console.log(pc.yellow(`  - ${type}: ${JSON.stringify(value)}`));
+  }
+}
+
+/**
  * Show preview of what will be removed
  */
 async function showRemovalPreview(
   presetSource: string,
   removalType: "entire" | "specific",
   removedTypes: string[],
-  config: any,
+  config: AgentSyncConfig,
   configLevel: "user" | "project" | "local",
 ): Promise<void> {
   console.log(pc.cyan("\n📝 Removal Preview"));
@@ -356,28 +422,81 @@ async function showRemovalPreview(
         `🔥 Selections for '${presetSource}' will be removed from ${configLevel} configuration:`,
       ),
     );
-
-    // Find the preset in extends array
-    let selection = null;
-    if (config.extends && Array.isArray(config.extends)) {
-      for (const entry of config.extends) {
-        if (typeof entry === "object" && entry.source === presetSource) {
-          selection = entry.select;
-          break;
-        }
-      }
-    }
-
-    if (selection) {
-      for (const type of removedTypes) {
-        console.log(
-          pc.yellow(`  - ${type}: ${JSON.stringify(selection[type])}`),
-        );
-      }
-    }
+    displaySpecificRemovals(config, presetSource, removedTypes);
   }
 
   console.log(pc.gray("--------------------"));
+}
+
+/**
+ * Get config path based on level
+ */
+function getConfigPath(
+  cwd: string,
+  configLevel: "user" | "project" | "local",
+): string {
+  if (configLevel === "project") {
+    return path.join(cwd, ".agentsync/config.json");
+  }
+  if (configLevel === "local") {
+    return path.join(cwd, "agentsync.local.json");
+  }
+  return path.join(
+    process.env.HOME || process.env.USERPROFILE || "",
+    ".agentsync",
+    "config.json",
+  );
+}
+
+/**
+ * Remove specific selections from entry
+ */
+function removeSpecificSelections(
+  entry: { source: string; select?: PresetSelection },
+  removedTypes: string[],
+): typeof entry | null {
+  if (!entry.select) return entry;
+
+  const updatedSelect = { ...entry.select };
+  for (const type of removedTypes) {
+    if (type === "rules") updatedSelect.rules = undefined;
+    else if (type === "commands") updatedSelect.commands = undefined;
+    else if (type === "mcps") updatedSelect.mcps = undefined;
+  }
+
+  // If no selections remain, remove entire entry
+  if (Object.keys(updatedSelect).length === 0) {
+    return null;
+  }
+
+  return { ...entry, select: updatedSelect };
+}
+
+/**
+ * Update extends entry for removal
+ */
+function updateExtendsEntry(
+  entry: string | { source: string; select?: PresetSelection },
+  presetSource: string,
+  removalType: "entire" | "specific",
+  removedTypes: string[],
+): typeof entry | null {
+  const source = typeof entry === "string" ? entry : entry.source;
+
+  if (source !== presetSource) {
+    return entry;
+  }
+
+  if (removalType === "entire") {
+    return null; // Mark for removal
+  }
+
+  // Remove specific selections
+  if (typeof entry === "object") {
+    return removeSpecificSelections(entry, removedTypes);
+  }
+
+  return entry;
 }
 
 /**
@@ -390,19 +509,7 @@ async function applyRemoval(
   removedTypes: string[],
   configLevel: "user" | "project" | "local",
 ): Promise<void> {
-  // Load from correct file based on config level
-  const configPath = path.join(
-    cwd,
-    configLevel === "project"
-      ? ".agentsync/config.json"
-      : configLevel === "local"
-        ? "agentsync.local.json"
-        : path.join(
-            process.env.HOME || process.env.USERPROFILE || "",
-            ".agentsync",
-            "config.json",
-          ),
-  );
+  const configPath = getConfigPath(cwd, configLevel);
 
   try {
     const configContent = await readFile(configPath, "utf-8");
@@ -414,35 +521,10 @@ async function applyRemoval(
 
     // Find and update extends entry
     config.extends = config.extends
-      .map((entry) => {
-        const source = typeof entry === "string" ? entry : entry.source;
-
-        if (source !== presetSource) {
-          return entry;
-        }
-
-        if (removalType === "entire") {
-          return null; // Mark for removal
-        }
-
-        // Remove specific selections
-        if (typeof entry === "object" && entry.select) {
-          const updatedSelect = { ...entry.select };
-          for (const type of removedTypes) {
-            delete (updatedSelect as any)[type];
-          }
-
-          // If no selections remain, remove entire entry
-          if (Object.keys(updatedSelect).length === 0) {
-            return null;
-          }
-
-          return { ...entry, select: updatedSelect };
-        }
-
-        return entry;
-      })
-      .filter((entry): entry is NonNullable<typeof entry> => entry !== null); // Remove null entries
+      .map((entry) =>
+        updateExtendsEntry(entry, presetSource, removalType, removedTypes),
+      )
+      .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
 
     await writeFile(configPath, JSON.stringify(config, null, 2), "utf-8");
   } catch (error) {
