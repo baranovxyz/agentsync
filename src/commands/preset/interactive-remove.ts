@@ -9,11 +9,7 @@ import ora from "ora";
 import { readFile, writeFile } from "node:fs/promises";
 import * as path from "path";
 import { UserPresetRegistry } from "../../core/registry/user-preset-registry.js";
-import {
-  validateConfig,
-  validateInteractiveSelectionConfig,
-} from "../../types/schemas.js";
-import type { PresetSelection, UserPreset } from "../../types/index.js";
+import { validateConfig } from "../../types/schemas.js";
 
 /**
  * Options for interactive preset removal
@@ -23,16 +19,6 @@ export interface InteractiveRemoveOptions {
   cwd?: string;
   /** Skip confirmation prompts */
   yes?: boolean;
-}
-
-/**
- * Interactive preset removal result
- */
-interface InteractiveRemoveResult {
-  presetSource: string;
-  removalType: "entire" | "specific";
-  removedTypes: string[];
-  configLevel: "user" | "project" | "local";
 }
 
 /**
@@ -55,7 +41,7 @@ export async function interactiveRemovePreset(
     const config = await loadConfig(cwd);
 
     // 2. Get configured preset sources
-    const presetSources = await getConfiguredPresetSources(cwd, config);
+    const presetSources = await getConfiguredPresetSources(config);
 
     if (presetSources.length === 0) {
       console.log(pc.yellow("No presets configured for removal."));
@@ -162,10 +148,7 @@ async function loadConfig(cwd: string): Promise<any> {
 /**
  * Get configured preset sources from config
  */
-async function getConfiguredPresetSources(
-  cwd: string,
-  config: any
-): Promise<
+async function getConfiguredPresetSources(config: any): Promise<
   Array<{
     name: string;
     value: string;
@@ -199,9 +182,10 @@ async function getConfiguredPresetSources(
           } else {
             sources.push({
               name: source.startsWith("user:")
-                ? `👤 ${source.replace("user:", "")}`
-                : `📦 ${source}`,
+                ? `${source.replace("user:", "")} (user)`
+                : source,
               value: source,
+              description: `Configured at ${level} level`,
               configLevels: [level],
             });
           }
@@ -214,7 +198,7 @@ async function getConfiguredPresetSources(
 }
 
 /**
- * Let user select a preset for removal
+ * Let user select a preset to remove
  */
 async function selectPresetForRemoval(
   sources: Array<{
@@ -224,15 +208,14 @@ async function selectPresetForRemoval(
     configLevels: string[];
   }>
 ): Promise<string> {
-  const choice = await select({
-    message: "Select a preset to remove:",
+  return select({
+    message: "Select a preset to remove or modify:",
     choices: sources.map((source) => ({
       name: `${source.name} ${pc.gray(`(${source.configLevels.join(", ")})`)}`,
       value: source.value,
+      description: source.description,
     })),
   });
-
-  return choice;
 }
 
 /**
@@ -243,7 +226,6 @@ function getAvailableConfigLevels(
   presetSource: string
 ): Array<"user" | "project" | "local"> {
   const levels: Array<"user" | "project" | "local"> = [];
-
   if (config.interactiveSelection) {
     ["user", "project", "local"].forEach((level) => {
       if (config.interactiveSelection[level]?.selections?.[presetSource]) {
@@ -251,7 +233,6 @@ function getAvailableConfigLevels(
       }
     });
   }
-
   return levels;
 }
 
@@ -265,15 +246,13 @@ async function selectConfigLevel(
     return levels[0];
   }
 
-  const choice = await select({
-    message: "Select configuration level:",
+  return select({
+    message: "Select configuration level to modify:",
     choices: levels.map((level) => ({
-      name: `${level === "user" ? "👤" : level === "project" ? "📁" : "💻"} ${level}`,
+      name: level,
       value: level,
     })),
   });
-
-  return choice;
 }
 
 /**
@@ -285,22 +264,21 @@ async function selectRemovalType(
   configLevel: "user" | "project" | "local"
 ): Promise<"entire" | "specific"> {
   const selection =
-    config.interactiveSelection[configLevel].selections[presetSource];
-  const hasMultipleTypes = Object.keys(selection).length > 1;
+    config.interactiveSelection[configLevel]?.selections?.[presetSource];
 
-  if (!hasMultipleTypes) {
+  if (!selection || Object.keys(selection).length === 0) {
     return "entire";
   }
 
-  return await select({
+  return select({
     message: "What would you like to remove?",
     choices: [
       {
-        name: "🗑️  Remove entire preset (all selections)",
+        name: "Remove the entire preset and its selections",
         value: "entire",
       },
       {
-        name: "⚡ Remove specific selections (rules, commands, MCPs)",
+        name: "Remove specific file selections (rules, commands, MCPs)",
         value: "specific",
       },
     ],
@@ -316,33 +294,25 @@ async function selectContentTypesForRemoval(
   configLevel: "user" | "project" | "local"
 ): Promise<string[]> {
   const selection =
-    config.interactiveSelection[configLevel].selections[presetSource];
-  const availableTypes: Array<{ name: string; value: string }> = [];
+    config.interactiveSelection[configLevel]?.selections?.[presetSource];
 
-  if (selection.rules) {
-    availableTypes.push({
-      name: `📋 Rules (${selection.rules.include.length} pattern${selection.rules.include.length === 1 ? "" : "s"})`,
-      value: "rules",
-    });
+  if (!selection) {
+    return [];
   }
 
-  if (selection.commands) {
-    availableTypes.push({
-      name: `⚡ Commands (${selection.commands.include.length} pattern${selection.commands.include.length === 1 ? "" : "s"})`,
-      value: "commands",
-    });
+  const choices = [];
+  if (selection.rules) choices.push({ name: "Rules", value: "rules" });
+  if (selection.commands) choices.push({ name: "Commands", value: "commands" });
+  if (selection.mcps) choices.push({ name: "MCPs", value: "mcps" });
+
+  if (choices.length === 0) {
+    console.log(pc.yellow("No specific selections to remove."));
+    return [];
   }
 
-  if (selection.mcps) {
-    availableTypes.push({
-      name: `🔌 MCPs (${selection.mcps.length} server${selection.mcps.length === 1 ? "" : "s"})`,
-      value: "mcps",
-    });
-  }
-
-  return await checkbox({
-    message: "Select content types to remove:",
-    choices: availableTypes,
+  return checkbox({
+    message: "Select content types to remove selections for:",
+    choices,
   });
 }
 
@@ -356,51 +326,29 @@ async function showRemovalPreview(
   config: any,
   configLevel: "user" | "project" | "local"
 ): Promise<void> {
-  console.log(pc.blue("\n📋 Preview of Removal:\n"));
-
-  const selection =
-    config.interactiveSelection[configLevel].selections[presetSource];
-  const displayName = presetSource.startsWith("user:")
-    ? presetSource.replace("user:", "")
-    : presetSource;
-
-  console.log(pc.cyan(`Preset: ${displayName}`));
-  console.log(pc.cyan(`Level: ${configLevel}`));
-  console.log();
+  console.log(pc.cyan("\n📝 Removal Preview"));
+  console.log(pc.gray("--------------------"));
 
   if (removalType === "entire") {
-    console.log(pc.red("🗑️  Will remove entire preset:"));
-    if (selection.rules) {
-      console.log(pc.gray(`  - Rules: ${selection.rules.include.join(", ")}`));
-    }
-    if (selection.commands) {
-      console.log(
-        pc.gray(`  - Commands: ${selection.commands.include.join(", ")}`)
-      );
-    }
-    if (selection.mcps) {
-      console.log(pc.gray(`  - MCPs: ${selection.mcps.join(", ")}`));
-    }
+    console.log(
+      pc.yellow(
+        `🔥 Entire preset '${presetSource}' will be removed from ${configLevel} configuration.`
+      )
+    );
   } else {
-    console.log(pc.red("⚡ Will remove specific selections:"));
+    console.log(
+      pc.yellow(
+        `🔥 Selections for '${presetSource}' will be removed from ${configLevel} configuration:`
+      )
+    );
+    const selection =
+      config.interactiveSelection[configLevel]?.selections?.[presetSource];
     for (const type of removedTypes) {
-      if (type === "rules" && selection.rules) {
-        console.log(
-          pc.gray(`  - Rules: ${selection.rules.include.join(", ")}`)
-        );
-      }
-      if (type === "commands" && selection.commands) {
-        console.log(
-          pc.gray(`  - Commands: ${selection.commands.include.join(", ")}`)
-        );
-      }
-      if (type === "mcps" && selection.mcps) {
-        console.log(pc.gray(`  - MCPs: ${selection.mcps.join(", ")}`));
-      }
+      console.log(pc.yellow(`  - ${type}: ${JSON.stringify(selection[type])}`));
     }
   }
 
-  console.log();
+  console.log(pc.gray("--------------------"));
 }
 
 /**
@@ -413,14 +361,16 @@ async function applyRemoval(
   removedTypes: string[],
   configLevel: "user" | "project" | "local"
 ): Promise<void> {
-  const configPath = path.join(cwd, ".agentsync", "config.json");
+  const configPath = path.join(
+    cwd,
+    ".agentsync",
+    "interactive-selections.json"
+  );
 
   try {
-    // Load current config
     const configContent = await readFile(configPath, "utf-8");
     const config = JSON.parse(configContent);
 
-    // Initialize interactive selection if not present
     if (!config.interactiveSelection) {
       throw new Error("No interactive selection configuration found");
     }
@@ -463,8 +413,7 @@ async function applyRemoval(
       }
     }
 
-    // Validate and save
-    validateInteractiveSelectionConfig(config.interactiveSelection);
+    // TODO: Re-implement validation if necessary
     await writeFile(configPath, JSON.stringify(config, null, 2), "utf-8");
   } catch (error) {
     throw new Error(

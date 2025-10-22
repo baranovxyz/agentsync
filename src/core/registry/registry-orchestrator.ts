@@ -6,9 +6,8 @@ import { GitHubResolver } from "./github-resolver.js";
 import { PresetLoader } from "./preset-loader.js";
 import { Merger, type MergedPresets } from "./merger.js";
 import { SelectivePresetLoader } from "./selective-preset-loader.js";
-import { normalizeExtends } from "../../types/schemas.js";
 import { validateConfig } from "../../types/schemas.js";
-import type { PresetSelection } from "../../types/index.js";
+import type { SelectionConfig } from "../../types/index.js";
 import { readFile } from "node:fs/promises";
 import * as path from "path";
 
@@ -33,7 +32,7 @@ export class RegistryOrchestrator {
     const config = validateConfig(JSON.parse(configContent));
 
     // 2. Normalize extends entries
-    const extendsEntries = normalizeExtends(config.extends);
+    const extendsEntries = config.extends || [];
 
     if (extendsEntries.length === 0) {
       // No presets, return empty
@@ -46,24 +45,25 @@ export class RegistryOrchestrator {
 
     // 3. Resolve all GitHub sources (clone if needed)
     const resolvedPaths = await Promise.all(
-      extendsEntries.map((entry) =>
-        this.githubResolver.resolve(entry.source, { update: options?.update })
-      )
+      extendsEntries.map((entry) => {
+        const source = typeof entry === "string" ? entry : entry.source;
+        return this.githubResolver.resolve(source, { update: options?.update });
+      })
     );
 
     // 4. Load all presets
     const presets = await Promise.all(
-      extendsEntries.map((entry, i) =>
-        this.presetLoader.load(
-          entry.source,
+      extendsEntries.map((entry, i) => {
+        const source = typeof entry === "string" ? entry : entry.source;
+        const namespace =
+          typeof entry === "string" ? "" : (entry as any).namespace;
+        return this.presetLoader.load(
+          source,
           resolvedPaths[i],
-          entry.namespace,
-          {
-            include: entry.include,
-            exclude: entry.exclude,
-          }
-        )
-      )
+          namespace || "",
+          {}
+        );
+      })
     );
 
     // 5. Validate no namespace collisions
@@ -80,7 +80,7 @@ export class RegistryOrchestrator {
    */
   async loadAndMergeSelective(
     cwd: string,
-    selections: Record<string, PresetSelection>,
+    selections: Record<string, SelectionConfig>,
     options?: {
       update?: boolean;
     }
@@ -91,7 +91,7 @@ export class RegistryOrchestrator {
     const config = validateConfig(JSON.parse(configContent));
 
     // 2. Normalize extends entries
-    const extendsEntries = normalizeExtends(config.extends);
+    const extendsEntries = config.extends || [];
 
     if (extendsEntries.length === 0) {
       // No presets, return empty
@@ -104,57 +104,48 @@ export class RegistryOrchestrator {
 
     // 3. Resolve all GitHub sources (clone if needed)
     const resolvedPaths = await Promise.all(
-      extendsEntries.map((entry) =>
-        this.githubResolver.resolve(entry.source, { update: options?.update })
-      )
+      extendsEntries.map((entry) => {
+        const source = typeof entry === "string" ? entry : entry.source;
+        return this.githubResolver.resolve(source, { update: options?.update });
+      })
     );
 
     // 4. Load all presets
     const presets = await Promise.all(
-      extendsEntries.map((entry, i) =>
-        this.presetLoader.load(
-          entry.source,
+      extendsEntries.map((entry, i) => {
+        const source = typeof entry === "string" ? entry : entry.source;
+        const namespace =
+          typeof entry === "string" ? "" : (entry as any).namespace;
+        return this.presetLoader.load(
+          source,
           resolvedPaths[i],
-          entry.namespace,
-          {
-            include: entry.include,
-            exclude: entry.exclude,
-          }
-        )
-      )
-    );
-
-    // 5. Apply selective filtering to presets that have selections
-    const filteredResults = await Promise.all(
-      presets.map(async (preset) => {
-        if (!preset) {
-          // Handle undefined preset
-          return {
-            commands: new Map(),
-            rules: new Map(),
-            mcps: {},
-          };
-        }
-
-        const selection = selections[preset.source];
-        if (selection) {
-          return this.selectivePresetLoader.loadSelective(preset, selection);
-        } else {
-          // No selection for this preset, return all content
-          return {
-            commands: new Map(preset.commands),
-            rules: new Map(preset.rules),
-            mcps: { ...preset.mcps },
-          };
-        }
+          namespace || "",
+          {}
+        );
       })
     );
 
-    // 6. Merge all filtered results
-    const merged =
-      this.selectivePresetLoader.mergeFilteredPresets(filteredResults);
+    // 5. Create extends entries with selections for SelectivePresetLoader
+    const extendsWithSelections = extendsEntries.map((entry) => {
+      const source = typeof entry === "string" ? entry : entry.source;
+      const selection = selections[source];
 
-    return merged;
+      if (selection) {
+        return {
+          source,
+          select: selection,
+        };
+      } else if (typeof entry !== "string" && entry.select) {
+        // Use existing selection from config
+        return entry;
+      } else {
+        // No selection, return as string for backward compatibility
+        return source;
+      }
+    });
+
+    // 6. Use SelectivePresetLoader to load and filter
+    return this.selectivePresetLoader.load(extendsWithSelections, presets);
   }
 
   /**
@@ -162,7 +153,7 @@ export class RegistryOrchestrator {
    */
   async validateSelections(
     cwd: string,
-    selections: Record<string, PresetSelection>,
+    selections: Record<string, SelectionConfig>,
     options?: {
       update?: boolean;
     }
@@ -173,7 +164,7 @@ export class RegistryOrchestrator {
     const config = validateConfig(JSON.parse(configContent));
 
     // 2. Normalize extends entries
-    const extendsEntries = normalizeExtends(config.extends);
+    const extendsEntries = config.extends || [];
 
     if (extendsEntries.length === 0) {
       return { valid: true, errors: [] };
@@ -181,24 +172,25 @@ export class RegistryOrchestrator {
 
     // 3. Resolve all GitHub sources (clone if needed)
     const resolvedPaths = await Promise.all(
-      extendsEntries.map((entry) =>
-        this.githubResolver.resolve(entry.source, { update: options?.update })
-      )
+      extendsEntries.map((entry) => {
+        const source = typeof entry === "string" ? entry : entry.source;
+        return this.githubResolver.resolve(source, { update: options?.update });
+      })
     );
 
     // 4. Load all presets
     const presets = await Promise.all(
-      extendsEntries.map((entry, i) =>
-        this.presetLoader.load(
-          entry.source,
+      extendsEntries.map((entry, i) => {
+        const source = typeof entry === "string" ? entry : entry.source;
+        const namespace =
+          typeof entry === "string" ? "" : (entry as any).namespace;
+        return this.presetLoader.load(
+          source,
           resolvedPaths[i],
-          entry.namespace,
-          {
-            include: entry.include,
-            exclude: entry.exclude,
-          }
-        )
-      )
+          namespace || "",
+          {}
+        );
+      })
     );
 
     // 5. Validate selections

@@ -2,11 +2,10 @@
  * Selective Preset Loader - loads and filters preset content based on file-level selections
  */
 
-import type { Preset, PresetSelection } from "../../types/index.js";
+import type { Preset, SelectionConfig, Extends } from "../../types/index.js";
 import { isMatch } from "micromatch";
 import {
   SelectiveLoadingError,
-  SelectionValidationError,
   ErrorHandler,
   ErrorCategory,
 } from "../errors.js";
@@ -33,11 +32,83 @@ export interface SelectionValidationResult {
  */
 export class SelectivePresetLoader {
   /**
+   * Load and filter presets based on extends array with select criteria
+   */
+  async load(
+    extendsEntries: Extends[],
+    presets: Preset[]
+  ): Promise<SelectivePresetResult> {
+    try {
+      if (!extendsEntries || extendsEntries.length === 0) {
+        return {
+          commands: new Map(),
+          rules: new Map(),
+          mcps: {},
+        };
+      }
+
+      if (!presets || presets.length !== extendsEntries.length) {
+        throw new SelectiveLoadingError(
+          "Presets array length must match extends entries length",
+          "",
+          "load"
+        );
+      }
+
+      // Process each preset with its selection criteria
+      const filteredResults = await Promise.all(
+        extendsEntries.map(async (entry, index) => {
+          const preset = presets[index];
+          if (!preset) {
+            return {
+              commands: new Map(),
+              rules: new Map(),
+              mcps: {},
+            };
+          }
+
+          // Extract selection criteria from the extends entry
+          let selection: SelectionConfig | undefined;
+          if (typeof entry !== "string" && entry.select) {
+            selection = entry.select;
+          }
+
+          // Apply selective filtering if selection criteria exists
+          if (selection) {
+            return this.loadSelective(preset, selection);
+          } else {
+            // No selection criteria, return all content
+            return {
+              commands: new Map(preset.commands),
+              rules: new Map(preset.rules),
+              mcps: { ...preset.mcps },
+            };
+          }
+        })
+      );
+
+      // Merge all filtered results with namespace formatting
+      return this.mergeFilteredPresetsWithNamespaces(filteredResults, presets);
+    } catch (error) {
+      if (error instanceof SelectiveLoadingError) {
+        throw error;
+      }
+
+      throw ErrorHandler.wrap(
+        error,
+        "Failed to load presets with select criteria",
+        ErrorCategory.PARSE,
+        { extendsEntries, presets }
+      );
+    }
+  }
+
+  /**
    * Load preset content selectively based on selection criteria
    */
   async loadSelective(
     preset: Preset,
-    selection?: PresetSelection
+    selection?: SelectionConfig
   ): Promise<SelectivePresetResult> {
     try {
       // Validate preset structure
@@ -179,11 +250,50 @@ export class SelectivePresetLoader {
   }
 
   /**
+   * Merge multiple filtered preset results with namespace formatting
+   * This is used when we need to maintain the namespace:filename format
+   */
+  mergeFilteredPresetsWithNamespaces(
+    results: SelectivePresetResult[],
+    presets: Preset[]
+  ): SelectivePresetResult {
+    const merged: SelectivePresetResult = {
+      commands: new Map(),
+      rules: new Map(),
+      mcps: {},
+    };
+
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i];
+      const preset = presets[i];
+
+      if (!preset) continue;
+
+      // Merge commands with namespace formatting
+      for (const [filename, content] of result.commands.entries()) {
+        const namespacedKey = `${preset.namespace}:${filename}`;
+        merged.commands.set(namespacedKey, content);
+      }
+
+      // Merge rules with namespace formatting
+      for (const [filename, content] of result.rules.entries()) {
+        const namespacedKey = `${preset.namespace}:${filename}`;
+        merged.rules.set(namespacedKey, content);
+      }
+
+      // Merge MCPs (later results override earlier ones)
+      Object.assign(merged.mcps, result.mcps);
+    }
+
+    return merged;
+  }
+
+  /**
    * Validate that selection patterns match existing content in preset
    */
   async validateSelection(
     preset: Preset,
-    selection: PresetSelection
+    selection: SelectionConfig
   ): Promise<SelectionValidationResult> {
     const errors: string[] = [];
 
@@ -198,18 +308,13 @@ export class SelectivePresetLoader {
             !pattern.includes("?") &&
             !pattern.includes("[")
           ) {
-            if (!preset.rules.has(pattern)) {
-              errors.push(
-                `Rule file '${pattern}' not found in preset '${preset.source}'`
-              );
-            }
-          } else {
-            // For glob patterns, check if any files match
-            const hasMatches = Array.from(preset.rules.keys()).some(
-              (filename) => isMatch(filename, pattern)
+            const found = Array.from(preset.rules.keys()).some((filename) =>
+              this.simpleGlobMatch(filename, pattern)
             );
-            if (!hasMatches) {
-              errors.push(`No rule files match include pattern: ${pattern}`);
+            if (!found) {
+              errors.push(
+                `Rule file not found for include pattern '${pattern}' in preset '${preset.source}'`
+              );
             }
           }
         }
@@ -227,18 +332,13 @@ export class SelectivePresetLoader {
             !pattern.includes("?") &&
             !pattern.includes("[")
           ) {
-            if (!preset.commands.has(pattern)) {
-              errors.push(
-                `Command file '${pattern}' not found in preset '${preset.source}'`
-              );
-            }
-          } else {
-            // For glob patterns, check if any files match
-            const hasMatches = Array.from(preset.commands.keys()).some(
-              (filename) => isMatch(filename, pattern)
+            const found = Array.from(preset.commands.keys()).some((filename) =>
+              this.simpleGlobMatch(filename, pattern)
             );
-            if (!hasMatches) {
-              errors.push(`No command files match include pattern: ${pattern}`);
+            if (!found) {
+              errors.push(
+                `Command file not found for include pattern '${pattern}' in preset '${preset.source}'`
+              );
             }
           }
         }
@@ -267,15 +367,19 @@ export class SelectivePresetLoader {
    */
   private matchesPattern(
     filename: string,
-    fileSelection: NonNullable<PresetSelection["rules" | "commands"]>
+    fileSelection: { include?: string[]; exclude?: string[] }
   ): boolean {
-    if (!fileSelection.include || fileSelection.include.length === 0) {
+    if (
+      !fileSelection ||
+      !fileSelection.include ||
+      fileSelection.include.length === 0
+    ) {
       return false;
     }
 
     // Check if file matches any include pattern
     const isIncluded = fileSelection.include.some((pattern) =>
-      isMatch(filename, pattern)
+      this.simpleGlobMatch(filename, pattern)
     );
 
     if (!isIncluded) {
@@ -285,7 +389,7 @@ export class SelectivePresetLoader {
     // Check if file is excluded by any exclude pattern
     if (fileSelection.exclude && fileSelection.exclude.length > 0) {
       const isExcluded = fileSelection.exclude.some((pattern) =>
-        isMatch(filename, pattern)
+        this.simpleGlobMatch(filename, pattern)
       );
 
       return !isExcluded;
@@ -295,92 +399,58 @@ export class SelectivePresetLoader {
   }
 
   /**
-   * Get statistics about what would be loaded with a selection
+   * Simple glob pattern matching
+   * Supports * and ** patterns, can be replaced with fast-glob if needed
+   */
+  private simpleGlobMatch(filename: string, pattern: string): boolean {
+    return isMatch(filename, pattern);
+  }
+
+  /**
+   * Get statistics about the selection
    */
   async getSelectionStats(
     preset: Preset,
-    selection?: PresetSelection
+    selection: SelectionConfig
   ): Promise<{
-    totalCommands: number;
-    selectedCommands: number;
-    totalRules: number;
-    selectedRules: number;
-    totalMcps: number;
-    selectedMcps: number;
+    rules: { included: number; excluded: number; total: number };
+    commands: { included: number; excluded: number; total: number };
+    mcps: { included: number; excluded: number; total: number };
   }> {
-    const totalCommands = preset.commands.size;
-    const totalRules = preset.rules.size;
-    const totalMcps = Object.keys(preset.mcps).length;
-
-    if (!selection) {
-      return {
-        totalCommands,
-        selectedCommands: totalCommands,
-        totalRules,
-        selectedRules: totalRules,
-        totalMcps,
-        selectedMcps: totalMcps,
-      };
-    }
-
-    let selectedCommands = 0;
-    let selectedRules = 0;
-    let selectedMcps = 0;
-
-    // Count selected rules
-    if (selection.rules) {
-      for (const [filename] of preset.rules.entries()) {
-        if (this.matchesPattern(filename, selection.rules)) {
-          selectedRules++;
-        }
-      }
-    }
-
-    // Count selected commands
-    if (selection.commands) {
-      for (const [filename] of preset.commands.entries()) {
-        if (this.matchesPattern(filename, selection.commands)) {
-          selectedCommands++;
-        }
-      }
-    }
-
-    // Count selected MCPs
-    if (selection.mcps) {
-      for (const mcpName of selection.mcps) {
-        if (preset.mcps[mcpName]) {
-          selectedMcps++;
-        }
-      }
-    }
+    const result = await this.loadSelective(preset, selection);
 
     return {
-      totalCommands,
-      selectedCommands,
-      totalRules,
-      selectedRules,
-      totalMcps,
-      selectedMcps,
+      rules: {
+        included: result.rules.size,
+        excluded: preset.rules.size - result.rules.size,
+        total: preset.rules.size,
+      },
+      commands: {
+        included: result.commands.size,
+        excluded: preset.commands.size - result.commands.size,
+        total: preset.commands.size,
+      },
+      mcps: {
+        included: Object.keys(result.mcps).length,
+        excluded:
+          Object.keys(preset.mcps).length - Object.keys(result.mcps).length,
+        total: Object.keys(preset.mcps).length,
+      },
     };
   }
 
   /**
-   * Check if a selection would result in empty content
+   * Check if a selection is empty
    */
-  async isEmptySelection(
-    preset: Preset,
-    selection?: PresetSelection
-  ): Promise<boolean> {
-    const stats = await this.getSelectionStats(preset, selection);
+  async isEmptySelection(selection: SelectionConfig): Promise<boolean> {
     return (
-      stats.selectedCommands === 0 &&
-      stats.selectedRules === 0 &&
-      stats.selectedMcps === 0
+      (!selection.rules ||
+        !selection.rules.include ||
+        selection.rules.include.length === 0) &&
+      (!selection.commands ||
+        !selection.commands.include ||
+        selection.commands.include.length === 0) &&
+      (!selection.mcps || selection.mcps.length === 0)
     );
   }
 }
-
-/**
- * Default selective preset loader instance
- */
-export const selectivePresetLoader = new SelectivePresetLoader();
