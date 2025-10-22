@@ -46,7 +46,7 @@ export async function syncMCP(options: SyncMCPOptions = {}): Promise<void> {
   validateTokens(substitutedMCPs);
 
   // 7. Determine targets
-  let targets: ReturnType<typeof detectMCPTargets>;
+  let targets: Awaited<ReturnType<typeof detectMCPTargets>>;
   if (options.tool) {
     // Specific tool requested
     const target = getMCPTarget(options.tool);
