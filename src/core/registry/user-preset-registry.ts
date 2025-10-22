@@ -7,16 +7,10 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { pathExists } from "../../utils/fs.js";
 import * as path from "path";
 import * as os from "os";
-import type {
-  UserPresetEntry,
-  UserConfig,
-  UserPreset,
-  UserPresetRegistryData,
-} from "../../types/schemas.js";
+import type { UserPresetEntry, UserConfig } from "../../types/schemas.js";
 import {
   validateUserPresetEntry,
   safeParseUserConfig,
-  safeParseUserPresetRegistry,
 } from "../../types/schemas.js";
 import {
   UserPresetRegistryError,
@@ -100,19 +94,10 @@ export class UserPresetRegistry {
       );
     }
 
-    // Try to parse as new UserConfig schema first
+    // Parse as UserConfig schema
     let result = safeParseUserConfig(registry);
     if (result.success) {
       this.registryData = result.data;
-      return this.registryData;
-    }
-
-    // Fallback to legacy schema for backward compatibility
-    const legacyResult = safeParseUserPresetRegistry(registry);
-    if (legacyResult.success) {
-      // Migrate legacy data to new format
-      this.registryData = this.migrateLegacyRegistry(legacyResult.data);
-      await this.saveRegistry();
       return this.registryData;
     }
 
@@ -176,30 +161,6 @@ export class UserPresetRegistry {
     return {
       version: "1.0",
       presets: {},
-      tools: ["cursor", "claude"],
-    };
-  }
-
-  /**
-   * Migrate legacy registry data to new format
-   */
-  private migrateLegacyRegistry(
-    legacyData: UserPresetRegistryData
-  ): UserConfig {
-    const presets: Record<string, UserPresetEntry> = {};
-
-    for (const [name, preset] of Object.entries(legacyData.presets)) {
-      presets[name] = {
-        source: preset.source,
-        type: preset.source.startsWith("github:") ? "github" : "filesystem",
-        addedAt: preset.addedAt || new Date().toISOString(),
-        description: preset.description,
-      };
-    }
-
-    return {
-      version: "1.0",
-      presets,
       tools: ["cursor", "claude"],
     };
   }
@@ -289,31 +250,5 @@ export class UserPresetRegistry {
   async clear(): Promise<void> {
     this.registryData = this.createEmptyRegistry();
     await this.saveRegistry();
-  }
-
-  /**
-   * Add a legacy preset to the registry (for backward compatibility)
-   */
-  async addLegacy(preset: UserPreset): Promise<void> {
-    const entry: UserPresetEntry = {
-      source: preset.source,
-      type: preset.source.startsWith("github:") ? "github" : "filesystem",
-      addedAt: preset.addedAt || new Date().toISOString(),
-      description: preset.description,
-    };
-    await this.add(preset.name, entry);
-  }
-
-  /**
-   * List all presets in legacy format (for backward compatibility)
-   */
-  async listLegacy(): Promise<UserPreset[]> {
-    const presets = await this.list();
-    return Object.entries(presets).map(([name, entry]) => ({
-      name,
-      description: entry.description || "",
-      ...entry,
-      namespace: entry.source.split("/")[0].split(":")[1],
-    }));
   }
 }

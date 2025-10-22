@@ -27,7 +27,6 @@ vi.mock("../../../src/utils/fs.js", () => ({
 vi.mock("../../../src/types/schemas.js", () => ({
   validateUserPresetEntry: vi.fn(),
   safeParseUserConfig: vi.fn(),
-  safeParseUserPresetRegistry: vi.fn(),
 }));
 
 describe("UserPresetRegistry error handling", () => {
@@ -69,7 +68,9 @@ describe("UserPresetRegistry error handling", () => {
         throw new Error("Invalid preset entry data");
       });
 
-      await expect(registry.add("test-preset", validEntry)).rejects.toThrow(Error);
+      await expect(registry.add("test-preset", validEntry)).rejects.toThrow(
+        Error
+      );
     });
 
     it("should throw UserPresetRegistryError for duplicate preset names", async () => {
@@ -138,7 +139,9 @@ describe("UserPresetRegistry error handling", () => {
       vi.mocked(validateUserPresetEntry).mockReturnValue(validEntry);
       vi.mocked(writeFile).mockRejectedValue(new Error("Permission denied"));
 
-      await expect(registry.add("test-preset", validEntry)).rejects.toThrow(Error);
+      await expect(registry.add("test-preset", validEntry)).rejects.toThrow(
+        Error
+      );
     });
   });
 
@@ -194,7 +197,9 @@ describe("UserPresetRegistry error handling", () => {
 
   describe("remove", () => {
     it("should throw UserPresetRegistryError for empty preset name", async () => {
-      await expect(registry.remove("")).rejects.toThrow(UserPresetRegistryError);
+      await expect(registry.remove("")).rejects.toThrow(
+        UserPresetRegistryError
+      );
       await expect(registry.remove("   ")).rejects.toThrow(
         UserPresetRegistryError
       );
@@ -310,14 +315,12 @@ describe("UserPresetRegistry error handling", () => {
       vi.mocked(pathExists).mockResolvedValue(false);
       vi.mocked(mkdir).mockRejectedValue(new Error("Permission denied"));
 
-      await expect(registry.list()).rejects.toThrow(
-        UserPresetRegistryError
-      );
+      await expect(registry.list()).rejects.toThrow(UserPresetRegistryError);
     });
 
     it("should handle invalid registry format", async () => {
       const { pathExists, readFile } = await import("../../../src/utils/fs.js");
-      const { safeParseUserConfig, safeParseUserPresetRegistry } = await import(
+      const { safeParseUserConfig } = await import(
         "../../../src/types/schemas.js"
       );
 
@@ -331,14 +334,12 @@ describe("UserPresetRegistry error handling", () => {
         error: new Error("Invalid format"),
       });
 
-      vi.mocked(safeParseUserPresetRegistry).mockReturnValue({
+      vi.mocked(safeParseUserConfig).mockReturnValue({
         success: false,
         error: new Error("Invalid legacy format"),
       });
 
-      await expect(registry.list()).rejects.toThrow(
-        UserPresetRegistryError
-      );
+      await expect(registry.list()).rejects.toThrow(UserPresetRegistryError);
     });
   });
 });

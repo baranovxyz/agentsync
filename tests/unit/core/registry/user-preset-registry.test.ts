@@ -55,7 +55,7 @@ describe("UserPresetRegistry", () => {
       await registry.add("test-preset", entry);
 
       await expect(registry.add("test-preset", entry)).rejects.toThrow(
-        "Preset 'test-preset' already exists"
+        "Preset with name 'test-preset' already exists"
       );
     });
 
@@ -64,7 +64,9 @@ describe("UserPresetRegistry", () => {
         description: "Missing required fields",
       };
 
-      await expect(registry.add("test-preset", invalidEntry as any)).rejects.toThrow();
+      await expect(
+        registry.add("test-preset", invalidEntry as any)
+      ).rejects.toThrow();
     });
   });
 
@@ -81,13 +83,13 @@ describe("UserPresetRegistry", () => {
       await registry.remove("test-preset");
 
       await expect(registry.get("test-preset")).rejects.toThrow(
-        "Preset 'test-preset' not found"
+        "Preset with name 'test-preset' not found"
       );
     });
 
     it("should throw error when removing non-existent preset", async () => {
       await expect(registry.remove("non-existent")).rejects.toThrow(
-        "Preset 'non-existent' not found"
+        "Preset with name 'non-existent' not found"
       );
     });
   });
@@ -211,71 +213,9 @@ describe("UserPresetRegistry", () => {
         description: "A test preset",
       };
 
-      await expect(readOnlyRegistry.add("test-preset", entry)).rejects.toThrow();
-    });
-  });
-
-  describe("Backward compatibility", () => {
-    it("should migrate legacy registry format", async () => {
-      // Create a legacy registry file
-      const legacyRegistryPath = path.join(tempDir, "user-presets.json");
-      const { writeFile } = await import("node:fs/promises");
-      
-      const legacyData = {
-        presets: {
-          "legacy-preset": {
-            name: "legacy-preset",
-            description: "A legacy preset",
-            source: "github:example/legacy",
-            namespace: "example",
-            addedAt: "2023-01-01T00:00:00.000Z",
-          },
-        },
-        lastUpdated: "2023-01-01T00:00:00.000Z",
-      };
-
-      await writeFile(legacyRegistryPath, JSON.stringify(legacyData, null, 2));
-
-      // Create registry with legacy path
-      const legacyRegistry = new UserPresetRegistry(legacyRegistryPath);
-      
-      // Should migrate and work with new format
-      const presets = await legacyRegistry.list();
-      expect(presets["legacy-preset"]).toBeDefined();
-      expect(presets["legacy-preset"].source).toBe("github:example/legacy");
-      expect(presets["legacy-preset"].type).toBe("github");
-    });
-
-    it("should support legacy add method", async () => {
-      const legacyPreset = {
-        name: "legacy-preset",
-        description: "A legacy preset",
-        source: "github:example/legacy",
-        namespace: "example",
-      };
-
-      await registry.addLegacy(legacyPreset);
-
-      const retrieved = await registry.get("legacy-preset");
-      expect(retrieved.source).toBe(legacyPreset.source);
-      expect(retrieved.type).toBe("github");
-      expect(retrieved.description).toBe(legacyPreset.description);
-    });
-
-    it("should support legacy list method", async () => {
-      const entry: UserPresetEntry = {
-        source: "github:example/repo",
-        type: "github",
-        addedAt: new Date().toISOString(),
-        description: "A test preset",
-      };
-
-      await registry.add("test-preset", entry);
-
-      const legacyList = await registry.listLegacy();
-      expect(legacyList).toHaveLength(1);
-      expect(legacyList[0].name).toBe("test-preset");
-      expect(legacyList[0].source).toBe(entry.source);
+      await expect(
+        readOnlyRegistry.add("test-preset", entry)
+      ).rejects.toThrow();
     });
   });
 

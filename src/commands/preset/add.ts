@@ -3,11 +3,14 @@
  */
 
 import picocolors from "picocolors";
-import { validateConfig, validateUserPreset } from "../../types/schemas.js";
+import {
+  validateConfig,
+  validateUserPresetEntry,
+} from "../../types/schemas.js";
 import { ConfigMerger } from "../../core/config/interactive-selection-merger.js";
 import { readFile, writeFile } from "node:fs/promises";
 import * as path from "path";
-import type { UserPreset, SelectionConfig } from "../../types/index.js";
+import type { UserPresetEntry, SelectionConfig } from "../../types/index.js";
 
 const pc = picocolors;
 
@@ -22,7 +25,7 @@ export interface AddPresetOptions {
 
 export interface AddPresetResult {
   success: boolean;
-  preset?: UserPreset;
+  preset?: UserPresetEntry;
   selection?: SelectionConfig;
   message?: string;
   error?: string;
@@ -32,15 +35,30 @@ export interface AddPresetResult {
  * Add a preset to the project configuration with optional selection
  */
 export async function addPreset(
-  preset: UserPreset,
+  source: string,
   options: AddPresetOptions = {}
 ): Promise<AddPresetResult> {
   const cwd = options.cwd || process.cwd();
   const configPath = path.join(cwd, ".agentsync", "config.json");
 
   try {
+    // Validate source format
+    const match = source.match(/^github:([^/]+)\/([^/]+)$/);
+    if (!match) {
+      return {
+        success: false,
+        error: "Invalid source format. Expected: github:org/repo",
+      };
+    }
+
+    const preset: UserPresetEntry = {
+      source,
+      type: "github",
+      addedAt: new Date().toISOString(),
+    };
+
     // Validate preset
-    validateUserPreset(preset);
+    validateUserPresetEntry(preset);
 
     // Load current config
     let configContent: string;
@@ -58,19 +76,19 @@ export async function addPreset(
     // Check for duplicates
     if (
       config.extends?.find(
-        (e) => (typeof e === "string" ? e : e.source) === preset.source
+        (e) => (typeof e === "string" ? e : e.source) === source
       )
     ) {
       return {
         success: false,
-        error: `Preset '${preset.source}' already exists in configuration`,
+        error: `Preset '${source}' already exists in configuration`,
       };
     }
 
     // Add preset to extends array
     const updatedConfig = {
       ...config,
-      extends: [...(config.extends || []), preset.source],
+      extends: [...(config.extends || []), source],
     };
 
     // Save updated config
@@ -102,7 +120,7 @@ export async function addPreset(
         // Add new selection
         const updatedSelections = {
           ...existingSelections,
-          [preset.source]: options.selection,
+          [source]: options.selection,
         };
 
         await merger.saveSelectionsForProject(cwd, updatedSelections);
@@ -118,8 +136,8 @@ export async function addPreset(
     }
 
     const message = options.selection
-      ? `Added preset '${preset.name}' with selection`
-      : `Added preset '${preset.name}'`;
+      ? `Added preset '${source}' with selection`
+      : `Added preset '${source}'`;
 
     return {
       success: true,
@@ -133,33 +151,6 @@ export async function addPreset(
       error: (error as Error).message,
     };
   }
-}
-
-/**
- * Add preset from source string with interactive prompts
- */
-export async function addPresetFromSource(
-  source: string,
-  options: AddPresetOptions = {}
-): Promise<AddPresetResult> {
-  // Parse source to extract basic preset info
-  const match = source.match(/^github:([^/]+)\/([^/]+)$/);
-  if (!match) {
-    return {
-      success: false,
-      error: "Invalid source format. Expected: github:org/repo",
-    };
-  }
-
-  const [, org, repo] = match;
-  const preset: UserPreset = {
-    name: repo,
-    description: `Preset from ${org}/${repo}`,
-    source,
-    namespace: org,
-  };
-
-  return addPreset(preset, options);
 }
 
 /**
@@ -189,7 +180,7 @@ export async function handleAddPresetCommand(
     );
   }
 
-  const result = await addPresetFromSource(source, {
+  const result = await addPreset(source, {
     selection,
     yes: options.yes,
   });
