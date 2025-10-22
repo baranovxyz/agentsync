@@ -50,6 +50,22 @@ export const FileMappingSchema = z.object({
   purpose: z.string().optional(),
 });
 
+// Interactive Selection Configuration Schema (v2.0)
+
+// File-level selection schema
+export const FileSelectionSchema = z.object({
+  include: z.array(z.string()).min(1, "Include patterns cannot be empty"),
+  exclude: z.array(z.string()).optional(),
+});
+
+// Preset selection schema for rules, commands, and MCPs
+export const PresetSelectionSchema = z.object({
+  rules: FileSelectionSchema.optional(),
+  commands: FileSelectionSchema.optional(),
+  mcps: z.array(z.string()).optional(),
+});
+
+
 // Main AGENTS.md schema
 export const AgentsMdSchema = z.object({
   projectOverview: z.string().min(1),
@@ -89,7 +105,7 @@ export const AgentSyncConfigSchema = z.object({
           namespace: z.string().optional(), // Override default namespace
           include: z.array(z.string()).optional(), // Glob patterns
           exclude: z.array(z.string()).optional(), // Glob patterns
-          select: z.array(z.string()).optional(), // Selection patterns
+          select: PresetSelectionSchema.optional(), // Selection patterns
         }),
       ])
     )
@@ -319,7 +335,7 @@ export interface ExtendsEntry {
   namespace: string;
   include?: string[];
   exclude?: string[];
-  select?: string[];
+  select?: PresetSelection;
 }
 
 /**
@@ -367,20 +383,6 @@ function extractNamespace(source: string): string {
   return match[1];
 }
 
-// Interactive Selection Configuration Schema (v2.0)
-
-// File-level selection schema
-export const FileSelectionSchema = z.object({
-  include: z.array(z.string()).min(1, "Include patterns cannot be empty"),
-  exclude: z.array(z.string()).optional(),
-});
-
-// Preset selection schema for rules, commands, and MCPs
-export const PresetSelectionSchema = z.object({
-  rules: FileSelectionSchema.optional(),
-  commands: FileSelectionSchema.optional(),
-  mcps: z.array(z.string()).optional(),
-});
 
 // User registry configuration
 export const UserRegistryConfigSchema = z.object({
@@ -388,10 +390,21 @@ export const UserRegistryConfigSchema = z.object({
   defaultSelections: z.record(z.string(), PresetSelectionSchema).optional(),
 });
 
-// Local configuration (personal overrides)
+// Local configuration for agentsync.local.json
 export const LocalConfigSchema = z.object({
-  selections: z.record(z.string(), PresetSelectionSchema).optional(),
-  overrides: z.record(z.string(), z.any()).optional(),
+  version: z.string().default("1.0"),
+  extends: z
+    .array(
+      z.union([
+        z.string(),
+        z.object({
+          source: z.string(),
+          namespace: z.string().optional(),
+          select: PresetSelectionSchema.optional(),
+        }),
+      ])
+    )
+    .optional(),
 });
 
 // Project configuration (team-shared)
@@ -411,13 +424,27 @@ export const InteractiveSelectionConfigSchema = z.object({
   local: LocalConfigSchema.optional(),
 });
 
-// User Preset Registry Schema
+// User Preset Entry Schema (Simplified)
+export const UserPresetEntrySchema = z.object({
+  source: z.string().min(1, "Source cannot be empty"),
+  type: z.enum(["github", "filesystem"]),
+  addedAt: z.string().datetime(),
+  description: z.string().optional(),
+});
+
+// User Config Schema for ~/.agentsync/config.json
+export const UserConfigSchema = z.object({
+  version: z.string().default("1.0"),
+  presets: z.record(z.string(), UserPresetEntrySchema),
+  tools: z
+    .array(z.enum(["cursor", "claude", "cline", "windsurf", "copilot"]))
+    .optional(),
+});
+
+// User Preset Registry Schema (Legacy - for backward compatibility)
 export const UserPresetSchema = z.object({
   name: z.string().min(1, "Preset name cannot be empty"),
   description: z.string().min(1, "Preset description cannot be empty"),
-  version: z
-    .string()
-    .regex(/^\d+\.\d+\.\d+$/, "Version must be in semver format (x.y.z)"),
   source: z
     .string()
     .regex(
@@ -425,28 +452,13 @@ export const UserPresetSchema = z.object({
       "Source must be in format 'github:org/repo'"
     ),
   namespace: z.string().min(1, "Namespace cannot be empty"),
-  metadata: z
-    .object({
-      author: z.string().optional(),
-      tags: z.array(z.string()).optional(),
-      license: z.string().optional(),
-      homepage: z.string().url().optional(),
-      repository: z.string().url().optional(),
-      createdAt: z.string().datetime().optional(),
-      updatedAt: z.string().datetime().optional(),
-    })
-    .optional(),
+  addedAt: z.string().datetime().optional(),
 });
 
-// User Preset Registry Storage Schema
+// User Preset Registry Storage Schema (Legacy - for backward compatibility)
 export const UserPresetRegistrySchema = z.object({
-  version: z.string().default("1.0"),
   presets: z.record(z.string(), UserPresetSchema),
-  metadata: z.object({
-    createdAt: z.string().datetime(),
-    updatedAt: z.string().datetime(),
-    totalPresets: z.number(),
-  }),
+  lastUpdated: z.string().datetime().optional(),
 });
 
 // Type exports for interactive selection configuration
@@ -459,7 +471,11 @@ export type InteractiveSelectionConfig = z.infer<
   typeof InteractiveSelectionConfigSchema
 >;
 
-// Type exports for user preset registry
+// Type exports for user config
+export type UserPresetEntry = z.infer<typeof UserPresetEntrySchema>;
+export type UserConfig = z.infer<typeof UserConfigSchema>;
+
+// Type exports for user preset registry (legacy)
 export type UserPreset = z.infer<typeof UserPresetSchema>;
 export type UserPresetRegistryData = z.infer<typeof UserPresetRegistrySchema>;
 
@@ -489,14 +505,35 @@ export function safeParseInteractiveSelectionConfig(
 }
 
 /**
- * Validate user preset
+ * Validate local config
+ */
+export function validateLocalConfig(data: unknown): LocalConfig {
+  return LocalConfigSchema.parse(data);
+}
+
+/**
+ * Validate user preset entry
+ */
+export function validateUserPresetEntry(data: unknown): UserPresetEntry {
+  return UserPresetEntrySchema.parse(data);
+}
+
+/**
+ * Validate user config
+ */
+export function validateUserConfig(data: unknown): UserConfig {
+  return UserConfigSchema.parse(data);
+}
+
+/**
+ * Validate user preset (legacy)
  */
 export function validateUserPreset(data: unknown): UserPreset {
   return UserPresetSchema.parse(data);
 }
 
 /**
- * Validate user preset registry data
+ * Validate user preset registry data (legacy)
  */
 export function validateUserPresetRegistry(
   data: unknown
@@ -505,7 +542,53 @@ export function validateUserPresetRegistry(
 }
 
 /**
- * Safe parse user preset with error details
+ * Safe parse local config with error details
+ */
+export function safeParseLocalConfig(
+  data: unknown
+):
+  | { success: true; data: LocalConfig }
+  | { success: false; error: z.ZodError } {
+  const result = LocalConfigSchema.safeParse(data);
+  if (result.success) {
+    return { success: true, data: result.data };
+  } else {
+    return { success: false, error: result.error };
+  }
+}
+
+/**
+ * Safe parse user preset entry with error details
+ */
+export function safeParseUserPresetEntry(
+  data: unknown
+): { success: true; data: UserPresetEntry } | { success: false; error: z.ZodError } {
+  const result = UserPresetEntrySchema.safeParse(data);
+  if (result.success) {
+    return { success: true, data: result.data };
+  } else {
+    return { success: false, error: result.error };
+  }
+}
+
+/**
+ * Safe parse user config with error details
+ */
+export function safeParseUserConfig(
+  data: unknown
+):
+  | { success: true; data: UserConfig }
+  | { success: false; error: z.ZodError } {
+  const result = UserConfigSchema.safeParse(data);
+  if (result.success) {
+    return { success: true, data: result.data };
+  } else {
+    return { success: false, error: result.error };
+  }
+}
+
+/**
+ * Safe parse user preset with error details (legacy)
  */
 export function safeParseUserPreset(
   data: unknown
@@ -519,7 +602,7 @@ export function safeParseUserPreset(
 }
 
 /**
- * Safe parse user preset registry with error details
+ * Safe parse user preset registry with error details (legacy)
  */
 export function safeParseUserPresetRegistry(
   data: unknown
