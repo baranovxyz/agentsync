@@ -1,5 +1,5 @@
 /**
- * Interactive Preset Selection Command
+ * Preset Selection Command
  * Allows users to interactively select presets and configure file-level selections
  */
 
@@ -7,7 +7,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import * as path from "node:path";
 import { checkbox, confirm, input, Separator, select } from "@inquirer/prompts";
 import ora from "ora";
-import pc from "picocolors";
+import * as pc from "picocolors";
 import { ConfigMerger } from "../../core/config/interactive-selection-merger.js";
 import {
   ConfigError,
@@ -25,9 +25,9 @@ import type { SelectionConfig } from "../../types/index.js";
 import { validateConfig } from "../../types/schemas.js";
 
 /**
- * Options for interactive preset selection
+ * Options for preset selection
  */
-export interface InteractiveSelectOptions {
+export interface SelectPresetOptions {
   /** Working directory (defaults to process.cwd()) */
   cwd?: string;
   /** Skip confirmation prompts */
@@ -35,10 +35,10 @@ export interface InteractiveSelectOptions {
 }
 
 /**
- * Main interactive preset selection command
+ * Main preset selection command
  */
-export async function interactiveSelectPreset(
-  options: InteractiveSelectOptions = {},
+export async function selectPreset(
+  options: SelectPresetOptions = {},
 ): Promise<void> {
   const cwd = options.cwd || process.cwd();
 
@@ -380,14 +380,14 @@ async function showPreview(
 
   if (applied.rules.size > 0) {
     console.log(pc.bold("Rules:"));
-    for (const filename of applied.rules.keys()) {
+    for (const filename of Array.from(applied.rules.keys())) {
       console.log(pc.green(`  + ${filename}`));
     }
   }
 
   if (applied.commands.size > 0) {
     console.log(pc.bold("Commands:"));
-    for (const filename of applied.commands.keys()) {
+    for (const filename of Array.from(applied.commands.keys())) {
       console.log(pc.green(`  + ${filename}`));
     }
   }
@@ -434,7 +434,7 @@ async function saveSelection(
         source: extendsEntry,
         select: selection,
       };
-    } else {
+    } else if (extendsEntry) {
       // Update existing object entry
       config.extends![extendsIndex] = {
         ...extendsEntry,

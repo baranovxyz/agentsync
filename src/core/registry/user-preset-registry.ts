@@ -47,6 +47,13 @@ export class UserPresetRegistry {
   }
 
   /**
+   * Get the registry path
+   */
+  getRegistryPath(): string {
+    return this.registryPath;
+  }
+
+  /**
    * Load registry data from disk
    */
   private async loadRegistry(): Promise<UserConfig> {
@@ -226,7 +233,7 @@ export class UserPresetRegistry {
    */
   async list(): Promise<Record<string, UserPresetEntry>> {
     await this.loadRegistry();
-    return this.registryData?.presets;
+    return this.registryData?.presets || {};
   }
 
   /**
@@ -234,7 +241,7 @@ export class UserPresetRegistry {
    */
   async exists(name: string): Promise<boolean> {
     await this.loadRegistry();
-    return name in this.registryData?.presets;
+    return name in (this.registryData?.presets || {});
   }
 
   /**
@@ -244,7 +251,7 @@ export class UserPresetRegistry {
     await this.loadRegistry();
     return {
       version: this.registryData?.version,
-      totalPresets: Object.keys(this.registryData?.presets).length,
+      totalPresets: Object.keys(this.registryData?.presets || {}).length,
     };
   }
 

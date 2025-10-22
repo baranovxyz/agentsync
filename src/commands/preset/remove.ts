@@ -1,5 +1,5 @@
 /**
- * Interactive Preset Removal Command
+ * Preset Removal Command
  * Allows users to interactively remove presets and their selections from the configuration
  */
 
@@ -9,12 +9,12 @@ import { checkbox, confirm, select } from "@inquirer/prompts";
 import ora from "ora";
 import pc from "picocolors";
 import { UserPresetRegistry } from "../../core/registry/user-preset-registry.js";
-import { type AgentSyncConfig, validateConfig } from "../../types/schemas.js";
+import { type AgentSyncConfig, type PresetSelection, validateConfig } from "../../types/schemas.js";
 
 /**
- * Options for interactive preset removal
+ * Options for preset removal
  */
-export interface InteractiveRemoveOptions {
+export interface RemovePresetOptions {
   /** Working directory (defaults to process.cwd()) */
   cwd?: string;
   /** Skip confirmation prompts */
@@ -22,10 +22,10 @@ export interface InteractiveRemoveOptions {
 }
 
 /**
- * Main interactive preset removal command
+ * Main preset removal command
  */
-export async function interactiveRemovePreset(
-  options: InteractiveRemoveOptions = {},
+export async function removePreset(
+  options: RemovePresetOptions = {},
 ): Promise<void> {
   const cwd = options.cwd || process.cwd();
 
