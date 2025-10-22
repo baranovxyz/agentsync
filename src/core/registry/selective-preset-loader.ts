@@ -3,7 +3,7 @@
  */
 
 import type { Preset, SelectionConfig, Extends } from "../../types/index.js";
-import { isMatch } from "micromatch";
+import micromatch from "micromatch";
 import {
   SelectiveLoadingError,
   ErrorHandler,
@@ -403,7 +403,7 @@ export class SelectivePresetLoader {
    * Supports * and ** patterns, can be replaced with fast-glob if needed
    */
   private simpleGlobMatch(filename: string, pattern: string): boolean {
-    return isMatch(filename, pattern);
+    return micromatch.isMatch(filename, pattern);
   }
 
   /**
