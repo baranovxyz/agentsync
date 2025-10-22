@@ -163,32 +163,23 @@ async function getConfiguredPresetSources(config: any): Promise<
     configLevels: string[];
   }> = [];
 
-  // Check interactive selection configuration
-  if (config.interactiveSelection) {
-    const levels: Array<"user" | "project" | "local"> = [
-      "user",
-      "project",
-      "local",
-    ];
-
-    for (const level of levels) {
-      if (config.interactiveSelection[level]?.selections) {
-        for (const source of Object.keys(
-          config.interactiveSelection[level].selections
-        )) {
-          const existingSource = sources.find((s) => s.value === source);
-          if (existingSource) {
-            existingSource.configLevels.push(level);
-          } else {
-            sources.push({
-              name: source.startsWith("user:")
-                ? `${source.replace("user:", "")} (user)`
-                : source,
-              value: source,
-              description: `Configured at ${level} level`,
-              configLevels: [level],
-            });
-          }
+  // Check extends array for presets with selections
+  if (config.extends && Array.isArray(config.extends)) {
+    for (const entry of config.extends) {
+      if (typeof entry === "object" && entry.select) {
+        const source = entry.source;
+        const existingSource = sources.find((s) => s.value === source);
+        if (existingSource) {
+          existingSource.configLevels.push("project");
+        } else {
+          sources.push({
+            name: source.startsWith("user:")
+              ? `${source.replace("user:", "")} (user)`
+              : source,
+            value: source,
+            description: "Configured at project level",
+            configLevels: ["project"],
+          });
         }
       }
     }
@@ -226,13 +217,21 @@ function getAvailableConfigLevels(
   presetSource: string
 ): Array<"user" | "project" | "local"> {
   const levels: Array<"user" | "project" | "local"> = [];
-  if (config.interactiveSelection) {
-    ["user", "project", "local"].forEach((level) => {
-      if (config.interactiveSelection[level]?.selections?.[presetSource]) {
-        levels.push(level as "user" | "project" | "local");
+
+  // Check if preset exists in extends array with selections
+  if (config.extends && Array.isArray(config.extends)) {
+    for (const entry of config.extends) {
+      if (
+        typeof entry === "object" &&
+        entry.source === presetSource &&
+        entry.select
+      ) {
+        levels.push("project");
+        break;
       }
-    });
+    }
   }
+
   return levels;
 }
 
@@ -261,10 +260,18 @@ async function selectConfigLevel(
 async function selectRemovalType(
   config: any,
   presetSource: string,
-  configLevel: "user" | "project" | "local"
+  _configLevel: "user" | "project" | "local"
 ): Promise<"entire" | "specific"> {
-  const selection =
-    config.interactiveSelection[configLevel]?.selections?.[presetSource];
+  // Find the preset in extends array
+  let selection = null;
+  if (config.extends && Array.isArray(config.extends)) {
+    for (const entry of config.extends) {
+      if (typeof entry === "object" && entry.source === presetSource) {
+        selection = entry.select;
+        break;
+      }
+    }
+  }
 
   if (!selection || Object.keys(selection).length === 0) {
     return "entire";
@@ -291,10 +298,18 @@ async function selectRemovalType(
 async function selectContentTypesForRemoval(
   config: any,
   presetSource: string,
-  configLevel: "user" | "project" | "local"
+  _configLevel: "user" | "project" | "local"
 ): Promise<string[]> {
-  const selection =
-    config.interactiveSelection[configLevel]?.selections?.[presetSource];
+  // Find the preset in extends array
+  let selection = null;
+  if (config.extends && Array.isArray(config.extends)) {
+    for (const entry of config.extends) {
+      if (typeof entry === "object" && entry.source === presetSource) {
+        selection = entry.select;
+        break;
+      }
+    }
+  }
 
   if (!selection) {
     return [];
@@ -341,10 +356,24 @@ async function showRemovalPreview(
         `🔥 Selections for '${presetSource}' will be removed from ${configLevel} configuration:`
       )
     );
-    const selection =
-      config.interactiveSelection[configLevel]?.selections?.[presetSource];
-    for (const type of removedTypes) {
-      console.log(pc.yellow(`  - ${type}: ${JSON.stringify(selection[type])}`));
+
+    // Find the preset in extends array
+    let selection = null;
+    if (config.extends && Array.isArray(config.extends)) {
+      for (const entry of config.extends) {
+        if (typeof entry === "object" && entry.source === presetSource) {
+          selection = entry.select;
+          break;
+        }
+      }
+    }
+
+    if (selection) {
+      for (const type of removedTypes) {
+        console.log(
+          pc.yellow(`  - ${type}: ${JSON.stringify(selection[type])}`)
+        );
+      }
     }
   }
 
@@ -361,59 +390,60 @@ async function applyRemoval(
   removedTypes: string[],
   configLevel: "user" | "project" | "local"
 ): Promise<void> {
+  // Load from correct file based on config level
   const configPath = path.join(
     cwd,
-    ".agentsync",
-    "interactive-selections.json"
+    configLevel === "project"
+      ? ".agentsync/config.json"
+      : configLevel === "local"
+        ? "agentsync.local.json"
+        : path.join(
+            process.env.HOME || process.env.USERPROFILE || "",
+            ".agentsync",
+            "config.json"
+          )
   );
 
   try {
     const configContent = await readFile(configPath, "utf-8");
-    const config = JSON.parse(configContent);
+    const config = validateConfig(JSON.parse(configContent));
 
-    if (!config.interactiveSelection) {
-      throw new Error("No interactive selection configuration found");
+    if (!config.extends) {
+      throw new Error("No presets configured");
     }
 
-    // Initialize level if not present
-    if (!config.interactiveSelection[configLevel]) {
-      throw new Error(`No ${configLevel} configuration found`);
-    }
+    // Find and update extends entry
+    config.extends = config.extends
+      .map((entry) => {
+        const source = typeof entry === "string" ? entry : entry.source;
 
-    if (!config.interactiveSelection[configLevel].selections) {
-      throw new Error(`No selections found in ${configLevel} configuration`);
-    }
+        if (source !== presetSource) {
+          return entry;
+        }
 
-    // Check if preset exists
-    if (!config.interactiveSelection[configLevel].selections[presetSource]) {
-      throw new Error("Preset not found in configuration");
-    }
+        if (removalType === "entire") {
+          return null; // Mark for removal
+        }
 
-    if (removalType === "entire") {
-      // Remove entire preset
-      delete config.interactiveSelection[configLevel].selections[presetSource];
-    } else {
-      // Remove specific selections
-      const selection =
-        config.interactiveSelection[configLevel].selections[presetSource];
+        // Remove specific selections
+        if (typeof entry === "object" && entry.select) {
+          const updatedSelect = { ...entry.select };
+          for (const type of removedTypes) {
+            delete (updatedSelect as any)[type];
+          }
 
-      for (const type of removedTypes) {
-        delete selection[type];
-      }
+          // If no selections remain, remove entire entry
+          if (Object.keys(updatedSelect).length === 0) {
+            return null;
+          }
 
-      // If no selections remain, remove the entire preset
-      if (Object.keys(selection).length === 0) {
-        delete config.interactiveSelection[configLevel].selections[
-          presetSource
-        ];
-      } else {
-        // Update the selection
-        config.interactiveSelection[configLevel].selections[presetSource] =
-          selection;
-      }
-    }
+          return { ...entry, select: updatedSelect };
+        }
 
-    // TODO: Re-implement validation if necessary
+        return entry;
+      })
+      .filter((entry): entry is NonNullable<typeof entry> => entry !== null); // Remove null entries
+
     await writeFile(configPath, JSON.stringify(config, null, 2), "utf-8");
   } catch (error) {
     throw new Error(
