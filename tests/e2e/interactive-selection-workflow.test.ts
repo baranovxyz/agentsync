@@ -3,12 +3,12 @@
  * Tests the full user journey from selection to sync
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { execa } from "execa";
 import * as fs from "node:fs/promises";
-import * as path from "path";
 import { mkdtemp, rm } from "node:fs/promises";
-import * as os from "os";
+import * as os from "node:os";
+import * as path from "node:path";
+import { execa } from "execa";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 describe("Interactive Selection Workflow E2E", () => {
   let tempDir: string;
@@ -63,7 +63,7 @@ describe("Interactive Selection Workflow E2E", () => {
         "cache",
         "github",
         "example",
-        "standards"
+        "standards",
       );
       await fs.mkdir(cacheDir, { recursive: true });
 
@@ -85,7 +85,7 @@ describe("Interactive Selection Workflow E2E", () => {
 ## MCP Servers
 - github: GitHub integration
 - filesystem: File system access
-`
+`,
       );
 
       // Create mock rules and commands directories
@@ -97,29 +97,29 @@ describe("Interactive Selection Workflow E2E", () => {
       // Create mock rule files
       await fs.writeFile(
         path.join(rulesDir, "eslint.md"),
-        "# ESLint Rules\n\nNo console.log statements"
+        "# ESLint Rules\n\nNo console.log statements",
       );
       await fs.writeFile(
         path.join(rulesDir, "style.md"),
-        "# Style Guide\n\nUse 2 space indentation"
+        "# Style Guide\n\nUse 2 space indentation",
       );
       await fs.writeFile(
         path.join(rulesDir, "security.md"),
-        "# Security Rules\n\nNo eval() statements"
+        "# Security Rules\n\nNo eval() statements",
       );
 
       // Create mock command files
       await fs.writeFile(
         path.join(commandsDir, "build.md"),
-        "# Build Commands\n\n- npm run build"
+        "# Build Commands\n\n- npm run build",
       );
       await fs.writeFile(
         path.join(commandsDir, "test.md"),
-        "# Test Commands\n\n- npm test"
+        "# Test Commands\n\n- npm test",
       );
       await fs.writeFile(
         path.join(commandsDir, "deploy.md"),
-        "# Deploy Commands\n\n- npm run deploy"
+        "# Deploy Commands\n\n- npm run deploy",
       );
 
       // 4. Create interactive selection with preset selections
@@ -144,7 +144,7 @@ describe("Interactive Selection Workflow E2E", () => {
       const selectionConfigPath = path.join(
         tempDir,
         ".agentsync",
-        "config.json"
+        "config.json",
       );
       const updatedConfig = {
         ...config,
@@ -152,7 +152,7 @@ describe("Interactive Selection Workflow E2E", () => {
       };
       await fs.writeFile(
         selectionConfigPath,
-        JSON.stringify(updatedConfig, null, 2)
+        JSON.stringify(updatedConfig, null, 2),
       );
 
       // 5. Run sync with selections
@@ -161,7 +161,7 @@ describe("Interactive Selection Workflow E2E", () => {
         ["sync"],
         {
           cwd: tempDir,
-        }
+        },
       );
       expect(syncExitCode).toBe(0);
 
@@ -238,7 +238,7 @@ describe("Interactive Selection Workflow E2E", () => {
           "cache",
           "github",
           preset === "standards" ? "example" : "company",
-          preset
+          preset,
         );
         await fs.mkdir(cacheDir, { recursive: true });
 
@@ -260,7 +260,7 @@ describe("Interactive Selection Workflow E2E", () => {
 ## MCP Servers
 - github: GitHub integration
 - filesystem: File system access
-`
+`,
         );
 
         // Create mock rules and commands directories
@@ -272,11 +272,11 @@ describe("Interactive Selection Workflow E2E", () => {
         // Create preset-specific files
         await fs.writeFile(
           path.join(rulesDir, `${preset}-rule.md`),
-          `# ${preset} Rule\n\nSpecific to ${preset}`
+          `# ${preset} Rule\n\nSpecific to ${preset}`,
         );
         await fs.writeFile(
           path.join(commandsDir, `${preset}-cmd.md`),
-          `# ${preset} Command\n\nSpecific to ${preset}`
+          `# ${preset} Command\n\nSpecific to ${preset}`,
         );
       }
 
@@ -380,7 +380,7 @@ describe("Interactive Selection Workflow E2E", () => {
         "cache",
         "github",
         "example",
-        "standards"
+        "standards",
       );
       await fs.mkdir(cacheDir, { recursive: true });
 
@@ -401,7 +401,7 @@ describe("Interactive Selection Workflow E2E", () => {
 ## MCP Servers
 - github: GitHub integration
 - filesystem: File system access
-`
+`,
       );
 
       // Create mock rules and commands directories
@@ -413,15 +413,15 @@ describe("Interactive Selection Workflow E2E", () => {
       // Create mock files
       await fs.writeFile(
         path.join(rulesDir, "common.md"),
-        "# Common Rules\n\nShared rules"
+        "# Common Rules\n\nShared rules",
       );
       await fs.writeFile(
         path.join(rulesDir, "project-specific.md"),
-        "# Project Specific Rules\n\nProject rules"
+        "# Project Specific Rules\n\nProject rules",
       );
       await fs.writeFile(
         path.join(commandsDir, "build.md"),
-        "# Build Commands\n\n- npm run build"
+        "# Build Commands\n\n- npm run build",
       );
 
       // 4. Create interactive selection with both user and project levels
@@ -508,7 +508,7 @@ describe("Interactive Selection Workflow E2E", () => {
         ["init", "--tools", "cursor"],
         {
           cwd: tempDir,
-        }
+        },
       );
       expect(initExitCode).toBe(0);
 
@@ -544,13 +544,13 @@ describe("Interactive Selection Workflow E2E", () => {
         "cache",
         "github",
         "example",
-        "standards"
+        "standards",
       );
       await fs.mkdir(cacheDir, { recursive: true });
       await fs.mkdir(path.join(cacheDir, "rules"), { recursive: true });
       await fs.writeFile(
         path.join(cacheDir, "rules", "test.md"),
-        "# Test Rule\n\nContent"
+        "# Test Rule\n\nContent",
       );
 
       // 4. Run sync
@@ -575,7 +575,7 @@ describe("Interactive Selection Workflow E2E", () => {
         ["init", "--tools", "claude"],
         {
           cwd: tempDir,
-        }
+        },
       );
       expect(initExitCode).toBe(0);
 
@@ -611,13 +611,13 @@ describe("Interactive Selection Workflow E2E", () => {
         "cache",
         "github",
         "example",
-        "standards"
+        "standards",
       );
       await fs.mkdir(cacheDir, { recursive: true });
       await fs.mkdir(path.join(cacheDir, "rules"), { recursive: true });
       await fs.writeFile(
         path.join(cacheDir, "rules", "test.md"),
-        "# Test Rule\n\nContent"
+        "# Test Rule\n\nContent",
       );
 
       // 4. Run sync
@@ -642,7 +642,7 @@ describe("Interactive Selection Workflow E2E", () => {
         ["init", "--tools", "cursor,claude"],
         {
           cwd: tempDir,
-        }
+        },
       );
       expect(initExitCode).toBe(0);
 
@@ -678,13 +678,13 @@ describe("Interactive Selection Workflow E2E", () => {
         "cache",
         "github",
         "example",
-        "standards"
+        "standards",
       );
       await fs.mkdir(cacheDir, { recursive: true });
       await fs.mkdir(path.join(cacheDir, "rules"), { recursive: true });
       await fs.writeFile(
         path.join(cacheDir, "rules", "test.md"),
-        "# Test Rule\n\nContent"
+        "# Test Rule\n\nContent",
       );
 
       // 4. Run sync

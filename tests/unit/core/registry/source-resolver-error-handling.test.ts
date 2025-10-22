@@ -2,15 +2,15 @@
  * Tests for error handling in source resolution
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { SourceResolver } from "../../../src/core/registry/source-resolver.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  SourceResolutionError,
-  ValidationError,
-  FileSystemError,
   ErrorCategory,
   ErrorSeverity,
+  FileSystemError,
+  SourceResolutionError,
+  ValidationError,
 } from "../../../src/core/errors.js";
+import { SourceResolver } from "../../../src/core/registry/source-resolver.js";
 
 // Mock dependencies
 vi.mock("../../../src/core/registry/github-resolver.js", () => ({
@@ -44,52 +44,52 @@ describe("SourceResolver error handling", () => {
     it("should throw ValidationError for empty source", () => {
       expect(() => sourceResolver.validateSource("")).toThrow(ValidationError);
       expect(() => sourceResolver.validateSource(null as any)).toThrow(
-        ValidationError
+        ValidationError,
       );
       expect(() => sourceResolver.validateSource(undefined as any)).toThrow(
-        ValidationError
+        ValidationError,
       );
     });
 
     it("should throw ValidationError for invalid source format", () => {
       expect(() => sourceResolver.validateSource("invalid:format")).toThrow(
-        ValidationError
+        ValidationError,
       );
       expect(() => sourceResolver.validateSource("http://example.com")).toThrow(
-        ValidationError
+        ValidationError,
       );
       expect(() =>
-        sourceResolver.validateSource("git@github.com:org/repo")
+        sourceResolver.validateSource("git@github.com:org/repo"),
       ).toThrow(ValidationError);
     });
 
     it("should throw ValidationError for invalid GitHub source format", () => {
       expect(() => sourceResolver.validateSource("github:org")).toThrow(
-        ValidationError
+        ValidationError,
       );
       expect(() =>
-        sourceResolver.validateSource("github:org/repo/extra")
+        sourceResolver.validateSource("github:org/repo/extra"),
       ).toThrow(ValidationError);
       expect(() =>
-        sourceResolver.validateSource("github:org/repo@invalid@ref")
+        sourceResolver.validateSource("github:org/repo@invalid@ref"),
       ).toThrow(ValidationError);
     });
 
     it("should not throw for valid sources", () => {
       expect(() =>
-        sourceResolver.validateSource("github:org/repo")
+        sourceResolver.validateSource("github:org/repo"),
       ).not.toThrow();
       expect(() =>
-        sourceResolver.validateSource("github:org/repo@v1.0")
+        sourceResolver.validateSource("github:org/repo@v1.0"),
       ).not.toThrow();
       expect(() =>
-        sourceResolver.validateSource("/absolute/path")
+        sourceResolver.validateSource("/absolute/path"),
       ).not.toThrow();
       expect(() =>
-        sourceResolver.validateSource("./relative/path")
+        sourceResolver.validateSource("./relative/path"),
       ).not.toThrow();
       expect(() =>
-        sourceResolver.validateSource("../parent/path")
+        sourceResolver.validateSource("../parent/path"),
       ).not.toThrow();
     });
   });
@@ -98,25 +98,25 @@ describe("SourceResolver error handling", () => {
     it("should correctly identify GitHub sources", () => {
       expect(sourceResolver.getSourceType("github:org/repo")).toBe("github");
       expect(sourceResolver.getSourceType("github:org/repo@v1.0")).toBe(
-        "github"
+        "github",
       );
     });
 
     it("should correctly identify filesystem sources", () => {
       expect(sourceResolver.getSourceType("/absolute/path")).toBe("filesystem");
       expect(sourceResolver.getSourceType("./relative/path")).toBe(
-        "filesystem"
+        "filesystem",
       );
       expect(sourceResolver.getSourceType("../parent/path")).toBe("filesystem");
       expect(sourceResolver.getSourceType("simple-relative")).toBe(
-        "filesystem"
+        "filesystem",
       );
     });
 
     it("should return unknown for invalid sources", () => {
       expect(sourceResolver.getSourceType("")).toBe("unknown");
       expect(sourceResolver.getSourceType("http://example.com")).toBe(
-        "unknown"
+        "unknown",
       );
       expect(sourceResolver.getSourceType("invalid:format")).toBe("unknown");
     });
@@ -125,7 +125,7 @@ describe("SourceResolver error handling", () => {
   describe("resolve", () => {
     it("should throw SourceResolutionError for invalid sources", async () => {
       await expect(sourceResolver.resolve("invalid:source")).rejects.toThrow(
-        SourceResolutionError
+        SourceResolutionError,
       );
     });
 
@@ -139,11 +139,11 @@ describe("SourceResolver error handling", () => {
         () =>
           ({
             resolve: vi.fn().mockRejectedValue(mockError),
-          }) as any
+          }) as any,
       );
 
       await expect(sourceResolver.resolve("github:org/repo")).rejects.toThrow(
-        SourceResolutionError
+        SourceResolutionError,
       );
     });
 
@@ -152,7 +152,7 @@ describe("SourceResolver error handling", () => {
       vi.mocked(access).mockRejectedValue(new Error("Permission denied"));
 
       await expect(sourceResolver.resolve("/nonexistent/path")).rejects.toThrow(
-        FileSystemError
+        FileSystemError,
       );
     });
 
@@ -166,7 +166,7 @@ describe("SourceResolver error handling", () => {
         () =>
           ({
             resolve: vi.fn().mockRejectedValue(originalError),
-          }) as any
+          }) as any,
       );
 
       try {
@@ -211,46 +211,46 @@ describe("SourceResolver error handling", () => {
   describe("edge cases", () => {
     it("should handle whitespace-only sources", () => {
       expect(() => sourceResolver.validateSource("   ")).toThrow(
-        ValidationError
+        ValidationError,
       );
       expect(() => sourceResolver.validateSource("\n\t")).toThrow(
-        ValidationError
+        ValidationError,
       );
     });
 
     it("should handle special characters in paths", () => {
       expect(() =>
-        sourceResolver.validateSource("./path with spaces")
+        sourceResolver.validateSource("./path with spaces"),
       ).not.toThrow();
       expect(() =>
-        sourceResolver.validateSource("./path-with-dashes")
+        sourceResolver.validateSource("./path-with-dashes"),
       ).not.toThrow();
       expect(() =>
-        sourceResolver.validateSource("./path_with_underscores")
+        sourceResolver.validateSource("./path_with_underscores"),
       ).not.toThrow();
     });
 
     it("should reject sources with protocols", () => {
       expect(() => sourceResolver.validateSource("ftp://example.com")).toThrow(
-        ValidationError
+        ValidationError,
       );
       expect(() => sourceResolver.validateSource("ssh://example.com")).toThrow(
-        ValidationError
+        ValidationError,
       );
       expect(() =>
-        sourceResolver.validateSource("https://example.com")
+        sourceResolver.validateSource("https://example.com"),
       ).toThrow(ValidationError);
     });
 
     it("should handle complex GitHub references", () => {
       expect(() =>
-        sourceResolver.validateSource("github:org/repo@v1.2.3")
+        sourceResolver.validateSource("github:org/repo@v1.2.3"),
       ).not.toThrow();
       expect(() =>
-        sourceResolver.validateSource("github:org/repo@feature-branch")
+        sourceResolver.validateSource("github:org/repo@feature-branch"),
       ).not.toThrow();
       expect(() =>
-        sourceResolver.validateSource("github:org/repo@commit_hash")
+        sourceResolver.validateSource("github:org/repo@commit_hash"),
       ).not.toThrow();
     });
   });

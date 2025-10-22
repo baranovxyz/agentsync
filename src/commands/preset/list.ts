@@ -2,12 +2,12 @@
  * List extended presets command
  */
 
+import { readFile } from "node:fs/promises";
+import * as path from "node:path";
 import picocolors from "picocolors";
-import { validateConfig } from "../../types/schemas.js";
 import { CacheManager } from "../../core/registry/cache-manager.js";
 import { GitHubSourceParser } from "../../core/registry/github-source.js";
-import { readFile } from "node:fs/promises";
-import * as path from "path";
+import { validateConfig } from "../../types/schemas.js";
 
 const pc = picocolors;
 
@@ -16,7 +16,7 @@ export interface ListPresetsOptions {
 }
 
 export async function listPresets(
-  options: ListPresetsOptions = {}
+  options: ListPresetsOptions = {},
 ): Promise<void> {
   console.log(pc.blue("📚 Extended Presets\n"));
 
@@ -41,7 +41,7 @@ export async function listPresets(
     try {
       const localContent = await readFile(localConfigPath, "utf-8");
       localConfig = JSON.parse(localContent);
-    } catch (error) {
+    } catch (_error) {
       // Local config doesn't exist, continue with empty extends
     }
 
@@ -55,7 +55,7 @@ export async function listPresets(
       const source = typeof entry === "string" ? entry : entry.source;
       const namespace = typeof entry === "string" ? "" : entry.namespace;
       const selection = typeof entry === "object" ? entry.select : undefined;
-      
+
       console.log(pc.bold(source));
       if (namespace) {
         console.log(pc.gray(`  Namespace: ${namespace}`));
@@ -94,8 +94,8 @@ export async function listPresets(
         const sizeInMB = ((metadata.size || 0) / 1024 / 1024).toFixed(2);
         console.log(
           pc.green(
-            `  ✓ Cached (${sizeInMB}MB, last updated: ${metadata.lastUpdated?.toLocaleDateString()})`
-          )
+            `  ✓ Cached (${sizeInMB}MB, last updated: ${metadata.lastUpdated?.toLocaleDateString()})`,
+          ),
         );
       } else {
         console.log(pc.yellow("  ⚠ Not cached (will be cloned on next sync)"));
@@ -105,23 +105,24 @@ export async function listPresets(
     }
 
     // Show selection summary if any selections exist and verbose mode is on
-    const selectionCount = allExtends.filter(e => 
-      typeof e === "object" && e.select && Object.keys(e.select).length > 0
+    const selectionCount = allExtends.filter(
+      (e) =>
+        typeof e === "object" && e.select && Object.keys(e.select).length > 0,
     ).length;
-    
+
     if (selectionCount > 0 && options.verbose) {
       console.log(
         pc.cyan(
-          `📋 ${selectionCount} preset${selectionCount === 1 ? "" : "s"} with interactive selections`
-        )
+          `📋 ${selectionCount} preset${selectionCount === 1 ? "" : "s"} with interactive selections`,
+        ),
       );
       console.log(
         pc.gray(
-          "Use 'agentsync preset interactive-select' to manage selections"
-        )
+          "Use 'agentsync preset interactive-select' to manage selections",
+        ),
       );
       console.log(
-        pc.gray("Use 'agentsync sync --selections' to sync with selections")
+        pc.gray("Use 'agentsync sync --selections' to sync with selections"),
       );
       console.log();
     }

@@ -3,12 +3,11 @@
  * Tests the actual file system operations without mocks
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import * as os from "node:os";
+import * as path from "node:path";
 import { execa } from "execa";
-import * as path from "path";
-import * as os from "os";
-import { mkdtemp, writeFile, rm } from "node:fs/promises";
-import { mkdir } from "node:fs/promises";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 // Helper functions for file operations
 async function ensureDir(dir: string): Promise<void> {
@@ -41,7 +40,7 @@ describe("Interactive Selection Workflow (Integration)", () => {
         version: "1.0",
         extends: ["github:company/standards"],
         tools: ["cursor"],
-      })
+      }),
     );
   });
 
@@ -65,7 +64,7 @@ describe("Interactive Selection Workflow (Integration)", () => {
           },
         ],
         tools: ["cursor"],
-      })
+      }),
     );
 
     // Run list command
@@ -92,7 +91,7 @@ describe("Interactive Selection Workflow (Integration)", () => {
           },
         ],
         tools: ["cursor"],
-      })
+      }),
     );
 
     // Setup local config
@@ -106,7 +105,7 @@ describe("Interactive Selection Workflow (Integration)", () => {
             select: { commands: { include: ["*.sh"] } },
           },
         ],
-      })
+      }),
     );
 
     // Run list command
@@ -127,7 +126,7 @@ describe("Interactive Selection Workflow (Integration)", () => {
         version: "1.0",
         extends: ["github:company/standards"],
         tools: ["cursor"],
-      })
+      }),
     );
 
     // Run list command
@@ -157,7 +156,7 @@ describe("Interactive Selection Workflow (Integration)", () => {
           },
         ],
         tools: ["cursor"],
-      })
+      }),
     );
 
     // Run list command (should not throw)
@@ -178,7 +177,7 @@ describe("Interactive Selection Workflow (Integration)", () => {
       [cliPath, "preset", "list"],
       {
         cwd: tempDir,
-      }
+      },
     );
 
     // Verify error message

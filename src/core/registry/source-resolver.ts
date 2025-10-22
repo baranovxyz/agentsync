@@ -3,17 +3,17 @@
  * Handles different source types with a consistent interface
  */
 
-import * as path from "path";
 import { access } from "node:fs/promises";
-import { GitHubResolver } from "./github-resolver.js";
-import { CacheManager } from "./cache-manager.js";
+import * as path from "node:path";
 import {
-  FileSystemError,
-  ValidationError,
-  SourceResolutionError,
-  ErrorHandler,
   ErrorCategory,
+  ErrorHandler,
+  FileSystemError,
+  SourceResolutionError,
+  ValidationError,
 } from "../errors.js";
+import { CacheManager } from "./cache-manager.js";
+import { GitHubResolver } from "./github-resolver.js";
 
 export type SourceType = "github" | "filesystem" | "unknown";
 
@@ -41,7 +41,7 @@ export class SourceResolver {
    */
   async resolve(
     source: string,
-    options?: SourceResolveOptions
+    options?: SourceResolveOptions,
   ): Promise<string> {
     try {
       // Validate source format first
@@ -57,7 +57,7 @@ export class SourceResolver {
         default:
           throw new SourceResolutionError(
             `Unsupported source type: ${source}`,
-            source
+            source,
           );
       }
     } catch (error) {
@@ -72,7 +72,7 @@ export class SourceResolver {
         error,
         `Failed to resolve source: ${source}`,
         ErrorCategory.NETWORK,
-        { source, options }
+        { source, options },
       );
     }
   }
@@ -85,7 +85,7 @@ export class SourceResolver {
     if (!source || typeof source !== "string") {
       throw new SourceResolutionError(
         "Source must be a non-empty string",
-        source
+        source,
       );
     }
 
@@ -96,7 +96,7 @@ export class SourceResolver {
         `Invalid source format: ${source}. Supported formats:\n` +
           `- GitHub: github:org/repo[@ref]\n` +
           `- Filesystem: /absolute/path or ./relative/path`,
-        source
+        source,
       );
     }
 
@@ -156,13 +156,14 @@ export class SourceResolver {
     // Check if it's a simple relative path (no colons, no URL-like patterns)
     // But exclude URLs and other protocols, and invalid formats
     return (
-      !source.includes(":") &&
-      !source.includes("://") &&
-      !source.startsWith("http") &&
-      !source.startsWith("ftp") &&
-      !source.startsWith("git@") &&
-      !source.includes(" ") &&
-      source.trim().length > 0
+      !(
+        source.includes(":") ||
+        source.includes("://") ||
+        source.startsWith("http") ||
+        source.startsWith("ftp") ||
+        source.startsWith("git@") ||
+        source.includes(" ")
+      ) && source.trim().length > 0
     );
   }
 
@@ -174,7 +175,7 @@ export class SourceResolver {
    */
   private async resolveGitHubSource(
     source: string,
-    options?: SourceResolveOptions
+    options?: SourceResolveOptions,
   ): Promise<string> {
     try {
       return await this.gitHubResolver.resolve(source, options);
@@ -183,7 +184,7 @@ export class SourceResolver {
         throw new FileSystemError(
           `Failed to resolve GitHub source: ${source}`,
           undefined,
-          error
+          error,
         );
       }
       throw error;
@@ -212,7 +213,7 @@ export class SourceResolver {
       throw new FileSystemError(
         `Filesystem source not accessible: ${source}`,
         resolvedPath,
-        error as Error
+        error as Error,
       );
     }
 
@@ -231,7 +232,7 @@ export class SourceResolver {
     if (!githubPattern.test(source)) {
       throw new SourceResolutionError(
         `Invalid GitHub source format: ${source}. Expected format: github:org/repo[@ref]`,
-        source
+        source,
       );
     }
   }

@@ -3,41 +3,49 @@
  * Loads ~/.agentsync/mcp.json
  */
 
-import { readFile } from 'node:fs/promises';
-import { pathExists } from '../../utils/fs.js';
-import * as path from 'path';
-import * as os from 'os';
-import type { MCP } from './tokens.js';
+import { readFile } from "node:fs/promises";
+import * as os from "node:os";
+import * as path from "node:path";
+import { pathExists } from "../../utils/fs.js";
+import type { MCP } from "./tokens.js";
 
 /**
  * Get the default global registry path
  */
 export function getGlobalRegistryPath(): string {
   const home = os.homedir();
-  return path.join(home, '.agentsync', 'mcp.json');
+  return path.join(home, ".agentsync", "mcp.json");
 }
 
 /**
  * Validate MCP configuration structure
  */
 function validateMCP(name: string, mcp: unknown): mcp is MCP {
-  if (typeof mcp !== 'object' || mcp === null) {
-    throw new Error(`Invalid MCP configuration for '${name}': must be an object`);
+  if (typeof mcp !== "object" || mcp === null) {
+    throw new Error(
+      `Invalid MCP configuration for '${name}': must be an object`,
+    );
   }
 
   const mcpObj = mcp as Record<string, unknown>;
 
-  if (typeof mcpObj.command !== 'string') {
-    throw new Error(`Invalid MCP configuration for '${name}': missing 'command' field`);
+  if (typeof mcpObj.command !== "string") {
+    throw new Error(
+      `Invalid MCP configuration for '${name}': missing 'command' field`,
+    );
   }
 
   if (!Array.isArray(mcpObj.args)) {
-    throw new Error(`Invalid MCP configuration for '${name}': missing or invalid 'args' field`);
+    throw new Error(
+      `Invalid MCP configuration for '${name}': missing or invalid 'args' field`,
+    );
   }
 
   if (mcpObj.env !== undefined) {
-    if (typeof mcpObj.env !== 'object' || mcpObj.env === null) {
-      throw new Error(`Invalid MCP configuration for '${name}': 'env' must be an object`);
+    if (typeof mcpObj.env !== "object" || mcpObj.env === null) {
+      throw new Error(
+        `Invalid MCP configuration for '${name}': 'env' must be an object`,
+      );
     }
   }
 
@@ -51,7 +59,7 @@ function validateMCP(name: string, mcp: unknown): mcp is MCP {
  * @throws Error if registry doesn't exist, is invalid JSON, or has invalid structure
  */
 export async function loadGlobalRegistry(
-  registryPath?: string
+  registryPath?: string,
 ): Promise<Record<string, MCP>> {
   const filepath = registryPath || getGlobalRegistryPath();
 
@@ -67,24 +75,30 @@ export async function loadGlobalRegistry(
         `    "args": ["-y", "@modelcontextprotocol/server-github"],\n` +
         `    "env": { "GITHUB_TOKEN": "{GITHUB_TOKEN}" }\n` +
         `  }\n` +
-        `}`
+        `}`,
     );
   }
 
   // Read and parse JSON
   let registry: unknown;
   try {
-    const content = await readFile(filepath, 'utf-8');
+    const content = await readFile(filepath, "utf-8");
     registry = JSON.parse(content);
   } catch (error) {
     throw new Error(
-      `Failed to parse global MCP registry at ${filepath}: ${(error as Error).message}`
+      `Failed to parse global MCP registry at ${filepath}: ${(error as Error).message}`,
     );
   }
 
   // Validate it's an object
-  if (typeof registry !== 'object' || registry === null || Array.isArray(registry)) {
-    throw new Error(`Global MCP registry must be an object, got ${typeof registry}`);
+  if (
+    typeof registry !== "object" ||
+    registry === null ||
+    Array.isArray(registry)
+  ) {
+    throw new Error(
+      `Global MCP registry must be an object, got ${typeof registry}`,
+    );
   }
 
   const registryObj = registry as Record<string, unknown>;
@@ -93,7 +107,7 @@ export async function loadGlobalRegistry(
   if (Object.keys(registryObj).length === 0) {
     throw new Error(
       `Global MCP registry is empty at ${filepath}\n\n` +
-        `Please add at least one MCP server configuration.`
+        `Please add at least one MCP server configuration.`,
     );
   }
 

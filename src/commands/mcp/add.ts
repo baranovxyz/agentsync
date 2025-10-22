@@ -3,10 +3,10 @@
  * Adds MCP server to project configuration
  */
 
-import { loadGlobalRegistry } from "../../core/mcp/registry.js";
+import { mkdir, writeFile } from "node:fs/promises";
+import * as path from "node:path";
 import { loadProjectConfig } from "../../core/mcp/config.js";
-import { writeFile, mkdir } from "node:fs/promises";
-import * as path from "path";
+import { loadGlobalRegistry } from "../../core/mcp/registry.js";
 
 /**
  * Add result
@@ -33,7 +33,7 @@ export async function addMCP(serverName: string): Promise<AddMCPResult> {
     const available = Object.keys(globalRegistry).join(", ");
     throw new Error(
       `MCP server '${serverName}' not found in global registry.\n\n` +
-        `Available MCPs: ${available}`
+        `Available MCPs: ${available}`,
     );
   }
 
@@ -70,8 +70,8 @@ export async function addMCP(serverName: string): Promise<AddMCPResult> {
 
       await writeFile(
         configPath,
-        JSON.stringify(projectConfig, null, 2) + "\n",
-        "utf-8"
+        `${JSON.stringify(projectConfig, null, 2)}\n`,
+        "utf-8",
       );
 
       return {
@@ -106,8 +106,8 @@ export async function addMCP(serverName: string): Promise<AddMCPResult> {
     await mkdir(path.join(process.cwd(), ".agentsync"), { recursive: true });
     await writeFile(
       configPath,
-      JSON.stringify(projectConfig, null, 2) + "\n",
-      "utf-8"
+      `${JSON.stringify(projectConfig, null, 2)}\n`,
+      "utf-8",
     );
   }
 

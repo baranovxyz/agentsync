@@ -3,11 +3,14 @@
  * Main workflow: load → filter → substitute → validate → sync
  */
 
-import { loadGlobalRegistry } from '../../core/mcp/registry.js';
-import { loadProjectConfig, filterSelectedMCPs } from '../../core/mcp/config.js';
-import { substituteAllMCPs, validateTokens } from '../../core/mcp/tokens.js';
-import { loadEnv } from '../../core/mcp/env.js';
-import { detectMCPTargets, getMCPTarget } from '../../targets/mcp-index.js';
+import {
+  filterSelectedMCPs,
+  loadProjectConfig,
+} from "../../core/mcp/config.js";
+import { loadEnv } from "../../core/mcp/env.js";
+import { loadGlobalRegistry } from "../../core/mcp/registry.js";
+import { substituteAllMCPs, validateTokens } from "../../core/mcp/tokens.js";
+import { detectMCPTargets, getMCPTarget } from "../../targets/mcp-index.js";
 
 /**
  * Sync options
@@ -43,14 +46,14 @@ export async function syncMCP(options: SyncMCPOptions = {}): Promise<void> {
   validateTokens(substitutedMCPs);
 
   // 7. Determine targets
-  let targets;
+  let targets: ReturnType<typeof detectMCPTargets>;
   if (options.tool) {
     // Specific tool requested
     const target = getMCPTarget(options.tool);
     if (!target) {
       throw new Error(
         `Unknown MCP target: ${options.tool}\n\n` +
-          `Available targets: cursor, claude`
+          `Available targets: cursor, claude`,
       );
     }
     targets = [target];
@@ -61,7 +64,7 @@ export async function syncMCP(options: SyncMCPOptions = {}): Promise<void> {
     if (targets.length === 0) {
       throw new Error(
         `No MCP targets detected in current project.\n\n` +
-          `Please create a .cursor/ or .claude/ directory first, or specify --tool.`
+          `Please create a .cursor/ or .claude/ directory first, or specify --tool.`,
       );
     }
   }

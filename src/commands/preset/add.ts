@@ -2,15 +2,15 @@
  * Add preset command with selection support
  */
 
+import { readFile, writeFile } from "node:fs/promises";
+import * as path from "node:path";
 import picocolors from "picocolors";
+import { ConfigMerger } from "../../core/config/interactive-selection-merger.js";
+import type { SelectionConfig, UserPresetEntry } from "../../types/index.js";
 import {
   validateConfig,
   validateUserPresetEntry,
 } from "../../types/schemas.js";
-import { ConfigMerger } from "../../core/config/interactive-selection-merger.js";
-import { readFile, writeFile } from "node:fs/promises";
-import * as path from "path";
-import type { UserPresetEntry, SelectionConfig } from "../../types/index.js";
 
 const pc = picocolors;
 
@@ -36,7 +36,7 @@ export interface AddPresetResult {
  */
 export async function addPreset(
   source: string,
-  options: AddPresetOptions = {}
+  options: AddPresetOptions = {},
 ): Promise<AddPresetResult> {
   const cwd = options.cwd || process.cwd();
   const configPath = path.join(cwd, ".agentsync", "config.json");
@@ -64,7 +64,7 @@ export async function addPreset(
     let configContent: string;
     try {
       configContent = await readFile(configPath, "utf-8");
-    } catch (error) {
+    } catch (_error) {
       return {
         success: false,
         error: "AgentSync configuration not found. Run 'agentsync init' first.",
@@ -76,7 +76,7 @@ export async function addPreset(
     // Check for duplicates
     if (
       config.extends?.find(
-        (e) => (typeof e === "string" ? e : e.source) === source
+        (e) => (typeof e === "string" ? e : e.source) === source,
       )
     ) {
       return {
@@ -95,7 +95,7 @@ export async function addPreset(
     await writeFile(
       configPath,
       JSON.stringify(updatedConfig, null, 2),
-      "utf-8"
+      "utf-8",
     );
 
     // Save selection if provided
@@ -107,7 +107,7 @@ export async function addPreset(
         try {
           const projectConfigContent = await readFile(
             path.join(cwd, ".agentsync", "interactive-selections.json"),
-            "utf-8"
+            "utf-8",
           );
           const projectConfig = JSON.parse(projectConfigContent);
           if (projectConfig.project?.selections) {
@@ -129,8 +129,8 @@ export async function addPreset(
         // but warn the user
         console.log(
           pc.yellow(
-            `⚠️  Warning: Failed to save selection: ${(error as Error).message}`
-          )
+            `⚠️  Warning: Failed to save selection: ${(error as Error).message}`,
+          ),
         );
       }
     }
@@ -158,7 +158,7 @@ export async function addPreset(
  */
 export async function handleAddPresetCommand(
   source: string,
-  options: { selection?: boolean; yes?: boolean }
+  options: { selection?: boolean; yes?: boolean },
 ): Promise<void> {
   let selection: SelectionConfig | undefined;
 
@@ -171,12 +171,12 @@ export async function handleAddPresetCommand(
     // In a real implementation, you would use inquirer or similar for interactive prompts
     // For now, we'll just show a message and skip selection
     console.log(
-      pc.gray("Interactive selection configuration not implemented yet")
+      pc.gray("Interactive selection configuration not implemented yet"),
     );
     console.log(
       pc.gray(
-        "Use 'agentsync preset interactive-select' to configure selections"
-      )
+        "Use 'agentsync preset interactive-select' to configure selections",
+      ),
     );
   }
 
@@ -191,7 +191,7 @@ export async function handleAddPresetCommand(
     if (result.selection) {
       console.log(pc.cyan("  Selection configured"));
       console.log(
-        pc.gray("  Use 'agentsync sync --selections' to sync with selections")
+        pc.gray("  Use 'agentsync sync --selections' to sync with selections"),
       );
     }
 

@@ -37,7 +37,7 @@ export function substituteTokens(mcp: MCP, env: Record<string, string>): MCP {
     result.env = {};
 
     for (const [key, value] of Object.entries(mcp.env)) {
-      if (typeof value === 'string') {
+      if (typeof value === "string") {
         result.env[key] = value.replace(TOKEN_PATTERN, (_match, varName) => {
           if (!env[varName]) {
             throw new Error(`Missing environment variable: ${varName}`);
@@ -61,7 +61,7 @@ export function substituteTokens(mcp: MCP, env: Record<string, string>): MCP {
  */
 export function substituteAllMCPs(
   mcps: Record<string, MCP>,
-  env: Record<string, string>
+  env: Record<string, string>,
 ): Record<string, MCP> {
   const result: Record<string, MCP> = {};
 
@@ -84,7 +84,7 @@ export function validateTokens(mcps: Record<string, MCP>): void {
     if (!mcp.env) continue;
 
     for (const value of Object.values(mcp.env)) {
-      if (typeof value === 'string') {
+      if (typeof value === "string") {
         const matches = value.matchAll(TOKEN_PATTERN);
         for (const match of matches) {
           missingTokens.push({
@@ -104,12 +104,14 @@ export function validateTokens(mcps: Record<string, MCP>): void {
         acc[token].push(server);
         return acc;
       },
-      {} as Record<string, string[]>
+      {} as Record<string, string[]>,
     );
 
     const details = uniqueTokens
-      .map((token) => `  - ${token} (required by: ${serverMap[token].join(', ')})`)
-      .join('\n');
+      .map(
+        (token) => `  - ${token} (required by: ${serverMap[token].join(", ")})`,
+      )
+      .join("\n");
 
     throw new Error(`Missing required environment variables:\n${details}`);
   }

@@ -3,26 +3,26 @@
  * Tests the performance of interactive selection with many presets and files
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { SelectivePresetLoader } from "../../src/core/registry/selective-preset-loader.js";
+import { performance } from "node:perf_hooks";
+import { beforeEach, describe, expect, it } from "vitest";
 import { ConfigMerger } from "../../src/core/config/interactive-selection-merger.js";
 import { RegistryOrchestrator } from "../../src/core/registry/registry-orchestrator.js";
+import { SelectivePresetLoader } from "../../src/core/registry/selective-preset-loader.js";
 import type {
+  InteractiveSelectionConfig,
   Preset,
   PresetSelection,
-  InteractiveSelectionConfig,
 } from "../../src/types/index.js";
-import { performance } from "node:perf_hooks";
 
 describe("Performance Tests for Large Preset Collections", () => {
   let loader: SelectivePresetLoader;
   let merger: ConfigMerger;
-  let orchestrator: RegistryOrchestrator;
+  let _orchestrator: RegistryOrchestrator;
 
   beforeEach(() => {
     loader = new SelectivePresetLoader();
     merger = new ConfigMerger();
-    orchestrator = new RegistryOrchestrator();
+    _orchestrator = new RegistryOrchestrator();
   });
 
   describe("Large preset loading performance", () => {
@@ -41,7 +41,7 @@ describe("Performance Tests for Large Preset Collections", () => {
       for (let i = 0; i < 1000; i++) {
         largePreset.rules.set(
           `rule-${i}.md`,
-          `# Rule ${i}\n\nContent for rule ${i}`
+          `# Rule ${i}\n\nContent for rule ${i}`,
         );
       }
 
@@ -49,7 +49,7 @@ describe("Performance Tests for Large Preset Collections", () => {
       for (let i = 0; i < 500; i++) {
         largePreset.commands.set(
           `command-${i}.md`,
-          `# Command ${i}\n\nContent for command ${i}`
+          `# Command ${i}\n\nContent for command ${i}`,
         );
       }
 
@@ -87,7 +87,7 @@ describe("Performance Tests for Large Preset Collections", () => {
       const startTimeWithSelection = performance.now();
       const resultWithSelection = await loader.loadSelective(
         largePreset,
-        selection
+        selection,
       );
       const loadTimeWithSelection = performance.now() - startTimeWithSelection;
 
@@ -121,7 +121,7 @@ describe("Performance Tests for Large Preset Collections", () => {
         for (let j = 0; j < 10; j++) {
           preset.commands.set(
             `command-${i}-${j}.md`,
-            `# Command ${i}-${j}\n\nContent`
+            `# Command ${i}-${j}\n\nContent`,
           );
         }
 
@@ -208,7 +208,7 @@ describe("Performance Tests for Large Preset Collections", () => {
       for (let i = 0; i < 100; i++) {
         const pattern = filePatterns[i % filePatterns.length].replace(
           /\./g,
-          `-${i}.`
+          `-${i}.`,
         );
         complexPreset.rules.set(pattern, `# Content for ${pattern}`);
       }
@@ -230,7 +230,7 @@ describe("Performance Tests for Large Preset Collections", () => {
       const startTime = performance.now();
       const result = await loader.loadSelective(
         complexPreset,
-        complexSelection
+        complexSelection,
       );
       const patternMatchingTime = performance.now() - startTime;
 
@@ -271,12 +271,12 @@ describe("Performance Tests for Large Preset Collections", () => {
 
       // Add 100 include patterns
       for (let i = 0; i < 100; i++) {
-        manyPatterns.rules!.include.push(`file-${i * 5}.md`);
+        manyPatterns.rules?.include.push(`file-${i * 5}.md`);
       }
 
       // Add 50 exclude patterns
       for (let i = 0; i < 50; i++) {
-        manyPatterns.rules!.exclude!.push(`file-${i * 10}.md`);
+        manyPatterns.rules?.exclude?.push(`file-${i * 10}.md`);
       }
 
       const startTime = performance.now();
@@ -297,7 +297,7 @@ describe("Performance Tests for Large Preset Collections", () => {
         user: {
           presets: Array.from(
             { length: 100 },
-            (_, i) => `github:org/user-preset-${i}`
+            (_, i) => `github:org/user-preset-${i}`,
           ),
           defaultSelections: {} as Record<string, PresetSelection>,
         },
@@ -316,12 +316,12 @@ describe("Performance Tests for Large Preset Collections", () => {
         const presetSource = `github:org/preset-${i}`;
 
         // User level selections
-        largeConfig.user!.defaultSelections![presetSource] = {
+        largeConfig.user?.defaultSelections![presetSource] = {
           rules: { include: ["user-rules/*.md"] },
         };
 
         // Project level selections (should override user)
-        largeConfig.project!.selections![presetSource] = {
+        largeConfig.project?.selections![presetSource] = {
           rules: { include: ["project-rules/*.md"] },
           commands: { include: ["commands/*.md"] },
         };
@@ -329,7 +329,7 @@ describe("Performance Tests for Large Preset Collections", () => {
         // Local level selections (should override project)
         if (i < 50) {
           // Only add local selections for half the presets
-          largeConfig.local!.selections![presetSource] = {
+          largeConfig.local?.selections![presetSource] = {
             rules: { include: ["local-rules/*.md"] },
             commands: { include: ["local-commands/*.md"] },
             mcps: [`mcp-${i}`],
@@ -383,11 +383,11 @@ describe("Performance Tests for Large Preset Collections", () => {
         for (let j = 0; j < 50; j++) {
           preset.rules.set(
             `rule-${j}.md`,
-            `# Rule ${j}\n\n${"x".repeat(1000)}`
+            `# Rule ${j}\n\n${"x".repeat(1000)}`,
           ); // 1KB per rule
           preset.commands.set(
             `command-${j}.md`,
-            `# Command ${j}\n\n${"x".repeat(1000)}`
+            `# Command ${j}\n\n${"x".repeat(1000)}`,
           ); // 1KB per command
         }
 

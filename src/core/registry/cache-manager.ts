@@ -3,11 +3,11 @@
  * Stores cloned repos in ~/.agentsync/cache/
  */
 
-import * as path from "path";
-import { pathExists, remove, ensureDir } from "../../utils/fs.js";
-import { stat, readdir } from "node:fs/promises";
-import * as os from "os";
-import { GitHubSource, GitHubSourceParser } from "./github-source.js";
+import { readdir, stat } from "node:fs/promises";
+import * as os from "node:os";
+import * as path from "node:path";
+import { ensureDir, pathExists, remove } from "../../utils/fs.js";
+import { type GitHubSource, GitHubSourceParser } from "./github-source.js";
 
 export class CacheManager {
   private cacheDir: string;

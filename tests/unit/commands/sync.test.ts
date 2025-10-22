@@ -2,12 +2,12 @@
  * Unit tests for main sync command
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { sync, type MainSyncOptions } from "../../../src/commands/sync.js";
-import * as path from "path";
-import * as os from "os";
+import { chmod, mkdtemp } from "node:fs/promises";
+import * as os from "node:os";
+import * as path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { sync } from "../../../src/commands/sync.js";
 import * as fs from "../../../src/utils/fs.js";
-import { mkdtemp, chmod } from "node:fs/promises";
 
 describe("Sync Command", () => {
   let tempDir: string;
@@ -34,12 +34,12 @@ describe("Sync Command", () => {
           tools: ["cursor"],
           useSymlinks: true,
         }),
-        { encoding: "utf-8" }
+        { encoding: "utf-8" },
       );
 
       // Should not throw
       await expect(
-        sync({ cwd: tempDir, dryRun: true })
+        sync({ cwd: tempDir, dryRun: true }),
       ).resolves.toBeUndefined();
     });
 
@@ -71,12 +71,12 @@ describe("Sync Command", () => {
           tools: ["cursor"],
           useSymlinks: true,
         }),
-        { encoding: "utf-8" }
+        { encoding: "utf-8" },
       );
 
       // Should complete successfully with no presets
       await expect(
-        sync({ cwd: tempDir, dryRun: true })
+        sync({ cwd: tempDir, dryRun: true }),
       ).resolves.toBeUndefined();
     });
 
@@ -91,12 +91,12 @@ describe("Sync Command", () => {
           tools: ["cursor"],
           useSymlinks: true,
         }),
-        { encoding: "utf-8" }
+        { encoding: "utf-8" },
       );
 
       // Should complete successfully (extends is optional)
       await expect(
-        sync({ cwd: tempDir, dryRun: true })
+        sync({ cwd: tempDir, dryRun: true }),
       ).resolves.toBeUndefined();
     });
   });
@@ -114,7 +114,7 @@ describe("Sync Command", () => {
           tools: ["cursor"],
           useSymlinks: true,
         }),
-        { encoding: "utf-8" }
+        { encoding: "utf-8" },
       );
 
       await sync({ cwd: tempDir, dryRun: true });
@@ -143,12 +143,12 @@ describe("Sync Command", () => {
           tools: ["cursor"],
           useSymlinks: true,
         }),
-        { encoding: "utf-8" }
+        { encoding: "utf-8" },
       );
 
       // Should not throw with update flag
       await expect(
-        sync({ cwd: tempDir, update: true, dryRun: true })
+        sync({ cwd: tempDir, update: true, dryRun: true }),
       ).resolves.toBeUndefined();
     });
   });
@@ -166,7 +166,7 @@ describe("Sync Command", () => {
           tools: ["cursor", "claude"],
           useSymlinks: true,
         }),
-        { encoding: "utf-8" }
+        { encoding: "utf-8" },
       );
 
       // Sync only to cursor
@@ -187,11 +187,11 @@ describe("Sync Command", () => {
           tools: ["cursor"],
           useSymlinks: true,
         }),
-        { encoding: "utf-8" }
+        { encoding: "utf-8" },
       );
 
       await expect(
-        sync({ cwd: tempDir, tool: "unknown-tool", dryRun: true })
+        sync({ cwd: tempDir, tool: "unknown-tool", dryRun: true }),
       ).rejects.toThrow("unknown-tool");
     });
   });
@@ -213,7 +213,7 @@ describe("Sync Command", () => {
           tools: ["cursor"],
           useSymlinks: true,
         }),
-        { encoding: "utf-8" }
+        { encoding: "utf-8" },
       );
 
       // Make config directory read-only (if not on Windows)
@@ -242,12 +242,12 @@ describe("Sync Command", () => {
           tools: [],
           useSymlinks: true,
         }),
-        { encoding: "utf-8" }
+        { encoding: "utf-8" },
       );
 
       // Should complete without error (no tools to sync to)
       await expect(
-        sync({ cwd: tempDir, dryRun: true })
+        sync({ cwd: tempDir, dryRun: true }),
       ).resolves.toBeUndefined();
     });
   });

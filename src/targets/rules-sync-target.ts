@@ -3,11 +3,11 @@
  * Syncs rules to Cursor and Claude Code
  */
 
-import * as path from 'path';
-import { outputFile } from '../utils/fs.js';
-import { CursorRulesConverter } from './rules/cursor-rules-converter.js';
-import { ClaudeRulesConverter } from './rules/claude-rules-converter.js';
-import type { ToolName } from '../types/index.js';
+import * as path from "node:path";
+import type { ToolName } from "../types/index.js";
+import { outputFile } from "../utils/fs.js";
+import { ClaudeRulesConverter } from "./rules/claude-rules-converter.js";
+import { CursorRulesConverter } from "./rules/cursor-rules-converter.js";
 
 export class RulesSyncTarget {
   private cursorConverter = new CursorRulesConverter();
@@ -19,12 +19,12 @@ export class RulesSyncTarget {
   async sync(
     rules: Map<string, string>,
     tools: ToolName[],
-    cwd: string = process.cwd()
+    cwd: string = process.cwd(),
   ): Promise<void> {
     for (const tool of tools) {
-      if (tool === 'cursor') {
+      if (tool === "cursor") {
         await this.syncToCursor(rules, cwd);
-      } else if (tool === 'claude') {
+      } else if (tool === "claude") {
         await this.syncToClaude(rules, cwd);
       }
       // Other tools deferred to v0.4.0+
@@ -36,14 +36,17 @@ export class RulesSyncTarget {
    */
   private async syncToCursor(
     rules: Map<string, string>,
-    cwd: string
+    cwd: string,
   ): Promise<void> {
-    const rulesDir = path.join(cwd, '.cursor', 'rules');
+    const rulesDir = path.join(cwd, ".cursor", "rules");
 
     for (const [namespacedFilename, content] of rules) {
-      const converted = this.cursorConverter.convert(namespacedFilename, content);
+      const converted = this.cursorConverter.convert(
+        namespacedFilename,
+        content,
+      );
       const outputPath = path.join(rulesDir, converted.filename);
-      await outputFile(outputPath, converted.content, { encoding: 'utf-8' });
+      await outputFile(outputPath, converted.content, { encoding: "utf-8" });
     }
   }
 
@@ -52,14 +55,17 @@ export class RulesSyncTarget {
    */
   private async syncToClaude(
     rules: Map<string, string>,
-    cwd: string
+    cwd: string,
   ): Promise<void> {
-    const rulesDir = path.join(cwd, '.claude', 'rules');
+    const rulesDir = path.join(cwd, ".claude", "rules");
 
     for (const [namespacedFilename, content] of rules) {
-      const converted = this.claudeConverter.convert(namespacedFilename, content);
+      const converted = this.claudeConverter.convert(
+        namespacedFilename,
+        content,
+      );
       const outputPath = path.join(rulesDir, converted.filename);
-      await outputFile(outputPath, converted.content, { encoding: 'utf-8' });
+      await outputFile(outputPath, converted.content, { encoding: "utf-8" });
     }
   }
 }

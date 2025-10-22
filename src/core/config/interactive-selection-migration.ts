@@ -48,7 +48,7 @@ export class ConfigMigrator {
 
     if (legacyConfig.tools) {
       newConfig.tools = legacyConfig.tools.filter((tool) =>
-        ["cursor", "claude", "cline", "windsurf", "copilot"].includes(tool)
+        ["cursor", "claude", "cline", "windsurf", "copilot"].includes(tool),
       ) as any;
     }
 
@@ -79,7 +79,7 @@ export class ConfigMigrator {
    */
   generateMigrationReport(
     legacyConfig: LegacyAgentSyncConfig,
-    migrationResult: MigrationResult
+    migrationResult: MigrationResult,
   ): string {
     const lines: string[] = [];
 
@@ -103,13 +103,13 @@ export class ConfigMigrator {
 
     if (legacyConfig.extends) {
       lines.push(
-        `- \`extends\` → \`user.presets\`: ${legacyConfig.extends.join(", ")}`
+        `- \`extends\` → \`user.presets\`: ${legacyConfig.extends.join(", ")}`,
       );
     }
 
     if (legacyConfig.tools) {
       lines.push(
-        `- \`tools\` → \`project.tools\`: ${legacyConfig.tools.join(", ")}`
+        `- \`tools\` → \`project.tools\`: ${legacyConfig.tools.join(", ")}`,
       );
     }
 
@@ -124,7 +124,7 @@ export class ConfigMigrator {
 
     if (otherFields.length > 0) {
       lines.push(
-        `- Other fields → \`project.overrides\`: ${otherFields.join(", ")}`
+        `- Other fields → \`project.overrides\`: ${otherFields.join(", ")}`,
       );
     }
 
@@ -132,7 +132,7 @@ export class ConfigMigrator {
     lines.push("## Next Steps");
     lines.push("1. Review the migrated configuration");
     lines.push(
-      "2. Consider adding file-level selections in 'user.defaultSelections'"
+      "2. Consider adding file-level selections in 'user.defaultSelections'",
     );
     lines.push("3. Test the new configuration with your project");
     lines.push("4. Remove the old configuration file once verified");
@@ -145,12 +145,12 @@ export class ConfigMigrator {
    */
   async migrateConfigFile(
     _legacyConfigPath: string,
-    _newConfigPath: string
+    _newConfigPath: string,
   ): Promise<MigrationResult> {
     // This would be implemented with actual file I/O
     // For now, it's a placeholder for the interface
     throw new Error(
-      "File migration not implemented yet - use migrateFromLegacy() directly"
+      "File migration not implemented yet - use migrateFromLegacy() directly",
     );
   }
 }

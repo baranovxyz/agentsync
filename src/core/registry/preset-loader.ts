@@ -2,11 +2,11 @@
  * Preset loader - loads rules, commands, and MCPs from cached GitHub repos
  */
 
-import * as path from "path";
-import { pathExists } from "../../utils/fs.js";
 import { readFile } from "node:fs/promises";
+import * as path from "node:path";
 import fg from "fast-glob";
 import type { Preset, PresetMetadata } from "../../types/preset.js";
+import { pathExists } from "../../utils/fs.js";
 import type { MCP } from "../mcp/tokens.js";
 
 export class PresetLoader {
@@ -20,7 +20,7 @@ export class PresetLoader {
     filters?: {
       include?: string[];
       exclude?: string[];
-    }
+    },
   ): Promise<Preset> {
     // Load optional metadata
     const metadata = await this.loadMetadata(cachePath);
@@ -31,13 +31,13 @@ export class PresetLoader {
     // Load commands
     const commands = await this.loadMarkdownFiles(
       path.join(cachePath, "commands"),
-      filters
+      filters,
     );
 
     // Load rules
     const rules = await this.loadMarkdownFiles(
       path.join(cachePath, "rules"),
-      filters
+      filters,
     );
 
     // Load MCPs
@@ -58,7 +58,7 @@ export class PresetLoader {
    * Load .agentsync/preset.json if exists
    */
   private async loadMetadata(
-    cachePath: string
+    cachePath: string,
   ): Promise<PresetMetadata | undefined> {
     const metadataPath = path.join(cachePath, ".agentsync", "preset.json");
 
@@ -78,7 +78,7 @@ export class PresetLoader {
     filters?: {
       include?: string[];
       exclude?: string[];
-    }
+    },
   ): Promise<Map<string, string>> {
     const result = new Map<string, string>();
 

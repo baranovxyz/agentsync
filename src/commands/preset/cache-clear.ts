@@ -2,12 +2,12 @@
  * Clear preset cache command
  */
 
+import { readFile } from "node:fs/promises";
+import * as path from "node:path";
 import picocolors from "picocolors";
 import { CacheManager } from "../../core/registry/cache-manager.js";
 import { GitHubSourceParser } from "../../core/registry/github-source.js";
 import { validateConfig } from "../../types/schemas.js";
-import { readFile } from "node:fs/promises";
-import * as path from "path";
 
 const pc = picocolors;
 
@@ -16,7 +16,7 @@ export interface CacheClearOptions {
 }
 
 export async function clearCache(
-  options: CacheClearOptions = {}
+  options: CacheClearOptions = {},
 ): Promise<void> {
   const cacheManager = new CacheManager();
 
@@ -43,7 +43,7 @@ export async function clearCache(
 
     const parser = new GitHubSourceParser();
     console.log(
-      pc.yellow(`Clearing ${extendsEntries.length} preset cache(s)...\n`)
+      pc.yellow(`Clearing ${extendsEntries.length} preset cache(s)...\n`),
     );
 
     for (const entry of extendsEntries) {
@@ -60,8 +60,13 @@ export async function clearCache(
     }
 
     console.log(pc.green("\n✓ Cache cleanup complete\n"));
-  } catch (error: any) {
-    if (error.code === "ENOENT") {
+  } catch (error: unknown) {
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "ENOENT"
+    ) {
       console.log(pc.red("✗ AgentSync not initialized"));
       console.log(pc.gray("\nRun: agentsync init"));
     } else {

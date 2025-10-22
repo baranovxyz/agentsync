@@ -18,11 +18,11 @@
  * Note: This test takes ~30-60s due to global install/uninstall
  */
 
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import * as os from "node:os";
+import * as path from "node:path";
 import { execa } from "execa";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import * as fs from "../../src/utils/fs.js";
-import * as path from "path";
-import * as os from "os";
 
 describe("Production Package Installation", () => {
   let tarballPath: string;
@@ -35,8 +35,8 @@ describe("Production Package Installation", () => {
   async function writeJson(filePath: string, data: unknown): Promise<void> {
     await fs.outputFile(
       filePath,
-      JSON.stringify(data, null, 2) + "\n",
-      "utf-8"
+      `${JSON.stringify(data, null, 2)}\n`,
+      "utf-8",
     );
   }
   let tempTestDir: string;
@@ -61,7 +61,7 @@ describe("Production Package Installation", () => {
     const lines = stdout.trim().split("\n");
     tarballPath = lines[lines.length - 1];
 
-    if (!tarballPath || !tarballPath.endsWith(".tgz")) {
+    if (!tarballPath?.endsWith(".tgz")) {
       throw new Error(`Failed to find tarball in pnpm pack output: ${stdout}`);
     }
 
@@ -80,7 +80,7 @@ describe("Production Package Installation", () => {
 
     // Setup test environment
     tempTestDir = await fs.mkdtemp(
-      path.join(os.tmpdir(), "agentsync-install-test-")
+      path.join(os.tmpdir(), "agentsync-install-test-"),
     );
     tempHomeDir = await fs.mkdtemp(path.join(os.tmpdir(), "agentsync-home-"));
     originalHome = process.env.HOME;
@@ -224,7 +224,7 @@ describe("Production Package Installation", () => {
       // Create .env file
       await fs.writeFile(
         path.join(tempTestDir, ".env"),
-        "GITHUB_TOKEN=ghp_test_token_12345\nDATABASE_URL=postgresql://localhost:5432/testdb"
+        "GITHUB_TOKEN=ghp_test_token_12345\nDATABASE_URL=postgresql://localhost:5432/testdb",
       );
     });
 
@@ -245,7 +245,7 @@ describe("Production Package Installation", () => {
         ["mcp", "add", "github"],
         {
           cwd: tempTestDir,
-        }
+        },
       );
 
       expect(exitCode).toBe(0);
@@ -253,7 +253,7 @@ describe("Production Package Installation", () => {
 
       // Verify config created
       const config = await fs.readJson(
-        path.join(tempTestDir, ".agentsync/config.json")
+        path.join(tempTestDir, ".agentsync/config.json"),
       );
       expect(config.mcpServers).toContain("github");
     });
@@ -264,14 +264,14 @@ describe("Production Package Installation", () => {
         ["mcp", "add", "filesystem"],
         {
           cwd: tempTestDir,
-        }
+        },
       );
 
       expect(exitCode).toBe(0);
 
       // Verify both in config
       const config = await fs.readJson(
-        path.join(tempTestDir, ".agentsync/config.json")
+        path.join(tempTestDir, ".agentsync/config.json"),
       );
       expect(config.mcpServers).toContain("github");
       expect(config.mcpServers).toContain("filesystem");
@@ -283,17 +283,17 @@ describe("Production Package Installation", () => {
         ["mcp", "sync", "--dry-run"],
         {
           cwd: tempTestDir,
-        }
+        },
       );
 
       expect(exitCode).toBe(0);
 
       // Verify NO files created (the key test for dry-run)
       const cursorExists = await fs.pathExists(
-        path.join(tempTestDir, ".cursor/mcp.json")
+        path.join(tempTestDir, ".cursor/mcp.json"),
       );
       const claudeExists = await fs.pathExists(
-        path.join(tempTestDir, ".claude/mcp.json")
+        path.join(tempTestDir, ".claude/mcp.json"),
       );
 
       expect(cursorExists).toBe(false);
@@ -309,10 +309,10 @@ describe("Production Package Installation", () => {
 
       // Verify files created
       const cursorExists = await fs.pathExists(
-        path.join(tempTestDir, ".cursor/mcp.json")
+        path.join(tempTestDir, ".cursor/mcp.json"),
       );
       const claudeExists = await fs.pathExists(
-        path.join(tempTestDir, ".claude/mcp.json")
+        path.join(tempTestDir, ".claude/mcp.json"),
       );
 
       expect(cursorExists).toBe(true);
@@ -322,18 +322,18 @@ describe("Production Package Installation", () => {
     it("should substitute environment tokens", async () => {
       // Read synced configs
       const cursorConfig = await fs.readJson(
-        path.join(tempTestDir, ".cursor/mcp.json")
+        path.join(tempTestDir, ".cursor/mcp.json"),
       );
       const claudeConfig = await fs.readJson(
-        path.join(tempTestDir, ".claude/mcp.json")
+        path.join(tempTestDir, ".claude/mcp.json"),
       );
 
       // Cursor format has mcpServers wrapper
       expect(cursorConfig.mcpServers.github.env.GITHUB_TOKEN).toBe(
-        "ghp_test_token_12345"
+        "ghp_test_token_12345",
       );
       expect(cursorConfig.mcpServers.github.env.GITHUB_TOKEN).not.toContain(
-        "{"
+        "{",
       );
 
       // Claude format is direct
@@ -352,17 +352,17 @@ describe("Production Package Installation", () => {
         ["mcp", "sync", "--tool", "cursor"],
         {
           cwd: tempTestDir,
-        }
+        },
       );
 
       expect(exitCode).toBe(0);
 
       // Verify only cursor synced
       const cursorExists = await fs.pathExists(
-        path.join(tempTestDir, ".cursor/mcp.json")
+        path.join(tempTestDir, ".cursor/mcp.json"),
       );
       const claudeExists = await fs.pathExists(
-        path.join(tempTestDir, ".claude/mcp.json")
+        path.join(tempTestDir, ".claude/mcp.json"),
       );
 
       expect(cursorExists).toBe(true);
@@ -375,7 +375,7 @@ describe("Production Package Installation", () => {
         ["mcp", "remove", "github"],
         {
           cwd: tempTestDir,
-        }
+        },
       );
 
       expect(exitCode).toBe(0);
@@ -383,7 +383,7 @@ describe("Production Package Installation", () => {
 
       // Verify config updated
       const config = await fs.readJson(
-        path.join(tempTestDir, ".agentsync/config.json")
+        path.join(tempTestDir, ".agentsync/config.json"),
       );
       expect(config.mcpServers).not.toContain("github");
       expect(config.mcpServers).toContain("filesystem");
@@ -397,10 +397,10 @@ describe("Production Package Installation", () => {
 
       // Read updated configs
       const cursorConfig = await fs.readJson(
-        path.join(tempTestDir, ".cursor/mcp.json")
+        path.join(tempTestDir, ".cursor/mcp.json"),
       );
       const claudeConfig = await fs.readJson(
-        path.join(tempTestDir, ".claude/mcp.json")
+        path.join(tempTestDir, ".claude/mcp.json"),
       );
 
       // Github should be removed
@@ -468,7 +468,7 @@ describe("Production Package Installation", () => {
 
       for (const template of templates) {
         const testDir = await fs.mkdtemp(
-          path.join(os.tmpdir(), `agentsync-init-${template}-`)
+          path.join(os.tmpdir(), `agentsync-init-${template}-`),
         );
 
         try {
@@ -476,7 +476,7 @@ describe("Production Package Installation", () => {
           const { exitCode, stdout } = await execa(
             "agentsync",
             ["init", "--template", template, "--tools", "cursor"],
-            { cwd: testDir }
+            { cwd: testDir },
           );
 
           expect(exitCode).toBe(0);
@@ -503,7 +503,7 @@ describe("Production Package Installation", () => {
           // Verify tool configurations were created
           expect(await fs.pathExists(path.join(testDir, ".cursor"))).toBe(true);
           expect(await fs.pathExists(path.join(testDir, ".agentsync"))).toBe(
-            true
+            true,
           );
 
           console.log(`✓ Template '${template}' validated successfully`);
@@ -516,7 +516,7 @@ describe("Production Package Installation", () => {
 
     it("should handle missing template gracefully", async () => {
       const testDir = await fs.mkdtemp(
-        path.join(os.tmpdir(), "agentsync-init-invalid-")
+        path.join(os.tmpdir(), "agentsync-init-invalid-"),
       );
 
       try {
@@ -524,7 +524,7 @@ describe("Production Package Installation", () => {
         const { exitCode } = await execa(
           "agentsync",
           ["init", "--template", "nonexistent", "--tools", "cursor"],
-          { cwd: testDir }
+          { cwd: testDir },
         );
 
         expect(exitCode).toBe(0);
@@ -539,7 +539,7 @@ describe("Production Package Installation", () => {
 
     it("should show helpful status when already initialized (Apple-like UX)", async () => {
       const testDir = await fs.mkdtemp(
-        path.join(os.tmpdir(), "agentsync-init-twice-")
+        path.join(os.tmpdir(), "agentsync-init-twice-"),
       );
 
       try {
@@ -549,7 +549,7 @@ describe("Production Package Installation", () => {
           ["init", "--template", "default", "--tools", "cursor"],
           {
             cwd: testDir,
-          }
+          },
         );
 
         // Second init without --force should show status, not error

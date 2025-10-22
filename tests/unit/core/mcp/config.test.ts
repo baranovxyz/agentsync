@@ -3,16 +3,16 @@
  * Loads agentsync.local.json (with fallbacks) and filters selected MCPs
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import * as os from "node:os";
+import * as path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
-  loadProjectConfig,
   filterSelectedMCPs,
+  loadProjectConfig,
   type ProjectMCPConfig,
 } from "../../../../src/core/mcp/config.js";
 import type { MCP } from "../../../../src/core/mcp/tokens.js";
 import * as fs from "../../../../src/utils/fs.js";
-import * as path from "path";
-import * as os from "os";
 
 describe("loadProjectConfig", () => {
   let tempDir: string;
@@ -111,7 +111,7 @@ describe("loadProjectConfig", () => {
 
   it("throws error if no config file exists", async () => {
     await expect(loadProjectConfig()).rejects.toThrow(
-      /MCP configuration not found/
+      /MCP configuration not found/,
     );
   });
 
@@ -221,7 +221,7 @@ describe("filterSelectedMCPs", () => {
     };
 
     expect(() => filterSelectedMCPs(globalRegistry, config)).toThrow(
-      /MCP server 'nonexistent' not found in global registry/
+      /MCP server 'nonexistent' not found in global registry/,
     );
   });
 
@@ -241,7 +241,7 @@ describe("filterSelectedMCPs", () => {
 
     expect(result.github.env?.GITHUB_TOKEN).toBe("{GITHUB_TOKEN}"); // From global
     expect(result.postgres.env?.POSTGRES_URL).toBe(
-      "postgresql://localhost/custom_db"
+      "postgresql://localhost/custom_db",
     ); // Override
   });
 

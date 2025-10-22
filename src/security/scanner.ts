@@ -8,14 +8,18 @@
 // Common secret patterns
 const SECRET_PATTERNS = {
   // API Keys
-  GENERIC_API_KEY: /(?:api[_-]?key|apikey|api_secret)[\s]*[:=][\s]*['"]?([a-zA-Z0-9\-_]{20,})['"]?/gi,
+  GENERIC_API_KEY:
+    /(?:api[_-]?key|apikey|api_secret)[\s]*[:=][\s]*['"]?([a-zA-Z0-9\-_]{20,})['"]?/gi,
 
   // AWS
-  AWS_ACCESS_KEY: /(?:AKIA|A3T|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[0-9A-Z]{16}/g,
-  AWS_SECRET_KEY: /(?:aws[_-]?secret[_-]?access[_-]?key)[\s]*[:=][\s]*['"]?([a-zA-Z0-9/+=]{40})['"]?/gi,
+  AWS_ACCESS_KEY:
+    /(?:AKIA|A3T|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[0-9A-Z]{16}/g,
+  AWS_SECRET_KEY:
+    /(?:aws[_-]?secret[_-]?access[_-]?key)[\s]*[:=][\s]*['"]?([a-zA-Z0-9/+=]{40})['"]?/gi,
 
   // GitHub
-  GITHUB_TOKEN: /(?:gh[ps]_[a-zA-Z0-9]{36,}|github[_-]?token[\s]*[:=][\s]*['"]?[a-zA-Z0-9]{40}['"]?)/gi,
+  GITHUB_TOKEN:
+    /(?:gh[ps]_[a-zA-Z0-9]{36,}|github[_-]?token[\s]*[:=][\s]*['"]?[a-zA-Z0-9]{40}['"]?)/gi,
 
   // Google
   GOOGLE_API: /AIza[0-9A-Za-z\-_]{35}/g,
@@ -23,10 +27,12 @@ const SECRET_PATTERNS = {
 
   // Slack
   SLACK_TOKEN: /xox[baprs]-[0-9]{10,13}-[0-9]{10,13}-[a-zA-Z0-9]{24,34}/g,
-  SLACK_WEBHOOK: /https:\/\/hooks\.slack\.com\/services\/T[a-zA-Z0-9_]+\/B[a-zA-Z0-9_]+\/[a-zA-Z0-9_]+/g,
+  SLACK_WEBHOOK:
+    /https:\/\/hooks\.slack\.com\/services\/T[a-zA-Z0-9_]+\/B[a-zA-Z0-9_]+\/[a-zA-Z0-9_]+/g,
 
   // Database
-  DB_CONNECTION: /(?:mongodb\+srv|postgres|mysql|redis):\/\/[^:]+:[^@]+@[^/]+/gi,
+  DB_CONNECTION:
+    /(?:mongodb\+srv|postgres|mysql|redis):\/\/[^:]+:[^@]+@[^/]+/gi,
 
   // JWT
   JWT_TOKEN: /eyJ[A-Za-z0-9-_]+\.eyJ[A-Za-z0-9-_]+\.[A-Za-z0-9-_.+/=]*/g,
@@ -35,10 +41,12 @@ const SECRET_PATTERNS = {
   PRIVATE_KEY: /-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----/g,
 
   // OAuth
-  OAUTH_TOKEN: /(?:oauth[_-]?token|access[_-]?token)[\s]*[:=][\s]*['"]?([a-zA-Z0-9\-._~+/]{20,})['"]?/gi,
+  OAUTH_TOKEN:
+    /(?:oauth[_-]?token|access[_-]?token)[\s]*[:=][\s]*['"]?([a-zA-Z0-9\-._~+/]{20,})['"]?/gi,
 
   // Passwords
-  PASSWORD: /(?:password|passwd|pwd|pass)[\s]*[:=][\s]*['"](?![\*\$\{\}])[^'"]{8,}['"]?/gi,
+  PASSWORD:
+    /(?:password|passwd|pwd|pass)[\s]*[:=][\s]*['"](?![*${}])[^'"]{8,}['"]?/gi,
 
   // Stripe
   STRIPE_KEY: /(?:sk|pk)_(?:test|live)_[a-zA-Z0-9]{24,}/g,
@@ -60,21 +68,21 @@ const SECRET_PATTERNS = {
 
 // False positive indicators
 const FALSE_POSITIVE_INDICATORS = [
-  'example',
-  'test',
-  'demo',
-  'sample',
-  'placeholder',
-  'your-',
-  'my-',
-  '<your',
-  '<insert',
-  'xxx',
-  '...',
-  '***',
-  'dummy',
-  'fake',
-  'mock',
+  "example",
+  "test",
+  "demo",
+  "sample",
+  "placeholder",
+  "your-",
+  "my-",
+  "<your",
+  "<insert",
+  "xxx",
+  "...",
+  "***",
+  "dummy",
+  "fake",
+  "mock",
 ];
 
 // Entropy calculation for detecting high-entropy strings
@@ -103,8 +111,8 @@ export interface ScanResult {
   stats: ScanStats;
 }
 
-export type SeverityLevel = 'low' | 'medium' | 'high' | 'critical';
-export type ConfidenceLevel = 'low' | 'medium' | 'high';
+export type SeverityLevel = "low" | "medium" | "high" | "critical";
+export type ConfidenceLevel = "low" | "medium" | "high";
 
 export interface SecurityFinding {
   type: string;
@@ -134,7 +142,7 @@ export class SecurityScanner {
    */
   async scan(content: string, _filePath?: string): Promise<ScanResult> {
     const startTime = Date.now();
-    const lines = content.split('\n');
+    const lines = content.split("\n");
     const findings: SecurityFinding[] = [];
     let highEntropyCount = 0;
 
@@ -172,14 +180,15 @@ export class SecurityScanner {
           if (entropy > this.entropyThreshold && !this.isFalsePositive(token)) {
             highEntropyCount++;
             findings.push({
-              type: 'HIGH_ENTROPY',
-              pattern: 'High Entropy String',
-              match: token.substring(0, 20) + '...',
+              type: "HIGH_ENTROPY",
+              pattern: "High Entropy String",
+              match: `${token.substring(0, 20)}...`,
               line: lineNum + 1,
               column: line.indexOf(token),
-              severity: 'medium',
-              confidence: 'low',
-              suggestion: 'Review this high-entropy string to ensure it\'s not a secret',
+              severity: "medium",
+              confidence: "low",
+              suggestion:
+                "Review this high-entropy string to ensure it's not a secret",
             });
           }
         }
@@ -188,7 +197,7 @@ export class SecurityScanner {
 
     const stats: ScanStats = {
       totalLines: lines.length,
-      scannedLines: lines.filter(l => !this.isCommentOrEmpty(l)).length,
+      scannedLines: lines.filter((l) => !this.isCommentOrEmpty(l)).length,
       findingsCount: findings.length,
       highEntropyStrings: highEntropyCount,
       scanDuration: Date.now() - startTime,
@@ -206,8 +215,18 @@ export class SecurityScanner {
   /**
    * Find pattern matches in a line
    */
-  private findMatches(line: string, pattern: RegExp, lineNum: number): Omit<SecurityFinding, 'type' | 'pattern' | 'severity' | 'confidence' | 'suggestion'>[] {
-    const matches: Omit<SecurityFinding, 'type' | 'pattern' | 'severity' | 'confidence' | 'suggestion'>[] = [];
+  private findMatches(
+    line: string,
+    pattern: RegExp,
+    lineNum: number,
+  ): Omit<
+    SecurityFinding,
+    "type" | "pattern" | "severity" | "confidence" | "suggestion"
+  >[] {
+    const matches: Omit<
+      SecurityFinding,
+      "type" | "pattern" | "severity" | "confidence" | "suggestion"
+    >[] = [];
     const regex = new RegExp(pattern);
     let match;
 
@@ -227,11 +246,13 @@ export class SecurityScanner {
    */
   private isCommentOrEmpty(line: string): boolean {
     const trimmed = line.trim();
-    return !trimmed ||
-           trimmed.startsWith('#') ||
-           trimmed.startsWith('//') ||
-           trimmed.startsWith('<!--') ||
-           trimmed.startsWith('```');
+    return (
+      !trimmed ||
+      trimmed.startsWith("#") ||
+      trimmed.startsWith("//") ||
+      trimmed.startsWith("<!--") ||
+      trimmed.startsWith("```")
+    );
   }
 
   /**
@@ -305,33 +326,53 @@ export class SecurityScanner {
   /**
    * Get severity level for a pattern type
    */
-  private getSeverity(patternType: string): 'low' | 'medium' | 'high' | 'critical' {
-    const criticalPatterns = ['PRIVATE_KEY', 'AWS_SECRET_KEY', 'DB_CONNECTION'];
-    const highPatterns = ['AWS_ACCESS_KEY', 'GITHUB_TOKEN', 'STRIPE_KEY', 'JWT_TOKEN'];
-    const mediumPatterns = ['API_KEY', 'OAUTH_TOKEN', 'BEARER_TOKEN', 'PASSWORD'];
+  private getSeverity(
+    patternType: string,
+  ): "low" | "medium" | "high" | "critical" {
+    const criticalPatterns = ["PRIVATE_KEY", "AWS_SECRET_KEY", "DB_CONNECTION"];
+    const highPatterns = [
+      "AWS_ACCESS_KEY",
+      "GITHUB_TOKEN",
+      "STRIPE_KEY",
+      "JWT_TOKEN",
+    ];
+    const mediumPatterns = [
+      "API_KEY",
+      "OAUTH_TOKEN",
+      "BEARER_TOKEN",
+      "PASSWORD",
+    ];
 
-    if (criticalPatterns.includes(patternType)) return 'critical';
-    if (highPatterns.includes(patternType)) return 'high';
-    if (mediumPatterns.includes(patternType)) return 'medium';
-    return 'low';
+    if (criticalPatterns.includes(patternType)) return "critical";
+    if (highPatterns.includes(patternType)) return "high";
+    if (mediumPatterns.includes(patternType)) return "medium";
+    return "low";
   }
 
   /**
    * Get confidence level for a finding
    */
-  private getConfidence(match: string, patternType: string): 'low' | 'medium' | 'high' {
+  private getConfidence(
+    match: string,
+    patternType: string,
+  ): "low" | "medium" | "high" {
     // High confidence for well-known patterns
-    const highConfidencePatterns = ['AWS_ACCESS_KEY', 'GITHUB_TOKEN', 'JWT_TOKEN', 'STRIPE_KEY'];
+    const highConfidencePatterns = [
+      "AWS_ACCESS_KEY",
+      "GITHUB_TOKEN",
+      "JWT_TOKEN",
+      "STRIPE_KEY",
+    ];
     if (highConfidencePatterns.includes(patternType)) {
-      return 'high';
+      return "high";
     }
 
     // Low confidence for generic patterns or short matches
-    if (match.length < 20 || patternType === 'HIGH_ENTROPY') {
-      return 'low';
+    if (match.length < 20 || patternType === "HIGH_ENTROPY") {
+      return "low";
     }
 
-    return 'medium';
+    return "medium";
   }
 
   /**
@@ -339,18 +380,30 @@ export class SecurityScanner {
    */
   private getSuggestion(patternType: string): string {
     const suggestions: Record<string, string> = {
-      PRIVATE_KEY: 'Never commit private keys. Use environment variables or secure key management systems.',
-      AWS_ACCESS_KEY: 'Use IAM roles or AWS Secrets Manager instead of hardcoded credentials.',
-      AWS_SECRET_KEY: 'Store AWS credentials in ~/.aws/credentials or use IAM roles.',
-      GITHUB_TOKEN: 'Use GitHub Apps or OAuth instead of personal access tokens when possible.',
-      DB_CONNECTION: 'Store database URLs in environment variables, not in code.',
-      PASSWORD: 'Never hardcode passwords. Use environment variables or secret management tools.',
-      API_KEY: 'Store API keys in environment variables or configuration files outside version control.',
-      JWT_TOKEN: 'JWT tokens should be generated dynamically, not stored in code.',
-      OAUTH_TOKEN: 'OAuth tokens should be obtained through the OAuth flow, not hardcoded.',
+      PRIVATE_KEY:
+        "Never commit private keys. Use environment variables or secure key management systems.",
+      AWS_ACCESS_KEY:
+        "Use IAM roles or AWS Secrets Manager instead of hardcoded credentials.",
+      AWS_SECRET_KEY:
+        "Store AWS credentials in ~/.aws/credentials or use IAM roles.",
+      GITHUB_TOKEN:
+        "Use GitHub Apps or OAuth instead of personal access tokens when possible.",
+      DB_CONNECTION:
+        "Store database URLs in environment variables, not in code.",
+      PASSWORD:
+        "Never hardcode passwords. Use environment variables or secret management tools.",
+      API_KEY:
+        "Store API keys in environment variables or configuration files outside version control.",
+      JWT_TOKEN:
+        "JWT tokens should be generated dynamically, not stored in code.",
+      OAUTH_TOKEN:
+        "OAuth tokens should be obtained through the OAuth flow, not hardcoded.",
     };
 
-    return suggestions[patternType] || 'Remove this sensitive information and use environment variables or a secret management system.';
+    return (
+      suggestions[patternType] ||
+      "Remove this sensitive information and use environment variables or a secret management system."
+    );
   }
 
   /**
@@ -358,7 +411,7 @@ export class SecurityScanner {
    */
   private deduplicateFindings(findings: SecurityFinding[]): SecurityFinding[] {
     const seen = new Set<string>();
-    return findings.filter(finding => {
+    return findings.filter((finding) => {
       const key = `${finding.type}-${finding.line}-${finding.column}`;
       if (seen.has(key)) {
         return false;
@@ -374,24 +427,29 @@ export class SecurityScanner {
   generateReport(scanResult: ScanResult): string {
     const lines: string[] = [];
 
-    lines.push('🔐 Security Scan Report');
-    lines.push('=' .repeat(50));
-    lines.push('');
+    lines.push("🔐 Security Scan Report");
+    lines.push("=".repeat(50));
+    lines.push("");
 
     if (!scanResult.hasSensitiveData) {
-      lines.push('✅ No sensitive data detected');
+      lines.push("✅ No sensitive data detected");
     } else {
-      lines.push(`⚠️  Found ${scanResult.findingsCount} potential security issues`);
-      lines.push('');
+      lines.push(
+        `⚠️  Found ${scanResult.findingsCount} potential security issues`,
+      );
+      lines.push("");
 
       // Group findings by severity
       const bySeverity = this.groupBySeverity(scanResult.findings);
 
       for (const [severity, findings] of Object.entries(bySeverity)) {
         if (findings.length > 0) {
-          lines.push(`${this.getSeverityEmoji(severity as SeverityLevel)} ${severity.toUpperCase()}: ${findings.length} issue(s)`);
+          lines.push(
+            `${this.getSeverityEmoji(severity as SeverityLevel)} ${severity.toUpperCase()}: ${findings.length} issue(s)`,
+          );
 
-          for (const finding of findings.slice(0, 5)) { // Show max 5 per severity
+          for (const finding of findings.slice(0, 5)) {
+            // Show max 5 per severity
             lines.push(`  Line ${finding.line}: ${finding.type}`);
             lines.push(`    ${finding.suggestion}`);
           }
@@ -399,24 +457,28 @@ export class SecurityScanner {
           if (findings.length > 5) {
             lines.push(`  ... and ${findings.length - 5} more`);
           }
-          lines.push('');
+          lines.push("");
         }
       }
     }
 
-    lines.push('📊 Scan Statistics:');
+    lines.push("📊 Scan Statistics:");
     lines.push(`  Total lines: ${scanResult.stats.totalLines}`);
     lines.push(`  Scanned lines: ${scanResult.stats.scannedLines}`);
-    lines.push(`  High entropy strings: ${scanResult.stats.highEntropyStrings}`);
+    lines.push(
+      `  High entropy strings: ${scanResult.stats.highEntropyStrings}`,
+    );
     lines.push(`  Scan duration: ${scanResult.stats.scanDuration}ms`);
 
-    return lines.join('\n');
+    return lines.join("\n");
   }
 
   /**
    * Group findings by severity
    */
-  private groupBySeverity(findings: SecurityFinding[]): Record<string, SecurityFinding[]> {
+  private groupBySeverity(
+    findings: SecurityFinding[],
+  ): Record<string, SecurityFinding[]> {
     const grouped: Record<string, SecurityFinding[]> = {
       critical: [],
       high: [],
@@ -434,12 +496,14 @@ export class SecurityScanner {
   /**
    * Get emoji for severity level
    */
-  private getSeverityEmoji(severity: 'low' | 'medium' | 'high' | 'critical'): string {
+  private getSeverityEmoji(
+    severity: "low" | "medium" | "high" | "critical",
+  ): string {
     const emojis = {
-      critical: '🚨',
-      high: '⚠️',
-      medium: '⚡',
-      low: 'ℹ️',
+      critical: "🚨",
+      high: "⚠️",
+      medium: "⚡",
+      low: "ℹ️",
     };
     return emojis[severity];
   }

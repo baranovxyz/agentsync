@@ -1,10 +1,10 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { SourceResolver } from "../../../../src/core/registry/source-resolver.js";
-import { GitHubResolver } from "../../../../src/core/registry/github-resolver.js";
-import { CacheManager } from "../../../../src/core/registry/cache-manager.js";
-import { FileSystemError } from "../../../../src/core/errors.js";
 import * as fs from "node:fs/promises";
-import * as path from "path";
+import * as path from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { FileSystemError } from "../../../../src/core/errors.js";
+import { CacheManager } from "../../../../src/core/registry/cache-manager.js";
+import { GitHubResolver } from "../../../../src/core/registry/github-resolver.js";
+import { SourceResolver } from "../../../../src/core/registry/source-resolver.js";
 
 // Mock dependencies
 vi.mock("../../../../src/core/registry/github-resolver.js");
@@ -53,7 +53,7 @@ describe("SourceResolver", () => {
       expect(result).toBe(expectedPath);
       expect(mockGitHubResolver.resolve).toHaveBeenCalledWith(
         source,
-        undefined
+        undefined,
       );
     });
 
@@ -110,11 +110,11 @@ describe("SourceResolver", () => {
       const source = "github:invalid-format";
 
       mockGitHubResolver.resolve.mockRejectedValue(
-        new Error("Invalid GitHub source")
+        new Error("Invalid GitHub source"),
       );
 
       await expect(sourceResolver.resolve(source)).rejects.toThrow(
-        "Invalid GitHub source"
+        "Invalid GitHub source",
       );
     });
 
@@ -122,11 +122,11 @@ describe("SourceResolver", () => {
       const source = "/non/existent/path";
 
       vi.mocked(fs.access).mockRejectedValue(
-        new Error("ENOENT: no such file or directory")
+        new Error("ENOENT: no such file or directory"),
       );
 
       await expect(sourceResolver.resolve(source)).rejects.toThrow(
-        FileSystemError
+        FileSystemError,
       );
     });
 
@@ -134,7 +134,7 @@ describe("SourceResolver", () => {
       const source = "http://example.com/preset";
 
       await expect(sourceResolver.resolve(source)).rejects.toThrow(
-        "Invalid source format"
+        "Invalid source format",
       );
     });
   });

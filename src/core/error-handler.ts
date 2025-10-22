@@ -8,45 +8,50 @@ export class AgentSyncError extends Error {
     public code: string,
     message: string,
     public actionable: string,
-    public cause?: Error
+    public cause?: Error,
   ) {
     super(message);
-    this.name = 'AgentSyncError';
+    this.name = "AgentSyncError";
   }
 }
 
 export class ValidationError extends AgentSyncError {
   constructor(message: string, actionable: string, cause?: Error) {
-    super('VALIDATION_ERROR', message, actionable, cause);
-    this.name = 'ValidationError';
+    super("VALIDATION_ERROR", message, actionable, cause);
+    this.name = "ValidationError";
   }
 }
 
 export class SecurityError extends AgentSyncError {
-  constructor(code: string, message: string, actionable: string, cause?: Error) {
+  constructor(
+    code: string,
+    message: string,
+    actionable: string,
+    cause?: Error,
+  ) {
     super(code, message, actionable, cause);
-    this.name = 'SecurityError';
+    this.name = "SecurityError";
   }
 }
 
 export class SyncError extends AgentSyncError {
   constructor(message: string, actionable: string, cause?: Error) {
-    super('SYNC_ERROR', message, actionable, cause);
-    this.name = 'SyncError';
+    super("SYNC_ERROR", message, actionable, cause);
+    this.name = "SyncError";
   }
 }
 
 export class ConfigError extends AgentSyncError {
   constructor(message: string, actionable: string, cause?: Error) {
-    super('CONFIG_ERROR', message, actionable, cause);
-    this.name = 'ConfigError';
+    super("CONFIG_ERROR", message, actionable, cause);
+    this.name = "ConfigError";
   }
 }
 
 export class FileSystemError extends AgentSyncError {
   constructor(message: string, actionable: string, cause?: Error) {
-    super('FILESYSTEM_ERROR', message, actionable, cause);
-    this.name = 'FileSystemError';
+    super("FILESYSTEM_ERROR", message, actionable, cause);
+    this.name = "FileSystemError";
   }
 }
 
@@ -57,16 +62,16 @@ export function formatError(error: Error): string {
   if (error instanceof AgentSyncError) {
     const lines: string[] = [
       `❌ ${error.name}: ${error.message}`,
-      '',
-      '💡 How to fix:',
-      `   ${error.actionable}`
+      "",
+      "💡 How to fix:",
+      `   ${error.actionable}`,
     ];
 
     if (error.cause) {
-      lines.push('', '🔍 Underlying cause:', `   ${error.cause.message}`);
+      lines.push("", "🔍 Underlying cause:", `   ${error.cause.message}`);
     }
 
-    return lines.join('\n');
+    return lines.join("\n");
   }
 
   // Generic error
@@ -79,8 +84,8 @@ export function formatError(error: Error): string {
 export function handleError(error: Error): void {
   console.error(formatError(error));
 
-  if (process.env.DEBUG === 'true' && error.stack) {
-    console.error('\n📋 Stack trace:', error.stack);
+  if (process.env.DEBUG === "true" && error.stack) {
+    console.error("\n📋 Stack trace:", error.stack);
   }
 
   // Exit with appropriate code

@@ -3,34 +3,32 @@
  * Tests unusual scenarios and error handling
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { SelectivePresetLoader } from "../../src/core/registry/selective-preset-loader.js";
+import { beforeEach, describe, expect, it } from "vitest";
 import { ConfigMerger } from "../../src/core/config/interactive-selection-merger.js";
 import { ConfigMigrator } from "../../src/core/config/interactive-selection-migration.js";
+import {
+  SelectionValidationError,
+  SelectiveLoadingError,
+} from "../../src/core/errors.js";
 import { RegistryOrchestrator } from "../../src/core/registry/registry-orchestrator.js";
+import { SelectivePresetLoader } from "../../src/core/registry/selective-preset-loader.js";
 import type {
+  InteractiveSelectionConfig,
   Preset,
   PresetSelection,
-  InteractiveSelectionConfig,
 } from "../../src/types/index.js";
-import {
-  SelectiveLoadingError,
-  SelectionValidationError,
-  ConfigError,
-  FileSystemError,
-} from "../../src/core/errors.js";
 
 describe("Interactive Selection Edge Cases and Error Scenarios", () => {
   let loader: SelectivePresetLoader;
   let merger: ConfigMerger;
   let migrator: ConfigMigrator;
-  let orchestrator: RegistryOrchestrator;
+  let _orchestrator: RegistryOrchestrator;
 
   beforeEach(() => {
     loader = new SelectivePresetLoader();
     merger = new ConfigMerger();
     migrator = new ConfigMigrator();
-    orchestrator = new RegistryOrchestrator();
+    _orchestrator = new RegistryOrchestrator();
   });
 
   describe("SelectivePresetLoader edge cases", () => {
@@ -59,10 +57,10 @@ describe("Interactive Selection Edge Cases and Error Scenarios", () => {
 
     it("should handle null/undefined preset", async () => {
       await expect(loader.loadSelective(null as any)).rejects.toThrow(
-        SelectiveLoadingError
+        SelectiveLoadingError,
       );
       await expect(loader.loadSelective(undefined as any)).rejects.toThrow(
-        SelectiveLoadingError
+        SelectiveLoadingError,
       );
     });
 
@@ -73,7 +71,7 @@ describe("Interactive Selection Edge Cases and Error Scenarios", () => {
       } as any;
 
       await expect(loader.loadSelective(invalidPreset)).rejects.toThrow(
-        SelectiveLoadingError
+        SelectiveLoadingError,
       );
     });
 
@@ -89,7 +87,7 @@ describe("Interactive Selection Edge Cases and Error Scenarios", () => {
 
       // Test with string instead of object
       await expect(
-        loader.loadSelective(preset, "invalid" as any)
+        loader.loadSelective(preset, "invalid" as any),
       ).rejects.toThrow(SelectiveLoadingError);
 
       // Test with invalid rules selection
@@ -97,7 +95,7 @@ describe("Interactive Selection Edge Cases and Error Scenarios", () => {
         rules: "invalid" as any,
       };
       await expect(
-        loader.loadSelective(preset, invalidRulesSelection)
+        loader.loadSelective(preset, invalidRulesSelection),
       ).rejects.toThrow(SelectiveLoadingError);
 
       // Test with invalid commands selection
@@ -105,7 +103,7 @@ describe("Interactive Selection Edge Cases and Error Scenarios", () => {
         commands: "invalid" as any,
       };
       await expect(
-        loader.loadSelective(preset, invalidCommandsSelection)
+        loader.loadSelective(preset, invalidCommandsSelection),
       ).rejects.toThrow(SelectiveLoadingError);
 
       // Test with invalid MCPs selection
@@ -113,7 +111,7 @@ describe("Interactive Selection Edge Cases and Error Scenarios", () => {
         mcps: "invalid" as any,
       };
       await expect(
-        loader.loadSelective(preset, invalidMcpsSelection)
+        loader.loadSelective(preset, invalidMcpsSelection),
       ).rejects.toThrow(SelectiveLoadingError);
     });
 
@@ -165,7 +163,7 @@ describe("Interactive Selection Edge Cases and Error Scenarios", () => {
       };
 
       // Create very long filename
-      const longFilename = "a".repeat(1000) + ".md";
+      const longFilename = `${"a".repeat(1000)}.md`;
       preset.rules.set(longFilename, "# Content");
 
       const selection: PresetSelection = {
@@ -509,7 +507,7 @@ describe("Interactive Selection Edge Cases and Error Scenarios", () => {
       };
 
       await expect(loader.loadSelective(preset, selection)).rejects.toThrow(
-        SelectionValidationError
+        SelectionValidationError,
       );
     });
 
@@ -534,13 +532,13 @@ describe("Interactive Selection Edge Cases and Error Scenarios", () => {
       expect(validation.valid).toBe(false);
       expect(validation.errors).toHaveLength(3);
       expect(validation.errors).toContain(
-        "Rule file 'non-existent.md' not found in preset 'github:example/standards'"
+        "Rule file 'non-existent.md' not found in preset 'github:example/standards'",
       );
       expect(validation.errors).toContain(
-        "Command file 'missing.md' not found in preset 'github:example/standards'"
+        "Command file 'missing.md' not found in preset 'github:example/standards'",
       );
       expect(validation.errors).toContain(
-        "MCP server 'non-existent-server' not found in preset 'github:example/standards'"
+        "MCP server 'non-existent-server' not found in preset 'github:example/standards'",
       );
     });
 
@@ -570,7 +568,7 @@ describe("Interactive Selection Edge Cases and Error Scenarios", () => {
 
       expect(merged.presets).toEqual(["github:example/standards"]);
       expect(
-        merged.selections["github:example/standards"].rules?.include
+        merged.selections["github:example/standards"].rules?.include,
       ).toEqual(["*.md"]);
     });
 
@@ -618,7 +616,7 @@ describe("Interactive Selection Edge Cases and Error Scenarios", () => {
 
       // Run multiple operations concurrently
       const promises = Array.from({ length: 100 }, () =>
-        loader.loadSelective(preset, selection)
+        loader.loadSelective(preset, selection),
       );
       const results = await Promise.all(promises);
 

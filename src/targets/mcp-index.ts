@@ -4,16 +4,19 @@
  * Phase 2+: Load from plugins
  */
 
-import type { MCPTarget } from './mcp-base.js';
-import { CursorTarget } from './cursor.js';
-import { ClaudeTarget } from './claude.js';
+import { ClaudeTarget } from "./claude.js";
+import { CursorTarget } from "./cursor.js";
+import type { MCPTarget } from "./mcp-base.js";
 
 /**
  * All available MCP targets
  * Phase 1: Hardcoded list
  * Phase 2+: Load from plugins
  */
-export const MCP_TARGETS: MCPTarget[] = [new CursorTarget(), new ClaudeTarget()];
+export const MCP_TARGETS: MCPTarget[] = [
+  new CursorTarget(),
+  new ClaudeTarget(),
+];
 
 /**
  * Get MCP target by name

@@ -2,11 +2,11 @@
  * Tests for User Preset Registry System
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { UserPresetRegistry } from "../../../../src/core/registry/user-preset-registry.js";
 import { mkdir, rm } from "node:fs/promises";
-import * as path from "path";
-import * as os from "os";
+import * as os from "node:os";
+import * as path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { UserPresetRegistry } from "../../../../src/core/registry/user-preset-registry.js";
 import type { UserPresetEntry } from "../../../../src/types/schemas.js";
 
 describe("UserPresetRegistry", () => {
@@ -55,7 +55,7 @@ describe("UserPresetRegistry", () => {
       await registry.add("test-preset", entry);
 
       await expect(registry.add("test-preset", entry)).rejects.toThrow(
-        "Preset with name 'test-preset' already exists"
+        "Preset with name 'test-preset' already exists",
       );
     });
 
@@ -65,7 +65,7 @@ describe("UserPresetRegistry", () => {
       };
 
       await expect(
-        registry.add("test-preset", invalidEntry as any)
+        registry.add("test-preset", invalidEntry as any),
       ).rejects.toThrow();
     });
   });
@@ -83,13 +83,13 @@ describe("UserPresetRegistry", () => {
       await registry.remove("test-preset");
 
       await expect(registry.get("test-preset")).rejects.toThrow(
-        "Preset with name 'test-preset' not found"
+        "Preset with name 'test-preset' not found",
       );
     });
 
     it("should throw error when removing non-existent preset", async () => {
       await expect(registry.remove("non-existent")).rejects.toThrow(
-        "Preset with name 'non-existent' not found"
+        "Preset with name 'non-existent' not found",
       );
     });
   });
@@ -168,7 +168,7 @@ describe("UserPresetRegistry", () => {
 
       // Create new registry instance to test persistence
       const newRegistry = new UserPresetRegistry(
-        path.join(tempDir, "config.json")
+        path.join(tempDir, "config.json"),
       );
       const retrieved = await newRegistry.get("test-preset");
 
@@ -179,7 +179,7 @@ describe("UserPresetRegistry", () => {
 
     it("should handle missing registry file gracefully", async () => {
       const newRegistry = new UserPresetRegistry(
-        path.join(tempDir, "non-existent.json")
+        path.join(tempDir, "non-existent.json"),
       );
       const presets = await newRegistry.list();
       expect(presets).toEqual({});
@@ -197,13 +197,13 @@ describe("UserPresetRegistry", () => {
       const corruptedRegistry = new UserPresetRegistry(registryPath);
 
       await expect(corruptedRegistry.list()).rejects.toThrow(
-        "Registry file contains invalid JSON"
+        "Registry file contains invalid JSON",
       );
     });
 
     it("should handle file system errors gracefully", async () => {
       const readOnlyRegistry = new UserPresetRegistry(
-        "/root/readonly/config.json"
+        "/root/readonly/config.json",
       );
 
       const entry: UserPresetEntry = {
@@ -214,7 +214,7 @@ describe("UserPresetRegistry", () => {
       };
 
       await expect(
-        readOnlyRegistry.add("test-preset", entry)
+        readOnlyRegistry.add("test-preset", entry),
       ).rejects.toThrow();
     });
   });

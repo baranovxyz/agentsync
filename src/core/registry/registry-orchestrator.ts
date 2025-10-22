@@ -2,14 +2,14 @@
  * Registry orchestrator - coordinates all preset loading operations
  */
 
-import { GitHubResolver } from "./github-resolver.js";
-import { PresetLoader } from "./preset-loader.js";
-import { Merger, type MergedPresets } from "./merger.js";
-import { SelectivePresetLoader } from "./selective-preset-loader.js";
-import { validateConfig } from "../../types/schemas.js";
-import type { SelectionConfig } from "../../types/index.js";
 import { readFile } from "node:fs/promises";
-import * as path from "path";
+import * as path from "node:path";
+import type { SelectionConfig } from "../../types/index.js";
+import { validateConfig } from "../../types/schemas.js";
+import { GitHubResolver } from "./github-resolver.js";
+import { type MergedPresets, Merger } from "./merger.js";
+import { PresetLoader } from "./preset-loader.js";
+import { SelectivePresetLoader } from "./selective-preset-loader.js";
 
 export class RegistryOrchestrator {
   private githubResolver = new GitHubResolver();
@@ -24,7 +24,7 @@ export class RegistryOrchestrator {
     cwd: string,
     options?: {
       update?: boolean;
-    }
+    },
   ): Promise<MergedPresets> {
     // 1. Load config
     const configPath = path.join(cwd, ".agentsync", "config.json");
@@ -48,7 +48,7 @@ export class RegistryOrchestrator {
       extendsEntries.map((entry) => {
         const source = typeof entry === "string" ? entry : entry.source;
         return this.githubResolver.resolve(source, { update: options?.update });
-      })
+      }),
     );
 
     // 4. Load all presets
@@ -61,9 +61,9 @@ export class RegistryOrchestrator {
           source,
           resolvedPaths[i],
           namespace || "",
-          {}
+          {},
         );
-      })
+      }),
     );
 
     // 5. Validate no namespace collisions
@@ -83,7 +83,7 @@ export class RegistryOrchestrator {
     selections: Record<string, SelectionConfig>,
     options?: {
       update?: boolean;
-    }
+    },
   ): Promise<MergedPresets> {
     // 1. Load config
     const configPath = path.join(cwd, ".agentsync", "config.json");
@@ -107,7 +107,7 @@ export class RegistryOrchestrator {
       extendsEntries.map((entry) => {
         const source = typeof entry === "string" ? entry : entry.source;
         return this.githubResolver.resolve(source, { update: options?.update });
-      })
+      }),
     );
 
     // 4. Load all presets
@@ -120,9 +120,9 @@ export class RegistryOrchestrator {
           source,
           resolvedPaths[i],
           namespace || "",
-          {}
+          {},
         );
-      })
+      }),
     );
 
     // 5. Create extends entries with selections for SelectivePresetLoader
@@ -156,7 +156,7 @@ export class RegistryOrchestrator {
     selections: Record<string, SelectionConfig>,
     options?: {
       update?: boolean;
-    }
+    },
   ): Promise<{ valid: boolean; errors: string[] }> {
     // 1. Load config
     const configPath = path.join(cwd, ".agentsync", "config.json");
@@ -175,7 +175,7 @@ export class RegistryOrchestrator {
       extendsEntries.map((entry) => {
         const source = typeof entry === "string" ? entry : entry.source;
         return this.githubResolver.resolve(source, { update: options?.update });
-      })
+      }),
     );
 
     // 4. Load all presets
@@ -188,9 +188,9 @@ export class RegistryOrchestrator {
           source,
           resolvedPaths[i],
           namespace || "",
-          {}
+          {},
         );
-      })
+      }),
     );
 
     // 5. Validate selections
@@ -204,7 +204,7 @@ export class RegistryOrchestrator {
       if (selection) {
         const validation = await this.selectivePresetLoader.validateSelection(
           preset,
-          selection
+          selection,
         );
         if (!validation.valid) {
           allErrors.push(...validation.errors);

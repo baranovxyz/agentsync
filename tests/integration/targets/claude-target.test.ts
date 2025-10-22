@@ -3,12 +3,12 @@
  * Tests Claude Code MCP target implementation
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { ClaudeTarget } from "../../../src/targets/claude.js";
+import * as os from "node:os";
+import * as path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { MCP } from "../../../src/core/mcp/tokens.js";
+import { ClaudeTarget } from "../../../src/targets/claude.js";
 import * as fs from "../../../src/utils/fs.js";
-import * as path from "path";
-import * as os from "os";
 
 describe("ClaudeTarget", () => {
   let tempDir: string;

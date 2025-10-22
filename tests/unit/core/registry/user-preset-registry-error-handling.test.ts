@@ -2,15 +2,9 @@
  * Tests for error handling in user preset registry
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { UserPresetRegistryError } from "../../../src/core/errors.js";
 import { UserPresetRegistry } from "../../../src/core/registry/user-preset-registry.js";
-import {
-  UserPresetRegistryError,
-  ValidationError,
-  FileSystemError,
-  ErrorCategory,
-  ErrorSeverity,
-} from "../../../src/core/errors.js";
 import type { UserPresetEntry } from "../../../src/types/index.js";
 
 // Mock dependencies
@@ -42,7 +36,7 @@ describe("UserPresetRegistry error handling", () => {
     it("should use default path when none provided", () => {
       const defaultRegistry = new UserPresetRegistry();
       expect(defaultRegistry.getRegistryPath()).toContain(
-        ".agentsync/config.json"
+        ".agentsync/config.json",
       );
     });
 
@@ -69,7 +63,7 @@ describe("UserPresetRegistry error handling", () => {
       });
 
       await expect(registry.add("test-preset", validEntry)).rejects.toThrow(
-        Error
+        Error,
       );
     });
 
@@ -88,7 +82,7 @@ describe("UserPresetRegistry error handling", () => {
             "test-preset": validEntry,
           },
           tools: ["cursor", "claude"],
-        })
+        }),
       );
 
       vi.mocked(safeParseUserConfig).mockReturnValue({
@@ -105,7 +99,7 @@ describe("UserPresetRegistry error handling", () => {
       vi.mocked(validateUserPresetEntry).mockReturnValue(validEntry);
 
       await expect(registry.add("test-preset", validEntry)).rejects.toThrow(
-        UserPresetRegistryError
+        UserPresetRegistryError,
       );
     });
 
@@ -124,7 +118,7 @@ describe("UserPresetRegistry error handling", () => {
           version: "1.0",
           presets: {},
           tools: ["cursor", "claude"],
-        })
+        }),
       );
 
       vi.mocked(safeParseUserConfig).mockReturnValue({
@@ -140,7 +134,7 @@ describe("UserPresetRegistry error handling", () => {
       vi.mocked(writeFile).mockRejectedValue(new Error("Permission denied"));
 
       await expect(registry.add("test-preset", validEntry)).rejects.toThrow(
-        Error
+        Error,
       );
     });
   });
@@ -149,7 +143,7 @@ describe("UserPresetRegistry error handling", () => {
     it("should throw UserPresetRegistryError for empty preset name", async () => {
       await expect(registry.get("")).rejects.toThrow(UserPresetRegistryError);
       await expect(registry.get("   ")).rejects.toThrow(
-        UserPresetRegistryError
+        UserPresetRegistryError,
       );
     });
 
@@ -166,7 +160,7 @@ describe("UserPresetRegistry error handling", () => {
           version: "1.0",
           presets: {},
           tools: ["cursor", "claude"],
-        })
+        }),
       );
 
       vi.mocked(safeParseUserConfig).mockReturnValue({
@@ -179,7 +173,7 @@ describe("UserPresetRegistry error handling", () => {
       });
 
       await expect(registry.get("non-existent")).rejects.toThrow(
-        UserPresetRegistryError
+        UserPresetRegistryError,
       );
     });
 
@@ -190,7 +184,7 @@ describe("UserPresetRegistry error handling", () => {
       vi.mocked(readFile).mockResolvedValue("{ invalid json }");
 
       await expect(registry.get("test-preset")).rejects.toThrow(
-        UserPresetRegistryError
+        UserPresetRegistryError,
       );
     });
   });
@@ -198,10 +192,10 @@ describe("UserPresetRegistry error handling", () => {
   describe("remove", () => {
     it("should throw UserPresetRegistryError for empty preset name", async () => {
       await expect(registry.remove("")).rejects.toThrow(
-        UserPresetRegistryError
+        UserPresetRegistryError,
       );
       await expect(registry.remove("   ")).rejects.toThrow(
-        UserPresetRegistryError
+        UserPresetRegistryError,
       );
     });
 
@@ -218,7 +212,7 @@ describe("UserPresetRegistry error handling", () => {
           version: "1.0",
           presets: {},
           tools: ["cursor", "claude"],
-        })
+        }),
       );
 
       vi.mocked(safeParseUserConfig).mockReturnValue({
@@ -231,7 +225,7 @@ describe("UserPresetRegistry error handling", () => {
       });
 
       await expect(registry.remove("non-existent")).rejects.toThrow(
-        UserPresetRegistryError
+        UserPresetRegistryError,
       );
     });
   });
@@ -266,7 +260,7 @@ describe("UserPresetRegistry error handling", () => {
           version: "1.0",
           presets: {},
           tools: ["cursor", "claude"],
-        })
+        }),
       );
 
       vi.mocked(safeParseUserConfig).mockReturnValue({
@@ -326,7 +320,7 @@ describe("UserPresetRegistry error handling", () => {
 
       vi.mocked(pathExists).mockResolvedValue(true);
       vi.mocked(readFile).mockResolvedValue(
-        JSON.stringify({ invalid: "structure" })
+        JSON.stringify({ invalid: "structure" }),
       );
 
       vi.mocked(safeParseUserConfig).mockReturnValue({

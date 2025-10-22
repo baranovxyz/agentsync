@@ -4,8 +4,8 @@
  */
 
 import { readFile } from "node:fs/promises";
+import * as path from "node:path";
 import { pathExists } from "../../utils/fs.js";
-import * as path from "path";
 import type { MCP } from "./tokens.js";
 
 /**
@@ -56,7 +56,7 @@ async function getMCPConfigPath(): Promise<string | null> {
  * @throws Error if config doesn't exist or is invalid
  */
 export async function loadProjectConfig(
-  configPath?: string
+  configPath?: string,
 ): Promise<ProjectMCPConfig> {
   let filepath: string | null;
 
@@ -78,7 +78,7 @@ export async function loadProjectConfig(
           `  - .agentsync/config.local.json (backup location)\n\n` +
           `Create .agentsync/config.json with:\n` +
           `  {"version": "1.0", "tools": ["cursor", "claude"], "mcpServers": []}\n\n` +
-          `Or run 'agentsync init' to set up the project.`
+          `Or run 'agentsync init' to set up the project.`,
       );
     }
   }
@@ -90,7 +90,7 @@ export async function loadProjectConfig(
     config = JSON.parse(content);
   } catch (error) {
     throw new Error(
-      `Failed to parse MCP configuration at ${filepath}: ${(error as Error).message}`
+      `Failed to parse MCP configuration at ${filepath}: ${(error as Error).message}`,
     );
   }
 
@@ -111,7 +111,7 @@ export async function loadProjectConfig(
         `Fix it:\n` +
         `  echo '{"mcpServers": []}' > ${filepath}\n\n` +
         `Or delete the file and run:\n` +
-        `  agentsync mcp list`
+        `  agentsync mcp list`,
     );
   }
 
@@ -126,7 +126,7 @@ export async function loadProjectConfig(
         `Expected array or object:\n` +
         `  {"mcpServers": []} or {"mcpServers": {}}\n\n` +
         `Fix it:\n` +
-        `  echo '{"mcpServers": []}' > ${filepath}`
+        `  echo '{"mcpServers": []}' > ${filepath}`,
     );
   }
 
@@ -142,7 +142,7 @@ export async function loadProjectConfig(
  */
 export function filterSelectedMCPs(
   globalRegistry: Record<string, MCP>,
-  config: ProjectMCPConfig
+  config: ProjectMCPConfig,
 ): Record<string, MCP> {
   const result: Record<string, MCP> = {};
 
@@ -153,13 +153,13 @@ export function filterSelectedMCPs(
         const available = Object.keys(globalRegistry).join(", ");
         throw new Error(
           `MCP server '${serverName}' not found in global registry.\n\n` +
-            `Available MCPs: ${available}`
+            `Available MCPs: ${available}`,
         );
       }
 
       // Deep clone to avoid mutation
       result[serverName] = JSON.parse(
-        JSON.stringify(globalRegistry[serverName])
+        JSON.stringify(globalRegistry[serverName]),
       );
     }
   }
@@ -170,14 +170,14 @@ export function filterSelectedMCPs(
         const available = Object.keys(globalRegistry).join(", ");
         throw new Error(
           `MCP server '${serverName}' not found in global registry.\n\n` +
-            `Available MCPs: ${available}`
+            `Available MCPs: ${available}`,
         );
       }
 
       // If value is true, use global config as-is
       if (value === true) {
         result[serverName] = JSON.parse(
-          JSON.stringify(globalRegistry[serverName])
+          JSON.stringify(globalRegistry[serverName]),
         );
       }
       // If value is object, merge with global config

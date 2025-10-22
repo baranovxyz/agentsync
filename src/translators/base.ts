@@ -3,18 +3,31 @@
  * Provides common functionality for all tool-specific translators
  */
 
-import { pathExists, readdir, remove, ensureDir, writeFile, rename, symlink } from '../utils/fs.js';
-import * as path from 'path';
-import { FileSystemError, ValidationError, ErrorCategory, ErrorSeverity } from '../core/errors.js';
+import * as path from "node:path";
+import AuditLogger, { AuditEventType } from "../core/audit.js";
+import {
+  ErrorCategory,
+  ErrorSeverity,
+  FileSystemError,
+  ValidationError,
+} from "../core/errors.js";
 import type {
-  Translator,
-  ToolName,
+  AgentsMd,
   FileOperation,
   SyncOperation,
-  AgentsMd,
-} from '../types/index.js';
-import type { TranslateResult } from '../types/schemas.js';
-import AuditLogger, { AuditEventType } from '../core/audit.js';
+  ToolName,
+  Translator,
+} from "../types/index.js";
+import type { TranslateResult } from "../types/schemas.js";
+import {
+  ensureDir,
+  pathExists,
+  readdir,
+  remove,
+  rename,
+  symlink,
+  writeFile,
+} from "../utils/fs.js";
 
 /**
  * Tool-specific path configurations
@@ -40,7 +53,10 @@ export abstract class BaseTranslator implements Translator {
    * Translate AGENTS.md to tool-specific format
    * Must be implemented by each translator
    */
-  abstract translate(agentsMd: AgentsMd, targetDir: string): Promise<TranslateResult>;
+  abstract translate(
+    agentsMd: AgentsMd,
+    targetDir: string,
+  ): Promise<TranslateResult>;
 
   /**
    * Get list of current tool configuration files
@@ -59,7 +75,7 @@ export abstract class BaseTranslator implements Translator {
     const configDirPath = path.join(targetDir, paths.configDir);
     if (await pathExists(configDirPath)) {
       const dirFiles = await readdir(configDirPath);
-      files.push(...dirFiles.map(f => path.join(configDirPath, f)));
+      files.push(...dirFiles.map((f) => path.join(configDirPath, f)));
     }
 
     // Check alternative configs
@@ -78,16 +94,22 @@ export abstract class BaseTranslator implements Translator {
   /**
    * Perform a dry run without making changes
    */
-  async dryRun(agentsMd: AgentsMd, targetDir: string): Promise<TranslateResult> {
+  async dryRun(
+    agentsMd: AgentsMd,
+    targetDir: string,
+  ): Promise<TranslateResult> {
     // Call translate in dry-run mode (doesn't write files)
     const result = await this.translate(agentsMd, targetDir);
 
     // Mark all operations as dry-run
     if (result.operations) {
-      result.operations = result.operations.map(op => ({
-        ...op,
-        dryRun: true,
-      } as FileOperation));
+      result.operations = result.operations.map(
+        (op) =>
+          ({
+            ...op,
+            dryRun: true,
+          }) as FileOperation,
+      );
     }
 
     return result;
@@ -102,20 +124,20 @@ export abstract class BaseTranslator implements Translator {
     for (const file of files) {
       try {
         await remove(file);
-        await this.audit.logFileOperation('delete', file, true, {
-          tool: this.name
+        await this.audit.logFileOperation("delete", file, true, {
+          tool: this.name,
         });
       } catch (error) {
         await this.audit.logError(
           error as Error,
           ErrorCategory.FILE_SYSTEM,
           ErrorSeverity.MEDIUM,
-          { tool: this.name, file }
+          { tool: this.name, file },
         );
         throw new FileSystemError(
           `Failed to cleanup ${file}`,
           file,
-          error as Error
+          error as Error,
         );
       }
     }
@@ -145,29 +167,30 @@ export abstract class BaseTranslator implements Translator {
         await symlink(source, target);
       } catch (symlinkError) {
         // Fallback to pointer file if symlink fails
-        const pointerContent = `# AgentSync Pointer File\n# This file points to: ${source}\n\n` +
+        const pointerContent =
+          `# AgentSync Pointer File\n# This file points to: ${source}\n\n` +
           `Please refer to ${path.relative(path.dirname(target), source)} for the actual configuration.`;
         await writeFile(target, pointerContent);
 
         await this.audit.log({
           type: AuditEventType.CONFIG_UPDATE,
-          severity: 'warning',
-          category: 'config',
+          severity: "warning",
+          category: "config",
           message: `Symlink fallback: created pointer file instead`,
           metadata: {
             tool: this.name,
-            action: 'symlink_fallback',
+            action: "symlink_fallback",
             source,
             target,
-            reason: (symlinkError as Error).message
-          }
+            reason: (symlinkError as Error).message,
+          },
         });
       }
     } catch (error) {
       throw new FileSystemError(
         `Failed to create symlink from ${source} to ${target}`,
         target,
-        error as Error
+        error as Error,
       );
     }
   }
@@ -182,19 +205,19 @@ export abstract class BaseTranslator implements Translator {
 
       // Write to temp file first
       const tempPath = `${filePath}.tmp`;
-      await writeFile(tempPath, content, { encoding: 'utf-8' });
+      await writeFile(tempPath, content, { encoding: "utf-8" });
 
       // Rename atomically
       await rename(tempPath, filePath);
 
-      await this.audit.logFileOperation('write', filePath, true, {
-        tool: this.name
+      await this.audit.logFileOperation("write", filePath, true, {
+        tool: this.name,
       });
     } catch (error) {
       throw new FileSystemError(
         `Failed to write file ${filePath}`,
         filePath,
-        error as Error
+        error as Error,
       );
     }
   }
@@ -209,7 +232,7 @@ export abstract class BaseTranslator implements Translator {
       throw new FileSystemError(
         `Failed to create directory ${dirPath}`,
         dirPath,
-        error as Error
+        error as Error,
       );
     }
   }
@@ -225,7 +248,7 @@ export abstract class BaseTranslator implements Translator {
         throw new ValidationError(
           `Duplicate operation on path: ${op.path}`,
           undefined,
-          { suggestion: `Remove duplicate operations for ${op.path}` }
+          { suggestion: `Remove duplicate operations for ${op.path}` },
         );
       }
       paths.add(op.path);
@@ -233,30 +256,39 @@ export abstract class BaseTranslator implements Translator {
 
     // Validate operation types
     for (const op of operations) {
-      if (!['create', 'write', 'modify', 'delete', 'symlink', 'create_dir'].includes(op.type)) {
+      if (
+        ![
+          "create",
+          "write",
+          "modify",
+          "delete",
+          "symlink",
+          "create_dir",
+        ].includes(op.type)
+      ) {
         throw new ValidationError(
           `Invalid operation type: ${op.type}`,
           undefined,
-          { suggestion: 'Use a valid operation type' }
+          { suggestion: "Use a valid operation type" },
         );
       }
 
       // Validate required fields
-      if (op.type === 'write' || op.type === 'create' || op.type === 'modify') {
+      if (op.type === "write" || op.type === "create" || op.type === "modify") {
         if (!op.content) {
           throw new ValidationError(
             `Operation ${op.type} requires content for ${op.path}`,
             undefined,
-            { suggestion: 'Provide content for write operations' }
+            { suggestion: "Provide content for write operations" },
           );
         }
       }
 
-      if (op.type === 'symlink' && !op.target) {
+      if (op.type === "symlink" && !op.target) {
         throw new ValidationError(
           `Symlink operation requires target for ${op.path}`,
           undefined,
-          { suggestion: 'Provide target for symlink operations' }
+          { suggestion: "Provide target for symlink operations" },
         );
       }
     }
@@ -266,10 +298,10 @@ export abstract class BaseTranslator implements Translator {
    * Convert file operations to sync operations
    */
   protected toSyncOperations(operations: FileOperation[]): SyncOperation[] {
-    return operations.map(op => ({
+    return operations.map((op) => ({
       ...op,
       tool: this.name,
-      status: 'pending' as const,
+      status: "pending" as const,
     }));
   }
 
@@ -278,15 +310,15 @@ export abstract class BaseTranslator implements Translator {
    */
   protected async supportsSymlinks(): Promise<boolean> {
     // Windows requires admin rights or developer mode for symlinks
-    if (process.platform === 'win32') {
+    if (process.platform === "win32") {
       try {
         // Try to create a test symlink
-        const testDir = path.join(process.cwd(), '.agentsync', 'test');
-        const testSource = path.join(testDir, 'source.txt');
-        const testTarget = path.join(testDir, 'target.txt');
+        const testDir = path.join(process.cwd(), ".agentsync", "test");
+        const testSource = path.join(testDir, "source.txt");
+        const testTarget = path.join(testDir, "target.txt");
 
         await ensureDir(testDir);
-        await writeFile(testSource, 'test');
+        await writeFile(testSource, "test");
 
         try {
           await symlink(testSource, testTarget);
@@ -319,8 +351,8 @@ export abstract class BaseTranslator implements Translator {
   protected sanitizePath(filePath: string): string {
     // Remove any dangerous characters
     const sanitized = filePath
-      .replace(/\.\./g, '') // Prevent directory traversal
-      .replace(/[<>:"|?*]/g, '_'); // Remove invalid Windows characters
+      .replace(/\.\./g, "") // Prevent directory traversal
+      .replace(/[<>:"|?*]/g, "_"); // Remove invalid Windows characters
 
     return sanitized;
   }

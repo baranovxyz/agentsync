@@ -3,38 +3,38 @@
  * Tests the integration between all interactive selection components
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { RegistryOrchestrator } from "../../src/core/registry/registry-orchestrator.js";
-import { SelectivePresetLoader } from "../../src/core/registry/selective-preset-loader.js";
+import * as fs from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
+import * as os from "node:os";
+import * as path from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ConfigMerger } from "../../src/core/config/interactive-selection-merger.js";
 import { ConfigMigrator } from "../../src/core/config/interactive-selection-migration.js";
-import { UserPresetRegistry } from "../../src/core/registry/user-preset-registry.js";
 import { GitHubResolver } from "../../src/core/registry/github-resolver.js";
 import { PresetLoader } from "../../src/core/registry/preset-loader.js";
+import { RegistryOrchestrator } from "../../src/core/registry/registry-orchestrator.js";
+import { SelectivePresetLoader } from "../../src/core/registry/selective-preset-loader.js";
+import { UserPresetRegistry } from "../../src/core/registry/user-preset-registry.js";
 import type {
+  InteractiveSelectionConfig,
   Preset,
   PresetSelection,
-  InteractiveSelectionConfig,
   UserPreset,
 } from "../../src/types/index.js";
-import * as fs from "node:fs/promises";
-import * as path from "path";
-import { mkdtemp, rm } from "node:fs/promises";
-import * as os from "os";
 
 // Mock dependencies
 vi.mock("../../src/core/registry/github-resolver.js");
 vi.mock("../../src/core/registry/preset-loader.js");
 vi.mock("../../src/core/registry/user-preset-registry.js");
 
-const mockGitHubResolver = vi.mocked(GitHubResolver);
-const mockPresetLoader = vi.mocked(PresetLoader);
-const mockUserPresetRegistry = vi.mocked(UserPresetRegistry);
+const _mockGitHubResolver = vi.mocked(GitHubResolver);
+const _mockPresetLoader = vi.mocked(PresetLoader);
+const _mockUserPresetRegistry = vi.mocked(UserPresetRegistry);
 
 describe("Interactive Selection Components Integration", () => {
   let tempDir: string;
   let orchestrator: RegistryOrchestrator;
-  let selectiveLoader: SelectivePresetLoader;
+  let _selectiveLoader: SelectivePresetLoader;
   let configMerger: ConfigMerger;
   let configMigrator: ConfigMigrator;
   let mockResolverInstance: any;
@@ -63,12 +63,12 @@ describe("Interactive Selection Components Integration", () => {
     vi.mocked(GitHubResolver).mockImplementation(() => mockResolverInstance);
     vi.mocked(PresetLoader).mockImplementation(() => mockPresetLoaderInstance);
     vi.mocked(UserPresetRegistry).mockImplementation(
-      () => mockUserRegistryInstance
+      () => mockUserRegistryInstance,
     );
 
     // Create real instances
     orchestrator = new RegistryOrchestrator();
-    selectiveLoader = new SelectivePresetLoader();
+    _selectiveLoader = new SelectivePresetLoader();
     configMerger = new ConfigMerger();
     configMigrator = new ConfigMigrator();
   });
@@ -102,7 +102,7 @@ describe("Interactive Selection Components Integration", () => {
 
       // Setup mocks
       mockResolverInstance.resolve.mockResolvedValue(
-        "/cache/example/standards"
+        "/cache/example/standards",
       );
       mockPresetLoaderInstance.load.mockResolvedValue(mockPreset);
 
@@ -124,13 +124,13 @@ describe("Interactive Selection Components Integration", () => {
           version: "1.0",
           extends: ["github:example/standards"],
           tools: ["cursor"],
-        })
+        }),
       );
 
       // Test integration
       const result = await orchestrator.loadAndMergeSelective(
         tempDir,
-        selections
+        selections,
       );
 
       expect(result.commands.size).toBe(1);
@@ -156,7 +156,7 @@ describe("Interactive Selection Components Integration", () => {
 
       // Setup mocks
       mockResolverInstance.resolve.mockResolvedValue(
-        "/cache/example/standards"
+        "/cache/example/standards",
       );
       mockPresetLoaderInstance.load.mockResolvedValue(mockPreset);
 
@@ -178,7 +178,7 @@ describe("Interactive Selection Components Integration", () => {
           version: "1.0",
           extends: ["github:example/standards"],
           tools: ["cursor"],
-        })
+        }),
       );
 
       // Test integration
@@ -187,10 +187,10 @@ describe("Interactive Selection Components Integration", () => {
       expect(result.valid).toBe(false);
       expect(result.errors).toHaveLength(2);
       expect(result.errors).toContain(
-        "Command file 'nonexistent.md' not found in preset 'github:example/standards'"
+        "Command file 'nonexistent.md' not found in preset 'github:example/standards'",
       );
       expect(result.errors).toContain(
-        "MCP server 'nonexistent-server' not found in preset 'github:example/standards'"
+        "MCP server 'nonexistent-server' not found in preset 'github:example/standards'",
       );
     });
   });
@@ -491,7 +491,7 @@ describe("Interactive Selection Components Integration", () => {
       });
 
       mockPresetLoaderInstance.load.mockImplementation(
-        (source: string, path: string, namespace: string) => {
+        (source: string, _path: string, _namespace: string) => {
           if (source === "github:myorg/frontend-standards") {
             return Promise.resolve(mockFrontendPreset);
           }
@@ -499,7 +499,7 @@ describe("Interactive Selection Components Integration", () => {
             return Promise.resolve(mockBackendPreset);
           }
           return Promise.resolve({} as Preset);
-        }
+        },
       );
 
       // Create config with user presets
@@ -514,7 +514,7 @@ describe("Interactive Selection Components Integration", () => {
             "github:myorg/backend-standards",
           ],
           tools: ["cursor"],
-        })
+        }),
       );
 
       // Create selections for user presets
@@ -534,7 +534,7 @@ describe("Interactive Selection Components Integration", () => {
       // Test integration
       const result = await orchestrator.loadAndMergeSelective(
         tempDir,
-        selections
+        selections,
       );
 
       expect(result.commands.size).toBe(2);
@@ -601,7 +601,7 @@ describe("Interactive Selection Components Integration", () => {
 
       // 6. Setup mocks
       mockResolverInstance.resolve.mockResolvedValue(
-        "/cache/example/standards"
+        "/cache/example/standards",
       );
       mockPresetLoaderInstance.load.mockResolvedValue(mockPreset);
 
@@ -615,13 +615,13 @@ describe("Interactive Selection Components Integration", () => {
           extends: ["github:example/standards"],
           tools: ["cursor"],
           interactiveSelection: newConfig,
-        })
+        }),
       );
 
       // 8. Load and apply selections
       const result = await orchestrator.loadAndMergeSelective(
         tempDir,
-        merged.selections
+        merged.selections,
       );
 
       // 9. Verify final result
