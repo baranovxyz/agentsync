@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import * as os from "node:os";
+import * as path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { RulesSyncTarget } from "../../src/targets/rules-sync-target.js";
 import * as fs from "../../src/utils/fs.js";
-import * as path from "path";
-import * as os from "os";
 
 describe("RulesSyncTarget Integration", () => {
   let tempDir: string;
@@ -29,16 +29,16 @@ describe("RulesSyncTarget Integration", () => {
       // Check files created
       const cursorRulesDir = path.join(tempDir, ".cursor", "rules");
       expect(
-        await fs.pathExists(path.join(cursorRulesDir, "team:typescript.mdc"))
+        await fs.pathExists(path.join(cursorRulesDir, "team:typescript.mdc")),
       ).toBe(true);
       expect(
-        await fs.pathExists(path.join(cursorRulesDir, "company:security.mdc"))
+        await fs.pathExists(path.join(cursorRulesDir, "company:security.mdc")),
       ).toBe(true);
 
       // Check content
       const content = await fs.readFile(
         path.join(cursorRulesDir, "team:typescript.mdc"),
-        "utf-8"
+        "utf-8",
       );
       expect(content).toBe("# TypeScript Rules\n\nUse strict mode.");
     });
@@ -64,15 +64,15 @@ describe("RulesSyncTarget Integration", () => {
 
       const claudeRulesDir = path.join(tempDir, ".claude", "rules");
       expect(
-        await fs.pathExists(path.join(claudeRulesDir, "team:api.md"))
+        await fs.pathExists(path.join(claudeRulesDir, "team:api.md")),
       ).toBe(true);
       expect(
-        await fs.pathExists(path.join(claudeRulesDir, "company:testing.md"))
+        await fs.pathExists(path.join(claudeRulesDir, "company:testing.md")),
       ).toBe(true);
 
       const content = await fs.readFile(
         path.join(claudeRulesDir, "team:api.md"),
-        "utf-8"
+        "utf-8",
       );
       expect(content).toBe("# API Design\n\nRESTful patterns.");
     });
@@ -86,13 +86,13 @@ describe("RulesSyncTarget Integration", () => {
 
       expect(
         await fs.pathExists(
-          path.join(tempDir, ".cursor", "rules", "team:shared.mdc")
-        )
+          path.join(tempDir, ".cursor", "rules", "team:shared.mdc"),
+        ),
       ).toBe(true);
       expect(
         await fs.pathExists(
-          path.join(tempDir, ".claude", "rules", "team:shared.md")
-        )
+          path.join(tempDir, ".claude", "rules", "team:shared.md"),
+        ),
       ).toBe(true);
     });
   });
@@ -105,7 +105,7 @@ describe("RulesSyncTarget Integration", () => {
 
       // Should not error, just create no files
       const cursorDir = path.join(tempDir, ".cursor", "rules");
-      const claudeDir = path.join(tempDir, ".claude", "rules");
+      const _claudeDir = path.join(tempDir, ".claude", "rules");
 
       // Directories might exist but should be empty (or not exist)
       if (await fs.pathExists(cursorDir)) {

@@ -2,12 +2,10 @@
  * Tests for SelectivePresetLoader
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { mkdir, readFile } from "node:fs/promises";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SelectivePresetLoader } from "../../../../src/core/registry/selective-preset-loader.js";
 import type { Preset, PresetSelection } from "../../../../src/types/index.js";
-import { readFile, mkdir } from "node:fs/promises";
-import * as path from "path";
-import * as fs from "fs";
 
 // Mock dependencies
 vi.mock("node:fs/promises");
@@ -15,8 +13,8 @@ vi.mock("../../../src/utils/fs.js", () => ({
   pathExists: vi.fn(),
 }));
 
-const mockReadFile = vi.mocked(readFile);
-const mockMkdir = vi.mocked(mkdir);
+const _mockReadFile = vi.mocked(readFile);
+const _mockMkdir = vi.mocked(mkdir);
 
 describe("SelectivePresetLoader", () => {
   let loader: SelectivePresetLoader;
@@ -331,9 +329,9 @@ describe("SelectivePresetLoader", () => {
 
       // MCPs should include all unique servers, with preset2 overriding preset1 for server1
       expect(Object.keys(merged.mcps).length).toBe(2);
-      expect(merged.mcps["server1"]).toBeDefined();
-      expect(merged.mcps["server2"]).toBeDefined();
-      expect(merged.mcps["server1"].command).toBe("server1-v2"); // From preset2
+      expect(merged.mcps.server1).toBeDefined();
+      expect(merged.mcps.server2).toBeDefined();
+      expect(merged.mcps.server1.command).toBe("server1-v2"); // From preset2
     });
 
     it("should handle empty array of filtered presets", () => {
@@ -381,19 +379,19 @@ describe("SelectivePresetLoader", () => {
 
       const result = await loader.validateSelection(
         mockPreset,
-        invalidSelection
+        invalidSelection,
       );
 
       expect(result.valid).toBe(false);
       expect(result.errors).toHaveLength(3);
       expect(result.errors).toContain(
-        "Rule file 'non-existent.md' not found in preset 'github:test/standards'"
+        "Rule file 'non-existent.md' not found in preset 'github:test/standards'",
       );
       expect(result.errors).toContain(
-        "Command file 'missing.md' not found in preset 'github:test/standards'"
+        "Command file 'missing.md' not found in preset 'github:test/standards'",
       );
       expect(result.errors).toContain(
-        "MCP server 'non-existent-server' not found in preset 'github:test/standards'"
+        "MCP server 'non-existent-server' not found in preset 'github:test/standards'",
       );
     });
 
@@ -406,13 +404,13 @@ describe("SelectivePresetLoader", () => {
 
       const result = await loader.validateSelection(
         mockPreset,
-        partialInvalidSelection
+        partialInvalidSelection,
       );
 
       expect(result.valid).toBe(false);
       expect(result.errors).toHaveLength(1);
       expect(result.errors).toContain(
-        "Command file 'missing.md' not found in preset 'github:test/standards'"
+        "Command file 'missing.md' not found in preset 'github:test/standards'",
       );
     });
   });

@@ -130,7 +130,7 @@ export const AgentSyncConfigSchema = LocalConfigSchema.extend({
             args: z.array(z.string()).optional(),
             env: z.record(z.string(), z.string()).optional(),
           }),
-        ])
+        ]),
       ),
     ])
     .optional(),
@@ -151,7 +151,7 @@ export const AgentSyncConfigSchema = LocalConfigSchema.extend({
                 pattern: z.string(),
                 severity: z.enum(["high", "medium", "low"]),
                 description: z.string(),
-              })
+              }),
             )
             .optional(),
         })
@@ -201,7 +201,7 @@ export const TranslateResultSchema = z.object({
       content: z.string().optional(),
       expectedTarget: z.string().optional(),
       expectedContent: z.string().optional(),
-    })
+    }),
   ),
   warnings: z.array(z.string()).optional(),
 });
@@ -218,9 +218,9 @@ export const SyncResultSchema = z.object({
           path: z.string(),
           status: z.enum(["success", "failed", "skipped"]),
           error: z.string().optional(),
-        })
+        }),
       ),
-    })
+    }),
   ),
   duration: z.number(),
   timestamp: z.string(),
@@ -237,7 +237,7 @@ export const WorkspaceSchema = z.object({
       agentsMdPath: z.string().optional(),
       version: z.string().optional(),
       dependencies: z.array(z.string()).optional(),
-    })
+    }),
   ),
 });
 
@@ -250,7 +250,7 @@ export const DiffResultSchema = z.object({
       diff: z.string().optional(),
       oldContent: z.string().optional(),
       newContent: z.string().optional(),
-    })
+    }),
   ),
   summary: z.object({
     created: z.number(),
@@ -270,7 +270,7 @@ export const ValidationResultSchema = z.object({
       line: z.number().optional(),
       column: z.number().optional(),
       severity: z.enum(["error", "warning", "info"]),
-    })
+    }),
   ),
   warnings: z.array(
     z.object({
@@ -278,7 +278,7 @@ export const ValidationResultSchema = z.object({
       message: z.string(),
       line: z.number().optional(),
       column: z.number().optional(),
-    })
+    }),
   ),
   securityIssues: z.array(
     z.object({
@@ -286,7 +286,7 @@ export const ValidationResultSchema = z.object({
       severity: z.enum(["high", "medium", "low"]),
       description: z.string(),
       location: z.string(),
-    })
+    }),
   ),
 });
 
@@ -298,10 +298,9 @@ export type GitRule = z.infer<typeof GitRuleSchema>;
 export type McpServer = z.infer<typeof McpServerSchema>;
 export type FileMapping = z.infer<typeof FileMappingSchema>;
 export type Extends = z.infer<typeof ExtendsSchema>;
-export type ExtendsEntry =
-  z.infer<typeof ExtendsSchema> extends (infer U)[]
-    ? U
-    : z.infer<typeof ExtendsSchema>;
+export type ExtendsEntry = z.infer<typeof ExtendsSchema> extends (infer U)[]
+  ? U
+  : z.infer<typeof ExtendsSchema>;
 export type PresetSelection = z.infer<typeof PresetSelectionSchema>;
 export type AgentSyncConfig = z.infer<typeof AgentSyncConfigSchema>;
 export type LocalConfig = z.infer<typeof LocalConfigSchema>;
@@ -330,7 +329,7 @@ export function validateLocalConfig(data: unknown): LocalConfig {
  * Converts string entries to objects and extracts namespace from source
  */
 export function normalizeExtends(
-  extends_: (string | Record<string, unknown>)[] | undefined
+  extends_: (string | Record<string, unknown>)[] | undefined,
 ): Array<{
   source: string;
   namespace: string;
@@ -348,7 +347,7 @@ export function normalizeExtends(
       const match = entry.match(/^github:([^/]+)\/(.+)$/);
       if (!match) {
         throw new Error(
-          `Invalid GitHub source: ${entry}. Expected format: github:org/repo`
+          `Invalid GitHub source: ${entry}. Expected format: github:org/repo`,
         );
       }
       return {
@@ -371,7 +370,7 @@ export function normalizeExtends(
       const match = source.match(/^github:([^/]+)\/(.+)$/);
       if (!match) {
         throw new Error(
-          `Invalid GitHub source: ${source}. Expected format: github:org/repo`
+          `Invalid GitHub source: ${source}. Expected format: github:org/repo`,
         );
       }
       namespace = match[1];
@@ -413,7 +412,7 @@ export function validateConfig(data: unknown): AgentSyncConfig {
  * Safe parse local config with error details
  */
 export function safeParseLocalConfig(
-  data: unknown
+  data: unknown,
 ):
   | { success: true; data: LocalConfig }
   | { success: false; error: z.ZodError } {
@@ -429,7 +428,7 @@ export function safeParseLocalConfig(
  * Safe parse with error details
  */
 export function safeParseAgentsMd(
-  data: unknown
+  data: unknown,
 ): { success: true; data: AgentsMd } | { success: false; error: z.ZodError } {
   const result = AgentsMdSchema.safeParse(data);
   if (result.success) {
@@ -478,7 +477,7 @@ export function validateUserConfig(data: unknown): UserConfig {
  * Safe parse user preset entry with error details
  */
 export function safeParseUserPresetEntry(
-  data: unknown
+  data: unknown,
 ):
   | { success: true; data: UserPresetEntry }
   | { success: false; error: z.ZodError } {
@@ -494,7 +493,7 @@ export function safeParseUserPresetEntry(
  * Safe parse user config with error details
  */
 export function safeParseUserConfig(
-  data: unknown
+  data: unknown,
 ): { success: true; data: UserConfig } | { success: false; error: z.ZodError } {
   const result = UserConfigSchema.safeParse(data);
   if (result.success) {

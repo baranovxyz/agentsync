@@ -8,21 +8,21 @@
  * responsible for its own logic. This file just wires everything up.
  */
 
+import { readFile } from "node:fs/promises";
+import * as path from "node:path";
 import { Command } from "commander";
+import picocolors from "picocolors";
 import { init } from "./commands/init.js";
-import { sync } from "./commands/sync.js";
 import { addMCP as addMcp } from "./commands/mcp/add.js";
 import { listMCP as listMcp } from "./commands/mcp/list.js";
 import { removeMCP as removeMcp } from "./commands/mcp/remove.js";
 import { syncMCP as syncMcp } from "./commands/mcp/sync.js";
 import { handleAddPresetCommand } from "./commands/preset/add.js";
-import { listPresets } from "./commands/preset/list.js";
 import { clearCache } from "./commands/preset/cache-clear.js";
-import { interactiveSelectPreset } from "./commands/preset/interactive-select.js";
 import { interactiveRemovePreset } from "./commands/preset/interactive-remove.js";
-import picocolors from "picocolors";
-import { readFile } from "node:fs/promises";
-import * as path from "path";
+import { interactiveSelectPreset } from "./commands/preset/interactive-select.js";
+import { listPresets } from "./commands/preset/list.js";
+import { sync } from "./commands/sync.js";
 
 const pc = picocolors;
 
@@ -35,7 +35,7 @@ const program = new Command();
 program
   .name("agentsync")
   .description(
-    "The missing infrastructure layer for AI coding agent configuration management"
+    "The missing infrastructure layer for AI coding agent configuration management",
   )
   .version("0.2.0-alpha.12");
 
@@ -62,7 +62,7 @@ program
       try {
         const projectConfigContent = await readFile(
           path.join(process.cwd(), ".agentsync", "interactive-selections.json"),
-          "utf-8"
+          "utf-8",
         );
         const projectConfig = JSON.parse(projectConfigContent);
         if (projectConfig.project?.selections) {

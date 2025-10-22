@@ -3,21 +3,21 @@
  * Initializes AgentSync in a project
  */
 
-import { pathExists, outputFile, ensureDir, copy } from "../utils/fs.js";
 import { readFile, symlink } from "node:fs/promises";
-import * as path from "path";
-import { fileURLToPath } from "url";
 import { createRequire } from "node:module";
-import { select, checkbox, confirm } from "@inquirer/prompts";
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";
+import { checkbox, confirm, select } from "@inquirer/prompts";
 import picocolors from "picocolors";
+import AuditLogger, { AuditEventType } from "../core/audit.js";
 import {
   ConfigError,
-  FileSystemError,
   ErrorCategory,
   ErrorSeverity,
+  FileSystemError,
 } from "../core/errors.js";
-import AuditLogger, { AuditEventType } from "../core/audit.js";
 import type { InitOptions, ToolName } from "../types/index.js";
+import { copy, ensureDir, outputFile, pathExists } from "../utils/fs.js";
 
 const pc = picocolors;
 const __filename = fileURLToPath(import.meta.url);
@@ -117,19 +117,19 @@ export class InitCommand {
     console.log(pc.bold("Current setup:"));
     console.log(
       pc.gray("  AGENTS.md sync: "),
-      agentsMdExists ? pc.green("✓ Configured") : pc.yellow("✗ Not set up")
+      agentsMdExists ? pc.green("✓ Configured") : pc.yellow("✗ Not set up"),
     );
     console.log(
       pc.gray("  MCP servers:    "),
       mcpConfigExists
         ? pc.green(
-            `✓ ${mcpCount} server${mcpCount !== 1 ? "s" : ""} configured`
+            `✓ ${mcpCount} server${mcpCount !== 1 ? "s" : ""} configured`,
           )
-        : pc.yellow("✗ Not configured")
+        : pc.yellow("✗ Not configured"),
     );
     console.log(
       pc.gray("  Tools syncing:  "),
-      tools.length > 0 ? pc.green(tools.join(", ")) : pc.gray("None")
+      tools.length > 0 ? pc.green(tools.join(", ")) : pc.gray("None"),
     );
 
     // Show next steps
@@ -139,30 +139,30 @@ export class InitCommand {
     if (!mcpConfigExists) {
       console.log(
         pc.gray("  • Set up MCP servers: ") +
-          pc.cyan("agentsync mcp add <server>")
+          pc.cyan("agentsync mcp add <server>"),
       );
       console.log(
-        pc.gray("  • View MCP options:   ") + pc.cyan("agentsync mcp list")
+        pc.gray("  • View MCP options:   ") + pc.cyan("agentsync mcp list"),
       );
     } else if (mcpCount === 0) {
       console.log(
         pc.gray("  • Add an MCP server:  ") +
-          pc.cyan("agentsync mcp add github")
+          pc.cyan("agentsync mcp add github"),
       );
       console.log(
-        pc.gray("  • View MCP options:   ") + pc.cyan("agentsync mcp list")
+        pc.gray("  • View MCP options:   ") + pc.cyan("agentsync mcp list"),
       );
     } else {
       console.log(
-        pc.gray("  • Sync MCP changes:   ") + pc.cyan("agentsync mcp sync")
+        pc.gray("  • Sync MCP changes:   ") + pc.cyan("agentsync mcp sync"),
       );
       console.log(
-        pc.gray("  • Manage MCPs:        ") + pc.cyan("agentsync mcp list")
+        pc.gray("  • Manage MCPs:        ") + pc.cyan("agentsync mcp list"),
       );
     }
 
     console.log(
-      pc.gray("  • Re-initialize:      ") + pc.cyan("agentsync init --force")
+      pc.gray("  • Re-initialize:      ") + pc.cyan("agentsync init --force"),
     );
     console.log();
   }
@@ -210,7 +210,7 @@ export class InitCommand {
         await this.createAgentsMd(config.template);
       } else {
         console.log(
-          pc.gray("  AGENTS.md already exists, skipping template creation...")
+          pc.gray("  AGENTS.md already exists, skipping template creation..."),
         );
       }
 
@@ -244,24 +244,24 @@ export class InitCommand {
       console.log(
         pc.gray("     - Run ") +
           pc.cyan("agentsync mcp list") +
-          pc.gray(" to see available MCPs")
+          pc.gray(" to see available MCPs"),
       );
       console.log(
         pc.gray("     - Run ") +
           pc.cyan("agentsync mcp add <server>") +
-          pc.gray(" to select MCPs")
+          pc.gray(" to select MCPs"),
       );
       console.log(
         pc.gray("     - Run ") +
           pc.cyan("agentsync mcp sync") +
-          pc.gray(" to apply changes")
+          pc.gray(" to apply changes"),
       );
     } catch (error) {
       await this.audit.logError(
         error as Error,
         ErrorCategory.CONFIG,
         ErrorSeverity.HIGH,
-        { command: "init", options }
+        { command: "init", options },
       );
       throw error;
     }
@@ -288,11 +288,11 @@ export class InitCommand {
 
     // Check if we're in an interactive environment
     const isInteractive = process.stdin.isTTY;
-    if (!isInteractive && (!options.template || !options.tools)) {
+    if (!(isInteractive || (options.template && options.tools))) {
       throw new ConfigError(
         "Non-interactive environment detected",
         "",
-        "Please provide all required options: --template <name> --tools <tool1,tool2>"
+        "Please provide all required options: --template <name> --tools <tool1,tool2>",
       );
     }
 
@@ -351,7 +351,7 @@ export class InitCommand {
         throw new ConfigError(
           "Setup cancelled",
           "",
-          'Run "agentsync init" again to start over'
+          'Run "agentsync init" again to start over',
         );
       }
       throw error;
@@ -363,7 +363,7 @@ export class InitCommand {
    */
   private async createAgentsMd(templateName: string): Promise<void> {
     console.log(
-      pc.gray(`  Creating AGENTS.md from ${templateName} template...`)
+      pc.gray(`  Creating AGENTS.md from ${templateName} template...`),
     );
 
     const templateFile =
@@ -375,7 +375,7 @@ export class InitCommand {
     // Strategy 1: Traverse up from current module location (works in dev and bundled)
     try {
       packageRoot = await findPackageRoot(__dirname);
-    } catch (error) {
+    } catch (_error) {
       // Strategy 2: Use require.resolve (works in production npm installs)
       packageRoot = getPackageRootViaRequire();
     }
@@ -384,7 +384,7 @@ export class InitCommand {
       throw new FileSystemError(
         "Could not locate agentsync package root directory",
         __dirname,
-        new Error("All package root detection strategies failed")
+        new Error("All package root detection strategies failed"),
       );
     }
 
@@ -442,8 +442,8 @@ export class InitCommand {
 
       await outputFile(
         path.join(agentSyncDir, "config.json"),
-        JSON.stringify(config, null, 2) + "\n",
-        { encoding: "utf-8" }
+        `${JSON.stringify(config, null, 2)}\n`,
+        { encoding: "utf-8" },
       );
 
       console.log(pc.green("  ✓ Created .agentsync directory"));
@@ -451,7 +451,7 @@ export class InitCommand {
       throw new FileSystemError(
         "Failed to create .agentsync directory",
         agentSyncDir,
-        error as Error
+        error as Error,
       );
     }
   }
@@ -461,7 +461,7 @@ export class InitCommand {
    */
   private async setupTools(
     tools: ToolName[],
-    useSymlinks: boolean
+    useSymlinks: boolean,
   ): Promise<void> {
     console.log(pc.gray(`  Setting up tool configurations...`));
 
@@ -487,20 +487,20 @@ export class InitCommand {
               // Use native Node.js symlink (fs-extra v11+ removed symlink)
               await symlink(path.relative(dir, agentsPath), fullPath);
               console.log(
-                pc.green(`  ✓ Created symlink for ${tool}: ${configPath}`)
+                pc.green(`  ✓ Created symlink for ${tool}: ${configPath}`),
               );
             }
           } else {
             await copy(agentsPath, fullPath);
             console.log(
-              pc.green(`  ✓ Created copy for ${tool}: ${configPath}`)
+              pc.green(`  ✓ Created copy for ${tool}: ${configPath}`),
             );
           }
         } catch (error) {
           console.log(
             pc.yellow(
-              `  ⚠ Could not create ${configPath}: ${(error as Error).message}`
-            )
+              `  ⚠ Could not create ${configPath}: ${(error as Error).message}`,
+            ),
           );
         }
       }
@@ -533,20 +533,20 @@ export class InitCommand {
 
       // Check if already has AgentSync section
       if (!content.includes("# AgentSync")) {
-        content += "\n" + entries.join("\n") + "\n";
+        content += `\n${entries.join("\n")}\n`;
         // Use fs.outputFile for consistency (creates parent dirs if needed)
         await outputFile(gitignorePath, content);
         console.log(pc.green("  ✓ Updated .gitignore"));
       } else {
         console.log(
-          pc.gray("  ✓ .gitignore already contains AgentSync entries")
+          pc.gray("  ✓ .gitignore already contains AgentSync entries"),
         );
       }
     } catch (error) {
       console.log(
         pc.yellow(
-          `  ⚠ Could not update .gitignore: ${(error as Error).message}`
-        )
+          `  ⚠ Could not update .gitignore: ${(error as Error).message}`,
+        ),
       );
     }
   }

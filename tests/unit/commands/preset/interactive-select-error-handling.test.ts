@@ -2,15 +2,15 @@
  * Tests for error handling in interactive selection commands
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { interactiveSelectPreset } from "../../../src/commands/preset/interactive-select.js";
 import {
+  ConfigError,
+  FileSystemError,
   InteractiveSelectionError,
   SelectionValidationError,
   SourceResolutionError,
   UserPresetRegistryError,
-  ConfigError,
-  FileSystemError,
 } from "../../../src/core/errors.js";
 
 // Mock dependencies
@@ -72,7 +72,7 @@ describe("interactiveSelectPreset error handling", () => {
     });
 
     await expect(interactiveSelectPreset()).rejects.toThrow(
-      InteractiveSelectionError
+      InteractiveSelectionError,
     );
   });
 
@@ -102,7 +102,7 @@ describe("interactiveSelectPreset error handling", () => {
         version: "1.0",
         extends: [],
         tools: [],
-      })
+      }),
     );
 
     // Mock registry error
@@ -110,11 +110,11 @@ describe("interactiveSelectPreset error handling", () => {
       () =>
         ({
           list: vi.fn().mockRejectedValue(new Error("Registry corrupted")),
-        }) as any
+        }) as any,
     );
 
     await expect(interactiveSelectPreset()).rejects.toThrow(
-      UserPresetRegistryError
+      UserPresetRegistryError,
     );
   });
 
@@ -131,7 +131,7 @@ describe("interactiveSelectPreset error handling", () => {
         version: "1.0",
         extends: ["github:org/repo"],
         tools: [],
-      })
+      }),
     );
 
     // Mock user selection
@@ -142,11 +142,11 @@ describe("interactiveSelectPreset error handling", () => {
       () =>
         ({
           loadAndMerge: vi.fn().mockRejectedValue(new Error("Network error")),
-        }) as any
+        }) as any,
     );
 
     await expect(interactiveSelectPreset()).rejects.toThrow(
-      SourceResolutionError
+      SourceResolutionError,
     );
   });
 
@@ -163,7 +163,7 @@ describe("interactiveSelectPreset error handling", () => {
         version: "1.0",
         extends: ["github:org/repo"],
         tools: [],
-      })
+      }),
     );
 
     // Mock user selections
@@ -183,11 +183,11 @@ describe("interactiveSelectPreset error handling", () => {
             valid: false,
             errors: ["Invalid pattern: *.invalid"],
           }),
-        }) as any
+        }) as any,
     );
 
     await expect(interactiveSelectPreset()).rejects.toThrow(
-      SelectionValidationError
+      SelectionValidationError,
     );
   });
 
@@ -204,7 +204,7 @@ describe("interactiveSelectPreset error handling", () => {
         version: "1.0",
         extends: ["github:org/repo"],
         tools: [],
-      })
+      }),
     );
 
     // Mock user selections
@@ -225,7 +225,7 @@ describe("interactiveSelectPreset error handling", () => {
             valid: true,
             errors: [],
           }),
-        }) as any
+        }) as any,
     );
 
     // Mock write error
@@ -243,7 +243,7 @@ describe("interactiveSelectPreset error handling", () => {
         version: "1.0",
         extends: [],
         tools: [],
-      })
+      }),
     );
 
     // Should not throw, but should exit early
@@ -260,7 +260,7 @@ describe("interactiveSelectPreset error handling", () => {
         version: "1.0",
         extends: [],
         tools: [],
-      })
+      }),
     );
 
     // Mock user selecting to add new source
@@ -270,7 +270,7 @@ describe("interactiveSelectPreset error handling", () => {
     vi.mocked(input).mockResolvedValue("invalid-source");
 
     await expect(interactiveSelectPreset()).rejects.toThrow(
-      InteractiveSelectionError
+      InteractiveSelectionError,
     );
   });
 

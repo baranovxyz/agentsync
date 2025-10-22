@@ -12,15 +12,15 @@
  * These tests replace manual-tests/04-scenario-error-handling.md
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { chmod, mkdtemp } from "node:fs/promises";
+import * as os from "node:os";
+import * as path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { addMCP } from "../../src/commands/mcp/add.js";
+import { listMCP } from "../../src/commands/mcp/list.js";
 import { removeMCP } from "../../src/commands/mcp/remove.js";
 import { syncMCP } from "../../src/commands/mcp/sync.js";
-import { listMCP } from "../../src/commands/mcp/list.js";
 import * as fs from "../../src/utils/fs.js";
-import * as path from "path";
-import * as os from "os";
-import { mkdtemp, chmod } from "node:fs/promises";
 
 describe("MCP Error Scenarios E2E", () => {
   let tempDir: string;
@@ -33,7 +33,7 @@ describe("MCP Error Scenarios E2E", () => {
    * Helper to write JSON files
    */
   async function writeJson(filePath: string, data: unknown): Promise<void> {
-    await fs.outputFile(filePath, JSON.stringify(data, null, 2) + "\n", {
+    await fs.outputFile(filePath, `${JSON.stringify(data, null, 2)}\n`, {
       encoding: "utf-8",
     });
   }
@@ -86,7 +86,7 @@ describe("MCP Error Scenarios E2E", () => {
 
   it("should error when adding non-existent MCP", async () => {
     await expect(addMCP("nonexistent-mcp")).rejects.toThrow(
-      /not found in global registry/
+      /not found in global registry/,
     );
   });
 
@@ -98,7 +98,7 @@ describe("MCP Error Scenarios E2E", () => {
     expect(result.added).toBe(false);
 
     const config = JSON.parse(
-      await fs.readFile(".agentsync/config.json", "utf-8")
+      await fs.readFile(".agentsync/config.json", "utf-8"),
     );
     expect(config.mcpServers).toEqual(["github"]); // No duplicate
   });
@@ -120,21 +120,21 @@ describe("MCP Error Scenarios E2E", () => {
 
     // Config should have empty array
     const config = JSON.parse(
-      await fs.readFile(".agentsync/config.json", "utf-8")
+      await fs.readFile(".agentsync/config.json", "utf-8"),
     );
     expect(config.mcpServers).toEqual([]);
 
     // Should still be able to add MCPs after
     await addMCP("postgres");
     const configAfter = JSON.parse(
-      await fs.readFile(".agentsync/config.json", "utf-8")
+      await fs.readFile(".agentsync/config.json", "utf-8"),
     );
     expect(configAfter.mcpServers).toEqual(["postgres"]);
   });
 
   it("should error when syncing without environment variables", async () => {
     // Clear env vars
-    delete process.env.GITHUB_TOKEN;
+    process.env.GITHUB_TOKEN = undefined;
 
     await fs.ensureDir(".cursor");
     await addMCP("github");
@@ -165,7 +165,7 @@ describe("MCP Error Scenarios E2E", () => {
 
     // Should work without errors
     const cursorMcp = JSON.parse(
-      await fs.readFile(path.join(spacedDir, ".cursor/mcp.json"), "utf-8")
+      await fs.readFile(path.join(spacedDir, ".cursor/mcp.json"), "utf-8"),
     );
     expect(cursorMcp.mcpServers.github).toBeDefined();
   });
@@ -191,7 +191,7 @@ describe("MCP Error Scenarios E2E", () => {
     // Config should now exist with empty array
     expect(await fs.pathExists(".agentsync/config.json")).toBe(true);
     const config = JSON.parse(
-      await fs.readFile(".agentsync/config.json", "utf-8")
+      await fs.readFile(".agentsync/config.json", "utf-8"),
     );
     expect(config.mcpServers).toEqual([]);
 

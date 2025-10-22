@@ -3,7 +3,7 @@
  * Provides type-safe, traceable error management with security focus
  */
 
-import { z } from "zod";
+import type { z } from "zod";
 
 // Error severity levels
 export enum ErrorSeverity {
@@ -49,7 +49,7 @@ export class AgentSyncError extends Error {
     category: ErrorCategory = ErrorCategory.UNKNOWN,
     severity: ErrorSeverity = ErrorSeverity.MEDIUM,
     originalError?: Error,
-    context?: Record<string, unknown>
+    context?: Record<string, unknown>,
   ) {
     super(message);
     this.name = this.constructor.name;
@@ -106,7 +106,7 @@ export class SecurityError extends AgentSyncError {
   constructor(
     message: string,
     severity: ErrorSeverity = ErrorSeverity.HIGH,
-    context?: Record<string, unknown>
+    context?: Record<string, unknown>,
   ) {
     super(message, ErrorCategory.SECURITY, severity, undefined, context);
     this.metadata.code = "SECURITY_VIOLATION";
@@ -122,14 +122,14 @@ export class ValidationError extends AgentSyncError {
   constructor(
     message: string,
     validationErrors?: z.ZodError,
-    context?: Record<string, unknown>
+    context?: Record<string, unknown>,
   ) {
     super(
       message,
       ErrorCategory.VALIDATION,
       ErrorSeverity.MEDIUM,
       undefined,
-      context
+      context,
     );
     this.validationErrors = validationErrors;
     this.metadata.code = "VALIDATION_FAILED";
@@ -165,7 +165,7 @@ export class FileSystemError extends AgentSyncError {
       ErrorCategory.FILE_SYSTEM,
       ErrorSeverity.MEDIUM,
       originalError,
-      filePath ? { filePath } : undefined
+      filePath ? { filePath } : undefined,
     );
     this.metadata.code = "FS_ERROR";
   }
@@ -181,7 +181,7 @@ export class ConfigError extends AgentSyncError {
       ErrorCategory.CONFIG,
       ErrorSeverity.MEDIUM,
       undefined,
-      configPath ? { configPath } : undefined
+      configPath ? { configPath } : undefined,
     );
     this.metadata.code = "CONFIG_ERROR";
     this.metadata.suggestion = suggestion;
@@ -197,7 +197,7 @@ export class ParseError extends AgentSyncError {
     filePath?: string,
     line?: number,
     column?: number,
-    originalError?: Error
+    originalError?: Error,
   ) {
     super(message, ErrorCategory.PARSE, ErrorSeverity.MEDIUM, originalError, {
       filePath,
@@ -229,7 +229,7 @@ export class SyncError extends AgentSyncError {
     message: string,
     endpoint?: string,
     statusCode?: number,
-    originalError?: Error
+    originalError?: Error,
   ) {
     super(message, ErrorCategory.SYNC, ErrorSeverity.MEDIUM, originalError, {
       endpoint,
@@ -246,7 +246,7 @@ export class InteractiveSelectionError extends AgentSyncError {
   constructor(
     message: string,
     severity: ErrorSeverity = ErrorSeverity.MEDIUM,
-    context?: Record<string, unknown>
+    context?: Record<string, unknown>,
   ) {
     super(message, ErrorCategory.CONFIG, severity, undefined, context);
     this.metadata.code = "INTERACTIVE_SELECTION_ERROR";
@@ -264,7 +264,7 @@ export class SelectionValidationError extends InteractiveSelectionError {
   constructor(
     message: string,
     validationErrors?: Array<{ path: string[]; message: string }>,
-    context?: Record<string, unknown>
+    context?: Record<string, unknown>,
   ) {
     super(message, ErrorSeverity.MEDIUM, context);
     this.metadata.category = ErrorCategory.VALIDATION;
@@ -377,7 +377,7 @@ export class ErrorHandler {
     error: unknown,
     message: string,
     category?: ErrorCategory,
-    context?: Record<string, unknown>
+    context?: Record<string, unknown>,
   ): AgentSyncError {
     if (error instanceof AgentSyncError) {
       // Add additional context to existing error
@@ -395,7 +395,7 @@ export class ErrorHandler {
         category || ErrorCategory.UNKNOWN,
         ErrorSeverity.MEDIUM,
         error,
-        context
+        context,
       );
     }
 
@@ -405,7 +405,7 @@ export class ErrorHandler {
       category || ErrorCategory.UNKNOWN,
       ErrorSeverity.MEDIUM,
       undefined,
-      { ...context, originalValue: error }
+      { ...context, originalValue: error },
     );
   }
 
@@ -414,7 +414,7 @@ export class ErrorHandler {
    */
   static isErrorType<T extends AgentSyncError>(
     error: unknown,
-    errorClass: new (...args: any[]) => T
+    errorClass: new (...args: any[]) => T,
   ): error is T {
     return error instanceof errorClass;
   }
@@ -429,7 +429,7 @@ export class ErrorHandler {
     while (
       current instanceof AgentSyncError &&
       current.originalError &&
-      depth < this.MAX_STACK_DEPTH
+      depth < ErrorHandler.MAX_STACK_DEPTH
     ) {
       current = current.originalError;
       depth++;
@@ -475,7 +475,7 @@ export class ErrorHandler {
           error.stack
             .split("\n")
             .map((line) => `     ${line}`)
-            .join("\n")
+            .join("\n"),
         );
       }
     }
@@ -521,7 +521,7 @@ export class RetryStrategy implements RecoveryStrategy {
   constructor(
     private maxRetries: number = 3,
     private delayMs: number = 1000,
-    private backoffMultiplier: number = 2
+    private backoffMultiplier: number = 2,
   ) {}
 
   canRecover(error: AgentSyncError): boolean {

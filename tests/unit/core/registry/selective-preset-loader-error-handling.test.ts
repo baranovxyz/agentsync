@@ -2,14 +2,12 @@
  * Tests for error handling in selective preset loading
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { SelectivePresetLoader } from "../../../src/core/registry/selective-preset-loader.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  SelectiveLoadingError,
-  SelectionValidationError,
   ErrorCategory,
-  ErrorSeverity,
+  SelectiveLoadingError,
 } from "../../../src/core/errors.js";
+import { SelectivePresetLoader } from "../../../src/core/registry/selective-preset-loader.js";
 import type { Preset, PresetSelection } from "../../../src/types/index.js";
 
 describe("SelectivePresetLoader error handling", () => {
@@ -49,7 +47,7 @@ describe("SelectivePresetLoader error handling", () => {
       } as any;
 
       await expect(loader.loadSelective(invalidPreset)).rejects.toThrow(
-        SelectiveLoadingError
+        SelectiveLoadingError,
       );
     });
 
@@ -61,7 +59,7 @@ describe("SelectivePresetLoader error handling", () => {
       };
 
       await expect(
-        loader.loadSelective(mockPreset, invalidSelection)
+        loader.loadSelective(mockPreset, invalidSelection),
       ).rejects.toThrow(SelectiveLoadingError);
     });
 
@@ -92,7 +90,7 @@ describe("SelectivePresetLoader error handling", () => {
       const result = await loader.validateSelection(mockPreset, selection);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain(
-        "Rule file 'non-existent.md' not found in preset 'github:org/repo'"
+        "Rule file 'non-existent.md' not found in preset 'github:org/repo'",
       );
     });
 
@@ -106,7 +104,7 @@ describe("SelectivePresetLoader error handling", () => {
       const result = await loader.validateSelection(mockPreset, selection);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain(
-        "Command file 'non-existent.js' not found in preset 'github:org/repo'"
+        "Command file 'non-existent.js' not found in preset 'github:org/repo'",
       );
     });
 
@@ -118,7 +116,7 @@ describe("SelectivePresetLoader error handling", () => {
       const result = await loader.validateSelection(mockPreset, selection);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain(
-        "MCP server 'non-existent-mcp' not found in preset 'github:org/repo'"
+        "MCP server 'non-existent-mcp' not found in preset 'github:org/repo'",
       );
     });
 
@@ -132,7 +130,7 @@ describe("SelectivePresetLoader error handling", () => {
       const result = await loader.validateSelection(mockPreset, selection);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain(
-        "No rule files match include pattern: *.nonexistent"
+        "No rule files match include pattern: *.nonexistent",
       );
     });
 
@@ -161,7 +159,7 @@ describe("SelectivePresetLoader error handling", () => {
 
       for (const invalidResult of invalidResults) {
         await expect(
-          loader.mergeFilteredPresets([invalidResult])
+          loader.mergeFilteredPresets([invalidResult]),
         ).rejects.toThrow(SelectiveLoadingError);
       }
     });
@@ -204,7 +202,7 @@ describe("SelectivePresetLoader error handling", () => {
       } as any;
 
       await expect(loader.getSelectionStats(invalidPreset)).rejects.toThrow(
-        SelectiveLoadingError
+        SelectiveLoadingError,
       );
     });
 
@@ -251,7 +249,7 @@ describe("SelectivePresetLoader error handling", () => {
       } as any;
 
       await expect(loader.isEmptySelection(invalidPreset)).rejects.toThrow(
-        SelectiveLoadingError
+        SelectiveLoadingError,
       );
     });
 
@@ -275,7 +273,7 @@ describe("SelectivePresetLoader error handling", () => {
 
       const isEmpty = await loader.isEmptySelection(
         mockPreset,
-        nonEmptySelection
+        nonEmptySelection,
       );
       expect(isEmpty).toBe(false);
     });
@@ -335,7 +333,7 @@ describe("SelectivePresetLoader error handling", () => {
 
       for (const selection of malformedSelections) {
         await expect(
-          loader.loadSelective(mockPreset, selection)
+          loader.loadSelective(mockPreset, selection),
         ).rejects.toThrow(SelectiveLoadingError);
       }
     });

@@ -4,19 +4,19 @@
  * and applying file-level selections from presets
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import {
-  ConfigMerger,
-  type MergedConfig,
-  type AppliedSelection,
-  type InteractiveSelectionConfig,
-} from "../../../src/core/config/interactive-selection-merger.js";
-import type { PresetSelection } from "../../../src/types/schemas.js";
-import type { Preset } from "../../../src/types/preset.js";
-import * as path from "path";
-import * as os from "os";
-import * as fs from "../../../src/utils/fs.js";
 import { mkdtemp } from "node:fs/promises";
+import * as os from "node:os";
+import * as path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import {
+  type AppliedSelection,
+  ConfigMerger,
+  type InteractiveSelectionConfig,
+  type MergedConfig,
+} from "../../../src/core/config/interactive-selection-merger.js";
+import type { Preset } from "../../../src/types/preset.js";
+import type { PresetSelection } from "../../../src/types/schemas.js";
+import * as fs from "../../../src/utils/fs.js";
 
 // Define FileSelection locally as it's not exported from schemas
 interface FileSelection {
@@ -147,7 +147,7 @@ describe("Interactive Selection Configuration Merger", () => {
           ],
           tools: ["cursor"],
         }),
-        { encoding: "utf-8" }
+        { encoding: "utf-8" },
       );
 
       // Create local config
@@ -162,7 +162,7 @@ describe("Interactive Selection Configuration Merger", () => {
             },
           ],
         }),
-        { encoding: "utf-8" }
+        { encoding: "utf-8" },
       );
 
       const merger = new ConfigMerger();
@@ -195,7 +195,7 @@ describe("Interactive Selection Configuration Merger", () => {
           ],
           tools: ["cursor"],
         }),
-        { encoding: "utf-8" }
+        { encoding: "utf-8" },
       );
 
       const merger = new ConfigMerger();
@@ -223,7 +223,7 @@ describe("Interactive Selection Configuration Merger", () => {
           ],
           tools: ["cursor"],
         }),
-        { encoding: "utf-8" }
+        { encoding: "utf-8" },
       );
 
       const merger = new ConfigMerger();
@@ -264,7 +264,7 @@ describe("Interactive Selection Configuration Merger", () => {
       expect(result.rules.size).toBe(2);
       expect(result.rules.get("src/index.ts")).toBe("export class Index {}");
       expect(result.rules.get("src/utils.ts")).toBe(
-        "export function utils() {}"
+        "export function utils() {}",
       );
       expect(result.rules.has("test/index.test.ts")).toBe(false);
     });
@@ -295,7 +295,7 @@ describe("Interactive Selection Configuration Merger", () => {
       expect(result.rules.size).toBe(2);
       expect(result.rules.get("src/index.ts")).toBe("export class Index {}");
       expect(result.rules.get("src/utils.ts")).toBe(
-        "export function utils() {}"
+        "export function utils() {}",
       );
       expect(result.rules.has("src/test/helper.ts")).toBe(false);
     });
@@ -323,7 +323,7 @@ describe("Interactive Selection Configuration Merger", () => {
       expect(result.commands.size).toBe(2);
       expect(result.commands.get("package.json")).toBe('{"name": "test"}');
       expect(result.commands.get("scripts/build.sh")).toBe(
-        "#!/bin/bash\necho 'building'"
+        "#!/bin/bash\necho 'building'",
       );
     });
 
@@ -507,7 +507,7 @@ describe("Interactive Selection Configuration Merger", () => {
 
       const selection = merger.getEffectiveSelection(
         "github:company/standards",
-        mergedConfig
+        mergedConfig,
       );
 
       expect(selection).toEqual({
@@ -529,13 +529,13 @@ describe("Interactive Selection Configuration Merger", () => {
       };
 
       expect(
-        merger.hasSelections("github:company/standards", mergedConfig)
+        merger.hasSelections("github:company/standards", mergedConfig),
       ).toBe(true);
       expect(merger.hasSelections("github:team/backend", mergedConfig)).toBe(
-        false
+        false,
       );
       expect(merger.hasSelections("github:nonexistent", mergedConfig)).toBe(
-        false
+        false,
       );
     });
 
@@ -591,7 +591,7 @@ describe("Interactive Selection Configuration Merger", () => {
       expect(merged.rules.size).toBe(2);
       expect(merged.rules.get("src/index.ts")).toBe("export class Index1 {}");
       expect(merged.rules.get("src/utils.ts")).toBe(
-        "export function utils() {}"
+        "export function utils() {}",
       );
 
       expect(Object.keys(merged.mcps)).toHaveLength(2);

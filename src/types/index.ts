@@ -2,20 +2,18 @@
  * Core type definitions for AgentSync
  */
 
-// Re-export schema types
-export * from "./schemas";
-
 // Re-export preset types
 export * from "./preset";
-
 // Re-export interactive selection types
 export type {
-  SelectionConfig,
   Extends,
   ExtendsEntry,
-  PresetSelection,
   LocalConfig,
+  PresetSelection,
+  SelectionConfig,
 } from "./schemas";
+// Re-export schema types
+export * from "./schemas";
 
 // Re-export utility functions
 export { normalizeExtends } from "./schemas";

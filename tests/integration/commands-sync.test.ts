@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import * as os from "node:os";
+import * as path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { CommandsSyncTarget } from "../../src/targets/commands-sync-target.js";
 import * as fs from "../../src/utils/fs.js";
-import * as path from "path";
-import * as os from "os";
 
 describe("CommandsSyncTarget Integration", () => {
   let tempDir: string;
@@ -28,15 +28,15 @@ describe("CommandsSyncTarget Integration", () => {
 
       const cursorCommandsDir = path.join(tempDir, ".cursor", "commands");
       expect(
-        await fs.pathExists(path.join(cursorCommandsDir, "team:commit.md"))
+        await fs.pathExists(path.join(cursorCommandsDir, "team:commit.md")),
       ).toBe(true);
       expect(
-        await fs.pathExists(path.join(cursorCommandsDir, "company:test.md"))
+        await fs.pathExists(path.join(cursorCommandsDir, "company:test.md")),
       ).toBe(true);
 
       const content = await fs.readFile(
         path.join(cursorCommandsDir, "team:commit.md"),
-        "utf-8"
+        "utf-8",
       );
       expect(content).toBe("# Generate Commit\n\nCreate conventional commit.");
     });
@@ -61,12 +61,12 @@ describe("CommandsSyncTarget Integration", () => {
 
       const claudeCommandsDir = path.join(tempDir, ".claude", "commands");
       expect(
-        await fs.pathExists(path.join(claudeCommandsDir, "team:review.md"))
+        await fs.pathExists(path.join(claudeCommandsDir, "team:review.md")),
       ).toBe(true);
 
       const content = await fs.readFile(
         path.join(claudeCommandsDir, "team:review.md"),
-        "utf-8"
+        "utf-8",
       );
       expect(content).toBe("# Code Review\n\nReview checklist.");
     });
@@ -80,13 +80,13 @@ describe("CommandsSyncTarget Integration", () => {
 
       expect(
         await fs.pathExists(
-          path.join(tempDir, ".cursor", "commands", "team:shared.md")
-        )
+          path.join(tempDir, ".cursor", "commands", "team:shared.md"),
+        ),
       ).toBe(true);
       expect(
         await fs.pathExists(
-          path.join(tempDir, ".claude", "commands", "team:shared.md")
-        )
+          path.join(tempDir, ".claude", "commands", "team:shared.md"),
+        ),
       ).toBe(true);
     });
   });
@@ -99,7 +99,7 @@ describe("CommandsSyncTarget Integration", () => {
 
       // Should not error, just create no files
       const cursorDir = path.join(tempDir, ".cursor", "commands");
-      const claudeDir = path.join(tempDir, ".claude", "commands");
+      const _claudeDir = path.join(tempDir, ".claude", "commands");
 
       if (await fs.pathExists(cursorDir)) {
         const files = await fs.readdir(cursorDir);

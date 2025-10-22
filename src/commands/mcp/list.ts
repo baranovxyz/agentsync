@@ -3,12 +3,12 @@
  * Lists available vs active MCP servers
  */
 
-import { outputFile } from "../../utils/fs.js";
 import { mkdir } from "node:fs/promises";
-import * as path from "path";
+import * as path from "node:path";
 import picocolors from "picocolors";
-import { loadGlobalRegistry } from "../../core/mcp/registry.js";
 import { loadProjectConfig } from "../../core/mcp/config.js";
+import { loadGlobalRegistry } from "../../core/mcp/registry.js";
+import { outputFile } from "../../utils/fs.js";
 
 const pc = picocolors;
 
@@ -18,7 +18,9 @@ const pc = picocolors;
 async function autoCreateMCPConfig(): Promise<void> {
   console.log(pc.yellow("⚠ No MCP configuration found\n"));
   console.log(
-    pc.gray("Creating .agentsync/config.json with empty MCP configuration...\n")
+    pc.gray(
+      "Creating .agentsync/config.json with empty MCP configuration...\n",
+    ),
   );
 
   // Ensure .agentsync directory exists
@@ -31,7 +33,7 @@ async function autoCreateMCPConfig(): Promise<void> {
     mcpServers: [],
   };
 
-  await outputFile(configPath, JSON.stringify(config, null, 2) + "\n", {
+  await outputFile(configPath, `${JSON.stringify(config, null, 2)}\n`, {
     encoding: "utf-8",
   });
 
@@ -74,7 +76,7 @@ export interface ListMCPResult {
  * @returns List result with active/inactive MCPs
  */
 export async function listMCP(
-  options: ListMCPOptions = {}
+  options: ListMCPOptions = {},
 ): Promise<ListMCPResult> {
   // 1. Load global registry
   const globalRegistry = await loadGlobalRegistry();

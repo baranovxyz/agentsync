@@ -3,27 +3,26 @@
  * Allows users to interactively select presets and configure file-level selections
  */
 
-import { select, checkbox, input, confirm } from "@inquirer/prompts";
-import pc from "picocolors";
-import ora from "ora";
 import { readFile, writeFile } from "node:fs/promises";
-import * as path from "path";
-import { RegistryOrchestrator } from "../../core/registry/registry-orchestrator.js";
-import { UserPresetRegistry } from "../../core/registry/user-preset-registry.js";
-import { SourceResolver } from "../../core/registry/source-resolver.js";
+import * as path from "node:path";
+import { checkbox, confirm, input, Separator, select } from "@inquirer/prompts";
+import ora from "ora";
+import pc from "picocolors";
 import { ConfigMerger } from "../../core/config/interactive-selection-merger.js";
-import { validateConfig } from "../../types/schemas.js";
-import type { SelectionConfig } from "../../types/index.js";
 import {
+  ConfigError,
+  ErrorCategory,
+  ErrorHandler,
+  ErrorSeverity,
   InteractiveSelectionError,
   SelectionValidationError,
   SourceResolutionError,
-  ConfigError,
-  ErrorHandler,
-  ErrorSeverity,
-  ErrorCategory,
 } from "../../core/errors.js";
-import { Separator } from "@inquirer/prompts";
+import { RegistryOrchestrator } from "../../core/registry/registry-orchestrator.js";
+import { SourceResolver } from "../../core/registry/source-resolver.js";
+import { UserPresetRegistry } from "../../core/registry/user-preset-registry.js";
+import type { SelectionConfig } from "../../types/index.js";
+import { validateConfig } from "../../types/schemas.js";
 
 /**
  * Options for interactive preset selection
@@ -39,7 +38,7 @@ export interface InteractiveSelectOptions {
  * Main interactive preset selection command
  */
 export async function interactiveSelectPreset(
-  options: InteractiveSelectOptions = {}
+  options: InteractiveSelectOptions = {},
 ): Promise<void> {
   const cwd = options.cwd || process.cwd();
 
@@ -48,7 +47,7 @@ export async function interactiveSelectPreset(
     throw new InteractiveSelectionError(
       "Interactive preset selection requires a terminal",
       ErrorSeverity.HIGH,
-      { environment: "non-interactive" }
+      { environment: "non-interactive" },
     );
   }
 
@@ -64,7 +63,7 @@ export async function interactiveSelectPreset(
     if (presetSources.length === 0) {
       console.log(pc.yellow("No presets available."));
       console.log(
-        pc.gray("Add presets to your configuration or user registry first.")
+        pc.gray("Add presets to your configuration or user registry first."),
       );
       return;
     }
@@ -117,7 +116,7 @@ export async function interactiveSelectPreset(
       error,
       "Interactive preset selection failed",
       ErrorCategory.CONFIG,
-      { cwd, options }
+      { cwd, options },
     );
 
     console.error(pc.red(`❌ ${wrappedError.getUserMessage()}`));
@@ -139,7 +138,7 @@ async function loadConfig(cwd: string): Promise<any> {
       throw new ConfigError(
         `Configuration file contains invalid JSON: ${error.message}`,
         configPath,
-        "Check the syntax of your configuration file and ensure it's valid JSON"
+        "Check the syntax of your configuration file and ensure it's valid JSON",
       );
     }
 
@@ -147,7 +146,7 @@ async function loadConfig(cwd: string): Promise<any> {
       throw new ConfigError(
         "Configuration file not found",
         configPath,
-        "Run 'agentsync init' to create a configuration file"
+        "Run 'agentsync init' to create a configuration file",
       );
     }
 
@@ -155,7 +154,7 @@ async function loadConfig(cwd: string): Promise<any> {
       throw new ConfigError(
         "Permission denied accessing configuration file",
         configPath,
-        "Check file permissions and try running with appropriate access rights"
+        "Check file permissions and try running with appropriate access rights",
       );
     }
 
@@ -163,7 +162,7 @@ async function loadConfig(cwd: string): Promise<any> {
       error,
       "Failed to load configuration",
       ErrorCategory.CONFIG,
-      { configPath }
+      { configPath },
     );
   }
 }
@@ -172,7 +171,7 @@ async function loadConfig(cwd: string): Promise<any> {
  * Get available preset sources from config and user registry
  */
 async function getAvailablePresetSources(
-  config: any
+  config: any,
 ): Promise<Array<{ name: string; value: string; description?: string }>> {
   const sources: Array<{ name: string; value: string; description?: string }> =
     [];
@@ -203,7 +202,7 @@ async function getAvailablePresetSources(
         });
       }
     }
-  } catch (error) {
+  } catch (_error) {
     // Silently ignore if user registry fails to load
   }
 
@@ -214,7 +213,7 @@ async function getAvailablePresetSources(
  * Let user select a preset source
  */
 async function selectPresetSource(
-  sources: Array<{ name: string; value: string; description?: string }>
+  sources: Array<{ name: string; value: string; description?: string }>,
 ): Promise<string> {
   const addNew = { name: "Add new GitHub source...", value: "add_new" };
 
@@ -250,7 +249,7 @@ async function loadPresetContent(presetSource: string): Promise<any> {
       `Failed to load preset content from ${presetSource}: ${
         (error as Error).message
       }`,
-      presetSource
+      presetSource,
     );
   }
 }
@@ -283,7 +282,7 @@ async function selectContentTypes(presetContent: any): Promise<string[]> {
  */
 async function configureFilePatterns(
   selectedTypes: string[],
-  presetContent: any
+  presetContent: any,
 ): Promise<SelectionConfig> {
   const selection: SelectionConfig = {};
 
@@ -292,7 +291,7 @@ async function configureFilePatterns(
       selection[type] = await configureFileTypePatterns(type);
     } else if (type === "mcps") {
       selection.mcps = await configureMcpSelection(
-        Object.keys(presetContent.mcps)
+        Object.keys(presetContent.mcps),
       );
     }
   }
@@ -304,7 +303,7 @@ async function configureFilePatterns(
  * Configure include/exclude patterns for a file type
  */
 async function configureFileTypePatterns(
-  type: "rules" | "commands"
+  type: "rules" | "commands",
 ): Promise<{ include: string[]; exclude?: string[] }> {
   console.log(pc.cyan(`\nConfiguring ${type} selection:`));
 
@@ -332,7 +331,7 @@ async function configureFileTypePatterns(
  * Configure MCP selection
  */
 async function configureMcpSelection(
-  availableMcps: string[]
+  availableMcps: string[],
 ): Promise<string[]> {
   console.log(pc.cyan(`\nConfiguring MCP selection:`));
 
@@ -348,7 +347,7 @@ async function configureMcpSelection(
 async function validateSelection(
   cwd: string,
   presetSource: string,
-  selection: SelectionConfig
+  selection: SelectionConfig,
 ) {
   const orchestrator = new RegistryOrchestrator();
   const validation = await orchestrator.validateSelections(cwd, {
@@ -361,7 +360,7 @@ async function validateSelection(
       validation.errors.map((error) => ({
         path: [],
         message: error,
-      }))
+      })),
     );
   }
 }
@@ -371,7 +370,7 @@ async function validateSelection(
  */
 async function showPreview(
   presetContent: any,
-  selection: SelectionConfig
+  selection: SelectionConfig,
 ): Promise<void> {
   console.log(pc.cyan("\n📝 Selection Preview"));
   console.log(pc.gray("--------------------"));
@@ -409,7 +408,7 @@ async function showPreview(
 async function saveSelection(
   cwd: string,
   presetSource: string,
-  selection: SelectionConfig
+  selection: SelectionConfig,
 ): Promise<void> {
   const configPath = path.join(cwd, ".agentsync", "config.json");
   const configContent = await readFile(configPath, "utf-8");
@@ -417,7 +416,7 @@ async function saveSelection(
 
   // Find the preset in the extends array
   const extendsIndex = config.extends?.findIndex(
-    (e) => (typeof e === "string" ? e : e.source) === presetSource
+    (e) => (typeof e === "string" ? e : e.source) === presetSource,
   );
 
   if (extendsIndex === undefined || extendsIndex === -1) {
@@ -428,7 +427,7 @@ async function saveSelection(
     config.extends.push({ source: presetSource, select: selection });
   } else {
     // If found, update it
-    const extendsEntry = config.extends![extendsIndex];
+    const extendsEntry = config.extends?.[extendsIndex];
     if (typeof extendsEntry === "string") {
       // Convert string entry to object with selection
       config.extends![extendsIndex] = {

@@ -1,9 +1,8 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { SourceResolver } from "../../src/core/registry/source-resolver.js";
-import { CacheManager } from "../../src/core/registry/cache-manager.js";
 import * as fs from "node:fs/promises";
-import * as path from "path";
+import * as path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { FileSystemError } from "../../src/core/errors.js";
+import { SourceResolver } from "../../src/core/registry/source-resolver.js";
 
 describe("SourceResolver Integration", () => {
   let sourceResolver: SourceResolver;
@@ -24,7 +23,7 @@ describe("SourceResolver Integration", () => {
     // Clean up temporary directory
     try {
       await fs.rm(tempDir, { recursive: true, force: true });
-    } catch (error) {
+    } catch (_error) {
       // Ignore cleanup errors
     }
   });
@@ -54,7 +53,7 @@ describe("SourceResolver Integration", () => {
       const source = path.join(tempDir, "non-existent.md");
 
       await expect(sourceResolver.resolve(source)).rejects.toThrow(
-        FileSystemError
+        FileSystemError,
       );
     });
   });
@@ -63,42 +62,42 @@ describe("SourceResolver Integration", () => {
     it("correctly identifies different source types", () => {
       expect(sourceResolver.getSourceType("github:org/repo")).toBe("github");
       expect(sourceResolver.getSourceType("github:org/repo@main")).toBe(
-        "github"
+        "github",
       );
       expect(sourceResolver.getSourceType("/absolute/path")).toBe("filesystem");
       expect(sourceResolver.getSourceType("./relative/path")).toBe(
-        "filesystem"
+        "filesystem",
       );
       expect(sourceResolver.getSourceType("relative/path")).toBe("filesystem");
       expect(sourceResolver.getSourceType("http://example.com")).toBe(
-        "unknown"
+        "unknown",
       );
       expect(sourceResolver.getSourceType("https://example.com")).toBe(
-        "unknown"
+        "unknown",
       );
       expect(sourceResolver.getSourceType("git@github.com:org/repo.git")).toBe(
-        "unknown"
+        "unknown",
       );
     });
 
     it("validates source formats correctly", () => {
       // Valid sources should not throw
       expect(() =>
-        sourceResolver.validateSource("github:org/repo")
+        sourceResolver.validateSource("github:org/repo"),
       ).not.toThrow();
       expect(() =>
-        sourceResolver.validateSource("/absolute/path")
+        sourceResolver.validateSource("/absolute/path"),
       ).not.toThrow();
       expect(() =>
-        sourceResolver.validateSource("./relative/path")
+        sourceResolver.validateSource("./relative/path"),
       ).not.toThrow();
       expect(() =>
-        sourceResolver.validateSource("relative/path")
+        sourceResolver.validateSource("relative/path"),
       ).not.toThrow();
 
       // Invalid sources should throw
       expect(() =>
-        sourceResolver.validateSource("http://example.com")
+        sourceResolver.validateSource("http://example.com"),
       ).toThrow();
       expect(() => sourceResolver.validateSource("")).toThrow();
     });
@@ -108,13 +107,13 @@ describe("SourceResolver Integration", () => {
     it("validates GitHub source format", () => {
       // Valid GitHub sources
       expect(() =>
-        sourceResolver.validateSource("github:company/standards")
+        sourceResolver.validateSource("github:company/standards"),
       ).not.toThrow();
       expect(() =>
-        sourceResolver.validateSource("github:company/standards@main")
+        sourceResolver.validateSource("github:company/standards@main"),
       ).not.toThrow();
       expect(() =>
-        sourceResolver.validateSource("github:acme-corp/backend-rules")
+        sourceResolver.validateSource("github:acme-corp/backend-rules"),
       ).not.toThrow();
 
       // Invalid GitHub sources
@@ -129,7 +128,7 @@ describe("SourceResolver Integration", () => {
       }
 
       expect(() =>
-        sourceResolver.validateSource("github:org/repo/extra")
+        sourceResolver.validateSource("github:org/repo/extra"),
       ).toThrow();
     });
 
@@ -150,7 +149,7 @@ describe("SourceResolver Integration", () => {
       expect(sourceResolver.isFilesystemSource("../parent/path")).toBe(true);
       expect(sourceResolver.isFilesystemSource("github:org/repo")).toBe(false);
       expect(sourceResolver.isFilesystemSource("http://example.com")).toBe(
-        false
+        false,
       );
       expect(sourceResolver.isFilesystemSource("")).toBe(false);
     });

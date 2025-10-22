@@ -3,7 +3,7 @@
  * Defines interface for syncing MCP configurations to AI coding tools
  */
 
-import type { MCP } from '../core/mcp/tokens.js';
+import type { MCP } from "../core/mcp/tokens.js";
 
 /**
  * MCPTarget represents an AI coding tool that can receive MCP configurations

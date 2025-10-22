@@ -2,19 +2,19 @@
  * Tests for preset add command with selection support
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { readFile, writeFile } from "node:fs/promises";
+import * as path from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type {
+  PresetSelection,
+  UserPresetEntry,
+} from "../../../../src/types/index.js";
 // The addPreset function will be implemented in src/commands/preset/add.ts
 // import { addPreset } from "../../../../src/commands/preset/add.js";
 import {
   validateConfig,
   validateUserPresetEntry,
 } from "../../../../src/types/schemas.js";
-import { readFile, writeFile } from "node:fs/promises";
-import * as path from "path";
-import type {
-  PresetSelection,
-  UserPresetEntry,
-} from "../../../../src/types/index.js";
 
 // Mock dependencies
 vi.mock("node:fs/promises");
@@ -77,7 +77,7 @@ describe("preset add command with selection support", () => {
     expect(mockWriteFile).toHaveBeenCalledWith(
       mockConfigPath,
       expect.stringContaining('"extends"'),
-      "utf-8"
+      "utf-8",
     );
   });
 
@@ -92,7 +92,7 @@ describe("preset add command with selection support", () => {
     expect(mockWriteFile).toHaveBeenCalledWith(
       mockConfigPath,
       expect.stringContaining('"extends"'),
-      "utf-8"
+      "utf-8",
     );
   });
 
@@ -102,7 +102,7 @@ describe("preset add command with selection support", () => {
     });
 
     await expect(addPreset(mockSource, { cwd: mockCwd })).rejects.toThrow(
-      "Invalid preset entry"
+      "Invalid preset entry",
     );
 
     expect(mockWriteFile).not.toHaveBeenCalled();
@@ -117,7 +117,7 @@ describe("preset add command with selection support", () => {
       addPreset(mockSource, {
         selection: invalidSelection,
         cwd: mockCwd,
-      })
+      }),
     ).rejects.toThrow("Include patterns cannot be empty");
 
     expect(mockWriteFile).not.toHaveBeenCalled();
@@ -167,7 +167,7 @@ describe("preset add command with selection support", () => {
       "../../../../src/core/config/interactive-selection-merger.js",
       () => ({
         saveSelectionsForProject: vi.fn().mockResolvedValue(undefined),
-      })
+      }),
     );
 
     const result = await addPreset(mockSource, {
@@ -187,14 +187,14 @@ describe("preset add command with selection support", () => {
         saveSelectionsForProject: vi
           .fn()
           .mockRejectedValue(new Error("Permission denied")),
-      })
+      }),
     );
 
     await expect(
       addPreset(mockSource, {
         selection: mockSelection,
         cwd: mockCwd,
-      })
+      }),
     ).rejects.toThrow("Permission denied");
   });
 
@@ -219,7 +219,7 @@ describe("preset add command with selection support", () => {
     mockReadFile.mockRejectedValue(new Error("ENOENT: no such file"));
 
     await expect(addPreset(mockSource, { cwd: mockCwd })).rejects.toThrow(
-      "ENOENT: no such file"
+      "ENOENT: no such file",
     );
 
     expect(mockWriteFile).not.toHaveBeenCalled();
@@ -264,7 +264,7 @@ interface AddPresetResult {
 // Mock implementation
 async function addPreset(
   source: string,
-  options: AddPresetOptions = {}
+  options: AddPresetOptions = {},
 ): Promise<AddPresetResult> {
   try {
     // Validate source format
@@ -288,7 +288,7 @@ async function addPreset(
     // Load current config
     const configContent = await mockReadFile(
       path.join(options.cwd || process.cwd(), ".agentsync", "config.json"),
-      "utf-8"
+      "utf-8",
     );
     const config = mockValidateConfig(JSON.parse(configContent as string));
 
@@ -310,7 +310,7 @@ async function addPreset(
     await mockWriteFile(
       path.join(options.cwd || process.cwd(), ".agentsync", "config.json"),
       JSON.stringify(updatedConfig, null, 2),
-      "utf-8"
+      "utf-8",
     );
 
     // Save selection if provided

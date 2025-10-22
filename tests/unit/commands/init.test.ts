@@ -1,12 +1,12 @@
 /**
  * Tests for Init Command
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+
 import * as fsPromises from "node:fs/promises";
-import * as fsUtils from "../../../src/utils/fs.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { InitCommand } from "../../../src/commands/init.js";
-import { ConfigError } from "../../../src/core/errors.js";
 import type { InitOptions } from "../../../src/types/index.js";
+import * as fsUtils from "../../../src/utils/fs.js";
 
 vi.mock("../../../src/utils/fs.js", () => ({
   pathExists: vi.fn(),
@@ -59,7 +59,7 @@ describe("InitCommand", () => {
       const options: InitOptions = {};
 
       await expect(initCommand.execute(options)).rejects.toThrow(
-        "Non-interactive environment detected"
+        "Non-interactive environment detected",
       );
     });
 
@@ -98,7 +98,7 @@ describe("InitCommand", () => {
 
       // Mock select to simulate user cancellation (Ctrl+C)
       const cancelError = new Error(
-        "User force closed the prompt with 0 answers"
+        "User force closed the prompt with 0 answers",
       );
       vi.mocked(select).mockRejectedValue(cancelError);
 
@@ -107,7 +107,7 @@ describe("InitCommand", () => {
       const options: InitOptions = {};
 
       await expect(initCommand.execute(options)).rejects.toThrow(
-        "Setup cancelled"
+        "Setup cancelled",
       );
     });
 
@@ -156,14 +156,14 @@ describe("InitCommand", () => {
       expect(select).toHaveBeenCalledWith(
         expect.objectContaining({
           message: "Select a template:",
-        })
+        }),
       );
 
       // Should have called checkbox for tools
       expect(checkbox).toHaveBeenCalledWith(
         expect.objectContaining({
           message: "Which AI tools do you use?",
-        })
+        }),
       );
 
       // Should have called confirm 2 times (symlinks and gitignore)
@@ -302,7 +302,7 @@ describe("InitCommand", () => {
         return String(path).includes("package.json");
       });
       vi.mocked(fsPromises.readFile).mockResolvedValue(
-        "# Default Template" as any
+        "# Default Template" as any,
       );
       vi.mocked(fsUtils.outputFile).mockResolvedValue();
       vi.mocked(fsUtils.ensureDir).mockResolvedValue();
@@ -316,7 +316,7 @@ describe("InitCommand", () => {
 
       expect(fsPromises.readFile).toHaveBeenCalledWith(
         expect.stringContaining("default.md"),
-        "utf-8"
+        "utf-8",
       );
     });
 
@@ -325,7 +325,7 @@ describe("InitCommand", () => {
         return String(path).includes("package.json");
       });
       vi.mocked(fsPromises.readFile).mockResolvedValue(
-        "# TypeScript React Template" as any
+        "# TypeScript React Template" as any,
       );
       vi.mocked(fsUtils.outputFile).mockResolvedValue();
       vi.mocked(fsUtils.ensureDir).mockResolvedValue();
@@ -339,7 +339,7 @@ describe("InitCommand", () => {
 
       expect(fsPromises.readFile).toHaveBeenCalledWith(
         expect.stringContaining("typescript-react.md"),
-        "utf-8"
+        "utf-8",
       );
     });
   });
@@ -426,7 +426,7 @@ describe("InitCommand", () => {
 
       expect(fsUtils.outputFile).toHaveBeenCalledWith(
         expect.stringContaining(".gitignore"),
-        expect.stringContaining("# AgentSync")
+        expect.stringContaining("# AgentSync"),
       );
     });
 
@@ -456,7 +456,7 @@ describe("InitCommand", () => {
 
       // Should write AGENTS.md but not .gitignore
       const gitignoreWrites = outputFileSpy.mock.calls.filter((call: any[]) =>
-        call[0].toString().includes(".gitignore")
+        call[0].toString().includes(".gitignore"),
       );
       expect(gitignoreWrites).toHaveLength(0);
     });

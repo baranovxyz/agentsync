@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { spawn } from "child_process";
+import { spawn } from "node:child_process";
+import { beforeEach, describe, expect, it } from "vitest";
 import { processTracker } from "../../utils/process-tracker.js";
 
 describe("ProcessTracker", () => {
@@ -80,7 +80,7 @@ describe("ProcessTracker", () => {
     it("should force kill with SIGKILL if process doesn't exit", async () => {
       // Create a process that ignores SIGTERM
       const proc = processTracker.track(
-        spawn("sh", ["-c", "trap '' TERM; sleep 100"])
+        spawn("sh", ["-c", "trap '' TERM; sleep 100"]),
       );
 
       // Use very short timeout to force SIGKILL

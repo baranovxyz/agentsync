@@ -2,17 +2,17 @@
  * Integration tests for selective preset loading
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { RegistryOrchestrator } from "../../src/core/registry/registry-orchestrator.js";
-import { SelectivePresetLoader } from "../../src/core/registry/selective-preset-loader.js";
+import * as fs from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
+import * as os from "node:os";
+import * as path from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { sync } from "../../src/commands/sync.js";
 import { GitHubResolver } from "../../src/core/registry/github-resolver.js";
 import { PresetLoader } from "../../src/core/registry/preset-loader.js";
-import { sync } from "../../src/commands/sync.js";
+import { RegistryOrchestrator } from "../../src/core/registry/registry-orchestrator.js";
+import { SelectivePresetLoader } from "../../src/core/registry/selective-preset-loader.js";
 import type { SelectionConfig } from "../../src/types/index.js";
-import * as fs from "node:fs/promises";
-import * as path from "path";
-import { mkdtemp, rm } from "node:fs/promises";
-import * as os from "os";
 import * as fsUtils from "../../src/utils/fs.js";
 
 // Mock dependencies
@@ -73,7 +73,7 @@ describe("Selective Preset Loading Integration", () => {
 
       await fs.writeFile(
         path.join(agentsyncDir, "config.json"),
-        JSON.stringify(config, null, 2)
+        JSON.stringify(config, null, 2),
       );
     });
 
@@ -141,7 +141,7 @@ describe("Selective Preset Loading Integration", () => {
       };
 
       // Mock the selective loader with namespaced results
-      const mockFiltered1 = {
+      const _mockFiltered1 = {
         commands: new Map([["test:build.md", "# Build Commands\n\n- make"]]),
         rules: new Map([
           ["test:eslint.md", "# ESLint Rules\n\nNo console.log"],
@@ -149,7 +149,7 @@ describe("Selective Preset Loading Integration", () => {
         mcps: { "eslint-server": { command: "eslint", args: [] } },
       };
 
-      const mockFiltered2 = {
+      const _mockFiltered2 = {
         commands: new Map([
           ["test:deploy.md", "# Deploy Commands\n\n- make deploy"],
         ]),
@@ -174,7 +174,7 @@ describe("Selective Preset Loading Integration", () => {
 
       const result = await orchestrator.loadAndMergeSelective(
         tempDir,
-        selections
+        selections,
       );
 
       expect(result.commands.size).toBe(2);
@@ -212,7 +212,7 @@ describe("Selective Preset Loading Integration", () => {
       expect(result.valid).toBe(false);
       expect(result.errors).toHaveLength(3);
       expect(result.errors).toContain(
-        "Command file 'non-existent.md' not found in preset 'github:test/standards'"
+        "Command file 'non-existent.md' not found in preset 'github:test/standards'",
       );
     });
 
@@ -228,7 +228,7 @@ describe("Selective Preset Loading Integration", () => {
 
       const result = await orchestrator.loadAndMergeSelective(
         tempDir,
-        selections
+        selections,
       );
 
       expect(result.commands.size).toBe(0);
@@ -347,11 +347,11 @@ describe("Selective Preset Loading Integration", () => {
 
       const filtered1 = await realSelectiveLoader.loadSelective(
         preset1,
-        selection1
+        selection1,
       );
       const filtered2 = await realSelectiveLoader.loadSelective(
         preset2,
-        selection2
+        selection2,
       );
 
       const merged = realSelectiveLoader.mergeFilteredPresets([
@@ -440,7 +440,7 @@ describe("End-to-End Selective Loading Integration", () => {
 
       await fs.writeFile(
         path.join(configDir, "config.json"),
-        JSON.stringify(config, null, 2)
+        JSON.stringify(config, null, 2),
       );
 
       // Mock resolved paths
@@ -538,7 +538,7 @@ describe("End-to-End Selective Loading Integration", () => {
 
       await fs.writeFile(
         path.join(configDir, "config.json"),
-        JSON.stringify(config, null, 2)
+        JSON.stringify(config, null, 2),
       );
 
       // Mock resolved paths
@@ -605,7 +605,7 @@ describe("End-to-End Selective Loading Integration", () => {
       });
 
       vi.mocked(SelectivePresetLoader).mockImplementation(
-        () => mockSelectiveLoader
+        () => mockSelectiveLoader,
       );
 
       // Create orchestrator and test
@@ -658,12 +658,12 @@ describe("End-to-End Selective Loading Integration", () => {
 
       await fs.writeFile(
         path.join(configDir, "config.json"),
-        JSON.stringify(config, null, 2)
+        JSON.stringify(config, null, 2),
       );
 
       // Mock resolved path
       mockGitHubResolver.resolve.mockResolvedValue(
-        "/cache/test/complex-preset"
+        "/cache/test/complex-preset",
       );
 
       // Mock complex preset data
@@ -717,7 +717,7 @@ describe("End-to-End Selective Loading Integration", () => {
       });
 
       vi.mocked(SelectivePresetLoader).mockImplementation(
-        () => mockSelectiveLoader
+        () => mockSelectiveLoader,
       );
 
       // Create orchestrator and test
@@ -772,7 +772,7 @@ describe("End-to-End Selective Loading Integration", () => {
 
       await fs.writeFile(
         path.join(configDir, "config.json"),
-        JSON.stringify(config, null, 2)
+        JSON.stringify(config, null, 2),
       );
 
       // Mock resolved path
@@ -820,7 +820,7 @@ describe("End-to-End Selective Loading Integration", () => {
       });
 
       vi.mocked(SelectivePresetLoader).mockImplementation(
-        () => mockSelectiveLoader
+        () => mockSelectiveLoader,
       );
 
       // Create orchestrator and test
@@ -865,7 +865,7 @@ describe("End-to-End Selective Loading Integration", () => {
 
       await fs.writeFile(
         path.join(configDir, "config.json"),
-        JSON.stringify(config, null, 2)
+        JSON.stringify(config, null, 2),
       );
 
       // Mock resolved path
@@ -954,7 +954,7 @@ describe("End-to-End Selective Loading Integration", () => {
 
       await fs.writeFile(
         path.join(configDir, "config.json"),
-        JSON.stringify(config, null, 2)
+        JSON.stringify(config, null, 2),
       );
 
       // Mock resolved path
@@ -1027,7 +1027,7 @@ describe("End-to-End Selective Loading Integration", () => {
 
       await fs.writeFile(
         path.join(configDir, "config.json"),
-        JSON.stringify(config, null, 2)
+        JSON.stringify(config, null, 2),
       );
 
       // Mock resolved paths
@@ -1174,7 +1174,7 @@ describe("End-to-End Selective Loading Integration", () => {
       vi.mocked(GitHubResolver).mockImplementation(() => mockGitHubResolver);
       vi.mocked(PresetLoader).mockImplementation(() => mockPresetLoader);
       vi.mocked(SelectivePresetLoader).mockImplementation(
-        () => selectiveLoader
+        () => selectiveLoader,
       );
     });
 
@@ -1205,7 +1205,7 @@ describe("End-to-End Selective Loading Integration", () => {
 
       await fs.writeFile(
         path.join(configDir, "config.json"),
-        JSON.stringify(config, null, 2)
+        JSON.stringify(config, null, 2),
       );
 
       // Mock resolved path
@@ -1261,33 +1261,35 @@ describe("End-to-End Selective Loading Integration", () => {
       // Verify only selected rules are synced
       const eslintRule = await fsUtils.readFile(
         path.join(claudeRulesDir, "test:eslint.md"),
-        "utf-8"
+        "utf-8",
       );
       const styleRule = await fsUtils.readFile(
         path.join(claudeRulesDir, "test:style.md"),
-        "utf-8"
+        "utf-8",
       );
       expect(eslintRule).toContain("# ESLint Rules");
       expect(styleRule).toContain("# Style Rules");
 
       // Verify non-selected rules are not synced
       expect(
-        await fsUtils.pathExists(path.join(claudeRulesDir, "test:security.md"))
+        await fsUtils.pathExists(path.join(claudeRulesDir, "test:security.md")),
       ).toBe(false);
 
       // Verify only selected commands are synced
       const buildCommand = await fsUtils.readFile(
         path.join(claudeCommandsDir, "test:build.md"),
-        "utf-8"
+        "utf-8",
       );
       expect(buildCommand).toContain("# Build Commands");
 
       // Verify non-selected commands are not synced
       expect(
-        await fsUtils.pathExists(path.join(claudeCommandsDir, "test:test.md"))
+        await fsUtils.pathExists(path.join(claudeCommandsDir, "test:test.md")),
       ).toBe(false);
       expect(
-        await fsUtils.pathExists(path.join(claudeCommandsDir, "test:deploy.md"))
+        await fsUtils.pathExists(
+          path.join(claudeCommandsDir, "test:deploy.md"),
+        ),
       ).toBe(false);
     });
 
@@ -1313,7 +1315,7 @@ describe("End-to-End Selective Loading Integration", () => {
 
       await fs.writeFile(
         path.join(configDir, "config.json"),
-        JSON.stringify(config, null, 2)
+        JSON.stringify(config, null, 2),
       );
 
       // Mock resolved path
@@ -1370,35 +1372,35 @@ describe("End-to-End Selective Loading Integration", () => {
       // Verify only selected rules are synced
       const securityRule = await fsUtils.readFile(
         path.join(cursorRulesDir, "test:security.mdc"),
-        "utf-8"
+        "utf-8",
       );
       expect(securityRule).toContain("# Security Rules");
 
       // Verify non-selected rules are not synced
       expect(
         await fsUtils.pathExists(
-          path.join(cursorRulesDir, "test:performance.mdc")
-        )
+          path.join(cursorRulesDir, "test:performance.mdc"),
+        ),
       ).toBe(false);
       expect(
-        await fsUtils.pathExists(path.join(cursorRulesDir, "test:style.md"))
+        await fsUtils.pathExists(path.join(cursorRulesDir, "test:style.md")),
       ).toBe(false);
 
       // Verify only selected commands are synced
       const deployCommand = await fsUtils.readFile(
         path.join(cursorCommandsDir, "test:deploy.md"),
-        "utf-8"
+        "utf-8",
       );
       const testCommand = await fsUtils.readFile(
         path.join(cursorCommandsDir, "test:test.md"),
-        "utf-8"
+        "utf-8",
       );
       expect(deployCommand).toContain("# Deploy Commands");
       expect(testCommand).toContain("# Test Commands");
 
       // Verify non-selected commands are not synced
       expect(
-        await fsUtils.pathExists(path.join(cursorCommandsDir, "test:build.md"))
+        await fsUtils.pathExists(path.join(cursorCommandsDir, "test:build.md")),
       ).toBe(false);
     });
 
@@ -1423,7 +1425,7 @@ describe("End-to-End Selective Loading Integration", () => {
 
       await fs.writeFile(
         path.join(configDir, "config.json"),
-        JSON.stringify(config, null, 2)
+        JSON.stringify(config, null, 2),
       );
 
       // Mock resolved path
@@ -1473,23 +1475,23 @@ describe("End-to-End Selective Loading Integration", () => {
         const commonRule = await fsUtils.readFile(
           path.join(
             toolRulesDir,
-            tool === "cursor" ? "test:common.mdc" : "test:common.md"
+            tool === "cursor" ? "test:common.mdc" : "test:common.md",
           ),
-          "utf-8"
+          "utf-8",
         );
         const lintCommand = await fsUtils.readFile(
           path.join(toolCommandsDir, "test:lint.md"),
-          "utf-8"
+          "utf-8",
         );
         expect(commonRule).toContain("# Common Rules");
         expect(lintCommand).toContain("# Lint Commands");
 
         // Verify non-selected content is not present
         expect(
-          await fsUtils.pathExists(path.join(toolRulesDir, "git.md"))
+          await fsUtils.pathExists(path.join(toolRulesDir, "git.md")),
         ).toBe(false);
         expect(
-          await fsUtils.pathExists(path.join(toolCommandsDir, "format.md"))
+          await fsUtils.pathExists(path.join(toolCommandsDir, "format.md")),
         ).toBe(false);
       }
     });
@@ -1515,7 +1517,7 @@ describe("End-to-End Selective Loading Integration", () => {
 
       await fs.writeFile(
         path.join(configDir, "config.json"),
-        JSON.stringify(config, null, 2)
+        JSON.stringify(config, null, 2),
       );
 
       // Mock resolved path
@@ -1544,10 +1546,10 @@ describe("End-to-End Selective Loading Integration", () => {
 
       // Verify no directories or files are created in dry run mode
       expect(await fsUtils.pathExists(path.join(tempDir, ".claude"))).toBe(
-        false
+        false,
       );
       expect(await fsUtils.pathExists(path.join(tempDir, ".cursor"))).toBe(
-        false
+        false,
       );
     });
 
@@ -1573,7 +1575,7 @@ describe("End-to-End Selective Loading Integration", () => {
 
       await fs.writeFile(
         path.join(configDir, "config.json"),
-        JSON.stringify(config, null, 2)
+        JSON.stringify(config, null, 2),
       );
 
       // Mock resolved path
@@ -1616,7 +1618,7 @@ describe("End-to-End Selective Loading Integration", () => {
               mcps: ["non-existent-server"],
             },
           },
-        })
+        }),
       ).rejects.toThrow("Invalid selections");
     });
   });

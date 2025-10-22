@@ -3,21 +3,21 @@
  * Replacements for fs-extra methods using node:fs/promises
  */
 
+import { constants } from "node:fs";
 import {
   access,
-  mkdir,
-  writeFile,
-  cp,
-  rm,
-  readFile,
   appendFile,
+  cp,
+  mkdir,
+  mkdtemp,
   readdir,
+  readFile,
+  rename,
+  rm,
   stat,
   symlink,
-  rename,
-  mkdtemp,
+  writeFile,
 } from "node:fs/promises";
-import { constants } from "node:fs";
 import { dirname } from "node:path";
 
 /**
@@ -48,7 +48,7 @@ export async function ensureDir(dir: string): Promise<void> {
 export async function outputFile(
   file: string,
   data: string | Buffer,
-  options?: { encoding?: BufferEncoding }
+  options?: { encoding?: BufferEncoding },
 ): Promise<void> {
   const dir = dirname(file);
   await mkdir(dir, { recursive: true });
@@ -87,7 +87,7 @@ export async function readJson(file: string): Promise<any> {
 export async function writeJson(
   file: string,
   data: any,
-  options?: { encoding?: BufferEncoding; spaces?: number }
+  options?: { encoding?: BufferEncoding; spaces?: number },
 ): Promise<void> {
   const dir = dirname(file);
   await mkdir(dir, { recursive: true });

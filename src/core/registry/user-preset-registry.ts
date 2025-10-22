@@ -3,19 +3,19 @@
  * Manages user-defined presets with simplified schema and persistence
  */
 
-import { readFile, writeFile, mkdir } from "node:fs/promises";
-import { pathExists } from "../../utils/fs.js";
-import * as path from "path";
-import * as os from "os";
-import type { UserPresetEntry, UserConfig } from "../../types/schemas.js";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import * as os from "node:os";
+import * as path from "node:path";
+import type { UserConfig, UserPresetEntry } from "../../types/schemas.js";
 import {
-  validateUserPresetEntry,
   safeParseUserConfig,
+  validateUserPresetEntry,
 } from "../../types/schemas.js";
+import { pathExists } from "../../utils/fs.js";
 import {
-  UserPresetRegistryError,
-  ErrorHandler,
   ErrorCategory,
+  ErrorHandler,
+  UserPresetRegistryError,
 } from "../errors.js";
 
 /**
@@ -71,7 +71,7 @@ export class UserPresetRegistry {
       if (error instanceof SyntaxError) {
         throw new UserPresetRegistryError(
           `Registry file contains invalid JSON: ${error.message}`,
-          "load"
+          "load",
         );
       }
 
@@ -82,7 +82,7 @@ export class UserPresetRegistry {
       if ((error as any).code === "EACCES") {
         throw new UserPresetRegistryError(
           "Permission denied accessing registry file",
-          "load"
+          "load",
         );
       }
 
@@ -90,12 +90,12 @@ export class UserPresetRegistry {
         error,
         `Failed to parse user config at ${this.registryPath}`,
         ErrorCategory.FILE_SYSTEM,
-        { registryPath: this.registryPath }
+        { registryPath: this.registryPath },
       );
     }
 
     // Parse as UserConfig schema
-    let result = safeParseUserConfig(registry);
+    const result = safeParseUserConfig(registry);
     if (result.success) {
       this.registryData = result.data;
       return this.registryData;
@@ -103,7 +103,7 @@ export class UserPresetRegistry {
 
     throw new UserPresetRegistryError(
       `Invalid registry format: ${result.error.message}`,
-      "load"
+      "load",
     );
   }
 
@@ -122,7 +122,7 @@ export class UserPresetRegistry {
     } catch (error) {
       throw new UserPresetRegistryError(
         `Failed to create registry directory: ${(error as Error).message}`,
-        "save"
+        "save",
       );
     }
 
@@ -134,14 +134,14 @@ export class UserPresetRegistry {
       if ((error as any).code === "EACCES") {
         throw new UserPresetRegistryError(
           "Permission denied writing to registry file",
-          "save"
+          "save",
         );
       }
 
       if ((error as any).code === "ENOSPC") {
         throw new UserPresetRegistryError(
           "Insufficient disk space to save registry",
-          "save"
+          "save",
         );
       }
 
@@ -149,7 +149,7 @@ export class UserPresetRegistry {
         error,
         `Failed to save user config to ${this.registryPath}`,
         ErrorCategory.FILE_SYSTEM,
-        { registryPath: this.registryPath }
+        { registryPath: this.registryPath },
       );
     }
   }
@@ -172,14 +172,16 @@ export class UserPresetRegistry {
     await this.loadRegistry();
     validateUserPresetEntry(entry);
 
-    if (this.registryData!.presets[namespace]) {
+    if (this.registryData?.presets[namespace]) {
       throw new UserPresetRegistryError(
         `Preset with name '${namespace}' already exists`,
-        "add"
+        "add",
       );
     }
 
-    this.registryData!.presets[namespace] = entry;
+    if (this.registryData?.presets) {
+      this.registryData.presets[namespace] = entry;
+    }
     await this.saveRegistry();
   }
 
@@ -189,14 +191,16 @@ export class UserPresetRegistry {
   async remove(name: string): Promise<void> {
     await this.loadRegistry();
 
-    if (!this.registryData!.presets[name]) {
+    if (!this.registryData?.presets[name]) {
       throw new UserPresetRegistryError(
         `Preset with name '${name}' not found`,
-        "remove"
+        "remove",
       );
     }
 
-    delete this.registryData!.presets[name];
+    if (this.registryData?.presets) {
+      delete this.registryData.presets[name];
+    }
     await this.saveRegistry();
   }
 
@@ -206,11 +210,11 @@ export class UserPresetRegistry {
   async get(name: string): Promise<UserPresetEntry> {
     await this.loadRegistry();
 
-    const entry = this.registryData!.presets[name];
+    const entry = this.registryData?.presets[name];
     if (!entry) {
       throw new UserPresetRegistryError(
         `Preset with name '${name}' not found`,
-        "get"
+        "get",
       );
     }
 
@@ -222,7 +226,7 @@ export class UserPresetRegistry {
    */
   async list(): Promise<Record<string, UserPresetEntry>> {
     await this.loadRegistry();
-    return this.registryData!.presets;
+    return this.registryData?.presets;
   }
 
   /**
@@ -230,7 +234,7 @@ export class UserPresetRegistry {
    */
   async exists(name: string): Promise<boolean> {
     await this.loadRegistry();
-    return name in this.registryData!.presets;
+    return name in this.registryData?.presets;
   }
 
   /**
@@ -239,8 +243,8 @@ export class UserPresetRegistry {
   async getMetadata(): Promise<{ version?: string; totalPresets: number }> {
     await this.loadRegistry();
     return {
-      version: this.registryData!.version,
-      totalPresets: Object.keys(this.registryData!.presets).length,
+      version: this.registryData?.version,
+      totalPresets: Object.keys(this.registryData?.presets).length,
     };
   }
 

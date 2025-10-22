@@ -3,55 +3,55 @@
  * Provides comprehensive logging and monitoring for security and operations
  */
 
-import { ensureDir, appendFile, readdir, stat, remove } from '../utils/fs.js';
-import { readFile } from 'node:fs/promises';
-import * as path from 'path';
-import { homedir } from 'os';
-import { ErrorCategory, ErrorSeverity } from './errors';
+import { readFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import * as path from "node:path";
+import { appendFile, ensureDir, readdir, remove, stat } from "../utils/fs.js";
+import { type ErrorCategory, ErrorSeverity } from "./errors";
 
 export enum AuditEventType {
   // Security Events
-  SECURITY_SCAN = 'SECURITY_SCAN',
-  UNICODE_DETECTION = 'UNICODE_DETECTION',
-  SECRET_DETECTED = 'SECRET_DETECTED',
-  PERMISSION_DENIED = 'PERMISSION_DENIED',
+  SECURITY_SCAN = "SECURITY_SCAN",
+  UNICODE_DETECTION = "UNICODE_DETECTION",
+  SECRET_DETECTED = "SECRET_DETECTED",
+  PERMISSION_DENIED = "PERMISSION_DENIED",
 
   // File Operations
-  FILE_READ = 'FILE_READ',
-  FILE_WRITE = 'FILE_WRITE',
-  FILE_DELETE = 'FILE_DELETE',
-  FILE_BACKUP = 'FILE_BACKUP',
+  FILE_READ = "FILE_READ",
+  FILE_WRITE = "FILE_WRITE",
+  FILE_DELETE = "FILE_DELETE",
+  FILE_BACKUP = "FILE_BACKUP",
 
   // Sync Operations
-  SYNC_START = 'SYNC_START',
-  SYNC_SUCCESS = 'SYNC_SUCCESS',
-  SYNC_FAILURE = 'SYNC_FAILURE',
-  CONFLICT_DETECTED = 'CONFLICT_DETECTED',
-  CONFLICT_RESOLVED = 'CONFLICT_RESOLVED',
+  SYNC_START = "SYNC_START",
+  SYNC_SUCCESS = "SYNC_SUCCESS",
+  SYNC_FAILURE = "SYNC_FAILURE",
+  CONFLICT_DETECTED = "CONFLICT_DETECTED",
+  CONFLICT_RESOLVED = "CONFLICT_RESOLVED",
 
   // Configuration Changes
-  CONFIG_LOAD = 'CONFIG_LOAD',
-  CONFIG_UPDATE = 'CONFIG_UPDATE',
-  CONFIG_VALIDATE = 'CONFIG_VALIDATE',
+  CONFIG_LOAD = "CONFIG_LOAD",
+  CONFIG_UPDATE = "CONFIG_UPDATE",
+  CONFIG_VALIDATE = "CONFIG_VALIDATE",
 
   // System Events
-  STARTUP = 'STARTUP',
-  SHUTDOWN = 'SHUTDOWN',
-  ERROR = 'ERROR',
-  WARNING = 'WARNING',
+  STARTUP = "STARTUP",
+  SHUTDOWN = "SHUTDOWN",
+  ERROR = "ERROR",
+  WARNING = "WARNING",
 
   // User Actions
-  COMMAND_EXECUTED = 'COMMAND_EXECUTED',
-  INIT_WORKSPACE = 'INIT_WORKSPACE',
-  WATCH_START = 'WATCH_START',
-  WATCH_STOP = 'WATCH_STOP',
+  COMMAND_EXECUTED = "COMMAND_EXECUTED",
+  INIT_WORKSPACE = "INIT_WORKSPACE",
+  WATCH_START = "WATCH_START",
+  WATCH_STOP = "WATCH_STOP",
 }
 
 export interface AuditEvent {
   id: string;
   timestamp: Date;
   type: AuditEventType;
-  severity: 'info' | 'warning' | 'error' | 'critical';
+  severity: "info" | "warning" | "error" | "critical";
   category: string;
   message: string;
   userId?: string;
@@ -65,7 +65,7 @@ export interface AuditOptions {
   logDir?: string;
   maxFileSize?: number; // in bytes
   maxFiles?: number;
-  logLevel?: 'debug' | 'info' | 'warning' | 'error';
+  logLevel?: "debug" | "info" | "warning" | "error";
   enableConsole?: boolean;
   enableFile?: boolean;
   enableRemote?: boolean;
@@ -83,14 +83,14 @@ export class AuditLogger {
 
   private constructor(options?: AuditOptions) {
     this.options = {
-      logDir: options?.logDir || path.join(homedir(), '.agentsync', 'logs'),
+      logDir: options?.logDir || path.join(homedir(), ".agentsync", "logs"),
       maxFileSize: options?.maxFileSize || 10 * 1024 * 1024, // 10MB
       maxFiles: options?.maxFiles || 30,
-      logLevel: options?.logLevel || 'info',
+      logLevel: options?.logLevel || "info",
       enableConsole: options?.enableConsole ?? false,
       enableFile: options?.enableFile ?? true,
       enableRemote: options?.enableRemote ?? false,
-      remoteEndpoint: options?.remoteEndpoint || '',
+      remoteEndpoint: options?.remoteEndpoint || "",
     };
 
     this.sessionId = this.generateSessionId();
@@ -129,9 +129,9 @@ export class AuditLogger {
     // Log startup event
     await this.log({
       type: AuditEventType.STARTUP,
-      severity: 'info',
-      category: 'system',
-      message: 'AgentSync audit logging initialized',
+      severity: "info",
+      category: "system",
+      message: "AgentSync audit logging initialized",
       metadata: {
         sessionId: this.sessionId,
         logDir: this.options.logDir,
@@ -151,9 +151,9 @@ export class AuditLogger {
     // Log shutdown event
     await this.log({
       type: AuditEventType.SHUTDOWN,
-      severity: 'info',
-      category: 'system',
-      message: 'AgentSync audit logging shutting down',
+      severity: "info",
+      category: "system",
+      message: "AgentSync audit logging shutting down",
     });
 
     // Stop flush interval
@@ -171,7 +171,9 @@ export class AuditLogger {
   /**
    * Log an audit event
    */
-  async log(event: Omit<AuditEvent, 'id' | 'timestamp' | 'sessionId'>): Promise<void> {
+  async log(
+    event: Omit<AuditEvent, "id" | "timestamp" | "sessionId">,
+  ): Promise<void> {
     const fullEvent: AuditEvent = {
       id: this.generateEventId(),
       timestamp: new Date(),
@@ -203,13 +205,13 @@ export class AuditLogger {
    */
   async logSecurity(
     message: string,
-    severity: 'warning' | 'error' | 'critical',
-    metadata?: Record<string, unknown>
+    severity: "warning" | "error" | "critical",
+    metadata?: Record<string, unknown>,
   ): Promise<void> {
     await this.log({
       type: AuditEventType.SECRET_DETECTED,
       severity,
-      category: 'security',
+      category: "security",
       message,
       metadata,
     });
@@ -219,10 +221,10 @@ export class AuditLogger {
    * Log a file operation
    */
   async logFileOperation(
-    operation: 'read' | 'write' | 'delete' | 'backup',
+    operation: "read" | "write" | "delete" | "backup",
     filePath: string,
     success: boolean,
-    metadata?: Record<string, unknown>
+    metadata?: Record<string, unknown>,
   ): Promise<void> {
     const typeMap = {
       read: AuditEventType.FILE_READ,
@@ -233,8 +235,8 @@ export class AuditLogger {
 
     await this.log({
       type: typeMap[operation],
-      severity: success ? 'info' : 'error',
-      category: 'file',
+      severity: success ? "info" : "error",
+      category: "file",
       message: `File ${operation}: ${filePath}`,
       metadata: {
         filePath,
@@ -252,13 +254,13 @@ export class AuditLogger {
     args: string[],
     success: boolean,
     duration: number,
-    metadata?: Record<string, unknown>
+    metadata?: Record<string, unknown>,
   ): Promise<void> {
     await this.log({
       type: AuditEventType.COMMAND_EXECUTED,
-      severity: success ? 'info' : 'error',
-      category: 'command',
-      message: `Command: ${command} ${args.join(' ')}`,
+      severity: success ? "info" : "error",
+      category: "command",
+      message: `Command: ${command} ${args.join(" ")}`,
       duration,
       metadata: {
         command,
@@ -276,7 +278,7 @@ export class AuditLogger {
     error: Error,
     category: ErrorCategory,
     severity: ErrorSeverity,
-    metadata?: Record<string, unknown>
+    metadata?: Record<string, unknown>,
   ): Promise<void> {
     await this.log({
       type: AuditEventType.ERROR,
@@ -329,8 +331,8 @@ export class AuditLogger {
     }
 
     // Write events as NDJSON
-    const lines = events.map(event => JSON.stringify(event)).join('\n') + '\n';
-    await appendFile(logFile, lines, 'utf-8');
+    const lines = `${events.map((event) => JSON.stringify(event)).join("\n")}\n`;
+    await appendFile(logFile, lines, "utf-8");
   }
 
   /**
@@ -342,9 +344,11 @@ export class AuditLogger {
     try {
       // This would be implemented with your actual remote logging service
       // For now, it's a placeholder
-      console.log(`Would send ${events.length} events to ${this.options.remoteEndpoint}`);
+      console.log(
+        `Would send ${events.length} events to ${this.options.remoteEndpoint}`,
+      );
     } catch (error) {
-      console.error('Failed to send audit logs to remote:', error);
+      console.error("Failed to send audit logs to remote:", error);
     }
   }
 
@@ -354,7 +358,7 @@ export class AuditLogger {
   private async rotateLogs(): Promise<void> {
     const files = await readdir(this.options.logDir);
     const logFiles = files
-      .filter(f => f.startsWith('audit-') && f.endsWith('.log'))
+      .filter((f) => f.startsWith("audit-") && f.endsWith(".log"))
       .sort()
       .reverse();
 
@@ -372,7 +376,7 @@ export class AuditLogger {
    */
   private getLogFileName(): string {
     const date = new Date();
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = date.toISOString().split("T")[0];
     const timestamp = date.getTime();
     return `audit-${dateStr}-${timestamp}.log`;
   }
@@ -394,7 +398,9 @@ export class AuditLogger {
   /**
    * Check if event should be logged based on level
    */
-  private shouldLog(severity: 'info' | 'warning' | 'error' | 'critical'): boolean {
+  private shouldLog(
+    severity: "info" | "warning" | "error" | "critical",
+  ): boolean {
     const levels = {
       debug: 0,
       info: 1,
@@ -412,12 +418,14 @@ export class AuditLogger {
   /**
    * Map error severity to audit severity
    */
-  private mapErrorSeverity(severity: ErrorSeverity): 'info' | 'warning' | 'error' | 'critical' {
+  private mapErrorSeverity(
+    severity: ErrorSeverity,
+  ): "info" | "warning" | "error" | "critical" {
     const map = {
-      [ErrorSeverity.LOW]: 'info' as const,
-      [ErrorSeverity.MEDIUM]: 'warning' as const,
-      [ErrorSeverity.HIGH]: 'error' as const,
-      [ErrorSeverity.CRITICAL]: 'critical' as const,
+      [ErrorSeverity.LOW]: "info" as const,
+      [ErrorSeverity.MEDIUM]: "warning" as const,
+      [ErrorSeverity.HIGH]: "error" as const,
+      [ErrorSeverity.CRITICAL]: "critical" as const,
     };
     return map[severity];
   }
@@ -434,11 +442,11 @@ export class AuditLogger {
     const message = `${prefix} ${event.message}`;
 
     switch (event.severity) {
-      case 'critical':
-      case 'error':
+      case "critical":
+      case "error":
         console.error(message);
         break;
-      case 'warning':
+      case "warning":
         console.warn(message);
         break;
       default:
@@ -446,7 +454,7 @@ export class AuditLogger {
     }
 
     if (event.metadata && Object.keys(event.metadata).length > 0) {
-      console.log(`${' '.repeat(prefix.length)} Metadata:`, event.metadata);
+      console.log(`${" ".repeat(prefix.length)} Metadata:`, event.metadata);
     }
   }
 
@@ -457,20 +465,20 @@ export class AuditLogger {
     startDate?: Date;
     endDate?: Date;
     types?: AuditEventType[];
-    severity?: ('info' | 'warning' | 'error' | 'critical')[];
+    severity?: ("info" | "warning" | "error" | "critical")[];
     limit?: number;
   }): Promise<AuditEvent[]> {
     const results: AuditEvent[] = [];
     const files = await readdir(this.options.logDir);
     const logFiles = files
-      .filter(f => f.startsWith('audit-') && f.endsWith('.log'))
+      .filter((f) => f.startsWith("audit-") && f.endsWith(".log"))
       .sort()
       .reverse();
 
     for (const file of logFiles) {
       const filePath = path.join(this.options.logDir, file);
-      const content = await readFile(filePath, 'utf-8');
-      const lines = content.split('\n').filter(l => l.trim());
+      const content = await readFile(filePath, "utf-8");
+      const lines = content.split("\n").filter((l) => l.trim());
 
       for (const line of lines) {
         try {
@@ -478,10 +486,12 @@ export class AuditLogger {
           event.timestamp = new Date(event.timestamp);
 
           // Apply filters
-          if (options.startDate && event.timestamp < options.startDate) continue;
+          if (options.startDate && event.timestamp < options.startDate)
+            continue;
           if (options.endDate && event.timestamp > options.endDate) continue;
           if (options.types && !options.types.includes(event.type)) continue;
-          if (options.severity && !options.severity.includes(event.severity)) continue;
+          if (options.severity && !options.severity.includes(event.severity))
+            continue;
 
           results.push(event);
 
@@ -504,11 +514,13 @@ export class AuditLogger {
     const events = await this.query({ startDate, endDate });
 
     const report: string[] = [];
-    report.push('📊 Audit Report');
-    report.push('=' .repeat(50));
-    report.push(`Period: ${startDate.toISOString()} - ${endDate.toISOString()}`);
+    report.push("📊 Audit Report");
+    report.push("=".repeat(50));
+    report.push(
+      `Period: ${startDate.toISOString()} - ${endDate.toISOString()}`,
+    );
     report.push(`Total Events: ${events.length}`);
-    report.push('');
+    report.push("");
 
     // Group by type
     const byType: Record<string, number> = {};
@@ -519,21 +531,21 @@ export class AuditLogger {
       bySeverity[event.severity] = (bySeverity[event.severity] || 0) + 1;
     }
 
-    report.push('Events by Type:');
+    report.push("Events by Type:");
     for (const [type, count] of Object.entries(byType)) {
       report.push(`  ${type}: ${count}`);
     }
 
-    report.push('');
-    report.push('Events by Severity:');
+    report.push("");
+    report.push("Events by Severity:");
     for (const [severity, count] of Object.entries(bySeverity)) {
       report.push(`  ${severity}: ${count}`);
     }
 
     // Security events
-    const securityEvents = events.filter(e => e.category === 'security');
+    const securityEvents = events.filter((e) => e.category === "security");
     if (securityEvents.length > 0) {
-      report.push('');
+      report.push("");
       report.push(`⚠️  Security Events: ${securityEvents.length}`);
       for (const event of securityEvents.slice(0, 10)) {
         report.push(`  ${event.timestamp.toISOString()}: ${event.message}`);
@@ -541,16 +553,18 @@ export class AuditLogger {
     }
 
     // Errors
-    const errors = events.filter(e => e.severity === 'error' || e.severity === 'critical');
+    const errors = events.filter(
+      (e) => e.severity === "error" || e.severity === "critical",
+    );
     if (errors.length > 0) {
-      report.push('');
+      report.push("");
       report.push(`❌ Errors: ${errors.length}`);
       for (const event of errors.slice(0, 10)) {
         report.push(`  ${event.timestamp.toISOString()}: ${event.message}`);
       }
     }
 
-    return report.join('\n');
+    return report.join("\n");
   }
 }
 

@@ -83,3 +83,67 @@ Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/baranovxyz/oss/agentsyn
 
 Node.js v22.13.1"
 `;
+
+exports[`CLI Output Snapshots > Init Command Help > init --help output matches snapshot 1`] = `
+"Usage: agentsync init [options]
+
+Initialize AgentSync in the current project
+
+Options:
+  -t, --template <template>  Template to use for AGENTS.md
+  -h, --help                 display help for command"
+`;
+
+exports[`CLI Output Snapshots > MCP Commands Help > mcp --help output matches snapshot 1`] = `
+"Usage: agentsync mcp [options] [command]
+
+Manage MCP servers
+
+Options:
+  -h, --help      display help for command
+
+Commands:
+  add <name>      Add a new MCP server
+  remove <name>   Remove an MCP server
+  list            List all MCP servers
+  sync [options]  Sync MCP configurations to tools
+  help [command]  display help for command"
+`;
+
+exports[`CLI Output Snapshots > MCP Commands Help > mcp add --help output matches snapshot 1`] = `
+"Usage: agentsync mcp add [options] <name>
+
+Add a new MCP server
+
+Options:
+  -h, --help  display help for command"
+`;
+
+exports[`CLI Output Snapshots > MCP Commands Help > mcp list --help output matches snapshot 1`] = `
+"Usage: agentsync mcp list [options]
+
+List all MCP servers
+
+Options:
+  -h, --help  display help for command"
+`;
+
+exports[`CLI Output Snapshots > MCP Commands Help > mcp remove --help output matches snapshot 1`] = `
+"Usage: agentsync mcp remove [options] <name>
+
+Remove an MCP server
+
+Options:
+  -h, --help  display help for command"
+`;
+
+exports[`CLI Output Snapshots > MCP Commands Help > mcp sync --help output matches snapshot 1`] = `
+"Usage: agentsync mcp sync [options]
+
+Sync MCP configurations to tools
+
+Options:
+  -t, --tool <tool>  Sync only to a specific tool
+  -d, --dry-run      Preview changes without writing files
+  -h, --help         display help for command"
+`;

@@ -3,32 +3,34 @@
  * Loads from .env file and merges with process.env
  */
 
-import { pathExists } from '../../utils/fs.js';
-import { readFile } from 'node:fs/promises';
-import * as path from 'path';
+import { readFile } from "node:fs/promises";
+import * as path from "node:path";
+import { pathExists } from "../../utils/fs.js";
 
 /**
  * Load environment variables from .env file
  * @param envPath - Path to .env file (defaults to .env in cwd)
  * @returns Merged environment variables (process.env takes precedence over .env)
  */
-export async function loadEnv(envPath?: string): Promise<Record<string, string>> {
-  const filepath = envPath || path.join(process.cwd(), '.env');
+export async function loadEnv(
+  envPath?: string,
+): Promise<Record<string, string>> {
+  const filepath = envPath || path.join(process.cwd(), ".env");
 
   // Start with empty env
   const env: Record<string, string> = {};
 
   // If .env file exists, parse it first
   if (await pathExists(filepath)) {
-    const content = await readFile(filepath, 'utf-8');
+    const content = await readFile(filepath, "utf-8");
 
     // Simple .env parser (handles KEY=value format)
-    const lines = content.split('\n');
+    const lines = content.split("\n");
     for (const line of lines) {
       const trimmed = line.trim();
 
       // Skip empty lines and comments
-      if (!trimmed || trimmed.startsWith('#')) {
+      if (!trimmed || trimmed.startsWith("#")) {
         continue;
       }
 

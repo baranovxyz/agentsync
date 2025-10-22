@@ -3,11 +3,11 @@
  * Allows users to interactively remove presets and their selections from the configuration
  */
 
-import { select, checkbox, confirm } from "@inquirer/prompts";
-import pc from "picocolors";
-import ora from "ora";
 import { readFile, writeFile } from "node:fs/promises";
-import * as path from "path";
+import * as path from "node:path";
+import { checkbox, confirm, select } from "@inquirer/prompts";
+import ora from "ora";
+import pc from "picocolors";
 import { UserPresetRegistry } from "../../core/registry/user-preset-registry.js";
 import { validateConfig } from "../../types/schemas.js";
 
@@ -25,7 +25,7 @@ export interface InteractiveRemoveOptions {
  * Main interactive preset removal command
  */
 export async function interactiveRemovePreset(
-  options: InteractiveRemoveOptions = {}
+  options: InteractiveRemoveOptions = {},
 ): Promise<void> {
   const cwd = options.cwd || process.cwd();
 
@@ -47,8 +47,8 @@ export async function interactiveRemovePreset(
       console.log(pc.yellow("No presets configured for removal."));
       console.log(
         pc.gray(
-          "Add presets to your configuration first using 'agentsync preset interactive-select'."
-        )
+          "Add presets to your configuration first using 'agentsync preset interactive-select'.",
+        ),
       );
       return;
     }
@@ -66,7 +66,7 @@ export async function interactiveRemovePreset(
     const removalType = await selectRemovalType(
       config,
       presetSource,
-      configLevel
+      configLevel,
     );
 
     // 7. If specific removal, let user select content types
@@ -75,7 +75,7 @@ export async function interactiveRemovePreset(
       removedTypes = await selectContentTypesForRemoval(
         config,
         presetSource,
-        configLevel
+        configLevel,
       );
       if (removedTypes.length === 0) {
         console.log(pc.yellow("No content types selected for removal."));
@@ -89,7 +89,7 @@ export async function interactiveRemovePreset(
       removalType,
       removedTypes,
       config,
-      configLevel
+      configLevel,
     );
 
     // 9. Confirm removal
@@ -112,7 +112,7 @@ export async function interactiveRemovePreset(
       presetSource,
       removalType,
       removedTypes,
-      configLevel
+      configLevel,
     );
     spinner.succeed("Removal complete");
 
@@ -140,7 +140,7 @@ async function loadConfig(cwd: string): Promise<any> {
     return validateConfig(JSON.parse(configContent));
   } catch (error) {
     throw new Error(
-      `Failed to load configuration: ${(error as Error).message}`
+      `Failed to load configuration: ${(error as Error).message}`,
     );
   }
 }
@@ -197,7 +197,7 @@ async function selectPresetForRemoval(
     value: string;
     description?: string;
     configLevels: string[];
-  }>
+  }>,
 ): Promise<string> {
   return select({
     message: "Select a preset to remove or modify:",
@@ -214,7 +214,7 @@ async function selectPresetForRemoval(
  */
 function getAvailableConfigLevels(
   config: any,
-  presetSource: string
+  presetSource: string,
 ): Array<"user" | "project" | "local"> {
   const levels: Array<"user" | "project" | "local"> = [];
 
@@ -239,7 +239,7 @@ function getAvailableConfigLevels(
  * Let user select configuration level
  */
 async function selectConfigLevel(
-  levels: Array<"user" | "project" | "local">
+  levels: Array<"user" | "project" | "local">,
 ): Promise<"user" | "project" | "local"> {
   if (levels.length === 1) {
     return levels[0];
@@ -260,7 +260,7 @@ async function selectConfigLevel(
 async function selectRemovalType(
   config: any,
   presetSource: string,
-  _configLevel: "user" | "project" | "local"
+  _configLevel: "user" | "project" | "local",
 ): Promise<"entire" | "specific"> {
   // Find the preset in extends array
   let selection = null;
@@ -298,7 +298,7 @@ async function selectRemovalType(
 async function selectContentTypesForRemoval(
   config: any,
   presetSource: string,
-  _configLevel: "user" | "project" | "local"
+  _configLevel: "user" | "project" | "local",
 ): Promise<string[]> {
   // Find the preset in extends array
   let selection = null;
@@ -339,7 +339,7 @@ async function showRemovalPreview(
   removalType: "entire" | "specific",
   removedTypes: string[],
   config: any,
-  configLevel: "user" | "project" | "local"
+  configLevel: "user" | "project" | "local",
 ): Promise<void> {
   console.log(pc.cyan("\n📝 Removal Preview"));
   console.log(pc.gray("--------------------"));
@@ -347,14 +347,14 @@ async function showRemovalPreview(
   if (removalType === "entire") {
     console.log(
       pc.yellow(
-        `🔥 Entire preset '${presetSource}' will be removed from ${configLevel} configuration.`
-      )
+        `🔥 Entire preset '${presetSource}' will be removed from ${configLevel} configuration.`,
+      ),
     );
   } else {
     console.log(
       pc.yellow(
-        `🔥 Selections for '${presetSource}' will be removed from ${configLevel} configuration:`
-      )
+        `🔥 Selections for '${presetSource}' will be removed from ${configLevel} configuration:`,
+      ),
     );
 
     // Find the preset in extends array
@@ -371,7 +371,7 @@ async function showRemovalPreview(
     if (selection) {
       for (const type of removedTypes) {
         console.log(
-          pc.yellow(`  - ${type}: ${JSON.stringify(selection[type])}`)
+          pc.yellow(`  - ${type}: ${JSON.stringify(selection[type])}`),
         );
       }
     }
@@ -388,7 +388,7 @@ async function applyRemoval(
   presetSource: string,
   removalType: "entire" | "specific",
   removedTypes: string[],
-  configLevel: "user" | "project" | "local"
+  configLevel: "user" | "project" | "local",
 ): Promise<void> {
   // Load from correct file based on config level
   const configPath = path.join(
@@ -400,8 +400,8 @@ async function applyRemoval(
         : path.join(
             process.env.HOME || process.env.USERPROFILE || "",
             ".agentsync",
-            "config.json"
-          )
+            "config.json",
+          ),
   );
 
   try {
@@ -447,7 +447,7 @@ async function applyRemoval(
     await writeFile(configPath, JSON.stringify(config, null, 2), "utf-8");
   } catch (error) {
     throw new Error(
-      `Failed to update configuration: ${(error as Error).message}`
+      `Failed to update configuration: ${(error as Error).message}`,
     );
   }
 }
@@ -478,8 +478,8 @@ async function offerRegistryCleanup(presetSource: string): Promise<void> {
     // Registry might not exist or preset not found, continue
     console.log(
       pc.yellow(
-        `⚠️  Could not remove from user registry: ${(error as Error).message}`
-      )
+        `⚠️  Could not remove from user registry: ${(error as Error).message}`,
+      ),
     );
   }
 }

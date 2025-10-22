@@ -2,15 +2,15 @@
  * Tests for user-friendly error messages
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-  InteractiveSelectionError,
-  SelectionValidationError,
-  SourceResolutionError,
-  UserPresetRegistryError,
-  SelectiveLoadingError,
   ErrorHandler,
   ErrorSeverity,
+  InteractiveSelectionError,
+  SelectionValidationError,
+  SelectiveLoadingError,
+  SourceResolutionError,
+  UserPresetRegistryError,
 } from "../../../src/core/errors.js";
 
 describe("User-friendly error messages", () => {
@@ -22,7 +22,7 @@ describe("User-friendly error messages", () => {
       expect(message).toContain("Something went wrong");
       expect(message).toContain("💡 Suggestion:");
       expect(message).toContain(
-        "Check your interactive selection configuration and try again"
+        "Check your interactive selection configuration and try again",
       );
     });
 
@@ -33,7 +33,7 @@ describe("User-friendly error messages", () => {
       const message = error.getUserMessage();
       expect(message).toContain("Custom error");
       expect(message).toContain(
-        "💡 Suggestion: Try running the command with --help flag"
+        "💡 Suggestion: Try running the command with --help flag",
       );
     });
 
@@ -41,7 +41,7 @@ describe("User-friendly error messages", () => {
       const error = new InteractiveSelectionError(
         "Invalid configuration",
         ErrorSeverity.HIGH,
-        { configPath: "/path/to/config.json" }
+        { configPath: "/path/to/config.json" },
       );
 
       const message = error.getUserMessage();
@@ -59,14 +59,14 @@ describe("User-friendly error messages", () => {
 
       const error = new SelectionValidationError(
         "Selection validation failed",
-        validationErrors
+        validationErrors,
       );
 
       const message = error.getUserMessage();
       expect(message).toContain("Selection validation failed");
       expect(message).toContain("💡 Suggestion:");
       expect(message).toContain(
-        "Review your selection patterns and ensure they match available files"
+        "Review your selection patterns and ensure they match available files",
       );
     });
 
@@ -78,7 +78,7 @@ describe("User-friendly error messages", () => {
 
       const error = new SelectionValidationError(
         "Validation failed",
-        validationErrors
+        validationErrors,
       );
 
       const formattedErrors = error.getFormattedErrors();
@@ -99,14 +99,14 @@ describe("User-friendly error messages", () => {
     it("should provide network-related suggestions", () => {
       const error = new SourceResolutionError(
         "Failed to resolve GitHub source",
-        "github:org/repo"
+        "github:org/repo",
       );
 
       const message = error.getUserMessage();
       expect(message).toContain("Failed to resolve GitHub source");
       expect(message).toContain("💡 Suggestion:");
       expect(message).toContain(
-        "Verify the source URL and your network connection"
+        "Verify the source URL and your network connection",
       );
     });
 
@@ -115,7 +115,7 @@ describe("User-friendly error messages", () => {
       const error = new SourceResolutionError(
         "Network error",
         "github:org/repo",
-        originalError
+        originalError,
       );
 
       expect(error.metadata.context?.source).toBe("github:org/repo");
@@ -125,19 +125,19 @@ describe("User-friendly error messages", () => {
     it("should provide specific guidance for different source types", () => {
       const githubError = new SourceResolutionError(
         "GitHub API rate limit exceeded",
-        "github:org/repo"
+        "github:org/repo",
       );
 
       const fsError = new SourceResolutionError(
         "File not found",
-        "/local/path"
+        "/local/path",
       );
 
       expect(githubError.getUserMessage()).toContain(
-        "Verify the source URL and your network connection"
+        "Verify the source URL and your network connection",
       );
       expect(fsError.getUserMessage()).toContain(
-        "Verify the source URL and your network connection"
+        "Verify the source URL and your network connection",
       );
     });
   });
@@ -147,29 +147,29 @@ describe("User-friendly error messages", () => {
       const addError = new UserPresetRegistryError(
         "Failed to add preset",
         "add",
-        "test-preset"
+        "test-preset",
       );
 
       const getError = new UserPresetRegistryError(
         "Preset not found",
         "get",
-        "test-preset"
+        "test-preset",
       );
 
       const removeError = new UserPresetRegistryError(
         "Failed to remove preset",
         "remove",
-        "test-preset"
+        "test-preset",
       );
 
       expect(addError.getUserMessage()).toContain(
-        "Check if the preset name already exists and ensure valid preset data"
+        "Check if the preset name already exists and ensure valid preset data",
       );
       expect(getError.getUserMessage()).toContain(
-        "Verify the preset name exists in your registry"
+        "Verify the preset name exists in your registry",
       );
       expect(removeError.getUserMessage()).toContain(
-        "Verify the preset name exists in your registry"
+        "Verify the preset name exists in your registry",
       );
     });
 
@@ -177,11 +177,11 @@ describe("User-friendly error messages", () => {
       const error = new UserPresetRegistryError(
         "Unknown operation failed",
         "unknown",
-        "test-preset"
+        "test-preset",
       );
 
       expect(error.getUserMessage()).toContain(
-        "Check your user preset registry file permissions and format"
+        "Check your user preset registry file permissions and format",
       );
     });
 
@@ -189,7 +189,7 @@ describe("User-friendly error messages", () => {
       const error = new UserPresetRegistryError(
         "Operation failed",
         "update",
-        "test-preset"
+        "test-preset",
       );
 
       expect(error.metadata.context?.operation).toBe("update");
@@ -202,14 +202,14 @@ describe("User-friendly error messages", () => {
       const error = new SelectiveLoadingError(
         "Failed to load selected content",
         "github:org/repo",
-        "rules"
+        "rules",
       );
 
       const message = error.getUserMessage();
       expect(message).toContain("Failed to load selected content");
       expect(message).toContain("💡 Suggestion:");
       expect(message).toContain(
-        "Verify your selection patterns match available content in the preset"
+        "Verify your selection patterns match available content in the preset",
       );
     });
 
@@ -217,7 +217,7 @@ describe("User-friendly error messages", () => {
       const error = new SelectiveLoadingError(
         "Pattern matching failed",
         "github:org/repo",
-        "commands"
+        "commands",
       );
 
       expect(error.metadata.context?.presetSource).toBe("github:org/repo");
@@ -255,7 +255,7 @@ describe("User-friendly error messages", () => {
 
       const error = new SelectionValidationError(
         "Validation failed",
-        validationErrors
+        validationErrors,
       );
 
       const formatted = ErrorHandler.format(error, true);
@@ -268,7 +268,7 @@ describe("User-friendly error messages", () => {
       const error = new SourceResolutionError(
         "Test error",
         "github:org/repo",
-        originalError
+        originalError,
       );
 
       const serialized = ErrorHandler.serialize(error);
@@ -289,7 +289,7 @@ describe("User-friendly error messages", () => {
         {
           error: new SourceResolutionError(
             "GitHub API rate limit exceeded",
-            "github:org/repo"
+            "github:org/repo",
           ),
           expectedKeywords: ["network", "connection", "URL"],
         },
@@ -297,7 +297,7 @@ describe("User-friendly error messages", () => {
           error: new UserPresetRegistryError(
             "Permission denied",
             "add",
-            "test"
+            "test",
           ),
           expectedKeywords: ["permissions", "file", "registry"],
         },
@@ -309,7 +309,7 @@ describe("User-friendly error messages", () => {
           error: new SelectiveLoadingError(
             "Invalid glob syntax",
             "github:org/repo",
-            "rules"
+            "rules",
           ),
           expectedKeywords: ["patterns", "content", "preset"],
         },
@@ -326,15 +326,15 @@ describe("User-friendly error messages", () => {
     it("should provide severity-appropriate messaging", () => {
       const lowError = new InteractiveSelectionError(
         "Minor issue",
-        ErrorSeverity.LOW
+        ErrorSeverity.LOW,
       );
       const highError = new InteractiveSelectionError(
         "Critical issue",
-        ErrorSeverity.HIGH
+        ErrorSeverity.HIGH,
       );
       const criticalError = new InteractiveSelectionError(
         "System failure",
-        ErrorSeverity.CRITICAL
+        ErrorSeverity.CRITICAL,
       );
 
       expect(lowError.isRecoverable()).toBe(true);
@@ -354,7 +354,7 @@ describe("User-friendly error messages", () => {
       const error = new InteractiveSelectionError(
         "Contextual error",
         ErrorSeverity.MEDIUM,
-        context
+        context,
       );
 
       const details = error.getDetails();

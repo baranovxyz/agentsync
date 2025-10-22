@@ -4,18 +4,17 @@
  */
 
 import {
-  RuleConverterBase,
   type RuleConversionResult,
-} from './rule-converter-base.js';
+  RuleConverterBase,
+} from "./rule-converter-base.js";
 
 export class ClaudeRulesConverter extends RuleConverterBase {
   /**
    * Claude supports plain markdown
    */
   convert(namespacedFilename: string, content: string): RuleConversionResult {
-    const { namespace, filename } = this.parseNamespacedFilename(
-      namespacedFilename
-    );
+    const { namespace, filename } =
+      this.parseNamespacedFilename(namespacedFilename);
 
     // Claude keeps .md extension
     const outputFilename = `${namespace}:${filename}`;

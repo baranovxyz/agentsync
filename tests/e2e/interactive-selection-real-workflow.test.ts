@@ -3,12 +3,12 @@
  * Tests the complete workflow without mocks
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { execa } from "execa";
-import * as path from "path";
-import * as os from "os";
-import * as fs from "../../src/utils/fs.js";
 import { mkdtemp } from "node:fs/promises";
+import * as os from "node:os";
+import * as path from "node:path";
+import { execa } from "execa";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import * as fs from "../../src/utils/fs.js";
 
 describe("Interactive Selection Real Workflow (E2E)", () => {
   let tempDir: string;
@@ -29,7 +29,7 @@ describe("Interactive Selection Real Workflow (E2E)", () => {
         extends: [],
         tools: ["cursor"],
       }),
-      { encoding: "utf-8" }
+      { encoding: "utf-8" },
     );
   });
 
@@ -50,7 +50,7 @@ describe("Interactive Selection Real Workflow (E2E)", () => {
       [cliPath, "preset", "list"],
       {
         cwd: tempDir,
-      }
+      },
     );
     expect(listOutput).toContain("github:company/standards");
     expect(listOutput).toContain("Not cached");
@@ -86,7 +86,7 @@ describe("Interactive Selection Real Workflow (E2E)", () => {
           },
         ],
       }),
-      "utf-8"
+      "utf-8",
     );
 
     // 3. Run list command
@@ -95,7 +95,7 @@ describe("Interactive Selection Real Workflow (E2E)", () => {
       [cliPath, "preset", "list"],
       {
         cwd: tempDir,
-      }
+      },
     );
 
     // 4. Verify both presets are shown
@@ -115,7 +115,7 @@ describe("Interactive Selection Real Workflow (E2E)", () => {
         extends: [],
         tools: ["cursor"],
       }),
-      "utf-8"
+      "utf-8",
     );
 
     // 2. Run list command
@@ -124,7 +124,7 @@ describe("Interactive Selection Real Workflow (E2E)", () => {
       [cliPath, "preset", "list"],
       {
         cwd: tempDir,
-      }
+      },
     );
 
     // 3. Verify empty state message
@@ -151,7 +151,7 @@ describe("Interactive Selection Real Workflow (E2E)", () => {
         ],
         tools: ["cursor"],
       }),
-      "utf-8"
+      "utf-8",
     );
 
     // 2. Run list command (should not throw)
@@ -172,7 +172,7 @@ describe("Interactive Selection Real Workflow (E2E)", () => {
       [cliPath, "preset", "list"],
       {
         cwd: tempDir,
-      }
+      },
     );
 
     // 3. Verify error message

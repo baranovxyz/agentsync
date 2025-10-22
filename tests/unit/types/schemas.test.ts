@@ -3,22 +3,16 @@
  * Tests for type definitions and utility functions in schemas.ts
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-  normalizeExtends,
   type ExtendsEntry,
-  AgentSyncConfigSchema,
-  validateConfig,
-  PresetSelectionSchema,
-  UserPresetEntrySchema,
-  UserConfigSchema,
-  LocalConfigSchema,
-  validateUserPresetEntry,
-  validateUserConfig,
-  validateLocalConfig,
-  safeParseUserPresetEntry,
-  safeParseUserConfig,
+  normalizeExtends,
   safeParseLocalConfig,
+  safeParseUserConfig,
+  validateConfig,
+  validateLocalConfig,
+  validateUserConfig,
+  validateUserPresetEntry,
 } from "../../../src/types/schemas.js";
 
 describe("ExtendsEntry type", () => {
@@ -169,7 +163,7 @@ describe("ExtendsEntry type", () => {
       const extends_ = ["invalid-source-format"];
 
       expect(() => normalizeExtends(extends_)).toThrow(
-        "Invalid GitHub source: invalid-source-format. Expected format: github:org/repo"
+        "Invalid GitHub source: invalid-source-format. Expected format: github:org/repo",
       );
     });
   });
@@ -515,7 +509,7 @@ describe("ExtendsEntry type", () => {
         };
 
         expect(() => validateUserPresetEntry(entry)).toThrow(
-          "Source cannot be empty"
+          "Source cannot be empty",
         );
       });
 

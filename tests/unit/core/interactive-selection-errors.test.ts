@@ -2,15 +2,15 @@
  * Tests for interactive selection error types
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-  InteractiveSelectionError,
-  SelectionValidationError,
-  SourceResolutionError,
-  UserPresetRegistryError,
-  SelectiveLoadingError,
   ErrorCategory,
   ErrorSeverity,
+  InteractiveSelectionError,
+  SelectionValidationError,
+  SelectiveLoadingError,
+  SourceResolutionError,
+  UserPresetRegistryError,
 } from "../../../src/core/errors.js";
 
 describe("InteractiveSelectionError", () => {
@@ -30,7 +30,7 @@ describe("InteractiveSelectionError", () => {
     const error = new InteractiveSelectionError(
       "Custom error",
       ErrorSeverity.HIGH,
-      context
+      context,
     );
 
     expect(error.message).toBe("Custom error");
@@ -67,7 +67,7 @@ describe("SelectionValidationError", () => {
     ];
     const error = new SelectionValidationError(
       "Validation failed",
-      validationErrors
+      validationErrors,
     );
 
     expect(error.validationErrors).toEqual(validationErrors);
@@ -82,7 +82,7 @@ describe("SelectionValidationError", () => {
     ];
     const error = new SelectionValidationError(
       "Validation failed",
-      validationErrors
+      validationErrors,
     );
 
     const formattedErrors = error.getFormattedErrors();
@@ -111,7 +111,7 @@ describe("SourceResolutionError", () => {
     const error = new SourceResolutionError(
       "Failed to resolve",
       source,
-      originalError
+      originalError,
     );
 
     expect(error.originalError).toBe(originalError);
@@ -140,7 +140,7 @@ describe("UserPresetRegistryError", () => {
     const error = new UserPresetRegistryError(
       "Operation failed",
       operation,
-      presetName
+      presetName,
     );
 
     expect(error.metadata.context).toEqual({
@@ -168,7 +168,7 @@ describe("SelectiveLoadingError", () => {
     const error = new SelectiveLoadingError(
       "Loading failed",
       presetSource,
-      selectionType
+      selectionType,
     );
 
     expect(error.metadata.context).toEqual({
@@ -182,13 +182,13 @@ describe("Error recovery and formatting", () => {
   it("should determine if error is recoverable", () => {
     const criticalError = new InteractiveSelectionError(
       "Critical error",
-      ErrorSeverity.CRITICAL
+      ErrorSeverity.CRITICAL,
     );
     expect(criticalError.isRecoverable()).toBe(false);
 
     const mediumError = new InteractiveSelectionError(
       "Medium error",
-      ErrorSeverity.MEDIUM
+      ErrorSeverity.MEDIUM,
     );
     expect(mediumError.isRecoverable()).toBe(true);
   });
@@ -198,7 +198,7 @@ describe("Error recovery and formatting", () => {
     const error = new InteractiveSelectionError(
       "Test error",
       ErrorSeverity.HIGH,
-      context
+      context,
     );
 
     const details = error.getDetails();

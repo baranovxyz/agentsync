@@ -2,15 +2,15 @@
  * Tests for sync command with selective loading integration
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { readFile } from "node:fs/promises";
+import * as path from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { syncMCP } from "../../../src/commands/mcp/sync.js";
 import { sync } from "../../../src/commands/sync.js";
 import { RegistryOrchestrator } from "../../../src/core/registry/registry-orchestrator.js";
-import { RulesSyncTarget } from "../../../src/targets/rules-sync-target.js";
 import { CommandsSyncTarget } from "../../../src/targets/commands-sync-target.js";
+import { RulesSyncTarget } from "../../../src/targets/rules-sync-target.js";
 import { validateConfig } from "../../../src/types/schemas.js";
-import { readFile } from "node:fs/promises";
-import * as path from "path";
-import { syncMCP } from "../../../src/commands/mcp/sync.js";
 
 // Mock dependencies
 vi.mock("node:fs/promises");
@@ -36,7 +36,7 @@ const mockSyncMCP = vi.mocked(syncMCP);
 
 describe("sync command with selective loading", () => {
   const mockCwd = "/test/project";
-  const mockConfigPath = path.join(mockCwd, ".agentsync", "config.json");
+  const _mockConfigPath = path.join(mockCwd, ".agentsync", "config.json");
   const mockConfig = {
     version: "1.0",
     extends: ["github:company/standards", "github:team/rules"],
@@ -59,7 +59,7 @@ describe("sync command with selective loading", () => {
       validateSelections: vi.fn(),
     };
     mockRegistryOrchestrator.mockImplementation(
-      () => mockOrchestratorInstance as any
+      () => mockOrchestratorInstance as any,
     );
 
     // Mock sync targets
@@ -71,7 +71,7 @@ describe("sync command with selective loading", () => {
     };
     mockRulesSyncTarget.mockImplementation(() => mockRulesSyncInstance as any);
     mockCommandsSyncTarget.mockImplementation(
-      () => mockCommandsSyncInstance as any
+      () => mockCommandsSyncInstance as any,
     );
 
     // Mock MCP sync
@@ -98,10 +98,10 @@ describe("sync command with selective loading", () => {
       mockCwd,
       {
         update: undefined,
-      }
+      },
     );
     expect(
-      mockOrchestratorInstance.loadAndMergeSelective
+      mockOrchestratorInstance.loadAndMergeSelective,
     ).not.toHaveBeenCalled();
   });
 
@@ -121,7 +121,7 @@ describe("sync command with selective loading", () => {
 
     const mockOrchestratorInstance = new (mockRegistryOrchestrator as any)();
     mockOrchestratorInstance.loadAndMergeSelective.mockResolvedValue(
-      mockMerged
+      mockMerged,
     );
 
     await sync({ cwd: mockCwd, selections: mockSelections } as any);
@@ -129,7 +129,7 @@ describe("sync command with selective loading", () => {
     expect(mockOrchestratorInstance.loadAndMergeSelective).toHaveBeenCalledWith(
       mockCwd,
       mockSelections,
-      { update: undefined }
+      { update: undefined },
     );
     expect(mockOrchestratorInstance.loadAndMerge).not.toHaveBeenCalled();
   });
@@ -158,7 +158,7 @@ describe("sync command with selective loading", () => {
     expect(mockOrchestratorInstance.validateSelections).toHaveBeenCalledWith(
       mockCwd,
       mockSelections,
-      { update: undefined }
+      { update: undefined },
     );
   });
 
@@ -176,7 +176,7 @@ describe("sync command with selective loading", () => {
     });
 
     await expect(
-      sync({ cwd: mockCwd, selections: mockSelections } as any)
+      sync({ cwd: mockCwd, selections: mockSelections } as any),
     ).rejects.toThrow("Invalid selections");
   });
 
@@ -195,7 +195,7 @@ describe("sync command with selective loading", () => {
     // Should work exactly as before
     expect(mockOrchestratorInstance.loadAndMerge).toHaveBeenCalled();
     expect(
-      mockOrchestratorInstance.loadAndMergeSelective
+      mockOrchestratorInstance.loadAndMergeSelective,
     ).not.toHaveBeenCalled();
   });
 
@@ -213,7 +213,7 @@ describe("sync command with selective loading", () => {
       mockCwd,
       {
         update: true,
-      }
+      },
     );
   });
 
@@ -244,12 +244,12 @@ describe("sync command with selective loading", () => {
     expect(mockOrchestratorInstance.validateSelections).toHaveBeenCalledWith(
       mockCwd,
       mockSelections,
-      { update: true }
+      { update: true },
     );
     expect(mockOrchestratorInstance.loadAndMergeSelective).toHaveBeenCalledWith(
       mockCwd,
       mockSelections,
-      { update: true }
+      { update: true },
     );
   });
 });

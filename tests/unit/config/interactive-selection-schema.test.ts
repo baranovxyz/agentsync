@@ -4,22 +4,12 @@
  * File-level selection capabilities and user registry system
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   FileSelectionSchema,
+  InteractiveSelectionConfigSchema,
   PresetSelectionSchema,
   UserRegistryConfigSchema,
-  LocalConfigSchema,
-  ProjectConfigSchema,
-  InteractiveSelectionConfigSchema,
-  validateInteractiveSelectionConfig,
-  safeParseInteractiveSelectionConfig,
-  type FileSelection,
-  type PresetSelection,
-  type UserRegistryConfig,
-  type LocalConfig,
-  type ProjectConfig,
-  type InteractiveSelectionConfig,
 } from "../../../src/types/schemas.js";
 
 describe("Interactive Selection Configuration Schema", () => {
@@ -343,7 +333,8 @@ describe("Interactive Selection Configuration Schema", () => {
       // Additional validation would check glob pattern validity
       const result = InteractiveSelectionConfigSchema.parse(config);
       expect(
-        result.project?.selections?.["github:company/standards"]?.rules?.include
+        result.project?.selections?.["github:company/standards"]?.rules
+          ?.include,
       ).toEqual([""]);
     });
   });

@@ -3,7 +3,7 @@
  * Tests for migrating from legacy configuration format to new interactive selection format
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 // Legacy configuration types (current format)
 interface LegacyAgentSyncConfig {
@@ -57,7 +57,7 @@ class ConfigMigrator {
    * Migrate legacy configuration to new interactive selection format
    */
   migrateFromLegacy(
-    legacyConfig: LegacyAgentSyncConfig
+    legacyConfig: LegacyAgentSyncConfig,
   ): InteractiveSelectionConfig {
     const newConfig: InteractiveSelectionConfig = {
       version: "2.0",
@@ -375,7 +375,7 @@ describe("Interactive Selection Configuration Migration", () => {
 
       expect(result.valid).toBe(false);
       expect(result.errors).toContain(
-        "User presets cannot be empty when user config is present"
+        "User presets cannot be empty when user config is present",
       );
     });
 

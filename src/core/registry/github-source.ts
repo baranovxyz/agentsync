@@ -20,7 +20,7 @@ export class GitHubSourceParser {
     // Format: github:org/repo[@ref]
     if (!source.startsWith("github:")) {
       throw new Error(
-        `Invalid GitHub source: ${source}. Must start with "github:"`
+        `Invalid GitHub source: ${source}. Must start with "github:"`,
       );
     }
 
@@ -33,16 +33,16 @@ export class GitHubSourceParser {
     const parts = repoPath.split("/");
     if (parts.length !== 2) {
       throw new Error(
-        `Invalid GitHub source: ${source}. Format: github:org/repo[@ref]`
+        `Invalid GitHub source: ${source}. Format: github:org/repo[@ref]`,
       );
     }
 
     const [org, repo] = parts;
 
     // Validate
-    if (!org || !repo) {
+    if (!(org && repo)) {
       throw new Error(
-        `Invalid GitHub source: ${source}. Both org and repo required`
+        `Invalid GitHub source: ${source}. Both org and repo required`,
       );
     }
 
@@ -50,7 +50,7 @@ export class GitHubSourceParser {
     if (ref !== "main") {
       throw new Error(
         `GitHub ref "${ref}" not supported in v0.3.0-beta.\n` +
-          `Only @main is supported. Version tags coming in v0.4.0.`
+          `Only @main is supported. Version tags coming in v0.4.0.`,
       );
     }
 

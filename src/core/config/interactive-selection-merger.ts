@@ -4,13 +4,13 @@
  * and applying file-level selections from presets
  */
 
-import type { SelectionConfig } from "../../types/index.js";
-import type { PresetSelection, AgentSyncConfig } from "../../types/schemas.js";
-import type { Preset } from "../../types/preset.js";
-import { validateConfig } from "../../types/schemas.js";
-import micromatch from "micromatch";
 import { readFile, writeFile } from "node:fs/promises";
-import * as path from "path";
+import * as path from "node:path";
+import micromatch from "micromatch";
+import type { SelectionConfig } from "../../types/index.js";
+import type { Preset } from "../../types/preset.js";
+import type { AgentSyncConfig, PresetSelection } from "../../types/schemas.js";
+import { validateConfig } from "../../types/schemas.js";
 
 /**
  * Merged configuration result
@@ -99,7 +99,7 @@ export class ConfigMerger {
    */
   applySelections(
     preset: Preset,
-    selection: SelectionConfig
+    selection: SelectionConfig,
   ): AppliedSelection {
     const result: AppliedSelection = {
       commands: new Map(),
@@ -142,19 +142,15 @@ export class ConfigMerger {
    */
   private matchesPattern(
     filename: string,
-    fileSelection: { include?: string[]; exclude?: string[] }
+    fileSelection: { include?: string[]; exclude?: string[] },
   ): boolean {
-    if (
-      !fileSelection ||
-      !fileSelection.include ||
-      fileSelection.include.length === 0
-    ) {
+    if (!fileSelection?.include || fileSelection.include.length === 0) {
       return false;
     }
 
     // Check if file matches any include pattern
     const isIncluded = fileSelection.include.some((pattern) =>
-      this.simpleGlobMatch(filename, pattern)
+      this.simpleGlobMatch(filename, pattern),
     );
 
     if (!isIncluded) {
@@ -164,7 +160,7 @@ export class ConfigMerger {
     // Check if file is excluded by any exclude pattern
     if (fileSelection.exclude && fileSelection.exclude.length > 0) {
       const isExcluded = fileSelection.exclude.some((pattern) =>
-        this.simpleGlobMatch(filename, pattern)
+        this.simpleGlobMatch(filename, pattern),
       );
 
       return !isExcluded;
@@ -186,7 +182,7 @@ export class ConfigMerger {
    */
   validateMCPSelection(
     preset: Preset,
-    selection: SelectionConfig
+    selection: SelectionConfig,
   ): { valid: boolean; errors: string[] } {
     const errors: string[] = [];
 
@@ -194,7 +190,7 @@ export class ConfigMerger {
       for (const mcpName of selection.mcps) {
         if (!preset.mcps[mcpName]) {
           errors.push(
-            `MCP server '${mcpName}' not found in preset '${preset.source}'`
+            `MCP server '${mcpName}' not found in preset '${preset.source}'`,
           );
         }
       }
@@ -211,7 +207,7 @@ export class ConfigMerger {
    */
   getEffectiveSelection(
     presetSource: string,
-    mergedConfig: MergedConfig
+    mergedConfig: MergedConfig,
   ): SelectionConfig | undefined {
     return mergedConfig.selections[presetSource];
   }
@@ -235,7 +231,7 @@ export class ConfigMerger {
    */
   getPresetsWithSelections(mergedConfig: MergedConfig): string[] {
     return Object.keys(mergedConfig.selections).filter((presetSource) =>
-      this.hasSelections(presetSource, mergedConfig)
+      this.hasSelections(presetSource, mergedConfig),
     );
   }
 
@@ -243,7 +239,7 @@ export class ConfigMerger {
    * Merge multiple applied selections from different presets
    */
   mergeAppliedSelections(
-    appliedSelections: AppliedSelection[]
+    appliedSelections: AppliedSelection[],
   ): AppliedSelection {
     const merged: AppliedSelection = {
       commands: new Map(),
@@ -303,32 +299,32 @@ export class ConfigMerger {
   }
 
   private async loadLocalConfig(
-    cwd: string
+    cwd: string,
   ): Promise<Partial<AgentSyncConfig>> {
     const configPath = path.join(cwd, "agentsync.local.json");
     try {
       const content = await readFile(configPath, "utf-8");
       return JSON.parse(content);
-    } catch (error) {
+    } catch (_error) {
       return { extends: [] };
     }
   }
 
   async saveSelectionsForProject(
     cwd: string,
-    selections: Record<string, SelectionConfig>
+    selections: Record<string, SelectionConfig>,
   ): Promise<void> {
     const configPath = path.join(
       cwd,
       ".agentsync",
-      "interactive-selections.json"
+      "interactive-selections.json",
     );
     let config: any;
 
     try {
       const content = await readFile(configPath, "utf-8");
       config = JSON.parse(content);
-    } catch (error) {
+    } catch (_error) {
       // If file doesn't exist or is invalid, create a new one
       config = { version: "2.0" };
     }
