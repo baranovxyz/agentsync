@@ -456,33 +456,9 @@ export const UserConfigSchema = z.object({
     .optional(),
 });
 
-// User Preset Registry Schema (Legacy - for backward compatibility)
-export const UserPresetSchema = z.object({
-  name: z.string().min(1, "Preset name cannot be empty"),
-  description: z.string().min(1, "Preset description cannot be empty"),
-  source: z
-    .string()
-    .regex(
-      /^github:[^/]+\/[^/]+$/,
-      "Source must be in format 'github:org/repo'"
-    ),
-  namespace: z.string().min(1, "Namespace cannot be empty"),
-  addedAt: z.string().datetime().optional(),
-});
-
-// User Preset Registry Storage Schema (Legacy - for backward compatibility)
-export const UserPresetRegistrySchema = z.object({
-  presets: z.record(z.string(), UserPresetSchema),
-  lastUpdated: z.string().datetime().optional(),
-});
-
 // Type exports for user config
 export type UserPresetEntry = z.infer<typeof UserPresetEntrySchema>;
 export type UserConfig = z.infer<typeof UserConfigSchema>;
-
-// Type exports for user preset registry (legacy)
-export type UserPreset = z.infer<typeof UserPresetSchema>;
-export type UserPresetRegistryData = z.infer<typeof UserPresetRegistrySchema>;
 
 /**
  * Validate user preset entry
@@ -496,22 +472,6 @@ export function validateUserPresetEntry(data: unknown): UserPresetEntry {
  */
 export function validateUserConfig(data: unknown): UserConfig {
   return UserConfigSchema.parse(data);
-}
-
-/**
- * Validate user preset (legacy)
- */
-export function validateUserPreset(data: unknown): UserPreset {
-  return UserPresetSchema.parse(data);
-}
-
-/**
- * Validate user preset registry data (legacy)
- */
-export function validateUserPresetRegistry(
-  data: unknown
-): UserPresetRegistryData {
-  return UserPresetRegistrySchema.parse(data);
 }
 
 /**
@@ -537,36 +497,6 @@ export function safeParseUserConfig(
   data: unknown
 ): { success: true; data: UserConfig } | { success: false; error: z.ZodError } {
   const result = UserConfigSchema.safeParse(data);
-  if (result.success) {
-    return { success: true, data: result.data };
-  } else {
-    return { success: false, error: result.error };
-  }
-}
-
-/**
- * Safe parse user preset with error details (legacy)
- */
-export function safeParseUserPreset(
-  data: unknown
-): { success: true; data: UserPreset } | { success: false; error: z.ZodError } {
-  const result = UserPresetSchema.safeParse(data);
-  if (result.success) {
-    return { success: true, data: result.data };
-  } else {
-    return { success: false, error: result.error };
-  }
-}
-
-/**
- * Safe parse user preset registry with error details (legacy)
- */
-export function safeParseUserPresetRegistry(
-  data: unknown
-):
-  | { success: true; data: UserPresetRegistryData }
-  | { success: false; error: z.ZodError } {
-  const result = UserPresetRegistrySchema.safeParse(data);
   if (result.success) {
     return { success: true, data: result.data };
   } else {

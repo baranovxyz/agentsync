@@ -16,13 +16,9 @@ import {
   validateUserPresetEntry,
   validateUserConfig,
   validateLocalConfig,
-  validateUserPreset,
-  validateUserPresetRegistry,
   safeParseUserPresetEntry,
   safeParseUserConfig,
   safeParseLocalConfig,
-  safeParseUserPreset,
-  safeParseUserPresetRegistry,
 } from "../../../src/types/schemas.js";
 
 describe("ExtendsEntry type", () => {
@@ -417,7 +413,7 @@ describe("ExtendsEntry type", () => {
         },
       });
     });
-  
+
     describe("UserConfig schema validation", () => {
       it("validates user config with presets", () => {
         const config = {
@@ -437,9 +433,9 @@ describe("ExtendsEntry type", () => {
           },
           tools: ["cursor", "claude"],
         };
-  
+
         const result = validateUserConfig(config);
-  
+
         expect(result.version).toBe("1.0");
         expect(result.presets).toHaveProperty("company-standards");
         expect(result.presets).toHaveProperty("local-rules");
@@ -451,7 +447,7 @@ describe("ExtendsEntry type", () => {
         });
         expect(result.tools).toEqual(["cursor", "claude"]);
       });
-  
+
       it("validates user config with minimal data", () => {
         const config = {
           presets: {
@@ -462,14 +458,14 @@ describe("ExtendsEntry type", () => {
             },
           },
         };
-  
+
         const result = validateUserConfig(config);
-  
+
         expect(result.version).toBe("1.0"); // default value
         expect(result.presets).toHaveProperty("my-preset");
         expect(result.tools).toBeUndefined();
       });
-  
+
       it("validates user preset entry", () => {
         const entry = {
           source: "github:company/standards",
@@ -477,50 +473,52 @@ describe("ExtendsEntry type", () => {
           addedAt: "2023-10-22T06:53:00.000Z",
           description: "Company standards",
         };
-  
+
         const result = validateUserPresetEntry(entry);
-  
+
         expect(result.source).toBe("github:company/standards");
         expect(result.type).toBe("github");
         expect(result.addedAt).toBe("2023-10-22T06:53:00.000Z");
         expect(result.description).toBe("Company standards");
       });
-  
+
       it("validates filesystem preset entry", () => {
         const entry = {
           source: "/path/to/local/preset",
           type: "filesystem" as const,
           addedAt: "2023-10-22T06:53:00.000Z",
         };
-  
+
         const result = validateUserPresetEntry(entry);
-  
+
         expect(result.source).toBe("/path/to/local/preset");
         expect(result.type).toBe("filesystem");
         expect(result.addedAt).toBe("2023-10-22T06:53:00.000Z");
         expect(result.description).toBeUndefined();
       });
-  
+
       it("rejects invalid preset entry type", () => {
         const entry = {
           source: "github:company/standards",
           type: "invalid",
           addedAt: "2023-10-22T06:53:00.000Z",
         };
-  
+
         expect(() => validateUserPresetEntry(entry)).toThrow();
       });
-  
+
       it("rejects empty source", () => {
         const entry = {
           source: "",
           type: "github" as const,
           addedAt: "2023-10-22T06:53:00.000Z",
         };
-  
-        expect(() => validateUserPresetEntry(entry)).toThrow("Source cannot be empty");
+
+        expect(() => validateUserPresetEntry(entry)).toThrow(
+          "Source cannot be empty"
+        );
       });
-  
+
       it("safe parse user config with valid data", () => {
         const config = {
           presets: {
@@ -531,15 +529,15 @@ describe("ExtendsEntry type", () => {
             },
           },
         };
-  
+
         const result = safeParseUserConfig(config);
-  
+
         expect(result.success).toBe(true);
         if (result.success) {
           expect(result.data.presets).toHaveProperty("test-preset");
         }
       });
-  
+
       it("safe parse user config with invalid data", () => {
         const config = {
           presets: {
@@ -550,9 +548,9 @@ describe("ExtendsEntry type", () => {
             },
           },
         };
-  
+
         const result = safeParseUserConfig(config);
-  
+
         expect(result.success).toBe(false);
         if (!result.success) {
           expect(result.error).toBeInstanceOf(Error);
@@ -606,10 +604,7 @@ describe("ExtendsEntry type", () => {
 
     it("validates local config with string extends only", () => {
       const config = {
-        extends: [
-          "github:company/standards",
-          "github:team/backend",
-        ],
+        extends: ["github:company/standards", "github:team/backend"],
       };
 
       const result = validateLocalConfig(config);

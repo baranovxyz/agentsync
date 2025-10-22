@@ -10,8 +10,6 @@ export * from "./preset";
 
 // Re-export interactive selection types
 export type {
-  UserPreset,
-  UserPresetRegistryData,
   SelectionConfig,
   Extends,
   ExtendsEntry,
