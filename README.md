@@ -96,7 +96,7 @@ agentsync preset cache-clear
 
 ### Example: Company-Wide Standards
 
-**Create preset repo:** `github:acme/coding-standards`
+**Create preset repo:** `github:acme/coding-standards` (current); planned generic scheme `git:host/acme/coding-standards` in a future version
 
 ```
 acme/coding-standards/
@@ -182,23 +182,17 @@ Control exactly which files from presets are included in your project:
 
 ```json
 {
-  "interactiveSelection": {
-    "version": "2.0",
-    "project": {
-      "selections": {
-        "github:company/standards": {
-          "rules": {
-            "include": ["typescript.md", "testing.md"],
-            "exclude": ["deprecated/*"]
-          },
-          "commands": {
-            "include": ["commit.md", "deploy.md"]
-          },
-          "mcps": ["github", "postgres"]
-        }
+  "extends": [
+    {
+      "source": "github:company/standards",
+      "namespace": "company",
+      "select": {
+        "rules": ["rules/typescript.md", "rules/testing.md"],
+        "commands": ["commands/commit.md", "commands/deploy.md"],
+        "mcps": ["github", "postgres"]
       }
     }
-  }
+  ]
 }
 ```
 
