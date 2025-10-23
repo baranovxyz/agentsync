@@ -14,6 +14,15 @@ AgentSync uses a comprehensive, fully-automated testing strategy to ensure CLI r
 - **Shell tests** verify real-world CLI execution
 - **All tests automated** - no manual testing required
 
+## Architecture-First Testing
+
+When fixing architectural issues, follow these principles:
+
+- **Identify root cause before fixing symptoms** - architectural mismatches often hide behind passing mocks
+- **Use real file system operations** in integration tests instead of mocking when testing file system interactions
+- **Create helper functions** for common file operations in tests for consistency with implementation
+- **When tests pass with mocks but fail in real usage**, investigate architectural consistency
+
 ---
 
 ## Quick Start
@@ -102,6 +111,101 @@ E2E tests require complete CLI environment setup:
 - **Required files:** `dist/`, `package.json`, `templates/`, `node_modules/`
 - **Templates directory:** Required for `init` command to work properly
 - **Node modules:** Use symlink approach due to ESM limitations
+
+---
+
+## Module Resolution Testing Patterns
+
+### Vitest Configuration Requirements
+
+When working with TypeScript projects, ensure proper module resolution:
+
+**tsconfig.json:**
+
+```json
+{
+  "compilerOptions": {
+    "moduleResolution": "node",
+    "include": ["src/**/*", "tests/**/*"]
+  }
+}
+```
+
+**vitest.config.ts:**
+
+```typescript
+export default defineConfig({
+  resolve: {
+    alias: {
+      "@": resolve(__dirname, "./src"),
+    },
+  },
+});
+```
+
+### Troubleshooting "Cannot find module" Errors
+
+**Common Issues:**
+
+- Tests importing with `.js` extensions (bad practice)
+- Missing `@` alias configuration
+- Incorrect `moduleResolution` setting
+
+**Solutions:**
+
+1. Use `@` alias for all test imports: `import { something } from "@/path/to/module"`
+2. Configure `tsconfig.json` with `"moduleResolution": "node"`
+3. Include tests in TypeScript compilation: `"include": ["src/**/*", "tests/**/*"]`
+4. Update Vitest config with proper alias resolution
+
+**Pattern:**
+
+```typescript
+// ✅ Correct
+import { UserPresetRegistry } from "@/core/registry/user-preset-registry";
+
+// ❌ Avoid
+import { UserPresetRegistry } from "../../../src/core/registry/user-preset-registry.js";
+```
+
+### Major Refactoring Test Strategy
+
+When performing major architecture changes:
+
+1. **Focus on Critical Tests First**: Error handling, core functionality
+2. **Fix Module Resolution Systematically**: Update all imports to use `@` alias
+3. **Expect 75-80% Pass Rate**: During major refactoring, some tests will fail due to API changes
+4. **Update Test Expectations**: Match new error handling patterns and API behavior
+5. **Preserve Test Coverage**: Maintain >80% coverage target throughout refactoring
+
+### Error Handling Test Updates
+
+When migrating to unified error handling:
+
+**Before (Specific Error Types):**
+
+```typescript
+await expect(function()).rejects.toThrow(ConfigError);
+```
+
+**After (Unified Error Wrapping):**
+
+```typescript
+await expect(function()).rejects.toThrow(AgentSyncError);
+```
+
+**Pattern for Error Message Testing:**
+
+```typescript
+try {
+  await function();
+} catch (error) {
+  expect(error).toBeInstanceOf(AgentSyncError);
+  if (error instanceof AgentSyncError) {
+    expect(error.getUserMessage()).toContain("expected message");
+  }
+}
+```
 
 ---
 
@@ -363,6 +467,25 @@ When adding new features:
 - E2E tests for user-facing workflows
 - Error scenario tests for edge cases
 - All tests automated (no manual steps)
+
+## Refactoring Testing
+
+**After Code Refactoring:**
+
+- Run specific test files for modified functions
+- Verify functionality is preserved: `pnpm test tests/unit/commands/[module]/[file].test.ts`
+- Ensure all tests pass before proceeding with further changes
+- Focus on unit tests for modified files to catch regressions early
+
+**Pattern:**
+
+```bash
+# Test specific module after refactoring
+pnpm test tests/unit/commands/mcp/add.test.ts
+
+# Verify broader functionality
+pnpm test tests/unit/commands/mcp/
+```
 
 ---
 

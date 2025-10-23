@@ -3,11 +3,11 @@
  * Tests adding MCP server to project config
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import * as os from "node:os";
+import * as path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { addMCP } from "../../../../src/commands/mcp/add.js";
 import * as fs from "../../../../src/utils/fs.js";
-import * as path from "path";
-import * as os from "os";
 
 describe("addMCP", () => {
   let tempDir: string;
@@ -120,7 +120,7 @@ describe("addMCP", () => {
     await fs.writeJson(".agentsync/config.json", projectConfig);
 
     await expect(addMCP("nonexistent")).rejects.toThrow(
-      /MCP server 'nonexistent' not found in global registry/
+      /MCP server 'nonexistent' not found in global registry/,
     );
   });
 
@@ -160,7 +160,7 @@ describe("addMCP", () => {
   it("writes to .agentsync/config.json instead of agentsync.local.json", async () => {
     // Create .agentsync directory
     await fs.ensureDir(".agentsync");
-    
+
     // Create initial config
     const projectConfig = {
       version: "1.0",
@@ -174,7 +174,7 @@ describe("addMCP", () => {
     // Should write to .agentsync/config.json
     const updated = await fs.readJson(".agentsync/config.json");
     expect(updated.mcpServers).toEqual(["github", "postgres"]);
-    
+
     // Should NOT create agentsync.local.json
     const localExists = await fs.pathExists("agentsync.local.json");
     expect(localExists).toBe(false);

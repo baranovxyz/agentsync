@@ -3,11 +3,11 @@
  * Loads ~/.agentsync/mcp.json
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import * as os from "node:os";
+import * as path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadGlobalRegistry } from "../../../../src/core/mcp/registry.js";
 import * as fs from "../../../../src/utils/fs.js";
-import * as path from "path";
-import * as os from "os";
 
 describe("loadGlobalRegistry", () => {
   let tempHomeDir: string;
@@ -73,7 +73,7 @@ describe("loadGlobalRegistry", () => {
 
   it("throws error if ~/.agentsync/mcp.json does not exist", async () => {
     await expect(loadGlobalRegistry()).rejects.toThrow(
-      /Global MCP registry not found/
+      /Global MCP registry not found/,
     );
   });
 
@@ -83,7 +83,7 @@ describe("loadGlobalRegistry", () => {
     await fs.writeFile(path.join(agentsyncDir, "mcp.json"), "invalid json{");
 
     await expect(loadGlobalRegistry()).rejects.toThrow(
-      /Failed to parse global MCP registry/
+      /Failed to parse global MCP registry/,
     );
   });
 
@@ -93,7 +93,7 @@ describe("loadGlobalRegistry", () => {
     await fs.writeJson(path.join(agentsyncDir, "mcp.json"), {});
 
     await expect(loadGlobalRegistry()).rejects.toThrow(
-      /Global MCP registry is empty/
+      /Global MCP registry is empty/,
     );
   });
 
@@ -111,7 +111,7 @@ describe("loadGlobalRegistry", () => {
     await fs.writeJson(path.join(agentsyncDir, "mcp.json"), invalidRegistry);
 
     await expect(loadGlobalRegistry()).rejects.toThrow(
-      /Invalid MCP configuration for 'github'/
+      /Invalid MCP configuration for 'github'/,
     );
   });
 

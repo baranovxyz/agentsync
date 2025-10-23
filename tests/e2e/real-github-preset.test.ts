@@ -3,12 +3,12 @@
  * Tests the full workflow with baranovxyz/agentsync-example-typescript
  */
 
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import * as path from "path";
-import * as os from "os";
-import * as fs from "../../src/utils/fs.js";
 import { mkdtemp } from "node:fs/promises";
+import * as os from "node:os";
+import * as path from "node:path";
 import { execa } from "execa";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import * as fs from "../../src/utils/fs.js";
 
 describe("Real GitHub Preset Integration", () => {
   let testDir: string;
@@ -44,9 +44,9 @@ describe("Real GitHub Preset Integration", () => {
           useSymlinks: false,
         },
         null,
-        2
+        2,
       ),
-      "utf-8"
+      "utf-8",
     );
 
     // 2. Run sync command
@@ -79,7 +79,7 @@ describe("Real GitHub Preset Integration", () => {
     // 6. Verify content is correct
     const ruleContent = await fs.readFile(
       path.join(cursorRulesDir, "baranovxyz:typescript-strict.mdc"),
-      "utf-8"
+      "utf-8",
     );
     expect(ruleContent).toContain("TypeScript Strict Mode");
     expect(ruleContent).toContain('"strict"'); // JSON has quotes
@@ -90,7 +90,7 @@ describe("Real GitHub Preset Integration", () => {
     const hasTypescriptExample = cachedPresets.some(
       (dir) =>
         dir.includes("baranovxyz") &&
-        dir.includes("agentsync-example-typescript")
+        dir.includes("agentsync-example-typescript"),
     );
     expect(hasTypescriptExample).toBe(true);
   }, 90000); // 90s timeout for GitHub operations
@@ -119,7 +119,7 @@ describe("Real GitHub Preset Integration", () => {
         error.message.includes("Failed to update")
       ) {
         console.warn(
-          "Skipping GitHub update test due to network/authentication issues"
+          "Skipping GitHub update test due to network/authentication issues",
         );
         return;
       }
@@ -144,9 +144,9 @@ describe("Real GitHub Preset Integration", () => {
             tools: ["cursor"],
           },
           null,
-          2
+          2,
         ),
-        "utf-8"
+        "utf-8",
       );
 
       // 3. Run with --dry-run

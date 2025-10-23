@@ -3,18 +3,18 @@
  * Orchestrates syncing of presets (rules, commands, MCPs) from GitHub to tools
  */
 
-import { RegistryOrchestrator } from "../core/registry/registry-orchestrator.js";
-import { RulesSyncTarget } from "../targets/rules-sync-target.js";
-import { CommandsSyncTarget } from "../targets/commands-sync-target.js";
-import { syncMCP } from "./mcp/sync.js";
-import { validateConfig } from "../types/schemas.js";
 import { readFile } from "node:fs/promises";
-import * as path from "path";
-import picocolors from "picocolors";
+import * as path from "node:path";
 import ora from "ora";
+import picocolors from "picocolors";
 import AuditLogger, { AuditEventType } from "../core/audit.js";
 import { ConfigError, ErrorCategory, ErrorSeverity } from "../core/errors.js";
+import { RegistryOrchestrator } from "../core/registry/registry-orchestrator.js";
+import { CommandsSyncTarget } from "../targets/commands-sync-target.js";
+import { RulesSyncTarget } from "../targets/rules-sync-target.js";
 import type { ToolName } from "../types/index.js";
+import { validateConfig } from "../types/schemas.js";
+import { syncMCP } from "./mcp/sync.js";
 
 const pc = picocolors;
 
@@ -30,6 +30,8 @@ export interface MainSyncOptions {
   dryRun?: boolean;
   /** Sync only to specific tool */
   tool?: string;
+  /** Selective loading options for presets */
+  selections?: Record<string, import("../types/index.js").SelectionConfig>;
 }
 
 /**
@@ -57,12 +59,12 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
     let configContent: string;
     try {
       configContent = await readFile(configPath, "utf-8");
-    } catch (error) {
+    } catch (_error) {
       spinner.fail("Configuration not found");
       throw new ConfigError(
         "AgentSync configuration not found",
         configPath,
-        'Run "agentsync init" to initialize AgentSync in this project'
+        'Run "agentsync init" to initialize AgentSync in this project',
       );
     }
 
@@ -74,7 +76,7 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
       throw new ConfigError(
         `Invalid AgentSync configuration: ${(error as Error).message}`,
         configPath,
-        `Check ${configPath} for syntax errors`
+        `Check ${configPath} for syntax errors`,
       );
     }
 
@@ -98,7 +100,7 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
         throw new ConfigError(
           `Unknown tool: ${options.tool}`,
           "",
-          `Valid tools: ${validTools.join(", ")}`
+          `Valid tools: ${validTools.join(", ")}`,
         );
       }
     }
@@ -110,7 +112,7 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
 
     console.log(
       pc.gray("Tools to sync: ") +
-        (targetTools.length > 0 ? targetTools.join(", ") : pc.gray("(none)"))
+        (targetTools.length > 0 ? targetTools.join(", ") : pc.gray("(none)")),
     );
     console.log(pc.gray("Libraries: ") + pc.gray(config.extends?.length || 0));
     console.log(
@@ -118,8 +120,8 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
         pc.gray(
           Array.isArray(config.mcpServers)
             ? config.mcpServers.length
-            : Object.keys(config.mcpServers || {}).length
-        )
+            : Object.keys(config.mcpServers || {}).length,
+        ),
     );
     console.log();
 
@@ -133,14 +135,64 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
 
     let merged;
     try {
-      merged = await orchestrator.loadAndMerge(cwd, {
-        update: options.update,
-      });
+      // Check if any extends entries have selection criteria
+      const hasSelections = config.extends?.some(
+        (entry) => typeof entry !== "string" && entry.select,
+      );
 
-      if (presetSpinner) {
-        presetSpinner.succeed(
-          `Loaded ${config.extends?.length || 0} ${config.extends?.length === 1 ? "library" : "libraries"}`
+      if (
+        hasSelections ||
+        (options.selections && Object.keys(options.selections).length > 0)
+      ) {
+        // Use selective loading when selections are present in config or options
+        if (options.selections && Object.keys(options.selections).length > 0) {
+          // Validate selections first
+          const validation = await orchestrator.validateSelections(
+            cwd,
+            options.selections,
+            {
+              update: options.update,
+            },
+          );
+
+          if (!validation.valid) {
+            if (presetSpinner) {
+              presetSpinner.fail("Invalid selections");
+            }
+            throw new Error(
+              `Invalid selections:\n${validation.errors.map((e) => `  - ${e}`).join("\n")}`,
+            );
+          }
+        }
+
+        merged = await orchestrator.loadAndMergeSelective(
+          cwd,
+          options.selections || {},
+          {
+            update: options.update,
+          },
         );
+
+        if (presetSpinner) {
+          const selectionCount =
+            config.extends?.filter(
+              (entry) => typeof entry !== "string" && entry.select,
+            ).length || 0;
+          presetSpinner.succeed(
+            `Loaded ${config.extends?.length || 0} ${config.extends?.length === 1 ? "library" : "libraries"} with ${selectionCount} selection${selectionCount === 1 ? "" : "s"}`,
+          );
+        }
+      } else {
+        // Use regular loading for backward compatibility
+        merged = await orchestrator.loadAndMerge(cwd, {
+          update: options.update,
+        });
+
+        if (presetSpinner) {
+          presetSpinner.succeed(
+            `Loaded ${config.extends?.length || 0} ${config.extends?.length === 1 ? "library" : "libraries"}`,
+          );
+        }
       }
     } catch (error) {
       if (presetSpinner) {
@@ -270,7 +322,7 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
       error as Error,
       ErrorCategory.SYNC,
       ErrorSeverity.HIGH,
-      { command: "sync", options }
+      { command: "sync", options },
     );
 
     throw error;

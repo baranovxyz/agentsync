@@ -2,12 +2,12 @@
  * Clear preset cache command
  */
 
+import { readFile } from "node:fs/promises";
+import * as path from "node:path";
 import picocolors from "picocolors";
 import { CacheManager } from "../../core/registry/cache-manager.js";
 import { GitHubSourceParser } from "../../core/registry/github-source.js";
-import { validateConfig, normalizeExtends } from "../../types/schemas.js";
-import { readFile } from "node:fs/promises";
-import * as path from "path";
+import { validateConfig } from "../../types/schemas.js";
 
 const pc = picocolors;
 
@@ -16,7 +16,7 @@ export interface CacheClearOptions {
 }
 
 export async function clearCache(
-  options: CacheClearOptions = {}
+  options: CacheClearOptions = {},
 ): Promise<void> {
   const cacheManager = new CacheManager();
 
@@ -34,7 +34,7 @@ export async function clearCache(
   try {
     const configContent = await readFile(configPath, "utf-8");
     const config = validateConfig(JSON.parse(configContent));
-    const extendsEntries = normalizeExtends(config.extends);
+    const extendsEntries = config.extends || [];
 
     if (extendsEntries.length === 0) {
       console.log(pc.gray("No presets to clear (config has no extends)"));
@@ -43,24 +43,30 @@ export async function clearCache(
 
     const parser = new GitHubSourceParser();
     console.log(
-      pc.yellow(`Clearing ${extendsEntries.length} preset cache(s)...\n`)
+      pc.yellow(`Clearing ${extendsEntries.length} preset cache(s)...\n`),
     );
 
     for (const entry of extendsEntries) {
-      const source = parser.parse(entry.source);
-      const metadata = await cacheManager.getCacheMetadata(source);
+      const source = typeof entry === "string" ? entry : entry.source;
+      const sourceObj = parser.parse(source);
+      const metadata = await cacheManager.getCacheMetadata(sourceObj);
 
       if (metadata.exists) {
-        await cacheManager.clear(source);
-        console.log(pc.green(`✓ Cleared: ${entry.source}`));
+        await cacheManager.clear(sourceObj);
+        console.log(pc.green(`✓ Cleared: ${source}`));
       } else {
-        console.log(pc.gray(`  Skipped: ${entry.source} (not cached)`));
+        console.log(pc.gray(`  Skipped: ${source} (not cached)`));
       }
     }
 
     console.log(pc.green("\n✓ Cache cleanup complete\n"));
-  } catch (error: any) {
-    if (error.code === "ENOENT") {
+  } catch (error: unknown) {
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "ENOENT"
+    ) {
       console.log(pc.red("✗ AgentSync not initialized"));
       console.log(pc.gray("\nRun: agentsync init"));
     } else {

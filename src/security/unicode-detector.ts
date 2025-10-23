@@ -7,14 +7,14 @@ export interface DangerousUnicodePattern {
   name: string;
   characters: number[]; // Unicode code points
   description: string;
-  risk: 'high' | 'medium' | 'low';
+  risk: "high" | "medium" | "low";
   purpose: string;
   cve?: string;
 }
 
 export interface UnicodeFinding {
   type: string;
-  risk: 'high' | 'medium' | 'low';
+  risk: "high" | "medium" | "low";
   description: string;
   purpose: string;
   cve?: string;
@@ -33,170 +33,170 @@ export interface UnicodeFinding {
 }
 
 export interface SanitizeOptions {
-  riskThreshold?: 'high' | 'medium' | 'low';
+  riskThreshold?: "high" | "medium" | "low";
 }
 
 export const DANGEROUS_UNICODE_PATTERNS: DangerousUnicodePattern[] = [
   // === ZERO-WIDTH CHARACTERS (HIGH RISK) ===
   {
-    name: 'Zero-Width Space',
+    name: "Zero-Width Space",
     characters: [0x200b],
-    description: 'Invisible space character',
-    risk: 'high',
-    purpose: 'Hide instructions between visible text',
+    description: "Invisible space character",
+    risk: "high",
+    purpose: "Hide instructions between visible text",
   },
   {
-    name: 'Zero-Width Non-Joiner',
+    name: "Zero-Width Non-Joiner",
     characters: [0x200c],
-    description: 'Invisible formatting character',
-    risk: 'high',
-    purpose: 'Break up visible text with hidden content',
+    description: "Invisible formatting character",
+    risk: "high",
+    purpose: "Break up visible text with hidden content",
   },
   {
-    name: 'Zero-Width Joiner',
+    name: "Zero-Width Joiner",
     characters: [0x200d],
-    description: 'Invisible formatting character',
-    risk: 'high',
-    purpose: 'Insert hidden instructions',
+    description: "Invisible formatting character",
+    risk: "high",
+    purpose: "Insert hidden instructions",
   },
   {
-    name: 'Word Joiner',
+    name: "Word Joiner",
     characters: [0x2060],
-    description: 'Invisible non-breaking space',
-    risk: 'high',
-    purpose: 'Hide malicious instructions',
+    description: "Invisible non-breaking space",
+    risk: "high",
+    purpose: "Hide malicious instructions",
   },
   {
-    name: 'Zero-Width No-Break Space',
+    name: "Zero-Width No-Break Space",
     characters: [0xfeff],
-    description: 'Invisible character (BOM)',
-    risk: 'high',
-    purpose: 'Hide content, confuse parsers',
+    description: "Invisible character (BOM)",
+    risk: "high",
+    purpose: "Hide content, confuse parsers",
   },
 
   // === BIDIRECTIONAL TEXT OVERRIDE (HIGH RISK - CVE-2021-42574) ===
   {
-    name: 'Right-to-Left Override',
+    name: "Right-to-Left Override",
     characters: [0x202e],
-    description: 'Forces text to display right-to-left',
-    risk: 'high',
-    purpose: 'Make code appear different than it executes (Trojan Source)',
-    cve: 'CVE-2021-42574',
+    description: "Forces text to display right-to-left",
+    risk: "high",
+    purpose: "Make code appear different than it executes (Trojan Source)",
+    cve: "CVE-2021-42574",
   },
   {
-    name: 'Left-to-Right Override',
+    name: "Left-to-Right Override",
     characters: [0x202d],
-    description: 'Forces text to display left-to-right',
-    risk: 'medium',
-    purpose: 'Combine with RTL for directional confusion',
-    cve: 'CVE-2021-42574',
+    description: "Forces text to display left-to-right",
+    risk: "medium",
+    purpose: "Combine with RTL for directional confusion",
+    cve: "CVE-2021-42574",
   },
   {
-    name: 'Right-to-Left Embedding',
+    name: "Right-to-Left Embedding",
     characters: [0x202b],
-    description: 'Embeds right-to-left text',
-    risk: 'medium',
-    purpose: 'Part of Trojan Source attacks',
-    cve: 'CVE-2021-42574',
+    description: "Embeds right-to-left text",
+    risk: "medium",
+    purpose: "Part of Trojan Source attacks",
+    cve: "CVE-2021-42574",
   },
   {
-    name: 'Left-to-Right Embedding',
+    name: "Left-to-Right Embedding",
     characters: [0x202a],
-    description: 'Embeds left-to-right text',
-    risk: 'low',
-    purpose: 'Can be combined with overrides',
-    cve: 'CVE-2021-42574',
+    description: "Embeds left-to-right text",
+    risk: "low",
+    purpose: "Can be combined with overrides",
+    cve: "CVE-2021-42574",
   },
   {
-    name: 'Pop Directional Formatting',
+    name: "Pop Directional Formatting",
     characters: [0x202c],
-    description: 'Ends bidirectional override',
-    risk: 'medium',
-    purpose: 'Part of Trojan Source attacks',
-    cve: 'CVE-2021-42574',
+    description: "Ends bidirectional override",
+    risk: "medium",
+    purpose: "Part of Trojan Source attacks",
+    cve: "CVE-2021-42574",
   },
 
   // === HOMOGLYPH ATTACK CHARACTERS (MEDIUM RISK) ===
   {
-    name: 'Cyrillic Lookalike: а (a)',
+    name: "Cyrillic Lookalike: а (a)",
     characters: [0x0430],
     description: 'Cyrillic character that looks like Latin "a"',
-    risk: 'medium',
-    purpose: 'Trick users into thinking command is different',
+    risk: "medium",
+    purpose: "Trick users into thinking command is different",
   },
   {
-    name: 'Cyrillic Lookalike: е (e)',
+    name: "Cyrillic Lookalike: е (e)",
     characters: [0x0435],
     description: 'Cyrillic character that looks like Latin "e"',
-    risk: 'medium',
-    purpose: 'Command spoofing',
+    risk: "medium",
+    purpose: "Command spoofing",
   },
   {
-    name: 'Cyrillic Lookalike: о (o)',
+    name: "Cyrillic Lookalike: о (o)",
     characters: [0x043e],
     description: 'Cyrillic character that looks like Latin "o"',
-    risk: 'medium',
-    purpose: 'Command spoofing',
+    risk: "medium",
+    purpose: "Command spoofing",
   },
   {
-    name: 'Cyrillic Lookalike: р (p)',
+    name: "Cyrillic Lookalike: р (p)",
     characters: [0x0440],
     description: 'Cyrillic character that looks like Latin "p"',
-    risk: 'medium',
-    purpose: 'Command spoofing',
+    risk: "medium",
+    purpose: "Command spoofing",
   },
   {
-    name: 'Cyrillic Lookalike: с (c)',
+    name: "Cyrillic Lookalike: с (c)",
     characters: [0x0441],
     description: 'Cyrillic character that looks like Latin "c"',
-    risk: 'medium',
-    purpose: 'Command spoofing',
+    risk: "medium",
+    purpose: "Command spoofing",
   },
   {
-    name: 'Cyrillic Lookalike: х (x)',
+    name: "Cyrillic Lookalike: х (x)",
     characters: [0x0445],
     description: 'Cyrillic character that looks like Latin "x"',
-    risk: 'medium',
-    purpose: 'Command spoofing',
+    risk: "medium",
+    purpose: "Command spoofing",
   },
 
   // === FORMAT CHARACTERS (LOW-MEDIUM RISK) ===
   {
-    name: 'Soft Hyphen',
+    name: "Soft Hyphen",
     characters: [0x00ad],
-    description: 'Invisible hyphen',
-    risk: 'low',
-    purpose: 'Can hide content in line breaks',
+    description: "Invisible hyphen",
+    risk: "low",
+    purpose: "Can hide content in line breaks",
   },
   {
-    name: 'Mongolian Vowel Separator',
+    name: "Mongolian Vowel Separator",
     characters: [0x180e],
-    description: 'Looks like whitespace, not actually space',
-    risk: 'medium',
-    purpose: 'Bypass whitespace detection',
+    description: "Looks like whitespace, not actually space",
+    risk: "medium",
+    purpose: "Bypass whitespace detection",
   },
 
   // === UNUSUAL WHITESPACE (LOW RISK, but suspicious in bulk) ===
   {
-    name: 'Non-Breaking Space',
+    name: "Non-Breaking Space",
     characters: [0x00a0],
-    description: 'Space that prevents line breaks',
-    risk: 'low',
-    purpose: 'Suspicious if used excessively (>10 in a row)',
+    description: "Space that prevents line breaks",
+    risk: "low",
+    purpose: "Suspicious if used excessively (>10 in a row)",
   },
   {
-    name: 'Em Space',
+    name: "Em Space",
     characters: [0x2003],
-    description: 'Wide space (1em)',
-    risk: 'low',
-    purpose: 'Can hide spacing differences',
+    description: "Wide space (1em)",
+    risk: "low",
+    purpose: "Can hide spacing differences",
   },
   {
-    name: 'Thin Space',
+    name: "Thin Space",
     characters: [0x2009],
-    description: 'Narrow space',
-    risk: 'low',
-    purpose: 'Can hide spacing differences',
+    description: "Narrow space",
+    risk: "low",
+    purpose: "Can hide spacing differences",
   },
 ];
 
@@ -225,7 +225,7 @@ export class UnicodeDetector {
    */
   async detect(content: string, filePath: string): Promise<UnicodeFinding[]> {
     const findings: UnicodeFinding[] = [];
-    const lines = content.split('\n');
+    const lines = content.split("\n");
 
     // Scan each character
     for (let i = 0; i < content.length; i++) {
@@ -238,7 +238,7 @@ export class UnicodeDetector {
         const pattern = this.codePointToPattern.get(codePoint)!;
         const lineNumber = this.getLineNumber(content, i);
         const columnNumber = this.getColumnNumber(content, i);
-        const lineContent = lines[lineNumber - 1] || '';
+        const lineContent = lines[lineNumber - 1] || "";
 
         // Get context (50 chars before and after)
         const contextStart = Math.max(0, i - 50);
@@ -256,7 +256,7 @@ export class UnicodeDetector {
           columnNumber,
           lineContent: lineContent.trim(),
           character: char,
-          codePoint: `U+${codePoint.toString(16).toUpperCase().padStart(4, '0')}`,
+          codePoint: `U+${codePoint.toString(16).toUpperCase().padStart(4, "0")}`,
           position: i,
           context: this.sanitizeForDisplay(context),
           contextStart,
@@ -283,7 +283,7 @@ export class UnicodeDetector {
    */
   private detectSuspiciousSequences(
     content: string,
-    filePath: string
+    filePath: string,
   ): UnicodeFinding[] {
     const findings: UnicodeFinding[] = [];
     const zeroWidthChars = [0x200b, 0x200c, 0x200d, 0x2060, 0xfeff];
@@ -307,25 +307,24 @@ export class UnicodeDetector {
           // VERY SUSPICIOUS - likely attack
           const lineNumber = this.getLineNumber(content, sequenceStart);
           findings.push({
-            type: 'Suspicious Zero-Width Sequence',
-            risk: 'high',
+            type: "Suspicious Zero-Width Sequence",
+            risk: "high",
             description: `${sequenceLength} consecutive zero-width characters`,
-            purpose: 'Likely hidden malicious instructions',
+            purpose: "Likely hidden malicious instructions",
             filePath,
             lineNumber,
             columnNumber: this.getColumnNumber(content, sequenceStart),
-            lineContent:
-              content.split('\n')[lineNumber - 1]?.trim() || '',
-            character: '',
+            lineContent: content.split("\n")[lineNumber - 1]?.trim() || "",
+            character: "",
             codePoint: `Multiple (${sequenceChars
-              .map((cp) => 'U+' + cp.toString(16).toUpperCase())
-              .join(', ')})`,
+              .map((cp) => `U+${cp.toString(16).toUpperCase()}`)
+              .join(", ")})`,
             position: sequenceStart,
             context: `[${sequenceLength} zero-width characters]`,
             contextStart: sequenceStart,
             contextEnd: sequenceStart + sequenceLength,
-            htmlEntity: '',
-            unicodeName: 'Zero-Width Sequence',
+            htmlEntity: "",
+            unicodeName: "Zero-Width Sequence",
           });
         }
         sequenceStart = -1;
@@ -342,14 +341,14 @@ export class UnicodeDetector {
    */
   private detectTrojanSource(
     content: string,
-    filePath: string
+    filePath: string,
   ): UnicodeFinding[] {
     const findings: UnicodeFinding[] = [];
     const bidiChars = [0x202a, 0x202b, 0x202c, 0x202d, 0x202e];
 
     // Count bidi characters
     let bidiCount = 0;
-    let bidiPositions: number[] = [];
+    const bidiPositions: number[] = [];
     for (let i = 0; i < content.length; i++) {
       const codePoint = content.codePointAt(i);
       if (codePoint && bidiChars.includes(codePoint)) {
@@ -361,25 +360,25 @@ export class UnicodeDetector {
     // More than 2 bidi chars is suspicious in AGENTS.md
     if (bidiCount >= 2) {
       findings.push({
-        type: 'Trojan Source Attack Pattern',
-        risk: 'high',
+        type: "Trojan Source Attack Pattern",
+        risk: "high",
         description: `Found ${bidiCount} bidirectional text control characters`,
-        purpose: 'Potential Trojan Source attack (CVE-2021-42574)',
-        cve: 'CVE-2021-42574',
+        purpose: "Potential Trojan Source attack (CVE-2021-42574)",
+        cve: "CVE-2021-42574",
         filePath,
         lineNumber: 1,
         columnNumber: 1,
-        lineContent: 'Multiple bidi controls detected',
-        character: '',
-        codePoint: 'Multiple',
+        lineContent: "Multiple bidi controls detected",
+        character: "",
+        codePoint: "Multiple",
         position: 0,
         context: `${bidiCount} bidirectional control characters found at positions: ${bidiPositions.join(
-          ', '
+          ", ",
         )}`,
         contextStart: 0,
         contextEnd: content.length,
-        htmlEntity: '',
-        unicodeName: 'Bidirectional Controls',
+        htmlEntity: "",
+        unicodeName: "Bidirectional Controls",
       });
     }
 
@@ -398,27 +397,27 @@ export class UnicodeDetector {
         }
         return char;
       })
-      .join('');
+      .join("");
   }
 
   /**
    * Remove dangerous Unicode from content (sanitization)
    */
   async sanitize(content: string, options?: SanitizeOptions): Promise<string> {
-    const riskThreshold = options?.riskThreshold || 'high';
+    const riskThreshold = options?.riskThreshold || "high";
 
     const removeCodePoints = new Set<number>();
 
     for (const pattern of this.dangerousPatterns) {
       // Remove based on risk level
-      if (riskThreshold === 'high' && pattern.risk === 'high') {
+      if (riskThreshold === "high" && pattern.risk === "high") {
         pattern.characters.forEach((cp) => removeCodePoints.add(cp));
       } else if (
-        riskThreshold === 'medium' &&
-        (pattern.risk === 'high' || pattern.risk === 'medium')
+        riskThreshold === "medium" &&
+        (pattern.risk === "high" || pattern.risk === "medium")
       ) {
         pattern.characters.forEach((cp) => removeCodePoints.add(cp));
-      } else if (riskThreshold === 'low') {
+      } else if (riskThreshold === "low") {
         pattern.characters.forEach((cp) => removeCodePoints.add(cp));
       }
     }
@@ -426,9 +425,9 @@ export class UnicodeDetector {
     return Array.from(content)
       .filter((char) => {
         const codePoint = char.codePointAt(0);
-        return !codePoint || !removeCodePoints.has(codePoint);
+        return !(codePoint && removeCodePoints.has(codePoint));
       })
-      .join('');
+      .join("");
   }
 
   /**
@@ -445,39 +444,39 @@ export class UnicodeDetector {
   }
 
   private getLineNumber(content: string, position: number): number {
-    return content.substring(0, position).split('\n').length;
+    return content.substring(0, position).split("\n").length;
   }
 
   private getColumnNumber(content: string, position: number): number {
     const beforePos = content.substring(0, position);
-    const lastNewline = beforePos.lastIndexOf('\n');
+    const lastNewline = beforePos.lastIndexOf("\n");
     return position - lastNewline;
   }
 
   private getUnicodeName(codePoint: number): string {
     const names: Record<number, string> = {
-      0x200b: 'ZERO WIDTH SPACE',
-      0x200c: 'ZERO WIDTH NON-JOINER',
-      0x200d: 'ZERO WIDTH JOINER',
-      0x202a: 'LEFT-TO-RIGHT EMBEDDING',
-      0x202b: 'RIGHT-TO-LEFT EMBEDDING',
-      0x202c: 'POP DIRECTIONAL FORMATTING',
-      0x202d: 'LEFT-TO-RIGHT OVERRIDE',
-      0x202e: 'RIGHT-TO-LEFT OVERRIDE',
-      0x2060: 'WORD JOINER',
-      0xfeff: 'ZERO WIDTH NO-BREAK SPACE',
-      0x00ad: 'SOFT HYPHEN',
-      0x180e: 'MONGOLIAN VOWEL SEPARATOR',
-      0x00a0: 'NO-BREAK SPACE',
-      0x2003: 'EM SPACE',
-      0x2009: 'THIN SPACE',
-      0x0430: 'CYRILLIC SMALL LETTER A',
-      0x0435: 'CYRILLIC SMALL LETTER IE',
-      0x043e: 'CYRILLIC SMALL LETTER O',
-      0x0440: 'CYRILLIC SMALL LETTER ER',
-      0x0441: 'CYRILLIC SMALL LETTER ES',
-      0x0445: 'CYRILLIC SMALL LETTER HA',
+      8203: "ZERO WIDTH SPACE",
+      8204: "ZERO WIDTH NON-JOINER",
+      8205: "ZERO WIDTH JOINER",
+      8234: "LEFT-TO-RIGHT EMBEDDING",
+      8235: "RIGHT-TO-LEFT EMBEDDING",
+      8236: "POP DIRECTIONAL FORMATTING",
+      8237: "LEFT-TO-RIGHT OVERRIDE",
+      8238: "RIGHT-TO-LEFT OVERRIDE",
+      8288: "WORD JOINER",
+      65279: "ZERO WIDTH NO-BREAK SPACE",
+      173: "SOFT HYPHEN",
+      6158: "MONGOLIAN VOWEL SEPARATOR",
+      160: "NO-BREAK SPACE",
+      8195: "EM SPACE",
+      8201: "THIN SPACE",
+      1072: "CYRILLIC SMALL LETTER A",
+      1077: "CYRILLIC SMALL LETTER IE",
+      1086: "CYRILLIC SMALL LETTER O",
+      1088: "CYRILLIC SMALL LETTER ER",
+      1089: "CYRILLIC SMALL LETTER ES",
+      1093: "CYRILLIC SMALL LETTER HA",
     };
-    return names[codePoint] || 'UNKNOWN';
+    return names[codePoint] || "UNKNOWN";
   }
 }

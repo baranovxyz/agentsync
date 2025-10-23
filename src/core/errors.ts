@@ -3,27 +3,27 @@
  * Provides type-safe, traceable error management with security focus
  */
 
-import { z } from 'zod';
+import type { z } from "zod";
 
 // Error severity levels
 export enum ErrorSeverity {
-  LOW = 'low',
-  MEDIUM = 'medium',
-  HIGH = 'high',
-  CRITICAL = 'critical'
+  LOW = "low",
+  MEDIUM = "medium",
+  HIGH = "high",
+  CRITICAL = "critical",
 }
 
 // Error categories for better classification
 export enum ErrorCategory {
-  SECURITY = 'security',
-  VALIDATION = 'validation',
-  FILE_SYSTEM = 'filesystem',
-  NETWORK = 'network',
-  PARSE = 'parse',
-  CONFIG = 'config',
-  SYNC = 'sync',
-  PERMISSION = 'permission',
-  UNKNOWN = 'unknown'
+  SECURITY = "security",
+  VALIDATION = "validation",
+  FILE_SYSTEM = "filesystem",
+  NETWORK = "network",
+  PARSE = "parse",
+  CONFIG = "config",
+  SYNC = "sync",
+  PERMISSION = "permission",
+  UNKNOWN = "unknown",
 }
 
 // Base error metadata interface
@@ -49,7 +49,7 @@ export class AgentSyncError extends Error {
     category: ErrorCategory = ErrorCategory.UNKNOWN,
     severity: ErrorSeverity = ErrorSeverity.MEDIUM,
     originalError?: Error,
-    context?: Record<string, unknown>
+    context?: Record<string, unknown>,
   ) {
     super(message);
     this.name = this.constructor.name;
@@ -106,10 +106,10 @@ export class SecurityError extends AgentSyncError {
   constructor(
     message: string,
     severity: ErrorSeverity = ErrorSeverity.HIGH,
-    context?: Record<string, unknown>
+    context?: Record<string, unknown>,
   ) {
     super(message, ErrorCategory.SECURITY, severity, undefined, context);
-    this.metadata.code = 'SECURITY_VIOLATION';
+    this.metadata.code = "SECURITY_VIOLATION";
   }
 }
 
@@ -122,11 +122,17 @@ export class ValidationError extends AgentSyncError {
   constructor(
     message: string,
     validationErrors?: z.ZodError,
-    context?: Record<string, unknown>
+    context?: Record<string, unknown>,
   ) {
-    super(message, ErrorCategory.VALIDATION, ErrorSeverity.MEDIUM, undefined, context);
+    super(
+      message,
+      ErrorCategory.VALIDATION,
+      ErrorSeverity.MEDIUM,
+      undefined,
+      context,
+    );
     this.validationErrors = validationErrors;
-    this.metadata.code = 'VALIDATION_FAILED';
+    this.metadata.code = "VALIDATION_FAILED";
 
     if (validationErrors) {
       this.metadata.context = {
@@ -142,8 +148,8 @@ export class ValidationError extends AgentSyncError {
   getFormattedErrors(): string[] {
     if (!this.validationErrors) return [];
 
-    return this.validationErrors.issues.map(issue => {
-      const path = issue.path.join('.');
+    return this.validationErrors.issues.map((issue) => {
+      const path = issue.path.join(".");
       return `${path}: ${issue.message}`;
     });
   }
@@ -153,19 +159,15 @@ export class ValidationError extends AgentSyncError {
  * File system errors
  */
 export class FileSystemError extends AgentSyncError {
-  constructor(
-    message: string,
-    filePath?: string,
-    originalError?: Error
-  ) {
+  constructor(message: string, filePath?: string, originalError?: Error) {
     super(
       message,
       ErrorCategory.FILE_SYSTEM,
       ErrorSeverity.MEDIUM,
       originalError,
-      filePath ? { filePath } : undefined
+      filePath ? { filePath } : undefined,
     );
-    this.metadata.code = 'FS_ERROR';
+    this.metadata.code = "FS_ERROR";
   }
 }
 
@@ -173,19 +175,15 @@ export class FileSystemError extends AgentSyncError {
  * Configuration errors
  */
 export class ConfigError extends AgentSyncError {
-  constructor(
-    message: string,
-    configPath?: string,
-    suggestion?: string
-  ) {
+  constructor(message: string, configPath?: string, suggestion?: string) {
     super(
       message,
       ErrorCategory.CONFIG,
       ErrorSeverity.MEDIUM,
       undefined,
-      configPath ? { configPath } : undefined
+      configPath ? { configPath } : undefined,
     );
-    this.metadata.code = 'CONFIG_ERROR';
+    this.metadata.code = "CONFIG_ERROR";
     this.metadata.suggestion = suggestion;
   }
 }
@@ -199,16 +197,14 @@ export class ParseError extends AgentSyncError {
     filePath?: string,
     line?: number,
     column?: number,
-    originalError?: Error
+    originalError?: Error,
   ) {
-    super(
-      message,
-      ErrorCategory.PARSE,
-      ErrorSeverity.MEDIUM,
-      originalError,
-      { filePath, line, column }
-    );
-    this.metadata.code = 'PARSE_ERROR';
+    super(message, ErrorCategory.PARSE, ErrorSeverity.MEDIUM, originalError, {
+      filePath,
+      line,
+      column,
+    });
+    this.metadata.code = "PARSE_ERROR";
   }
 }
 
@@ -216,19 +212,12 @@ export class ParseError extends AgentSyncError {
  * Permission errors
  */
 export class PermissionError extends AgentSyncError {
-  constructor(
-    message: string,
-    resource?: string,
-    requiredPermission?: string
-  ) {
-    super(
-      message,
-      ErrorCategory.PERMISSION,
-      ErrorSeverity.HIGH,
-      undefined,
-      { resource, requiredPermission }
-    );
-    this.metadata.code = 'PERMISSION_DENIED';
+  constructor(message: string, resource?: string, requiredPermission?: string) {
+    super(message, ErrorCategory.PERMISSION, ErrorSeverity.HIGH, undefined, {
+      resource,
+      requiredPermission,
+    });
+    this.metadata.code = "PERMISSION_DENIED";
   }
 }
 
@@ -240,16 +229,138 @@ export class SyncError extends AgentSyncError {
     message: string,
     endpoint?: string,
     statusCode?: number,
-    originalError?: Error
+    originalError?: Error,
   ) {
-    super(
-      message,
-      ErrorCategory.SYNC,
-      ErrorSeverity.MEDIUM,
-      originalError,
-      { endpoint, statusCode }
-    );
-    this.metadata.code = 'SYNC_FAILED';
+    super(message, ErrorCategory.SYNC, ErrorSeverity.MEDIUM, originalError, {
+      endpoint,
+      statusCode,
+    });
+    this.metadata.code = "SYNC_FAILED";
+  }
+}
+
+/**
+ * Interactive Selection errors
+ */
+export class InteractiveSelectionError extends AgentSyncError {
+  constructor(
+    message: string,
+    severity: ErrorSeverity = ErrorSeverity.MEDIUM,
+    context?: Record<string, unknown>,
+  ) {
+    super(message, ErrorCategory.CONFIG, severity, undefined, context);
+    this.metadata.code = "INTERACTIVE_SELECTION_ERROR";
+    this.metadata.suggestion =
+      "Check your interactive selection configuration and try again";
+  }
+}
+
+/**
+ * Selection validation errors
+ */
+export class SelectionValidationError extends InteractiveSelectionError {
+  public readonly validationErrors?: Array<{ path: string[]; message: string }>;
+
+  constructor(
+    message: string,
+    validationErrors?: Array<{ path: string[]; message: string }>,
+    context?: Record<string, unknown>,
+  ) {
+    super(message, ErrorSeverity.MEDIUM, context);
+    this.metadata.category = ErrorCategory.VALIDATION;
+    this.metadata.code = "SELECTION_VALIDATION_FAILED";
+    this.validationErrors = validationErrors;
+
+    if (validationErrors) {
+      this.metadata.context = {
+        ...this.metadata.context,
+        validationIssues: validationErrors,
+      };
+    }
+
+    this.metadata.suggestion =
+      "Review your selection patterns and ensure they match available files";
+  }
+
+  /**
+   * Get formatted validation errors
+   */
+  getFormattedErrors(): string[] {
+    if (!this.validationErrors) return [];
+
+    return this.validationErrors.map((issue) => {
+      const path = issue.path.join(".");
+      return `${path}: ${issue.message}`;
+    });
+  }
+}
+
+/**
+ * Source resolution errors
+ */
+export class SourceResolutionError extends InteractiveSelectionError {
+  constructor(message: string, source?: string, originalError?: Error) {
+    super(message, ErrorSeverity.MEDIUM, {
+      source,
+      originalError: originalError?.message,
+    });
+    this.metadata.category = ErrorCategory.NETWORK;
+    this.metadata.code = "SOURCE_RESOLUTION_FAILED";
+
+    // Set originalError through the parent constructor by recreating the error
+    if (originalError) {
+      Object.defineProperty(this, "originalError", {
+        value: originalError,
+        writable: false,
+        enumerable: false,
+        configurable: false,
+      });
+    }
+
+    this.metadata.suggestion =
+      "Verify the source URL and your network connection";
+  }
+}
+
+/**
+ * User preset registry errors
+ */
+export class UserPresetRegistryError extends InteractiveSelectionError {
+  constructor(message: string, operation?: string, presetName?: string) {
+    super(message, ErrorSeverity.MEDIUM, {
+      operation,
+      presetName,
+    });
+    this.metadata.category = ErrorCategory.FILE_SYSTEM;
+    this.metadata.code = "USER_PRESET_REGISTRY_ERROR";
+
+    if (operation === "add") {
+      this.metadata.suggestion =
+        "Check if the preset name already exists and ensure valid preset data";
+    } else if (operation === "get" || operation === "remove") {
+      this.metadata.suggestion =
+        "Verify the preset name exists in your registry";
+    } else {
+      this.metadata.suggestion =
+        "Check your user preset registry file permissions and format";
+    }
+  }
+}
+
+/**
+ * Selective loading errors
+ */
+export class SelectiveLoadingError extends InteractiveSelectionError {
+  constructor(message: string, presetSource?: string, selectionType?: string) {
+    super(message, ErrorSeverity.MEDIUM, {
+      presetSource,
+      selectionType,
+    });
+    this.metadata.category = ErrorCategory.PARSE;
+    this.metadata.code = "SELECTIVE_LOADING_FAILED";
+
+    this.metadata.suggestion =
+      "Verify your selection patterns match available content in the preset";
   }
 }
 
@@ -266,7 +377,7 @@ export class ErrorHandler {
     error: unknown,
     message: string,
     category?: ErrorCategory,
-    context?: Record<string, unknown>
+    context?: Record<string, unknown>,
   ): AgentSyncError {
     if (error instanceof AgentSyncError) {
       // Add additional context to existing error
@@ -284,7 +395,7 @@ export class ErrorHandler {
         category || ErrorCategory.UNKNOWN,
         ErrorSeverity.MEDIUM,
         error,
-        context
+        context,
       );
     }
 
@@ -294,7 +405,7 @@ export class ErrorHandler {
       category || ErrorCategory.UNKNOWN,
       ErrorSeverity.MEDIUM,
       undefined,
-      { ...context, originalValue: error }
+      { ...context, originalValue: error },
     );
   }
 
@@ -303,7 +414,7 @@ export class ErrorHandler {
    */
   static isErrorType<T extends AgentSyncError>(
     error: unknown,
-    errorClass: new (...args: any[]) => T
+    errorClass: new (...args: any[]) => T,
   ): error is T {
     return error instanceof errorClass;
   }
@@ -315,7 +426,11 @@ export class ErrorHandler {
     let current: Error | undefined = error;
     let depth = 0;
 
-    while (current instanceof AgentSyncError && current.originalError && depth < this.MAX_STACK_DEPTH) {
+    while (
+      current instanceof AgentSyncError &&
+      current.originalError &&
+      depth < ErrorHandler.MAX_STACK_DEPTH
+    ) {
       current = current.originalError;
       depth++;
     }
@@ -339,7 +454,7 @@ export class ErrorHandler {
 
       // Add context if available
       if (error.metadata.context) {
-        lines.push('   Context:');
+        lines.push("   Context:");
         Object.entries(error.metadata.context).forEach(([key, value]) => {
           lines.push(`     ${key}: ${JSON.stringify(value)}`);
         });
@@ -347,20 +462,25 @@ export class ErrorHandler {
 
       // Add validation errors if present
       if (error instanceof ValidationError && error.validationErrors) {
-        lines.push('   Validation Errors:');
-        error.getFormattedErrors().forEach(err => {
+        lines.push("   Validation Errors:");
+        error.getFormattedErrors().forEach((err) => {
           lines.push(`     - ${err}`);
         });
       }
 
       // Add stack trace
       if (error.stack) {
-        lines.push('   Stack Trace:');
-        lines.push(error.stack.split('\n').map(line => `     ${line}`).join('\n'));
+        lines.push("   Stack Trace:");
+        lines.push(
+          error.stack
+            .split("\n")
+            .map((line) => `     ${line}`)
+            .join("\n"),
+        );
       }
     }
 
-    return lines.join('\n');
+    return lines.join("\n");
   }
 
   /**
@@ -375,10 +495,12 @@ export class ErrorHandler {
         timestamp: error.metadata.timestamp.toISOString(),
         stackTrace: undefined, // Don't include stack in serialization
       },
-      originalError: error.originalError ? {
-        name: error.originalError.name,
-        message: error.originalError.message,
-      } : undefined,
+      originalError: error.originalError
+        ? {
+            name: error.originalError.name,
+            message: error.originalError.message,
+          }
+        : undefined,
     };
   }
 }
@@ -399,24 +521,29 @@ export class RetryStrategy implements RecoveryStrategy {
   constructor(
     private maxRetries: number = 3,
     private delayMs: number = 1000,
-    private backoffMultiplier: number = 2
+    private backoffMultiplier: number = 2,
   ) {}
 
   canRecover(error: AgentSyncError): boolean {
-    return error.isRecoverable() &&
-           [ErrorCategory.NETWORK, ErrorCategory.SYNC, ErrorCategory.FILE_SYSTEM]
-             .includes(error.metadata.category);
+    return (
+      error.isRecoverable() &&
+      [
+        ErrorCategory.NETWORK,
+        ErrorCategory.SYNC,
+        ErrorCategory.FILE_SYSTEM,
+      ].includes(error.metadata.category)
+    );
   }
 
   async recover(_error: AgentSyncError): Promise<void> {
     let delay = this.delayMs;
 
     for (let i = 0; i < this.maxRetries; i++) {
-      await new Promise(resolve => setTimeout(resolve, delay));
+      await new Promise((resolve) => setTimeout(resolve, delay));
       delay *= this.backoffMultiplier;
 
       // Recovery logic would be implemented by the caller
-      throw new Error('Retry logic must be implemented by caller');
+      throw new Error("Retry logic must be implemented by caller");
     }
   }
 
@@ -434,6 +561,11 @@ export default {
   ParseError,
   PermissionError,
   SyncError,
+  InteractiveSelectionError,
+  SelectionValidationError,
+  SourceResolutionError,
+  UserPresetRegistryError,
+  SelectiveLoadingError,
   ErrorHandler,
   ErrorSeverity,
   ErrorCategory,

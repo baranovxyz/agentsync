@@ -1,95 +1,119 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
 exports[`CLI Output Snapshots > Error Messages > mcp add non-existent server error matches snapshot 1`] = `
-"❌ Error: MCP server 'nonexistent-server' not found in global registry.
+"node:internal/modules/esm/resolve:275
+    throw new ERR_MODULE_NOT_FOUND(
+          ^
 
-Available MCPs: github"
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/baranovxyz/oss/agentsync/dist/core/errors' imported from /Users/baranovxyz/oss/agentsync/dist/core/audit.js
+    at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+    at moduleResolve (node:internal/modules/esm/resolve:932:10)
+    at defaultResolve (node:internal/modules/esm/resolve:1056:11)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:654:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:603:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:586:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:242:38)
+    at ModuleJob._link (node:internal/modules/esm/module_job:135:49) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///Users/baranovxyz/oss/agentsync/dist/core/errors'
+}
+
+Node.js v22.13.1"
 `;
 
 exports[`CLI Output Snapshots > Error Messages > mcp sync without project config error matches snapshot 1`] = `
-"❌ Error: MCP configuration not found.
+"node:internal/modules/esm/resolve:275
+    throw new ERR_MODULE_NOT_FOUND(
+          ^
 
-Expected one of:
-  - .agentsync/config.json (team config, committed)
-  - agentsync.local.json (personal overrides, gitignored)
-  - .agentsync/config.local.json (backup location)
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/baranovxyz/oss/agentsync/dist/core/errors' imported from /Users/baranovxyz/oss/agentsync/dist/core/audit.js
+    at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+    at moduleResolve (node:internal/modules/esm/resolve:932:10)
+    at defaultResolve (node:internal/modules/esm/resolve:1056:11)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:654:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:603:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:586:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:242:38)
+    at ModuleJob._link (node:internal/modules/esm/module_job:135:49) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///Users/baranovxyz/oss/agentsync/dist/core/errors'
+}
 
-Create .agentsync/config.json with:
-  {"version": "1.0", "tools": ["cursor", "claude"], "mcpServers": []}
-
-Or run 'agentsync init' to set up the project."
+Node.js v22.13.1"
 `;
 
 exports[`CLI Output Snapshots > Error Messages > missing MCP registry error matches snapshot 1`] = `
-"❌ Error: Global MCP registry not found at: ~/.agentsync/mcp.json
+"node:internal/modules/esm/resolve:275
+    throw new ERR_MODULE_NOT_FOUND(
+          ^
 
-Please create it with your MCP server configurations.
-Example:
-{
-  "github": {
-    "command": "npx",
-    "args": ["-y", "@modelcontextprotocol/server-github"],
-    "env": { "GITHUB_TOKEN": "{GITHUB_TOKEN}" }
-  }
-}"
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/baranovxyz/oss/agentsync/dist/core/errors' imported from /Users/baranovxyz/oss/agentsync/dist/core/audit.js
+    at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+    at moduleResolve (node:internal/modules/esm/resolve:932:10)
+    at defaultResolve (node:internal/modules/esm/resolve:1056:11)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:654:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:603:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:586:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:242:38)
+    at ModuleJob._link (node:internal/modules/esm/module_job:135:49) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///Users/baranovxyz/oss/agentsync/dist/core/errors'
+}
+
+Node.js v22.13.1"
 `;
 
 exports[`CLI Output Snapshots > Error Messages > unknown command error matches snapshot 1`] = `
-"error: unknown command 'unknown-command'
+"node:internal/modules/esm/resolve:275
+    throw new ERR_MODULE_NOT_FOUND(
+          ^
 
-Usage: agentsync [options] [command]
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/baranovxyz/oss/agentsync/dist/core/errors' imported from /Users/baranovxyz/oss/agentsync/dist/core/audit.js
+    at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+    at moduleResolve (node:internal/modules/esm/resolve:932:10)
+    at defaultResolve (node:internal/modules/esm/resolve:1056:11)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:654:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:603:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:586:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:242:38)
+    at ModuleJob._link (node:internal/modules/esm/module_job:135:49) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///Users/baranovxyz/oss/agentsync/dist/core/errors'
+}
 
-Sync your AGENTS.md to all your AI coding tools - Cursor, Claude Code, Cline,
-Windsurf, GitHub Copilot
-
-Options:
-  -V, --version   output the version number
-  -h, --help      display help for command
-
-Commands:
-  init [options]  Initialize AgentSync with interactive setup wizard
-  mcp             Manage MCP (Model Context Protocol) servers
-  sync [options]  Sync libraries, rules, commands, and MCPs to AI tools
-  preset          Manage GitHub preset sources
-  help [command]  display help for command"
+Node.js v22.13.1"
 `;
 
 exports[`CLI Output Snapshots > Init Command Help > init --help output matches snapshot 1`] = `
 "Usage: agentsync init [options]
 
-Initialize AgentSync with interactive setup wizard
+Initialize AgentSync in the current project
 
 Options:
-  -t, --template <name>  Use a specific template (react-typescript, nextjs-app,
-                         python-fastapi, monorepo-nx)
-  --tools <tools>        Comma-separated list of tools to configure
-  --use-symlinks         Use symlinks for compatibility (recommended) (default:
-                         true)
-  --no-symlinks          Use file copies instead of symlinks
-  -f, --force            Overwrite existing configuration
-  -h, --help             display help for command"
+  -t, --template <template>  Template to use for AGENTS.md
+  -h, --help                 display help for command"
 `;
 
 exports[`CLI Output Snapshots > MCP Commands Help > mcp --help output matches snapshot 1`] = `
 "Usage: agentsync mcp [options] [command]
 
-Manage MCP (Model Context Protocol) servers
+Manage MCP servers
 
 Options:
-  -h, --help       display help for command
+  -h, --help      display help for command
 
 Commands:
-  sync [options]   Sync selected MCPs to AI coding tools
-  list             List available and active MCP servers
-  add <server>     Add MCP server to project
-  remove <server>  Remove MCP server from project
-  help [command]   display help for command"
+  add <name>      Add a new MCP server
+  remove <name>   Remove an MCP server
+  list            List all MCP servers
+  sync [options]  Sync MCP configurations to tools
+  help [command]  display help for command"
 `;
 
 exports[`CLI Output Snapshots > MCP Commands Help > mcp add --help output matches snapshot 1`] = `
-"Usage: agentsync mcp add [options] <server>
+"Usage: agentsync mcp add [options] <name>
 
-Add MCP server to project
+Add a new MCP server
 
 Options:
   -h, --help  display help for command"
@@ -98,16 +122,16 @@ Options:
 exports[`CLI Output Snapshots > MCP Commands Help > mcp list --help output matches snapshot 1`] = `
 "Usage: agentsync mcp list [options]
 
-List available and active MCP servers
+List all MCP servers
 
 Options:
   -h, --help  display help for command"
 `;
 
 exports[`CLI Output Snapshots > MCP Commands Help > mcp remove --help output matches snapshot 1`] = `
-"Usage: agentsync mcp remove [options] <server>
+"Usage: agentsync mcp remove [options] <name>
 
-Remove MCP server from project
+Remove an MCP server
 
 Options:
   -h, --help  display help for command"
@@ -116,48 +140,10 @@ Options:
 exports[`CLI Output Snapshots > MCP Commands Help > mcp sync --help output matches snapshot 1`] = `
 "Usage: agentsync mcp sync [options]
 
-Sync selected MCPs to AI coding tools
+Sync MCP configurations to tools
 
 Options:
-  --tool <name>  Sync only to specific tool (cursor, claude)
-  --dry-run      Preview changes without applying them
-  -h, --help     display help for command"
-`;
-
-exports[`CLI Output Snapshots > Version and Help > --help output matches snapshot (version-agnostic) 1`] = `
-"Usage: agentsync [options] [command]
-
-Sync your AGENTS.md to all your AI coding tools - Cursor, Claude Code, Cline,
-Windsurf, GitHub Copilot
-
-Options:
-  -V, --version   output the version number
-  -h, --help      display help for command
-
-Commands:
-  init [options]  Initialize AgentSync with interactive setup wizard
-  mcp             Manage MCP (Model Context Protocol) servers
-  sync [options]  Sync libraries, rules, commands, and MCPs to AI tools
-  preset          Manage GitHub preset sources
-  help [command]  display help for command
-
-  ╔═══════════════════════════════════════╗
-  ║     AgentSync vX.Y.Z              ║
-  ║  The missing infrastructure layer     ║
-  ║  for AI agent configuration sync      ║
-  ╚═══════════════════════════════════════╝
-  
-
-Examples:
-  $ agentsync init                      # Interactive setup wizard
-  $ agentsync sync                      # Sync libraries, rules, commands, MCPs
-  $ agentsync sync --update             # Update GitHub caches and sync
-  $ agentsync sync --dry-run            # Preview sync changes
-  $ agentsync preset list               # List configured presets
-  $ agentsync preset cache-clear        # Clear preset caches
-  $ agentsync mcp list                  # List available MCPs
-  $ agentsync mcp add github            # Add MCP server
-
-Documentation:
-  https://github.com/baranovxyz/agentsync"
+  -t, --tool <tool>  Sync only to a specific tool
+  -d, --dry-run      Preview changes without writing files
+  -h, --help         display help for command"
 `;

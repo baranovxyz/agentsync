@@ -64,14 +64,14 @@ export class Merger {
   validateNoCollisions(presets: Preset[]): void {
     const namespaces = presets.map((preset) => preset.namespace);
     const duplicates = namespaces.filter(
-      (ns, i) => namespaces.indexOf(ns) !== i
+      (ns, i) => namespaces.indexOf(ns) !== i,
     );
 
     if (duplicates.length > 0) {
       throw new Error(
         `Namespace collision detected: ${duplicates.join(", ")}\n\n` +
           `Each preset must have a unique namespace. ` +
-          `Override with: extends: [{source: "...", namespace: "unique-name"}]`
+          `Override with: extends: [{source: "...", namespace: "unique-name"}]`,
       );
     }
   }
