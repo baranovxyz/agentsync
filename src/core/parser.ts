@@ -3,35 +3,36 @@
  * Parses and validates AGENTS.md files using remark/unified
  */
 
-import { unified } from 'unified';
-import remarkParse from 'remark-parse';
-import remarkStringify from 'remark-stringify';
-import grayMatter from 'gray-matter';
-import { ParseError, ValidationError } from './errors.js';
+import grayMatter from "gray-matter";
+import type { Root, RootContent } from "mdast";
+import remarkParse from "remark-parse";
+import remarkStringify from "remark-stringify";
+import { unified } from "unified";
+import type { ParsedSection, ParseResult } from "../types/index.js";
 import {
-  AgentsMdSchema,
   type AgentsMd,
+  AgentsMdSchema,
   type Command,
-  type Rule,
+  type FileMapping,
   type GitRule,
   type McpServer,
-  type FileMapping
-} from '../types/schemas.js';
-import type { ParsedSection, ParseResult } from '../types/index.js';
-import type { Root, RootContent } from 'mdast';
+  type Rule,
+} from "../types/schemas.js";
+import { ParseError, ValidationError } from "./errors.js";
 
 /**
  * Parser for AGENTS.md files
  */
 export class AgentsMdParser {
-  private processor = unified()
-    .use(remarkParse)
-    .use(remarkStringify);
+  private processor = unified().use(remarkParse).use(remarkStringify);
 
   /**
    * Parse AGENTS.md content
    */
-  async parse(content: string, filePath: string = 'AGENTS.md'): Promise<ParseResult> {
+  async parse(
+    content: string,
+    filePath: string = "AGENTS.md",
+  ): Promise<ParseResult> {
     try {
       // Extract frontmatter if present
       const { data: frontmatter, content: markdown } = grayMatter(content);
@@ -57,7 +58,8 @@ export class AgentsMdParser {
         agentsMd,
         raw: content,
         sections,
-        frontmatter: Object.keys(frontmatter).length > 0 ? frontmatter : undefined,
+        frontmatter:
+          Object.keys(frontmatter).length > 0 ? frontmatter : undefined,
       };
     } catch (error) {
       if (error instanceof Error) {
@@ -66,7 +68,7 @@ export class AgentsMdParser {
           filePath,
           undefined,
           undefined,
-          error
+          error,
         );
       }
       throw error;
@@ -82,10 +84,10 @@ export class AgentsMdParser {
     let currentContent: string[] = [];
 
     const processNode = (node: RootContent, depth: number = 0) => {
-      if (node.type === 'heading') {
+      if (node.type === "heading") {
         // Save previous section if exists
         if (currentSection) {
-          currentSection.content = currentContent.join('\n').trim();
+          currentSection.content = currentContent.join("\n").trim();
           sections.push(currentSection);
         }
 
@@ -93,20 +95,24 @@ export class AgentsMdParser {
         const title = this.extractText(node);
         currentSection = {
           title,
-          content: '',
+          content: "",
           level: node.depth,
           children: [],
         };
         currentContent = [];
       } else if (currentSection) {
         // Accumulate content for current section
-        if (node.type === 'paragraph' || node.type === 'list' || node.type === 'code') {
+        if (
+          node.type === "paragraph" ||
+          node.type === "list" ||
+          node.type === "code"
+        ) {
           currentContent.push(this.nodeToMarkdown(node));
         }
       }
 
       // Process children
-      if ('children' in node && node.children) {
+      if ("children" in node && node.children) {
         node.children.forEach((child) => processNode(child, depth + 1));
       }
     };
@@ -117,7 +123,9 @@ export class AgentsMdParser {
 
     // Save last section
     if (currentSection !== null) {
-      (currentSection as ParsedSection).content = currentContent.join('\n').trim();
+      (currentSection as ParsedSection).content = currentContent
+        .join("\n")
+        .trim();
       sections.push(currentSection);
     }
 
@@ -133,7 +141,10 @@ export class AgentsMdParser {
 
     for (const section of sections) {
       // Find parent based on level
-      while (stack.length > 0 && stack[stack.length - 1].level >= section.level) {
+      while (
+        stack.length > 0 &&
+        stack[stack.length - 1].level >= section.level
+      ) {
         stack.pop();
       }
 
@@ -158,7 +169,10 @@ export class AgentsMdParser {
   /**
    * Convert sections to AgentsMd structure
    */
-  private sectionsToAgentsMd(sections: ParsedSection[], filePath: string): AgentsMd {
+  private sectionsToAgentsMd(
+    sections: ParsedSection[],
+    filePath: string,
+  ): AgentsMd {
     const agentsMd: Partial<AgentsMd> = {
       metadata: {
         filePath,
@@ -170,27 +184,40 @@ export class AgentsMdParser {
     for (const section of sections) {
       const lowerTitle = section.title.toLowerCase();
 
-      if (lowerTitle.includes('overview') || lowerTitle.includes('description')) {
+      if (
+        lowerTitle.includes("overview") ||
+        lowerTitle.includes("description")
+      ) {
         agentsMd.projectOverview = section.content;
-      } else if (lowerTitle.includes('build')) {
+      } else if (lowerTitle.includes("build")) {
         agentsMd.buildCommands = this.parseCommands(section);
-      } else if (lowerTitle.includes('test')) {
+      } else if (lowerTitle.includes("test")) {
         agentsMd.testCommands = this.parseCommands(section);
-      } else if (lowerTitle.includes('code style') || lowerTitle.includes('style guide')) {
+      } else if (
+        lowerTitle.includes("code style") ||
+        lowerTitle.includes("style guide")
+      ) {
         agentsMd.codeStyle = this.parseRules(section);
-      } else if (lowerTitle.includes('structure') || lowerTitle.includes('project layout')) {
+      } else if (
+        lowerTitle.includes("structure") ||
+        lowerTitle.includes("project layout")
+      ) {
         agentsMd.projectStructure = this.parseFileMapping(section);
-      } else if (lowerTitle.includes('git') || lowerTitle.includes('workflow')) {
+      } else if (
+        lowerTitle.includes("git") ||
+        lowerTitle.includes("workflow")
+      ) {
         agentsMd.gitWorkflow = this.parseGitRules(section);
-      } else if (lowerTitle.includes('permission')) {
+      } else if (lowerTitle.includes("permission")) {
         agentsMd.permissions = this.parsePermissions(section);
-      } else if (lowerTitle.includes('mcp') || lowerTitle.includes('server')) {
+      } else if (lowerTitle.includes("mcp") || lowerTitle.includes("server")) {
         agentsMd.mcpServers = this.parseMcpServers(section);
       }
     }
 
     // Set defaults
-    agentsMd.projectOverview = agentsMd.projectOverview || 'No project overview provided';
+    agentsMd.projectOverview =
+      agentsMd.projectOverview || "No project overview provided";
     agentsMd.buildCommands = agentsMd.buildCommands || [];
     agentsMd.testCommands = agentsMd.testCommands || [];
     agentsMd.codeStyle = agentsMd.codeStyle || [];
@@ -205,32 +232,35 @@ export class AgentsMdParser {
    */
   private parseCommands(section: ParsedSection): Command[] {
     const commands: Command[] = [];
-    const lines = section.content.split('\n');
+    const lines = section.content.split("\n");
 
     for (const line of lines) {
       const trimmed = line.trim();
-      if (trimmed.startsWith('-') || trimmed.startsWith('*')) {
+      if (trimmed.startsWith("-") || trimmed.startsWith("*")) {
         const content = trimmed.substring(1).trim();
 
         // Try to extract command from backticks
         const codeMatch = content.match(/`([^`]+)`/);
         if (codeMatch) {
           const command = codeMatch[1];
-          const description = content.replace(/`[^`]+`/, '').trim().replace(/^[:\-\s]+/, '');
+          const description = content
+            .replace(/`[^`]+`/, "")
+            .trim()
+            .replace(/^[:\-\s]+/, "");
 
           commands.push({
             description: description || command,
             command,
-            scope: 'project',
+            scope: "project",
           });
-        } else if (content.includes(':')) {
+        } else if (content.includes(":")) {
           // Format: "Description: command"
-          const [desc, cmd] = content.split(':').map(s => s.trim());
+          const [desc, cmd] = content.split(":").map((s) => s.trim());
           if (cmd) {
             commands.push({
               description: desc,
               command: cmd,
-              scope: 'project',
+              scope: "project",
             });
           }
         }
@@ -245,21 +275,25 @@ export class AgentsMdParser {
    */
   private parseRules(section: ParsedSection): Rule[] {
     const rules: Rule[] = [];
-    const lines = section.content.split('\n');
+    const lines = section.content.split("\n");
     let currentRule: Partial<Rule> | null = null;
 
     for (const line of lines) {
       const trimmed = line.trim();
 
-      if (trimmed.startsWith('-') || trimmed.startsWith('*') || trimmed.match(/^\d+\./)) {
-        if (currentRule && currentRule.title && currentRule.content) {
+      if (
+        trimmed.startsWith("-") ||
+        trimmed.startsWith("*") ||
+        trimmed.match(/^\d+\./)
+      ) {
+        if (currentRule?.title && currentRule.content) {
           rules.push(currentRule as Rule);
         }
 
-        const content = trimmed.replace(/^[\-\*\d\.]\s*/, '');
+        const content = trimmed.replace(/^[-*\d.]\s*/, "");
         currentRule = {
           id: `rule-${rules.length + 1}`,
-          title: content.split('.')[0] || content,
+          title: content.split(".")[0] || content,
           content: content,
           tags: [],
         };
@@ -268,7 +302,7 @@ export class AgentsMdParser {
       }
     }
 
-    if (currentRule && currentRule.title && currentRule.content) {
+    if (currentRule?.title && currentRule.content) {
       rules.push(currentRule as Rule);
     }
 
@@ -280,18 +314,22 @@ export class AgentsMdParser {
    */
   private parseGitRules(section: ParsedSection): GitRule[] {
     const rules: GitRule[] = [];
-    const lines = section.content.split('\n');
+    const lines = section.content.split("\n");
 
     for (const line of lines) {
       const trimmed = line.trim();
-      if (trimmed.startsWith('-') || trimmed.startsWith('*')) {
+      if (trimmed.startsWith("-") || trimmed.startsWith("*")) {
         const content = trimmed.substring(1).trim();
 
         // Determine git rule type
-        let type: GitRule['type'] = 'commit';
-        if (content.toLowerCase().includes('branch')) type = 'branch';
-        else if (content.toLowerCase().includes('pr') || content.toLowerCase().includes('pull request')) type = 'pr';
-        else if (content.toLowerCase().includes('merge')) type = 'merge';
+        let type: GitRule["type"] = "commit";
+        if (content.toLowerCase().includes("branch")) type = "branch";
+        else if (
+          content.toLowerCase().includes("pr") ||
+          content.toLowerCase().includes("pull request")
+        )
+          type = "pr";
+        else if (content.toLowerCase().includes("merge")) type = "merge";
 
         rules.push({
           type,
@@ -309,27 +347,30 @@ export class AgentsMdParser {
    */
   private parseFileMapping(section: ParsedSection): FileMapping[] {
     const mappings: FileMapping[] = [];
-    const lines = section.content.split('\n');
+    const lines = section.content.split("\n");
 
     for (const line of lines) {
       const trimmed = line.trim();
-      if (trimmed.startsWith('-') || trimmed.startsWith('*')) {
+      if (trimmed.startsWith("-") || trimmed.startsWith("*")) {
         const content = trimmed.substring(1).trim();
 
         // Try to extract path pattern
         const codeMatch = content.match(/`([^`]+)`/);
         if (codeMatch) {
           const pattern = codeMatch[1];
-          const description = content.replace(/`[^`]+`/, '').trim().replace(/^[:\-\s]+/, '');
+          const description = content
+            .replace(/`[^`]+`/, "")
+            .trim()
+            .replace(/^[:\-\s]+/, "");
 
           mappings.push({
             pattern,
             description: description || pattern,
             purpose: description,
           });
-        } else if (content.includes('/')) {
+        } else if (content.includes("/")) {
           // Likely a path
-          const parts = content.split(/[:\-]/).map(s => s.trim());
+          const parts = content.split(/[:-]/).map((s) => s.trim());
           mappings.push({
             pattern: parts[0],
             description: parts[1] || parts[0],
@@ -344,26 +385,30 @@ export class AgentsMdParser {
   /**
    * Parse permissions section
    */
-  private parsePermissions(section: ParsedSection): AgentsMd['permissions'] {
-    const permissions: AgentsMd['permissions'] = {
+  private parsePermissions(section: ParsedSection): AgentsMd["permissions"] {
+    const permissions: AgentsMd["permissions"] = {
       allowedWithoutPrompt: [],
       requireApproval: [],
       blocked: [],
     };
 
-    let currentCategory: keyof NonNullable<AgentsMd['permissions']> | null = null;
-    const lines = section.content.split('\n');
+    let currentCategory: keyof NonNullable<AgentsMd["permissions"]> | null =
+      null;
+    const lines = section.content.split("\n");
 
     for (const line of lines) {
       const trimmed = line.trim().toLowerCase();
 
-      if (trimmed.includes('allowed') || trimmed.includes('without prompt')) {
-        currentCategory = 'allowedWithoutPrompt';
-      } else if (trimmed.includes('require') || trimmed.includes('approval')) {
-        currentCategory = 'requireApproval';
-      } else if (trimmed.includes('block') || trimmed.includes('forbidden')) {
-        currentCategory = 'blocked';
-      } else if (currentCategory && (line.startsWith('-') || line.startsWith('*'))) {
+      if (trimmed.includes("allowed") || trimmed.includes("without prompt")) {
+        currentCategory = "allowedWithoutPrompt";
+      } else if (trimmed.includes("require") || trimmed.includes("approval")) {
+        currentCategory = "requireApproval";
+      } else if (trimmed.includes("block") || trimmed.includes("forbidden")) {
+        currentCategory = "blocked";
+      } else if (
+        currentCategory &&
+        (line.startsWith("-") || line.startsWith("*"))
+      ) {
         const item = line.substring(1).trim();
         if (item) {
           permissions[currentCategory].push(item);
@@ -379,37 +424,37 @@ export class AgentsMdParser {
    */
   private parseMcpServers(section: ParsedSection): McpServer[] {
     const servers: McpServer[] = [];
-    const lines = section.content.split('\n');
+    const lines = section.content.split("\n");
     let currentServer: Partial<McpServer> | null = null;
 
     for (const line of lines) {
       const trimmed = line.trim();
 
-      if (trimmed.startsWith('-') || trimmed.startsWith('*')) {
-        if (currentServer && currentServer.name && currentServer.command) {
+      if (trimmed.startsWith("-") || trimmed.startsWith("*")) {
+        if (currentServer?.name && currentServer.command) {
           servers.push(currentServer as McpServer);
         }
 
         const content = trimmed.substring(1).trim();
         // Try to parse as "name: command"
-        if (content.includes(':')) {
-          const [name, command] = content.split(':').map(s => s.trim());
+        if (content.includes(":")) {
+          const [name, command] = content.split(":").map((s) => s.trim());
           currentServer = { name, command };
         } else {
           currentServer = { name: content, command: content };
         }
       } else if (currentServer && trimmed) {
         // Additional server configuration
-        if (trimmed.startsWith('args:')) {
+        if (trimmed.startsWith("args:")) {
           currentServer.args = trimmed.substring(5).trim().split(/\s+/);
-        } else if (trimmed.startsWith('env:')) {
+        } else if (trimmed.startsWith("env:")) {
           // Parse environment variables
           currentServer.env = {};
         }
       }
     }
 
-    if (currentServer && currentServer.name && currentServer.command) {
+    if (currentServer?.name && currentServer.command) {
       servers.push(currentServer as McpServer);
     }
 
@@ -420,13 +465,13 @@ export class AgentsMdParser {
    * Extract text from a node
    */
   private extractText(node: RootContent): string {
-    if (node.type === 'text') {
+    if (node.type === "text") {
       return node.value;
     }
-    if ('children' in node && node.children) {
-      return node.children.map((child) => this.extractText(child)).join('');
+    if ("children" in node && node.children) {
+      return node.children.map((child) => this.extractText(child)).join("");
     }
-    return '';
+    return "";
   }
 
   /**
@@ -435,8 +480,8 @@ export class AgentsMdParser {
   private nodeToMarkdown(node: RootContent): string {
     // Wrap single node in a root node for stringify
     const rootNode: Root = {
-      type: 'root',
-      children: [node]
+      type: "root",
+      children: [node],
     };
     return this.processor.stringify(rootNode);
   }
@@ -448,17 +493,17 @@ export class AgentsMdParser {
     const result = AgentsMdSchema.safeParse(agentsMd);
 
     if (!result.success) {
-      throw new ValidationError(
-        'AGENTS.md validation failed',
-        result.error
-      );
+      throw new ValidationError("AGENTS.md validation failed", result.error);
     }
   }
 
   /**
    * Parse and validate in one step
    */
-  async parseAndValidate(content: string, filePath: string = 'AGENTS.md'): Promise<ParseResult> {
+  async parseAndValidate(
+    content: string,
+    filePath: string = "AGENTS.md",
+  ): Promise<ParseResult> {
     const parsed = await this.parse(content, filePath);
     this.validate(parsed.agentsMd);
     return parsed;

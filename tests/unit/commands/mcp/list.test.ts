@@ -3,11 +3,11 @@
  * Tests listing available vs active MCPs
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import * as os from "node:os";
+import * as path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { listMCP } from "../../../../src/commands/mcp/list.js";
 import * as fs from "../../../../src/utils/fs.js";
-import * as path from "path";
-import * as os from "os";
 
 describe("listMCP", () => {
   let tempDir: string;
@@ -142,7 +142,7 @@ describe("listMCP", () => {
     await fs.remove(path.join(tempHomeDir, ".agentsync", "mcp.json"));
 
     await expect(listMCP({ ignoreProjectConfig: true })).rejects.toThrow(
-      /Global MCP registry not found/
+      /Global MCP registry not found/,
     );
   });
 });

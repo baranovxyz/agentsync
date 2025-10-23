@@ -7,11 +7,12 @@
 
 > The missing infrastructure layer for AI coding agent configuration management.
 
-**AgentSync** provides three powerful features:
+**AgentSync** provides four powerful features:
 
 1. **MCP Context Optimizer** (Phase 1 ✅) - Reduce AI context bloat with project-specific MCP server selection
 2. **GitHub Preset System** (v0.2.0-alpha) - Share rules, commands, and MCPs via GitHub repositories
-3. **AGENTS.md Sync** (Phase 2 ⏳) - Sync unified AGENTS.md to all AI coding tools
+3. **Interactive Selection** (Phase 5 ✅) - Fine-grained control over preset content with file-level selections
+4. **AGENTS.md Sync** (Phase 2 ⏳) - Sync unified AGENTS.md to all AI coding tools
 
 ## Installation
 
@@ -95,7 +96,7 @@ agentsync preset cache-clear
 
 ### Example: Company-Wide Standards
 
-**Create preset repo:** `github:acme/coding-standards`
+**Create preset repo:** `github:acme/coding-standards` (current); planned generic scheme `git:host/acme/coding-standards` in a future version
 
 ```
 acme/coding-standards/
@@ -120,6 +121,102 @@ acme/coding-standards/
 **Result:** All teams get consistent rules and commands automatically!
 
 Learn more in [CLAUDE.md](./CLAUDE.md#v030-beta-github-preset-system)
+
+## Phase 5: Interactive Selection ✅ COMPLETE
+
+Fine-grained control over preset content with file-level selections and three-level configuration hierarchy.
+
+### Features
+
+**✅ All Features Complete:**
+
+- Interactive preset selection with file-level filtering
+- Three-level configuration hierarchy (user → project → local)
+- File pattern matching with include/exclude glob patterns
+- MCP server selection from presets
+- Interactive removal of presets and selections
+- Configuration validation and migration
+- Integration with existing preset system
+
+### Quick Start
+
+```bash
+# Interactively select presets and configure file-level selections
+agentsync preset interactive-select
+
+# View configured presets with selections
+agentsync preset list --verbose
+
+# Sync with selections applied
+agentsync sync --selections
+
+# Interactively remove presets and selections
+agentsync preset interactive-remove
+
+# Add a preset with selection configuration
+agentsync preset add github:company/standards --selection
+```
+
+### Three-Level Configuration Hierarchy
+
+Interactive Selection supports a three-level configuration hierarchy that allows for flexible preset management:
+
+1. **User Level** (`~/.agentsync/interactive-selection.json`)
+   - Personal default selections for all projects
+   - User preset registry
+   - Global preferences
+
+2. **Project Level** (`.agentsync/config.json`)
+   - Team-shared selections
+   - Project-specific overrides
+   - Committed to version control
+
+3. **Local Level** (`agentsync.local.json`)
+   - Personal overrides for this project
+   - Temporary selections
+   - Gitignored (not committed)
+
+### File-Level Selections
+
+Control exactly which files from presets are included in your project:
+
+```json
+{
+  "extends": [
+    {
+      "source": "github:company/standards",
+      "namespace": "company",
+      "select": {
+        "rules": ["rules/typescript.md", "rules/testing.md"],
+        "commands": ["commands/commit.md", "commands/deploy.md"],
+        "mcps": ["github", "postgres"]
+      }
+    }
+  ]
+}
+```
+
+### Use Cases
+
+**1. Selective Rule Adoption**
+
+- Adopt only relevant rules from large company presets
+- Exclude rules that don't apply to your project type
+- Gradually migrate to new standards
+
+**2. Team Customization**
+
+- Project teams customize company-wide presets
+- Different teams select different subsets
+- Maintain consistency while allowing flexibility
+
+**3. Personal Preferences**
+
+- Developers override team selections locally
+- Add personal tools without affecting team
+- Temporary selections for specific tasks
+
+Learn more in [Interactive Selection Documentation](./docs/interactive-selection.md)
 
 ## Phase 1: MCP Context Optimizer ✅ COMPLETE
 

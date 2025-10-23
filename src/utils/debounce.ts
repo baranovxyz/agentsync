@@ -22,7 +22,7 @@ export interface DebouncedFunction<T extends (...args: any[]) => any> {
 export function debounce<T extends (...args: any[]) => any>(
   func: T,
   wait: number,
-  options: { leading?: boolean; trailing?: boolean; maxWait?: number } = {}
+  options: { leading?: boolean; trailing?: boolean; maxWait?: number } = {},
 ): DebouncedFunction<T> {
   let timeoutId: NodeJS.Timeout | null = null;
   let lastArgs: Parameters<T> | null = null;
@@ -31,11 +31,7 @@ export function debounce<T extends (...args: any[]) => any>(
   let lastInvokeTime = 0;
   let result: ReturnType<T> | undefined;
 
-  const {
-    leading = false,
-    trailing = true,
-    maxWait
-  } = options;
+  const { leading = false, trailing = true, maxWait } = options;
 
   const invokeFunc = (time: number) => {
     const args = lastArgs;
@@ -119,7 +115,7 @@ export function debounce<T extends (...args: any[]) => any>(
     return timeoutId !== null;
   };
 
-  const debounced = function(this: any, ...args: Parameters<T>) {
+  const debounced = function (this: any, ...args: Parameters<T>) {
     const time = Date.now();
     const isInvoking = shouldInvoke(time);
 
@@ -156,11 +152,11 @@ export function debounce<T extends (...args: any[]) => any>(
  */
 export function simpleDebounce<T extends (...args: any[]) => void>(
   func: T,
-  delay: number
+  delay: number,
 ): (...args: Parameters<T>) => void {
   let timeoutId: NodeJS.Timeout | null = null;
 
-  return function(...args: Parameters<T>) {
+  return (...args: Parameters<T>) => {
     if (timeoutId) {
       clearTimeout(timeoutId);
     }

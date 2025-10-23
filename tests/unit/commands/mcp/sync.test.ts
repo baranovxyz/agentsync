@@ -3,11 +3,11 @@
  * Tests the main sync workflow: load → filter → substitute → validate → sync
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import * as os from "node:os";
+import * as path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { syncMCP } from "../../../../src/commands/mcp/sync.js";
 import * as fs from "../../../../src/utils/fs.js";
-import * as path from "path";
-import * as os from "os";
 
 describe("syncMCP", () => {
   let tempDir: string;
@@ -103,7 +103,7 @@ describe("syncMCP", () => {
     // Verify tokens were substituted
     expect(cursorMcp.mcpServers.github.env.GITHUB_TOKEN).toBe("ghp_test123");
     expect(cursorMcp.mcpServers.postgres.env.POSTGRES_URL).toBe(
-      "postgresql://localhost/db"
+      "postgresql://localhost/db",
     );
   });
 
@@ -171,12 +171,12 @@ describe("syncMCP", () => {
     await fs.writeJson("agentsync.local.json", projectConfig);
 
     // Don't set GITHUB_TOKEN
-    delete process.env.GITHUB_TOKEN;
+    process.env.GITHUB_TOKEN = undefined;
 
     await fs.ensureDir(".cursor");
 
     await expect(syncMCP()).rejects.toThrow(
-      /Missing environment variable: GITHUB_TOKEN/
+      /Missing environment variable: GITHUB_TOKEN/,
     );
   });
 
@@ -259,7 +259,7 @@ describe("syncMCP", () => {
 
     // postgres uses override (literal value, no substitution)
     expect(cursorMcp.mcpServers.postgres.env.POSTGRES_URL).toBe(
-      "postgresql://localhost/custom_db"
+      "postgresql://localhost/custom_db",
     );
   });
 
@@ -270,7 +270,7 @@ describe("syncMCP", () => {
     await fs.writeJson("agentsync.local.json", projectConfig);
 
     // Clear process.env.GITHUB_TOKEN so .env takes effect
-    delete process.env.GITHUB_TOKEN;
+    process.env.GITHUB_TOKEN = undefined;
 
     // Create .env file
     await fs.writeFile(".env", "GITHUB_TOKEN=ghp_from_env_file\n");
@@ -281,7 +281,7 @@ describe("syncMCP", () => {
 
     const cursorMcp = await fs.readJson(".cursor/mcp.json");
     expect(cursorMcp.mcpServers.github.env.GITHUB_TOKEN).toBe(
-      "ghp_from_env_file"
+      "ghp_from_env_file",
     );
   });
 

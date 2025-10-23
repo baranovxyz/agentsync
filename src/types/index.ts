@@ -2,11 +2,21 @@
  * Core type definitions for AgentSync
  */
 
+// Re-export preset types
+export * from "./preset";
+// Re-export interactive selection types
+export type {
+  Extends,
+  ExtendsEntry,
+  LocalConfig,
+  PresetSelection,
+  SelectionConfig,
+} from "./schemas";
 // Re-export schema types
 export * from "./schemas";
 
-// Re-export preset types
-export * from "./preset";
+// Re-export utility functions
+export { normalizeExtends } from "./schemas";
 
 // Tool types
 export type ToolName = "cursor" | "claude" | "cline" | "windsurf" | "copilot";

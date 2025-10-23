@@ -3,12 +3,12 @@
  * Tests full workflow including GitHub preset loading (mocked)
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { sync } from "../../src/commands/sync.js";
-import * as path from "path";
-import * as os from "os";
-import * as fs from "../../src/utils/fs.js";
 import { mkdtemp } from "node:fs/promises";
+import * as os from "node:os";
+import * as path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { sync } from "../../src/commands/sync.js";
+import * as fs from "../../src/utils/fs.js";
 
 describe("Sync Integration", () => {
   let tempDir: string;
@@ -35,7 +35,7 @@ describe("Sync Integration", () => {
           tools: ["cursor"],
           useSymlinks: true,
         }),
-        { encoding: "utf-8" }
+        { encoding: "utf-8" },
       );
 
       // Run sync
@@ -59,7 +59,7 @@ describe("Sync Integration", () => {
           tools: ["claude"],
           useSymlinks: true,
         }),
-        { encoding: "utf-8" }
+        { encoding: "utf-8" },
       );
 
       // Run sync
@@ -83,7 +83,7 @@ describe("Sync Integration", () => {
           tools: ["cursor", "claude"],
           useSymlinks: true,
         }),
-        { encoding: "utf-8" }
+        { encoding: "utf-8" },
       );
 
       // Run sync
@@ -105,7 +105,7 @@ describe("Sync Integration", () => {
           tools: ["cursor", "claude"],
           useSymlinks: true,
         }),
-        { encoding: "utf-8" }
+        { encoding: "utf-8" },
       );
 
       // Run sync with --tool cursor
@@ -129,7 +129,7 @@ describe("Sync Integration", () => {
           tools: ["cursor"],
           useSymlinks: true,
         }),
-        { encoding: "utf-8" }
+        { encoding: "utf-8" },
       );
 
       // Create global MCP registry (required for MCP sync)
@@ -154,7 +154,7 @@ describe("Sync Integration", () => {
               },
             },
           }),
-          { encoding: "utf-8" }
+          { encoding: "utf-8" },
         );
 
         // Run sync
@@ -188,7 +188,7 @@ describe("Sync Integration", () => {
           tools: ["cursor"],
           useSymlinks: true,
         }),
-        { encoding: "utf-8" }
+        { encoding: "utf-8" },
       );
 
       // Run sync in dry run mode
@@ -196,13 +196,13 @@ describe("Sync Integration", () => {
 
       // Verify no directories created
       expect(await fs.pathExists(path.join(tempDir, ".cursor", "rules"))).toBe(
-        false
+        false,
       );
       expect(
-        await fs.pathExists(path.join(tempDir, ".cursor", "commands"))
+        await fs.pathExists(path.join(tempDir, ".cursor", "commands")),
       ).toBe(false);
       expect(
-        await fs.pathExists(path.join(tempDir, ".cursor", "mcp.json"))
+        await fs.pathExists(path.join(tempDir, ".cursor", "mcp.json")),
       ).toBe(false);
     });
   });
@@ -210,7 +210,7 @@ describe("Sync Integration", () => {
   describe("Error Scenarios", () => {
     it("should fail gracefully when config is missing", async () => {
       await expect(sync({ cwd: tempDir })).rejects.toThrow(
-        "configuration not found"
+        "configuration not found",
       );
     });
 
@@ -220,7 +220,7 @@ describe("Sync Integration", () => {
       await fs.outputFile(
         path.join(configDir, "config.json"),
         "invalid json {",
-        { encoding: "utf-8" }
+        { encoding: "utf-8" },
       );
 
       await expect(sync({ cwd: tempDir })).rejects.toThrow();
@@ -238,11 +238,11 @@ describe("Sync Integration", () => {
           tools: ["cursor"],
           useSymlinks: true,
         }),
-        { encoding: "utf-8" }
+        { encoding: "utf-8" },
       );
 
       await expect(
-        sync({ cwd: tempDir, tool: "invalid-tool" })
+        sync({ cwd: tempDir, tool: "invalid-tool" }),
       ).rejects.toThrow("Unknown tool");
     });
   });

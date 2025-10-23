@@ -14,7 +14,7 @@ export abstract class RuleConverterBase {
    */
   abstract convert(
     namespacedFilename: string, // e.g., "team:typescript.md"
-    content: string
+    content: string,
   ): RuleConversionResult;
 
   /**
@@ -24,7 +24,7 @@ export abstract class RuleConverterBase {
     namespace: string;
     filename: string;
   } {
-    const colonIndex = namespacedFilename.indexOf(':');
+    const colonIndex = namespacedFilename.indexOf(":");
     if (colonIndex === -1) {
       throw new Error(`Invalid namespaced filename: ${namespacedFilename}`);
     }

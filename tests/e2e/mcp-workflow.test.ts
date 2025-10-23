@@ -3,14 +3,14 @@
  * Tests the complete MCP workflow: setup → add → sync → list → remove
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import * as os from "node:os";
+import * as path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { addMCP } from "../../src/commands/mcp/add.js";
+import { listMCP } from "../../src/commands/mcp/list.js";
 import { removeMCP } from "../../src/commands/mcp/remove.js";
 import { syncMCP } from "../../src/commands/mcp/sync.js";
-import { listMCP } from "../../src/commands/mcp/list.js";
 import * as fs from "../../src/utils/fs.js";
-import * as path from "path";
-import * as os from "os";
 
 describe("MCP E2E Workflow", () => {
   let tempDir: string;
@@ -25,8 +25,8 @@ describe("MCP E2E Workflow", () => {
   async function writeJson(filePath: string, data: unknown): Promise<void> {
     await fs.outputFile(
       filePath,
-      JSON.stringify(data, null, 2) + "\n",
-      "utf-8"
+      `${JSON.stringify(data, null, 2)}\n`,
+      "utf-8",
     );
   }
 
@@ -131,7 +131,7 @@ describe("MCP E2E Workflow", () => {
     expect(cursorMcp.mcpServers.postgres).toBeDefined();
     expect(cursorMcp.mcpServers.linear).toBeUndefined();
     expect(cursorMcp.mcpServers.github.env.GITHUB_TOKEN).toBe(
-      "ghp_e2e_test_token"
+      "ghp_e2e_test_token",
     );
 
     // Verify Claude synced
@@ -140,7 +140,7 @@ describe("MCP E2E Workflow", () => {
     expect(claudeMcp.postgres).toBeDefined();
     expect(claudeMcp.linear).toBeUndefined();
     expect(claudeMcp.postgres.env.POSTGRES_URL).toBe(
-      "postgresql://localhost:5432/e2e_db"
+      "postgresql://localhost:5432/e2e_db",
     );
 
     // Step 5: Remove one MCP
@@ -202,7 +202,7 @@ describe("MCP E2E Workflow", () => {
 
   it("loads environment from .env file", async () => {
     // Clear process.env.GITHUB_TOKEN so .env takes effect
-    delete process.env.GITHUB_TOKEN;
+    process.env.GITHUB_TOKEN = undefined;
 
     // Create .env file
     await fs.writeFile(".env", "GITHUB_TOKEN=ghp_from_env_file\n");
@@ -212,7 +212,7 @@ describe("MCP E2E Workflow", () => {
 
     const cursorMcp = await fs.readJson(".cursor/mcp.json");
     expect(cursorMcp.mcpServers.github.env.GITHUB_TOKEN).toBe(
-      "ghp_from_env_file"
+      "ghp_from_env_file",
     );
   });
 });

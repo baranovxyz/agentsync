@@ -3,12 +3,12 @@
  * Monitors AGENTS.md files for changes and triggers sync operations
  */
 
-import chokidar, { FSWatcher } from 'chokidar';
-import { EventEmitter } from 'events';
-import * as path from 'path';
-import { debounce } from '../utils/debounce.js';
-import AuditLogger, { AuditEventType } from './audit.js';
-import { FileSystemError } from './errors.js';
+import { EventEmitter } from "node:events";
+import * as path from "node:path";
+import chokidar, { type FSWatcher } from "chokidar";
+import { debounce } from "../utils/debounce.js";
+import AuditLogger, { AuditEventType } from "./audit.js";
+import { FileSystemError } from "./errors.js";
 
 export interface WatcherOptions {
   debounce?: number;
@@ -16,11 +16,13 @@ export interface WatcherOptions {
   followSymlinks?: boolean;
   depth?: number;
   atomic?: boolean;
-  awaitWriteFinish?: boolean | { stabilityThreshold: number; pollInterval: number };
+  awaitWriteFinish?:
+    | boolean
+    | { stabilityThreshold: number; pollInterval: number };
 }
 
 export interface FileChangeEvent {
-  type: 'add' | 'change' | 'unlink';
+  type: "add" | "change" | "unlink";
   path: string;
   stats?: any;
   timestamp: Date;
@@ -43,11 +45,11 @@ export class AgentsMdWatcher extends EventEmitter {
     this.options = {
       debounce: options.debounce ?? 500,
       ignorePatterns: options.ignorePatterns ?? [
-        '**/node_modules/**',
-        '**/.git/**',
-        '**/dist/**',
-        '**/.agentsync/**',
-        '**/coverage/**',
+        "**/node_modules/**",
+        "**/.git/**",
+        "**/dist/**",
+        "**/.agentsync/**",
+        "**/coverage/**",
       ],
       followSymlinks: options.followSymlinks ?? false,
       depth: options.depth ?? 10,
@@ -62,9 +64,9 @@ export class AgentsMdWatcher extends EventEmitter {
   /**
    * Start watching for file changes
    */
-  async start(patterns: string | string[] = '**/AGENTS.md'): Promise<void> {
+  async start(patterns: string | string[] = "**/AGENTS.md"): Promise<void> {
     if (this.isWatching) {
-      throw new FileSystemError('Watcher is already running');
+      throw new FileSystemError("Watcher is already running");
     }
 
     try {
@@ -84,38 +86,40 @@ export class AgentsMdWatcher extends EventEmitter {
 
       // Wait for initial scan to complete
       await new Promise<void>((resolve, reject) => {
-        this.watcher!.on('ready', () => {
+        this.watcher?.on("ready", () => {
           this.isWatching = true;
           resolve();
         });
 
-        this.watcher!.on('error', (error) => {
-          reject(new FileSystemError(
-            'Failed to start file watcher',
-            undefined,
-            error as Error
-          ));
+        this.watcher?.on("error", (error) => {
+          reject(
+            new FileSystemError(
+              "Failed to start file watcher",
+              undefined,
+              error as Error,
+            ),
+          );
         });
 
         // Timeout after 10 seconds
         setTimeout(() => {
-          reject(new FileSystemError('File watcher initialization timeout'));
+          reject(new FileSystemError("File watcher initialization timeout"));
         }, 10000);
       });
 
       // Log start event
       await this.audit.log({
         type: AuditEventType.WATCH_START,
-        severity: 'info',
-        category: 'watcher',
-        message: `Started watching: ${Array.isArray(patterns) ? patterns.join(', ') : patterns}`,
+        severity: "info",
+        category: "watcher",
+        message: `Started watching: ${Array.isArray(patterns) ? patterns.join(", ") : patterns}`,
         metadata: {
           patterns,
           fileCount: this.watchedFiles.size,
         },
       });
 
-      this.emit('ready', Array.from(this.watchedFiles));
+      this.emit("ready", Array.from(this.watchedFiles));
     } catch (error) {
       await this.stop();
       throw error;
@@ -138,12 +142,12 @@ export class AgentsMdWatcher extends EventEmitter {
     // Log stop event
     await this.audit.log({
       type: AuditEventType.WATCH_STOP,
-      severity: 'info',
-      category: 'watcher',
-      message: 'Stopped watching files',
+      severity: "info",
+      category: "watcher",
+      message: "Stopped watching files",
     });
 
-    this.emit('stopped');
+    this.emit("stopped");
   }
 
   /**
@@ -153,44 +157,44 @@ export class AgentsMdWatcher extends EventEmitter {
     if (!this.watcher) return;
 
     // File added
-    this.watcher.on('add', (filePath: string, stats: any) => {
+    this.watcher.on("add", (filePath: string, stats: any) => {
       this.watchedFiles.add(filePath);
-      this.handleFileChange('add', filePath, stats);
+      this.handleFileChange("add", filePath, stats);
     });
 
     // File changed
-    this.watcher.on('change', (filePath: string, stats: any) => {
-      this.handleFileChange('change', filePath, stats);
+    this.watcher.on("change", (filePath: string, stats: any) => {
+      this.handleFileChange("change", filePath, stats);
     });
 
     // File removed
-    this.watcher.on('unlink', (filePath: string) => {
+    this.watcher.on("unlink", (filePath: string) => {
       this.watchedFiles.delete(filePath);
-      this.handleFileChange('unlink', filePath);
+      this.handleFileChange("unlink", filePath);
     });
 
     // Error handling
-    this.watcher.on('error', (error: unknown) => {
-      this.emit('error', new FileSystemError(
-        'File watcher error',
-        undefined,
-        error as Error
-      ));
+    this.watcher.on("error", (error: unknown) => {
+      this.emit(
+        "error",
+        new FileSystemError("File watcher error", undefined, error as Error),
+      );
     });
   }
 
   /**
    * Handle file change event with debouncing
    */
-  private handleFileChange(type: 'add' | 'change' | 'unlink', filePath: string, stats?: any): void {
+  private handleFileChange(
+    type: "add" | "change" | "unlink",
+    filePath: string,
+    stats?: any,
+  ): void {
     // Get or create debounced handler for this file
     if (!this.debouncedHandlers.has(filePath)) {
-      const debouncedHandler = debounce(
-        (event: FileChangeEvent) => {
-          this.processFileChange(event);
-        },
-        this.options.debounce
-      );
+      const debouncedHandler = debounce((event: FileChangeEvent) => {
+        this.processFileChange(event);
+      }, this.options.debounce);
       this.debouncedHandlers.set(filePath, debouncedHandler);
     }
 
@@ -212,22 +216,26 @@ export class AgentsMdWatcher extends EventEmitter {
     try {
       // Log the change
       await this.audit.logFileOperation(
-        event.type === 'unlink' ? 'delete' : event.type === 'add' ? 'write' : 'write',
+        event.type === "unlink"
+          ? "delete"
+          : event.type === "add"
+            ? "write"
+            : "write",
         event.path,
         true,
         {
           changeType: event.type,
           timestamp: event.timestamp.toISOString(),
-        }
+        },
       );
 
       // Emit the change event
-      this.emit('change', event);
+      this.emit("change", event);
 
       // Emit specific event type
       this.emit(event.type, event.path, event.stats);
     } catch (error) {
-      this.emit('error', error);
+      this.emit("error", error);
     }
   }
 
@@ -250,8 +258,8 @@ export class AgentsMdWatcher extends EventEmitter {
    * Add a file to watch
    */
   async addFile(filePath: string): Promise<void> {
-    if (!this.watcher || !this.isWatching) {
-      throw new FileSystemError('Watcher is not running');
+    if (!(this.watcher && this.isWatching)) {
+      throw new FileSystemError("Watcher is not running");
     }
 
     this.watcher.add(filePath);
@@ -262,8 +270,8 @@ export class AgentsMdWatcher extends EventEmitter {
    * Remove a file from watch
    */
   async removeFile(filePath: string): Promise<void> {
-    if (!this.watcher || !this.isWatching) {
-      throw new FileSystemError('Watcher is not running');
+    if (!(this.watcher && this.isWatching)) {
+      throw new FileSystemError("Watcher is not running");
     }
 
     this.watcher.unwatch(filePath);
@@ -294,7 +302,7 @@ export class AgentsMdWatcher extends EventEmitter {
   pause(): void {
     if (this.watcher && this.isWatching) {
       this.watcher.removeAllListeners();
-      this.emit('paused');
+      this.emit("paused");
     }
   }
 
@@ -304,7 +312,7 @@ export class AgentsMdWatcher extends EventEmitter {
   resume(): void {
     if (this.watcher && this.isWatching) {
       this.setupEventHandlers();
-      this.emit('resumed');
+      this.emit("resumed");
     }
   }
 }

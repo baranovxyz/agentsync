@@ -3,11 +3,11 @@
  * Tests removing MCP server from project config
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import * as os from "node:os";
+import * as path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { removeMCP } from "../../../../src/commands/mcp/remove.js";
 import * as fs from "../../../../src/utils/fs.js";
-import * as path from "path";
-import * as os from "os";
 
 describe("removeMCP", () => {
   let tempDir: string;
@@ -56,7 +56,7 @@ describe("removeMCP", () => {
 
   it("throws error if .agentsync/config.json does not exist", async () => {
     await expect(removeMCP("github")).rejects.toThrow(
-      /MCP configuration not found/
+      /MCP configuration not found/,
     );
   });
 

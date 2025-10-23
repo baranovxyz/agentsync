@@ -4,7 +4,7 @@
  * Prevents zombie processes and resource leaks
  */
 
-import { ChildProcess } from "child_process";
+import type { ChildProcess } from "node:child_process";
 
 class ProcessTracker {
   private processes: Set<ChildProcess> = new Set();
@@ -32,10 +32,10 @@ class ProcessTracker {
    */
   async killAll(
     signal: NodeJS.Signals = "SIGTERM",
-    timeout = 5000
+    timeout = 5000,
   ): Promise<void> {
     const killPromises = Array.from(this.processes).map((proc) =>
-      this.killProcess(proc, signal, timeout)
+      this.killProcess(proc, signal, timeout),
     );
 
     await Promise.all(killPromises);
@@ -48,7 +48,7 @@ class ProcessTracker {
   private async killProcess(
     proc: ChildProcess,
     signal: NodeJS.Signals,
-    timeout: number
+    timeout: number,
   ): Promise<void> {
     if (proc.killed || !proc.pid) {
       return;
@@ -58,7 +58,7 @@ class ProcessTracker {
       // Send initial signal (graceful)
       try {
         proc.kill(signal);
-      } catch (error) {
+      } catch (_error) {
         // Process already dead
         resolve();
         return;
@@ -70,7 +70,7 @@ class ProcessTracker {
         if (!proc.killed && proc.pid) {
           try {
             proc.kill("SIGKILL");
-          } catch (error) {
+          } catch (_error) {
             // Process already dead
           }
         }

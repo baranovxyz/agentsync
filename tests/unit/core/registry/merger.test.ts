@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { Merger } from "../../../../src/core/registry/merger.js";
 import type { Preset } from "../../../../src/types/preset.js";
 
@@ -138,7 +138,7 @@ describe("Merger", () => {
       };
 
       expect(() =>
-        merger.validateNoCollisions([preset1, preset2])
+        merger.validateNoCollisions([preset1, preset2]),
       ).not.toThrow();
     });
 
@@ -162,7 +162,7 @@ describe("Merger", () => {
       };
 
       expect(() => merger.validateNoCollisions([preset1, preset2])).toThrow(
-        "collision"
+        "collision",
       );
     });
 

@@ -4,13 +4,12 @@
  * This ensures the built CLI works correctly when invoked from bash/zsh
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { chmod, mkdtemp } from "node:fs/promises";
+import * as os from "node:os";
+import * as path from "node:path";
 import { execa } from "execa";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import * as fs from "../../src/utils/fs.js";
-import * as path from "path";
-import * as os from "os";
-import { mkdtemp } from "node:fs/promises";
-import { chmod } from "node:fs/promises";
 import { processTracker } from "../utils/process-tracker.js";
 
 /**
@@ -41,13 +40,13 @@ describe("CLI Shell Execution", () => {
   let originalCwd: string;
   let originalHome: string | undefined;
   let originalUserProfile: string | undefined;
-  const cliPath = path.resolve(process.cwd(), "dist/cli.js");
+  const _cliPath = path.resolve(process.cwd(), "dist/cli.js");
 
   /**
    * Helper to write JSON files (replacement for fs.writeJson which doesn't exist in fs-extra v11)
    */
   async function writeJson(filePath: string, data: unknown): Promise<void> {
-    await fs.outputFile(filePath, JSON.stringify(data, null, 2) + "\n", {
+    await fs.outputFile(filePath, `${JSON.stringify(data, null, 2)}\n`, {
       encoding: "utf-8",
     });
   }
@@ -64,10 +63,7 @@ describe("CLI Shell Execution", () => {
    * This follows the natural flow instead of manually creating files
    */
   async function initializeProject(
-    options: {
-      template?: string;
-      tools?: string[];
-    } = {}
+    options: { template?: string; tools?: string[] } = {},
   ): Promise<void> {
     const { template = "default", tools = ["cursor"] } = options;
 
@@ -143,7 +139,7 @@ describe("CLI Shell Execution", () => {
     const originalCliPath = path.resolve(process.cwd(), "dist/cli.js");
     if (!(await fs.pathExists(originalCliPath))) {
       throw new Error(
-        `CLI not built. Run 'pnpm build' first. Expected: ${originalCliPath}`
+        `CLI not built. Run 'pnpm build' first. Expected: ${originalCliPath}`,
       );
     }
 
@@ -309,7 +305,7 @@ describe("CLI Shell Execution", () => {
 
       const configContent = await fs.readFile(
         ".agentsync/config.json",
-        "utf-8"
+        "utf-8",
       );
       const config = JSON.parse(configContent);
       expect(config.mcpServers).toContain("github");
@@ -372,7 +368,7 @@ describe("CLI Shell Execution", () => {
       // Verify removed from config but postgres remains
       const configContent = await fs.readFile(
         ".agentsync/config.json",
-        "utf-8"
+        "utf-8",
       );
       const config = JSON.parse(configContent);
       expect(config.mcpServers).not.toContain("github");
@@ -393,7 +389,7 @@ describe("CLI Shell Execution", () => {
     });
 
     it("handles missing environment variables", async () => {
-      delete process.env.GITHUB_TOKEN;
+      process.env.GITHUB_TOKEN = undefined;
 
       await execaCli(["mcp", "add", "github"]);
 
@@ -405,7 +401,7 @@ describe("CLI Shell Execution", () => {
       } catch (error: any) {
         expect(error.exitCode).not.toBe(0);
         expect(error.stderr || error.stdout).toMatch(
-          /GITHUB_TOKEN|environment/i
+          /GITHUB_TOKEN|environment/i,
         );
       }
     });
@@ -475,7 +471,7 @@ describe("CLI Shell Execution", () => {
       } catch (error: any) {
         expect(error.exitCode).not.toBe(0);
         expect(error.stderr || error.stdout).toMatch(
-          /permission|EACCES|denied/i
+          /permission|EACCES|denied/i,
         );
       } finally {
         await chmod(".cursor", 0o755); // Restore permissions for cleanup
@@ -509,7 +505,7 @@ describe("CLI Shell Execution", () => {
       await fs.ensureDir(path.join(customHome, ".agentsync"));
       await writeJson(
         path.join(customHome, ".agentsync", "mcp.json"),
-        globalRegistry
+        globalRegistry,
       );
 
       // On Windows, os.homedir() uses USERPROFILE, not HOME
