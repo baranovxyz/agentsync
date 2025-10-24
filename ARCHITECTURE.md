@@ -37,6 +37,7 @@ AgentSync uses a convention-based configuration structure following common tool 
 ### Team-Shared Configuration (Committed)
 
 **`.agentsync/config.json`** - Project-level configuration
+
 ```json
 {
   "version": "1.0",
@@ -50,37 +51,33 @@ AgentSync uses a convention-based configuration structure following common tool 
 ```
 
 Optionally can also define team-shared MCPs in `.agentsync/config.json`:
+
 ```json
 {
   "version": "1.0",
   "tools": ["cursor", "claude"],
-  "mcpServers": ["github"]  // Available to all team members
+  "mcpServers": ["github"] // Available to all team members
 }
 ```
 
 ### Local Configuration (Gitignored)
 
-**`agentsync.local.json`** - Developer-specific MCP selections (primary location)
+**`agentsync.local.json`** - Developer-specific MCP selections
+
 ```json
 {
   "mcpServers": ["github", "postgres", "filesystem"]
 }
 ```
 
-**`.agentsync/config.local.json`** - Backup location if primary not found
-```json
-{
-  "mcpServers": ["github", "postgres"]
-}
-```
-
-**Loading Priority**: `agentsync.local.json` → `.agentsync/config.local.json` → `.agentsync/config.json`
+**Loading Priority**: `agentsync.local.json` → `.agentsync/config.json`
 
 **Merge Strategy**: Local config overrides team config for MCPs
 
 ### Global Configuration
 
 **`~/.agentsync/mcp.json`** - Global MCP server registry
+
 ```json
 {
   "github": {
@@ -163,6 +160,7 @@ tests/
 **Class**: `AgentsMdParser`
 
 **Key Methods**:
+
 - `parse(content, filePath)`: Parses AGENTS.md to AST
 - `extractSections(ast)`: Extracts hierarchical sections
 - `sectionsToAgentsMd(sections)`: Converts to typed structure
@@ -177,12 +175,14 @@ tests/
 **Purpose**: Detect hardcoded secrets before file operations
 
 **Features**:
+
 - 25+ regex patterns for API keys, tokens, passwords
 - Shannon entropy detection (threshold: 4.5)
 - False positive filtering (ignores "example", "test", "demo", "<", ">")
 - Severity levels: critical > high > medium > low
 
 **Key Patterns**:
+
 - AWS: `AKIA*`, `AGPA*`, AWS secret keys
 - GitHub: `gh[ps]_*`, 40-char tokens
 - Google: `AIza*` API keys, OAuth client IDs
@@ -194,11 +194,13 @@ tests/
 **Purpose**: CVE-2021-42574 (Trojan Source) protection
 
 **Dangerous Patterns**:
+
 - Zero-width characters: U+200B, U+200C, U+200D, U+FEFF
 - Bidirectional overrides: U+202A-E, U+2066-9
 - Homoglyphs: Cyrillic lookalikes (а, е, о, р, с, х, у)
 
 **Detection Logic**:
+
 - Suspicious sequences: 10+ zero-width chars
 - Mixed scripts in single line
 - Context extraction: 50 chars before/after
@@ -210,12 +212,14 @@ tests/
 **Implementation**: Singleton pattern with JSONL format
 
 **Features**:
+
 - One JSON per line for streaming parsers
 - 10MB file rotation
 - 90-day retention
 - UUID session tracking
 
 **Event Types**:
+
 - `INIT_WORKSPACE`, `CONFIG_CHANGE`
 - `FILE_CREATE`, `FILE_MODIFY`, `FILE_DELETE`
 - `SECURITY_SCAN`, `UNICODE_DETECTION`
@@ -226,21 +230,25 @@ tests/
 **Purpose**: Interactive project setup wizard
 
 **Flow**:
+
 1. Template selection (default, typescript-react, python-fastapi)
 2. Tool selection (multi-select: cursor, claude, cline, windsurf, copilot)
 3. Symlink vs copy option
 4. .gitignore update prompt
 
 **Creates**:
+
 - `AGENTS.md` from template
 - `.agentsync/config.json` (project configuration, committed to git)
 - `.agentsync/{logs,backups,cache}/` directories
 - Tool-specific symlinks/copies
 
 **Does NOT Create:**
+
 - `agentsync.local.json` - User creates manually (v0.3.0) or via `--scope local` (v0.4.0+)
 
 **Tool Paths**:
+
 - Cursor: `.cursor/agents.md`, `.cursor/AGENTS.md`
 - Claude: `.claude/AGENTS.md`, `claude_project.md`
 - Cline: `.cline/AGENTS.md`, `.cline/instructions.md`
@@ -248,6 +256,7 @@ tests/
 - Copilot: `.github/copilot/AGENTS.md`, `.github/copilot-instructions.md`
 
 **Source of Truth**: `.agentsync/config.json` (not AGENTS.md)
+
 - Init fails only if config.json exists (without `--force`)
 - Skips AGENTS.md creation if file already exists (unless `--force`)
 - Enables adding AgentSync to projects with existing AGENTS.md files
@@ -260,6 +269,7 @@ tests/
 **Critical Rule**: NEVER push to main branch
 
 **Workflow**:
+
 1. Create release branch: `release/v{version}`
 2. Run pre-publish checks (build, tests, clean git)
 3. Bump version: `npm version prerelease --preid=alpha`
@@ -271,12 +281,14 @@ tests/
 9. Cleanup branches
 
 **Two-Step Process**:
+
 ```bash
 /release              # Creates PR
 /release --publish    # After PR merged, publishes
 ```
 
 **Safety Features**:
+
 - Never pushes to main (always uses feature/release branch)
 - Pre-publish checks ensure quality
 - Manual PR review gate prevents accidents
@@ -289,6 +301,7 @@ tests/
 **Base Class**: `AgentSyncError` with metadata
 
 **Specialized Classes**:
+
 - `SecurityError`: Secret/Unicode violations
 - `ValidationError`: Schema/format issues
 - `FileSystemError`: File operations
@@ -303,6 +316,7 @@ tests/
 **Tool Types**: `'cursor' | 'claude' | 'cline' | 'windsurf' | 'copilot'`
 
 **Core Interfaces**:
+
 - `AgentsMd`: Main AGENTS.md data structure
 - `Translator`: Tool converter interface
 - `SyncOperation`: File operation tracking
@@ -317,6 +331,7 @@ tests/
 **Purpose**: Load global MCP server registry
 
 **Key Functions**:
+
 - `loadGlobalRegistry()`: Loads and validates `~/.agentsync/mcp.json`
 - `getGlobalRegistryPath()`: Returns registry file path
 
@@ -329,10 +344,12 @@ tests/
 **Purpose**: Load and merge project MCP configurations
 
 **Key Functions**:
+
 - `loadProjectConfig()`: Loads `agentsync.local.json` (with fallback)
 - `filterSelectedMCPs()`: Filters global registry to selected servers
 
 **Supports Two Formats**:
+
 - Array: `{"mcpServers": ["github", "postgres"]}`
 - Object: `{"mcpServers": {"github": true, "postgres": {...}}}`
 
@@ -345,6 +362,7 @@ tests/
 **Purpose**: Replace `{VAR}` placeholders with environment values
 
 **Key Functions**:
+
 - `substituteTokens()`: Replaces tokens in single MCP
 - `substituteAllMCPs()`: Replaces tokens in all MCPs
 - `validateTokens()`: Ensures no tokens remain unsubstituted
@@ -358,6 +376,7 @@ tests/
 **Purpose**: Load environment variables from `.env` file
 
 **Key Functions**:
+
 - `loadEnv()`: Parses .env and merges with process.env
 
 **Format**: Simple `KEY=value` format
@@ -367,24 +386,29 @@ tests/
 ### 12. MCP Targets (`src/targets/`)
 
 **Cursor Target** (`cursor.ts`):
+
 - Writes `.cursor/mcp.json`
 - Format: `{"mcpServers": {...}}` wrapper
 
 **Claude Target** (`claude.ts`):
+
 - Writes `.claude/mcp.json`
 - Format: Direct object (no wrapper)
 
 **Target Registry** (`mcp-index.ts`):
+
 - `detectMCPTargets()`: Auto-detect available tools
 - `getMCPTarget()`: Get target by name
 
 **Interface** (`mcp-base.ts`):
+
 - `detect()`: Check if tool is available
 - `syncMCP()`: Write MCP config to tool
 
 ### 13. MCP Commands (`src/commands/mcp/`)
 
 **Implemented Commands**:
+
 - `sync.ts`: Main sync workflow (load → filter → substitute → validate → sync)
 - `list.ts`: Show available vs active MCPs
 - `add.ts`: Add MCP to project config
@@ -448,16 +472,19 @@ tests/
 ## Build Configuration
 
 **TypeScript**:
+
 - Strict mode enabled
 - ES2022 target
 - Path aliases (`@/*`)
 
 **Vite**:
+
 - ESM-only output
 - Node 18+ target
 - No minification (better debugging)
 
 **Vitest**:
+
 - Node environment
 - v8 coverage provider
 - 80% coverage threshold

@@ -124,14 +124,14 @@ Learn more in [CLAUDE.md](./CLAUDE.md#v030-beta-github-preset-system)
 
 ## Phase 5: Interactive Selection ✅ COMPLETE
 
-Fine-grained control over preset content with file-level selections and three-level configuration hierarchy.
+Fine-grained control over preset content with file-level selections and two-level configuration hierarchy.
 
 ### Features
 
 **✅ All Features Complete:**
 
 - Interactive preset selection with file-level filtering
-- Three-level configuration hierarchy (user → project → local)
+- Two-level configuration hierarchy (project → local)
 - File pattern matching with include/exclude glob patterns
 - MCP server selection from presets
 - Interactive removal of presets and selections
@@ -157,21 +157,16 @@ agentsync preset interactive-remove
 agentsync preset add github:company/standards --selection
 ```
 
-### Three-Level Configuration Hierarchy
+### Two-Level Configuration Hierarchy
 
-Interactive Selection supports a three-level configuration hierarchy that allows for flexible preset management:
+Interactive Selection supports a two-level configuration hierarchy for flexible preset management:
 
-1. **User Level** (`~/.agentsync/interactive-selection.json`)
-   - Personal default selections for all projects
-   - User preset registry
-   - Global preferences
-
-2. **Project Level** (`.agentsync/config.json`)
+1. **Project Level** (`.agentsync/config.json`)
    - Team-shared selections
    - Project-specific overrides
    - Committed to version control
 
-3. **Local Level** (`agentsync.local.json`)
+2. **Local Level** (`agentsync.local.json`)
    - Personal overrides for this project
    - Temporary selections
    - Gitignored (not committed)
@@ -444,17 +439,6 @@ Sync your unified AGENTS.md to all AI coding tools - Cursor, Claude Code, Cline,
 - ✅ `agentsync sync` - Sync presets, rules, commands, and MCPs to AI tools
 - ✅ `agentsync preset list` - List configured preset sources
 - ✅ `agentsync preset cache-clear` - Clear preset caches
-
-**Not Yet Implemented:**
-
-- ⏳ `agentsync watch` - Auto-sync on file changes
-- ⏳ `agentsync validate` - Validate AGENTS.md format
-- ⏳ `agentsync diff` - Preview sync changes
-- ⏳ `agentsync migrate` - Import from existing configs
-- ⏳ `agentsync doctor` - Diagnose issues
-- ⏳ `agentsync status` - Show sync status
-- ⏳ `agentsync audit` - View audit logs
-- ⏳ `agentsync tree` - Show workspace tree
 
 ### AGENTS.md Init Command
 

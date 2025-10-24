@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-alpha.13] - 2025-10-24
+
+### Breaking Changes
+
+- **Removed `.agentsync/config.local.json` support** - This fallback location is no longer checked or supported. Use `agentsync.local.json` (root) for personal MCP overrides instead. Files at the old location will be silently ignored (alpha release, no migration needed).
+
+### Changed
+
+- **Simplified configuration hierarchy** - Two-level system (instead of three):
+  - `agentsync.local.json` (personal overrides, gitignored)
+  - `.agentsync/config.json` (team config, committed)
+- **Documentation cleanup** - Removed references to unimplemented Phase 2 commands from README
+- **Interactive selection docs** - Simplified from three-level to two-level hierarchy
+
+### Fixed
+
+- Configuration loading now only checks two locations instead of three, improving performance and reducing confusion
+
 ## [0.2.0-alpha.11] - 2025-01-21
 
 ### Added
