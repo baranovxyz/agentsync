@@ -23,26 +23,9 @@ export interface ProjectMCPConfig {
  * Get MCP config file path with load priority (nearest wins):
  * 1. agentsync.local.json (user-local overrides, gitignored)
  * 2. .agentsync/config.json (project config, committed)
- *
- * Deprecated paths that throw errors:
- * - .agentsync/config.local.json (use agentsync.local.json instead)
  */
 async function getMCPConfigPath(): Promise<string | null> {
   const cwd = process.cwd();
-
-  // Check for deprecated location and fail fast
-  const deprecatedPath = path.join(cwd, ".agentsync", "config.local.json");
-  if (await pathExists(deprecatedPath)) {
-    throw new Error(
-      `.agentsync/config.local.json is no longer supported in AgentSync 0.2.x.\n\n` +
-      `Use agentsync.local.json instead:\n\n` +
-      `  mv .agentsync/config.local.json agentsync.local.json\n\n` +
-      `Priority (nearest wins):\n` +
-      `  1. agentsync.local.json (personal overrides)\n` +
-      `  2. .agentsync/config.json (project config)\n\n` +
-      `Documentation: https://docs.agentsync.dev/configuration`,
-    );
-  }
 
   // Priority 1: User-local overrides (gitignored, wins over project config)
   const localPath = path.join(cwd, "agentsync.local.json");
@@ -84,8 +67,7 @@ export async function loadProjectConfig(
         `MCP configuration not found.\n\n` +
           `Expected one of:\n` +
           `  - .agentsync/config.json (team config, committed)\n` +
-          `  - agentsync.local.json (personal overrides, gitignored)\n` +
-          `  - .agentsync/config.local.json (backup location)\n\n` +
+          `  - agentsync.local.json (personal overrides, gitignored)\n\n` +
           `Create .agentsync/config.json with:\n` +
           `  {"version": "1.0", "tools": ["cursor", "claude"], "mcpServers": []}\n\n` +
           `Or run 'agentsync init' to set up the project.`,
