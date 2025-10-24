@@ -41,19 +41,19 @@ describe("loadProjectConfig", () => {
     expect(result.tools).toBeUndefined();
   });
 
-  it("loads from .agentsync/config.local.json (backup location)", async () => {
+  it("throws error when deprecated .agentsync/config.local.json exists", async () => {
     await fs.ensureDir(".agentsync");
     const config = {
       mcpServers: ["github"],
     };
     await fs.writeJson(".agentsync/config.local.json", config);
 
-    const result = await loadProjectConfig();
-
-    expect(result.mcpServers).toEqual(["github"]);
+    await expect(loadProjectConfig()).rejects.toThrow(
+      /\.agentsync\/config\.local\.json is no longer supported/,
+    );
   });
 
-  it("loads from .agentsync/config.json (team-shared fallback)", async () => {
+  it("loads from .agentsync/config.json (fallback)", async () => {
     await fs.ensureDir(".agentsync");
     const config = {
       mcpServers: ["github"],
@@ -65,17 +65,14 @@ describe("loadProjectConfig", () => {
     expect(result.mcpServers).toEqual(["github"]);
   });
 
-  it("prefers .agentsync/config.json over other locations (team config primary)", async () => {
+  it("prefers agentsync.local.json over .agentsync/config.json (local wins)", async () => {
     await fs.ensureDir(".agentsync");
     await fs.writeJson("agentsync.local.json", { mcpServers: ["local"] });
-    await fs.writeJson(".agentsync/config.local.json", {
-      mcpServers: ["backup"],
-    });
     await fs.writeJson(".agentsync/config.json", { mcpServers: ["team"] });
 
     const result = await loadProjectConfig();
 
-    expect(result.mcpServers).toEqual(["team"]);
+    expect(result.mcpServers).toEqual(["local"]);
   });
 
   it("loads config with tools selection", async () => {

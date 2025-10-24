@@ -20,30 +20,40 @@ export interface ProjectMCPConfig {
 }
 
 /**
- * Get MCP config file path with fallback priority:
- * 1. .agentsync/config.json (primary - team config, committed)
- * 2. agentsync.local.json (override - personal config, gitignored)
- * 3. .agentsync/config.local.json (backup - hidden directory)
+ * Get MCP config file path with load priority (nearest wins):
+ * 1. agentsync.local.json (user-local overrides, gitignored)
+ * 2. .agentsync/config.json (project config, committed)
+ *
+ * Deprecated paths that throw errors:
+ * - .agentsync/config.local.json (use agentsync.local.json instead)
  */
 async function getMCPConfigPath(): Promise<string | null> {
   const cwd = process.cwd();
 
-  // Primary: Team-shared config (committed, created by init/add/remove)
-  const teamPath = path.join(cwd, ".agentsync", "config.json");
-  if (await pathExists(teamPath)) {
-    return teamPath;
+  // Check for deprecated location and fail fast
+  const deprecatedPath = path.join(cwd, ".agentsync", "config.local.json");
+  if (await pathExists(deprecatedPath)) {
+    throw new Error(
+      `.agentsync/config.local.json is no longer supported in AgentSync 0.2.x.\n\n` +
+      `Use agentsync.local.json instead:\n\n` +
+      `  mv .agentsync/config.local.json agentsync.local.json\n\n` +
+      `Priority (nearest wins):\n` +
+      `  1. agentsync.local.json (personal overrides)\n` +
+      `  2. .agentsync/config.json (project config)\n\n` +
+      `Documentation: https://docs.agentsync.dev/configuration`,
+    );
   }
 
-  // Override: Personal config (gitignored, user-created)
+  // Priority 1: User-local overrides (gitignored, wins over project config)
   const localPath = path.join(cwd, "agentsync.local.json");
   if (await pathExists(localPath)) {
     return localPath;
   }
 
-  // Backup: Hidden directory local config
-  const backupPath = path.join(cwd, ".agentsync", "config.local.json");
-  if (await pathExists(backupPath)) {
-    return backupPath;
+  // Priority 2: Project config (committed)
+  const projectPath = path.join(cwd, ".agentsync", "config.json");
+  if (await pathExists(projectPath)) {
+    return projectPath;
   }
 
   return null;

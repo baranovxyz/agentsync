@@ -32,18 +32,13 @@ describe("ExtendsEntry type", () => {
       });
     });
 
-    it("normalizes object extends entries with all fields", () => {
+    it("normalizes object extends entries with include/exclude fields", () => {
       const extends_ = [
         {
           source: "github:company/standards",
           namespace: "custom-namespace",
           include: ["**/*.ts", "**/*.js"],
           exclude: ["**/*.test.ts"],
-          select: {
-            rules: {
-              include: ["src/**", "lib/**"],
-            },
-          },
         },
       ];
       const result = normalizeExtends(extends_);
@@ -54,15 +49,10 @@ describe("ExtendsEntry type", () => {
         namespace: "custom-namespace",
         include: ["**/*.ts", "**/*.js"],
         exclude: ["**/*.test.ts"],
-        select: {
-          rules: {
-            include: ["src/**", "lib/**"],
-          },
-        },
       });
     });
 
-    it("normalizes object extends entries with select field only", () => {
+    it("throws error when select field is used", () => {
       const extends_ = [
         {
           source: "github:company/standards",
@@ -73,21 +63,13 @@ describe("ExtendsEntry type", () => {
           },
         },
       ];
-      const result = normalizeExtends(extends_);
 
-      expect(result).toHaveLength(1);
-      expect(result[0]).toEqual({
-        source: "github:company/standards",
-        namespace: "company",
-        select: {
-          rules: {
-            include: ["src/**/*.ts", "docs/**/*.md"],
-          },
-        },
-      });
+      expect(() => normalizeExtends(extends_)).toThrow(
+        "extends[].select is not supported in AgentSync 0.2.x",
+      );
     });
 
-    it("normalizes object extends entries with mixed fields", () => {
+    it("rejects mixed include/exclude with select field", () => {
       const extends_ = [
         {
           source: "github:company/standards",
@@ -98,39 +80,11 @@ describe("ExtendsEntry type", () => {
             },
           },
         },
-        {
-          source: "github:team/backend",
-          exclude: ["**/*.test.*"],
-          select: {
-            commands: {
-              include: ["api/**", "services/**"],
-            },
-          },
-        },
       ];
-      const result = normalizeExtends(extends_);
 
-      expect(result).toHaveLength(2);
-      expect(result[0]).toEqual({
-        source: "github:company/standards",
-        namespace: "company",
-        include: ["**/*.ts"],
-        select: {
-          rules: {
-            include: ["src/**"],
-          },
-        },
-      });
-      expect(result[1]).toEqual({
-        source: "github:team/backend",
-        namespace: "team",
-        exclude: ["**/*.test.*"],
-        select: {
-          commands: {
-            include: ["api/**", "services/**"],
-          },
-        },
-      });
+      expect(() => normalizeExtends(extends_)).toThrow(
+        "extends[].select is not supported",
+      );
     });
 
     it("handles empty extends array", () => {
@@ -147,11 +101,7 @@ describe("ExtendsEntry type", () => {
       const extends_ = [
         {
           source: "github:acme-corp/backend-rules",
-          select: {
-            rules: {
-              include: ["**/*.ts"],
-            },
-          },
+          include: ["**/*.ts"],
         },
       ];
       const result = normalizeExtends(extends_);
@@ -166,10 +116,27 @@ describe("ExtendsEntry type", () => {
         "Invalid GitHub source: invalid-source-format. Expected format: github:org/repo",
       );
     });
+
+    it("throws error when select field is used in object entry", () => {
+      const extends_ = [
+        {
+          source: "github:company/standards",
+          select: {
+            rules: {
+              include: ["**/*.ts"],
+            },
+          },
+        },
+      ];
+
+      expect(() => normalizeExtends(extends_)).toThrow(
+        /extends\[\]\.select is not supported in AgentSync 0\.2\.x/,
+      );
+    });
   });
 
   describe("AgentSyncConfig schema validation", () => {
-    it("validates config with select field in extends", () => {
+    it("validates config with include/exclude fields", () => {
       const config = {
         version: "1.0",
         extends: [
@@ -178,11 +145,6 @@ describe("ExtendsEntry type", () => {
             namespace: "company",
             include: ["**/*.ts"],
             exclude: ["**/*.test.ts"],
-            select: {
-              rules: {
-                include: ["src/**", "lib/**"],
-              },
-            },
           },
         ],
         tools: ["cursor"],
@@ -196,11 +158,6 @@ describe("ExtendsEntry type", () => {
         namespace: "company",
         include: ["**/*.ts"],
         exclude: ["**/*.test.ts"],
-        select: {
-          rules: {
-            include: ["src/**", "lib/**"],
-          },
-        },
       });
     });
 
@@ -211,11 +168,7 @@ describe("ExtendsEntry type", () => {
           "github:company/base-standards",
           {
             source: "github:team/backend",
-            select: {
-              commands: {
-                include: ["api/**", "services/**"],
-              },
-            },
+            include: ["**/*.ts"],
           },
         ],
         tools: ["cursor"],
@@ -227,15 +180,11 @@ describe("ExtendsEntry type", () => {
       expect(result.extends?.[0]).toBe("github:company/base-standards");
       expect(result.extends?.[1]).toEqual({
         source: "github:team/backend",
-        select: {
-          commands: {
-            include: ["api/**", "services/**"],
-          },
-        },
+        include: ["**/*.ts"],
       });
     });
 
-    it("validates config without select field", () => {
+    it("validates config with include only", () => {
       const config = {
         version: "1.0",
         extends: [
@@ -256,78 +205,14 @@ describe("ExtendsEntry type", () => {
       });
     });
 
-    it("validates config with empty select object", () => {
+    it("validates config with exclude only", () => {
       const config = {
         version: "1.0",
         extends: [
           {
             source: "github:company/standards",
-            select: {},
-          },
-        ],
-        tools: ["cursor"],
-      };
-
-      const result = validateConfig(config);
-
-      expect(result.extends).toHaveLength(1);
-      expect(result.extends?.[0]).toEqual({
-        source: "github:company/standards",
-        select: {},
-      });
-    });
-
-    it("validates config with PresetSelectionSchema in select field", () => {
-      const config = {
-        version: "1.0",
-        extends: [
-          {
-            source: "github:company/standards",
-            select: {
-              rules: {
-                include: ["**/*.ts", "**/*.js"],
-                exclude: ["**/*.test.ts"],
-              },
-              commands: {
-                include: ["build.*", "test.*"],
-              },
-              mcps: ["github", "filesystem"],
-            },
-          },
-        ],
-        tools: ["cursor"],
-      };
-
-      const result = validateConfig(config);
-
-      expect(result.extends).toHaveLength(1);
-      expect(result.extends?.[0]).toEqual({
-        source: "github:company/standards",
-        select: {
-          rules: {
-            include: ["**/*.ts", "**/*.js"],
             exclude: ["**/*.test.ts"],
           },
-          commands: {
-            include: ["build.*", "test.*"],
-          },
-          mcps: ["github", "filesystem"],
-        },
-      });
-    });
-
-    it("validates config with partial PresetSelectionSchema", () => {
-      const config = {
-        version: "1.0",
-        extends: [
-          {
-            source: "github:company/standards",
-            select: {
-              rules: {
-                include: ["**/*.ts"],
-              },
-            },
-          },
         ],
         tools: ["cursor"],
       };
@@ -337,17 +222,13 @@ describe("ExtendsEntry type", () => {
       expect(result.extends).toHaveLength(1);
       expect(result.extends?.[0]).toEqual({
         source: "github:company/standards",
-        select: {
-          rules: {
-            include: ["**/*.ts"],
-          },
-        },
+        exclude: ["**/*.test.ts"],
       });
     });
   });
 
   describe("ExtendsEntry type compatibility", () => {
-    it("maintains backward compatibility with existing fields", () => {
+    it("supports source, namespace, include, and exclude fields", () => {
       const entry: ExtendsEntry = {
         source: "github:company/standards",
         namespace: "company",
@@ -359,53 +240,31 @@ describe("ExtendsEntry type", () => {
       expect(entry.namespace).toBe("company");
       expect(entry.include).toEqual(["**/*.ts"]);
       expect(entry.exclude).toEqual(["**/*.test.ts"]);
-      expect(entry.select).toBeUndefined();
     });
 
-    it("supports new select field", () => {
+    it("allows optional include and exclude", () => {
       const entry: ExtendsEntry = {
         source: "github:company/standards",
         namespace: "company",
-        select: {
-          rules: {
-            include: ["src/**", "lib/**"],
-          },
-        },
       };
 
       expect(entry.source).toBe("github:company/standards");
       expect(entry.namespace).toBe("company");
-      expect(entry.select).toEqual({
-        rules: {
-          include: ["src/**", "lib/**"],
-        },
-      });
       expect(entry.include).toBeUndefined();
       expect(entry.exclude).toBeUndefined();
     });
 
-    it("supports all fields together", () => {
+    it("supports include only", () => {
       const entry: ExtendsEntry = {
         source: "github:company/standards",
         namespace: "company",
         include: ["**/*.ts"],
-        exclude: ["**/*.test.ts"],
-        select: {
-          rules: {
-            include: ["src/**", "lib/**"],
-          },
-        },
       };
 
       expect(entry.source).toBe("github:company/standards");
       expect(entry.namespace).toBe("company");
       expect(entry.include).toEqual(["**/*.ts"]);
-      expect(entry.exclude).toEqual(["**/*.test.ts"]);
-      expect(entry.select).toEqual({
-        rules: {
-          include: ["src/**", "lib/**"],
-        },
-      });
+      expect(entry.exclude).toBeUndefined();
     });
 
     describe("UserConfig schema validation", () => {
@@ -562,11 +421,7 @@ describe("ExtendsEntry type", () => {
           {
             source: "github:team/backend",
             namespace: "backend-team",
-            select: {
-              rules: {
-                include: ["**/*.ts"],
-              },
-            },
+            include: ["**/*.ts"],
           },
         ],
       };
@@ -579,11 +434,7 @@ describe("ExtendsEntry type", () => {
       expect(result.extends?.[1]).toEqual({
         source: "github:team/backend",
         namespace: "backend-team",
-        select: {
-          rules: {
-            include: ["**/*.ts"],
-          },
-        },
+        include: ["**/*.ts"],
       });
     });
 
@@ -613,15 +464,12 @@ describe("ExtendsEntry type", () => {
         extends: [
           {
             source: "github:company/standards",
-            select: {
-              commands: {
-                include: ["build.*"],
-              },
-            },
+            include: ["**/*.ts"],
           },
           {
             source: "github:team/backend",
             namespace: "backend",
+            exclude: ["**/*.test.ts"],
           },
         ],
       };
@@ -631,15 +479,12 @@ describe("ExtendsEntry type", () => {
       expect(result.extends).toHaveLength(2);
       expect(result.extends?.[0]).toEqual({
         source: "github:company/standards",
-        select: {
-          commands: {
-            include: ["build.*"],
-          },
-        },
+        include: ["**/*.ts"],
       });
       expect(result.extends?.[1]).toEqual({
         source: "github:team/backend",
         namespace: "backend",
+        exclude: ["**/*.test.ts"],
       });
     });
 
@@ -666,21 +511,26 @@ describe("ExtendsEntry type", () => {
       }
     });
 
-    it("safe parse local config with invalid data", () => {
+    it("safe parse local config with include/exclude", () => {
       const config = {
         extends: [
           {
             source: "github:company/standards",
-            select: "invalid-select-type",
+            include: ["rules/**/*.md"],
+            exclude: ["rules/deprecated/*"],
           },
         ],
       };
 
       const result = safeParseLocalConfig(config);
 
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error).toBeInstanceOf(Error);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.extends?.[0]).toEqual({
+          source: "github:company/standards",
+          include: ["rules/**/*.md"],
+          exclude: ["rules/deprecated/*"],
+        });
       }
     });
   });

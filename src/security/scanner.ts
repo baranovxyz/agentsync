@@ -227,7 +227,9 @@ export class SecurityScanner {
       SecurityFinding,
       "type" | "pattern" | "severity" | "confidence" | "suggestion"
     >[] = [];
-    const regex = new RegExp(pattern);
+    // Reset regex state and use directly (patterns are already defined with 'g' flag)
+    const regex = new RegExp(pattern.source, pattern.flags);
+    regex.lastIndex = 0;
     let match;
 
     while ((match = regex.exec(line)) !== null) {
