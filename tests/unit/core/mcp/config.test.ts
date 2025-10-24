@@ -41,19 +41,20 @@ describe("loadProjectConfig", () => {
     expect(result.tools).toBeUndefined();
   });
 
-  it("throws error when deprecated .agentsync/config.local.json exists", async () => {
+  it("ignores .agentsync/config.local.json (no longer supported)", async () => {
+    // This file should be silently ignored
     await fs.ensureDir(".agentsync");
-    const config = {
+    await fs.writeJson(".agentsync/config.local.json", {
       mcpServers: ["github"],
-    };
-    await fs.writeJson(".agentsync/config.local.json", config);
+    });
 
+    // Should fail because neither agentsync.local.json nor .agentsync/config.json exist
     await expect(loadProjectConfig()).rejects.toThrow(
-      /\.agentsync\/config\.local\.json is no longer supported/,
+      /MCP configuration not found/,
     );
   });
 
-  it("loads from .agentsync/config.json (fallback)", async () => {
+  it("loads from .agentsync/config.json (primary fallback)", async () => {
     await fs.ensureDir(".agentsync");
     const config = {
       mcpServers: ["github"],
