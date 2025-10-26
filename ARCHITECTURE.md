@@ -16,8 +16,8 @@ This document describes the technical architecture, design decisions, and key mo
 
 **AgentSync** is a CLI tool built with TypeScript that provides two main features:
 
-1. **MCP Context Optimizer** (Phase 1 ✅) - Project-specific MCP server selection
-2. **AGENTS.md Sync** (Phase 2 ⏳) - Unified AGENTS.md sync to all AI coding tools
+1. **MCP Context Optimizer** (v0.2.0-alpha ✅) - Project-specific MCP server selection
+2. **AGENTS.md Sync** (v0.3.0-beta ⏳) - Unified AGENTS.md sync to all AI coding tools
 
 ### Technology Stack
 
@@ -102,14 +102,14 @@ src/
 ├── cli.ts                        # Commander.js entry point
 ├── commands/
 │   ├── init.ts                   # ✅ AGENTS.md: Interactive setup wizard
-│   ├── mcp/                      # ✅ MCP: All commands (Phase 1)
+│   ├── mcp/                      # ✅ MCP: All commands (v0.2.0-alpha)
 │   │   ├── sync.ts               # Sync MCPs to tools
 │   │   ├── list.ts               # List available/active MCPs
 │   │   ├── add.ts                # Add MCP to project
 │   │   └── remove.ts             # Remove MCP from project
-│   └── [future].ts               # 🔨 AGENTS.md commands (Phase 2)
+│   └── [future].ts               # 🔨 AGENTS.md commands (v0.3.0-beta)
 ├── core/
-│   ├── mcp/                      # ✅ MCP engine (Phase 1)
+│   ├── mcp/                      # ✅ MCP engine (v0.2.0-alpha)
 │   │   ├── registry.ts           # Global registry loader
 │   │   ├── config.ts             # Project config loader + merger
 │   │   ├── tokens.ts             # Token substitution engine
@@ -126,7 +126,7 @@ src/
 │   ├── cursor.ts                 # Cursor MCP writer
 │   ├── claude.ts                 # Claude Code MCP writer
 │   └── mcp-index.ts              # Target registry
-├── translators/                  # 🔨 AGENTS.md translators (Phase 2)
+├── translators/                  # 🔨 AGENTS.md translators (v0.3.0-beta)
 ├── utils/
 │   └── debounce.ts               # Advanced debouncer
 ├── types/
@@ -446,7 +446,7 @@ tests/
 - Integration tests for command flows
 - E2E tests for production workflows
 - BATS tests for shell integration
-- Coverage target: >80% (Phase 1: 90%+)
+- Coverage target: >80% (v0.2.0-alpha: 90%+)
 
 ### 5. Configuration Philosophy
 
