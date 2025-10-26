@@ -491,4 +491,4 @@ pnpm test tests/unit/commands/mcp/
 
 **Version**: 0.2.0-alpha.2
 **Last Updated**: 2025-10-18
-**Test Coverage**: 90%+ (MCP Phase 1)
+**Test Coverage**: 90%+ (MCP v0.2.0-alpha)
