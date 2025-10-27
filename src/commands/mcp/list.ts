@@ -133,7 +133,9 @@ export async function listMCP(
   const lines: string[] = [];
   lines.push("Available MCP servers:");
   for (const name of Object.keys(globalRegistry)) {
-    const status = activeMCPs.includes(name) ? pc.green("active") : pc.gray("inactive");
+    const status = activeMCPs.includes(name)
+      ? pc.green("active")
+      : pc.gray("inactive");
     lines.push(`- ${name} (${status})`);
   }
   // Only print when invoked directly via CLI (stdout expected by tests)

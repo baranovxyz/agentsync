@@ -55,11 +55,11 @@ export function validateIncludeMatches(
   if (patterns.length > 0 && matchedFiles.length === 0) {
     throw new Error(
       `Include patterns matched no files\n\n` +
-      `Patterns: ${patterns.join(", ")}\n` +
-      `Source: ${source}\n` +
-      `Directory: ${dir}\n\n` +
-      `Verify the patterns and source are correct.\n` +
-      `Documentation: https://docs.agentsync.dev/presets/filtering`,
+        `Patterns: ${patterns.join(", ")}\n` +
+        `Source: ${source}\n` +
+        `Directory: ${dir}\n\n` +
+        `Verify the patterns and source are correct.\n` +
+        `Documentation: https://docs.agentsync.dev/presets/filtering`,
     );
   }
 }

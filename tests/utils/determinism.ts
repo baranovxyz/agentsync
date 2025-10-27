@@ -8,7 +8,7 @@
  * Reference: Test Architecture Plan Section 11 (Determinism Strategy)
  */
 
-import { beforeEach, afterEach, vi } from "vitest";
+import { afterEach, beforeEach, vi } from "vitest";
 
 /**
  * Deterministic test configuration
@@ -240,14 +240,9 @@ export function getNestedValue(obj: any, path: string): any {
  * const normalized = normalizeCollection(config, 'path');
  * // Sorted by path and all paths normalized
  */
-export function normalizeCollection(
-  collection: any,
-  arrayKey?: string,
-): any {
+export function normalizeCollection(collection: any, arrayKey?: string): any {
   if (Array.isArray(collection)) {
-    const sorted = arrayKey
-      ? sortArray(collection, arrayKey)
-      : collection;
+    const sorted = arrayKey ? sortArray(collection, arrayKey) : collection;
     return sorted.map((item) =>
       normalizePathsInObject(normalizeCollection(item, arrayKey)),
     );
@@ -290,10 +285,7 @@ export interface SnapshotOptions {
   sanitizeStrings?: boolean;
 }
 
-export function toSnapshot(
-  obj: any,
-  options: SnapshotOptions = {},
-): any {
+export function toSnapshot(obj: any, options: SnapshotOptions = {}): any {
   const {
     timestamp = Date.now(),
     pathKeys = ["path", "file", "dir", "filePath"],
@@ -321,10 +313,7 @@ export function toSnapshot(
     return value;
   };
 
-  let normalized = normalizePathsInObject(
-    replaceTimestamps(obj),
-    pathKeys,
-  );
+  let normalized = normalizePathsInObject(replaceTimestamps(obj), pathKeys);
 
   if (Array.isArray(normalized) && arrayKey) {
     normalized = sortArray(normalized, arrayKey);

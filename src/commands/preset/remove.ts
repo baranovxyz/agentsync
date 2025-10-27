@@ -9,7 +9,11 @@ import { confirm, select } from "@inquirer/prompts";
 import ora from "ora";
 import pc from "picocolors";
 import { UserPresetRegistry } from "../../core/registry/user-preset-registry.js";
-import { type AgentSyncConfig, type PresetSelection, validateConfig } from "../../types/schemas.js";
+import {
+  type AgentSyncConfig,
+  type PresetSelection,
+  validateConfig,
+} from "../../types/schemas.js";
 
 /**
  * Options for preset removal
@@ -386,7 +390,6 @@ function getConfigPath(
     "config.json",
   );
 }
-
 
 /**
  * Update extends entry for removal

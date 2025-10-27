@@ -7,8 +7,8 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import YAML from "js-yaml";
-import { runCli, RunCliResult } from "./workflow-harness.js";
 import * as fsUtils from "../../src/utils/fs.js";
+import { type RunCliResult, runCli } from "./workflow-harness.js";
 
 export interface ScenarioSetup {
   project?: { files?: Record<string, string> };
@@ -58,17 +58,17 @@ export async function loadScenario(filePath: string): Promise<Scenario> {
  */
 export async function runScenario(scenario: Scenario): Promise<ScenarioResult> {
   const projectDir = await fsUtils.mkdtemp(
-    path.join(require("node:os").tmpdir(), "scenario-project-")
+    path.join(require("node:os").tmpdir(), "scenario-project-"),
   );
   const homeDir = await fsUtils.mkdtemp(
-    path.join(require("node:os").tmpdir(), "scenario-home-")
+    path.join(require("node:os").tmpdir(), "scenario-home-"),
   );
 
   try {
     // Setup project files
     if (scenario.setup?.project?.files) {
       for (const [filePath, content] of Object.entries(
-        scenario.setup.project.files
+        scenario.setup.project.files,
       )) {
         const fullPath = path.join(projectDir, filePath);
         await fsUtils.ensureDir(path.dirname(fullPath));
@@ -79,7 +79,7 @@ export async function runScenario(scenario: Scenario): Promise<ScenarioResult> {
     // Setup home files
     if (scenario.setup?.home?.files) {
       for (const [filePath, content] of Object.entries(
-        scenario.setup.home.files
+        scenario.setup.home.files,
       )) {
         const fullPath = path.join(homeDir, filePath);
         await fsUtils.ensureDir(path.dirname(fullPath));
@@ -108,7 +108,7 @@ export async function runScenario(scenario: Scenario): Promise<ScenarioResult> {
           throw new Error(
             `Step failed: ${step.run.join(" ")}\n` +
               `Expected exit code ${step.expect.exitCode}, got ${result.exitCode}\n` +
-              `Stderr: ${result.stderr}`
+              `Stderr: ${result.stderr}`,
           );
         }
       }
@@ -148,7 +148,7 @@ export async function runScenario(scenario: Scenario): Promise<ScenarioResult> {
 async function verifyAssertions(
   assertions: ScenarioAssert,
   projectDir: string,
-  homeDir: string
+  _homeDir: string,
 ): Promise<void> {
   // Verify file assertions
   if (assertions.files) {
@@ -171,7 +171,7 @@ async function verifyAssertions(
           throw new Error(
             `File content mismatch: ${filePath}\n` +
               `Expected:\n${expectedType}\n` +
-              `Got:\n${content}`
+              `Got:\n${content}`,
           );
         }
       }
@@ -190,7 +190,7 @@ async function verifyAssertions(
         throw new Error(
           `JSON content mismatch: ${filePath}\n` +
             `Expected:\n${JSON.stringify(expectedValue, null, 2)}\n` +
-            `Got:\n${JSON.stringify(data, null, 2)}`
+            `Got:\n${JSON.stringify(data, null, 2)}`,
         );
       }
     }

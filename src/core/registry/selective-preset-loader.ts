@@ -16,7 +16,7 @@ import {
 export interface SelectivePresetResult {
   commands: Map<string, string>;
   rules: Map<string, string>;
-  mcps: Record<string, any>;
+  mcps: Record<string, unknown>;
 }
 
 /**
@@ -125,7 +125,7 @@ export class SelectivePresetLoader {
       if (!preset || typeof preset !== "object") {
         throw new SelectiveLoadingError(
           "Invalid preset data provided",
-          (preset as any)?.source,
+          (preset as Record<string, unknown>)?.source as string | undefined,
           "preset",
         );
       }
@@ -133,7 +133,7 @@ export class SelectivePresetLoader {
       if (!(preset.rules && preset.commands && preset.mcps)) {
         throw new SelectiveLoadingError(
           "Preset data is missing required properties",
-          (preset as any)?.source,
+          (preset as Record<string, unknown>)?.source as string | undefined,
           "preset",
         );
       }

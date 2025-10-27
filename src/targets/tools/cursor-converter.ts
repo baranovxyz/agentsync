@@ -4,9 +4,9 @@
 
 import * as path from "node:path";
 import type { MCP } from "../../core/mcp/tokens.js";
-import { outputFile, ensureDir } from "../../utils/fs.js";
-import { CursorRulesConverter } from "../rules/cursor-rules-converter.js";
+import { ensureDir, outputFile } from "../../utils/fs.js";
 import { CursorCommandsConverter } from "../commands/cursor-commands-converter.js";
+import { CursorRulesConverter } from "../rules/cursor-rules-converter.js";
 import type { ToolConverter } from "./types.js";
 
 export class CursorToolConverter implements ToolConverter {

@@ -127,7 +127,7 @@ export async function selectPreset(
 /**
  * Load current configuration
  */
-async function loadConfig(cwd: string): Promise<any> {
+async function loadConfig(cwd: string): Promise<Record<string, unknown>> {
   const configPath = path.join(cwd, ".agentsync", "config.json");
 
   try {
@@ -142,7 +142,7 @@ async function loadConfig(cwd: string): Promise<any> {
       );
     }
 
-    if ((error as any).code === "ENOENT") {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
       throw new ConfigError(
         "Configuration file not found",
         configPath,
@@ -150,7 +150,7 @@ async function loadConfig(cwd: string): Promise<any> {
       );
     }
 
-    if ((error as any).code === "EACCES") {
+    if ((error as NodeJS.ErrnoException).code === "EACCES") {
       throw new ConfigError(
         "Permission denied accessing configuration file",
         configPath,
@@ -171,7 +171,7 @@ async function loadConfig(cwd: string): Promise<any> {
  * Get available preset sources from config and user registry
  */
 async function getAvailablePresetSources(
-  config: any,
+  config: Record<string, unknown>,
 ): Promise<Array<{ name: string; value: string; description?: string }>> {
   const sources: Array<{ name: string; value: string; description?: string }> =
     [];
@@ -234,7 +234,9 @@ async function selectPresetSource(
 /**
  * Load preset content
  */
-async function loadPresetContent(presetSource: string): Promise<any> {
+async function loadPresetContent(
+  presetSource: string,
+): Promise<Record<string, unknown>> {
   const orchestrator = new RegistryOrchestrator();
   const sourceResolver = new SourceResolver();
 
@@ -257,7 +259,11 @@ async function loadPresetContent(presetSource: string): Promise<any> {
 /**
  * Let user select content types to configure
  */
-async function selectContentTypes(presetContent: any): Promise<string[]> {
+async function selectContentTypes(presetContent: {
+  rules: Map<string, string[]>;
+  commands: Map<string, string[]>;
+  mcps: Record<string, string[]>;
+}): Promise<string[]> {
   const choices = [];
   if (presetContent.rules.size > 0)
     choices.push({ name: "Rules", value: "rules" });
@@ -282,7 +288,11 @@ async function selectContentTypes(presetContent: any): Promise<string[]> {
  */
 async function configureFilePatterns(
   selectedTypes: string[],
-  presetContent: any,
+  presetContent: {
+    rules: Map<string, string[]>;
+    commands: Map<string, string[]>;
+    mcps: Record<string, string[]>;
+  },
 ): Promise<SelectionConfig> {
   const selection: SelectionConfig = {};
 
@@ -369,7 +379,11 @@ async function validateSelection(
  * Show preview of the selection
  */
 async function showPreview(
-  presetContent: any,
+  presetContent: {
+    rules: Map<string, string[]>;
+    commands: Map<string, string[]>;
+    mcps: Record<string, string[]>;
+  },
   selection: SelectionConfig,
 ): Promise<void> {
   console.log(pc.cyan("\n📝 Selection Preview"));

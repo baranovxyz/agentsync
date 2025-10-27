@@ -13,7 +13,13 @@ export interface DangerousUnicodePattern {
 }
 
 export interface UnicodeFinding {
-  type: "ZERO_WIDTH" | "BIDI_CONTROL" | "HOMOGLYPH" | "SUSPICIOUS_SEQUENCE" | "TROJAN_SOURCE" | string;
+  type:
+    | "ZERO_WIDTH"
+    | "BIDI_CONTROL"
+    | "HOMOGLYPH"
+    | "SUSPICIOUS_SEQUENCE"
+    | "TROJAN_SOURCE"
+    | string;
   severity: "high" | "medium" | "low";
   description: string;
   purpose: string;
@@ -214,7 +220,6 @@ export const DANGEROUS_UNICODE_PATTERNS: DangerousUnicodePattern[] = [
     risk: "low",
     purpose: "Spacing anomalies",
   },
-
 ];
 
 export class UnicodeDetector {
@@ -240,11 +245,22 @@ export class UnicodeDetector {
   /**
    * Categorize finding type
    */
-  private categorizeType(pattern: DangerousUnicodePattern): "ZERO_WIDTH" | "BIDI_CONTROL" | "HOMOGLYPH" | string {
+  private categorizeType(
+    pattern: DangerousUnicodePattern,
+  ): "ZERO_WIDTH" | "BIDI_CONTROL" | "HOMOGLYPH" | string {
     const name = pattern.name.toLowerCase();
-    if (name.includes("zero-width") || name.includes("soft hyphen") || name.includes("word joiner")) {
+    if (
+      name.includes("zero-width") ||
+      name.includes("soft hyphen") ||
+      name.includes("word joiner")
+    ) {
       return "ZERO_WIDTH";
-    } else if (name.includes("embedding") || name.includes("override") || name.includes("mark") || name.includes("formatting")) {
+    } else if (
+      name.includes("embedding") ||
+      name.includes("override") ||
+      name.includes("mark") ||
+      name.includes("formatting")
+    ) {
       return "BIDI_CONTROL";
     } else if (name.includes("cyrillic") || name.includes("greek")) {
       return "HOMOGLYPH";
@@ -330,10 +346,16 @@ export class UnicodeDetector {
     let start = position;
     let end = position;
 
-    while (start > 0 && /[a-zA-Z0-9\u0400-\u04FF\u0370-\u03FF_]/.test(content[start - 1])) {
+    while (
+      start > 0 &&
+      /[a-zA-Z0-9\u0400-\u04FF\u0370-\u03FF_]/.test(content[start - 1])
+    ) {
       start--;
     }
-    while (end < content.length - 1 && /[a-zA-Z0-9\u0400-\u04FF\u0370-\u03FF_]/.test(content[end + 1])) {
+    while (
+      end < content.length - 1 &&
+      /[a-zA-Z0-9\u0400-\u04FF\u0370-\u03FF_]/.test(content[end + 1])
+    ) {
       end++;
     }
 
@@ -345,7 +367,7 @@ export class UnicodeDetector {
     const hasGreek = /[\u0370-\u03FF]/.test(word);
 
     // Only flag if mixing scripts
-    return (hasLatin && (hasCyrillic || hasGreek));
+    return hasLatin && (hasCyrillic || hasGreek);
   }
 
   /**
@@ -481,14 +503,20 @@ export class UnicodeDetector {
     for (const pattern of this.dangerousPatterns) {
       // Remove based on risk level
       if (riskThreshold === "high" && pattern.risk === "high") {
-        pattern.characters.forEach((cp) => removeCodePoints.add(cp));
+        for (const cp of pattern.characters) {
+          removeCodePoints.add(cp);
+        }
       } else if (
         riskThreshold === "medium" &&
         (pattern.risk === "high" || pattern.risk === "medium")
       ) {
-        pattern.characters.forEach((cp) => removeCodePoints.add(cp));
+        for (const cp of pattern.characters) {
+          removeCodePoints.add(cp);
+        }
       } else if (riskThreshold === "low") {
-        pattern.characters.forEach((cp) => removeCodePoints.add(cp));
+        for (const cp of pattern.characters) {
+          removeCodePoints.add(cp);
+        }
       }
     }
 

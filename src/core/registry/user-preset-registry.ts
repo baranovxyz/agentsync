@@ -82,11 +82,11 @@ export class UserPresetRegistry {
         );
       }
 
-      if ((error as any).code === "ENOENT") {
+      if ((error as unknown as NodeJS.ErrnoException)?.code === "ENOENT") {
         throw new UserPresetRegistryError("Registry file not found", "load");
       }
 
-      if ((error as any).code === "EACCES") {
+      if ((error as unknown as NodeJS.ErrnoException)?.code === "EACCES") {
         throw new UserPresetRegistryError(
           "Permission denied accessing registry file",
           "load",
@@ -138,14 +138,14 @@ export class UserPresetRegistry {
       const content = JSON.stringify(this.registryData, null, 2);
       await writeFile(this.registryPath, content, "utf-8");
     } catch (error) {
-      if ((error as any).code === "EACCES") {
+      if ((error as unknown as NodeJS.ErrnoException)?.code === "EACCES") {
         throw new UserPresetRegistryError(
           "Permission denied writing to registry file",
           "save",
         );
       }
 
-      if ((error as any).code === "ENOSPC") {
+      if ((error as unknown as NodeJS.ErrnoException)?.code === "ENOSPC") {
         throw new UserPresetRegistryError(
           "Insufficient disk space to save registry",
           "save",

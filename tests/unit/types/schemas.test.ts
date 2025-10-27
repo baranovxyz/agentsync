@@ -81,7 +81,6 @@ describe("ExtendsEntry type", () => {
         "Invalid GitHub source: invalid-source-format. Expected format: github:org/repo",
       );
     });
-
   });
 
   describe("AgentSyncConfig schema validation", () => {
