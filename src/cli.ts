@@ -17,7 +17,6 @@ import { init } from "./commands/init.js";
 import { addMCP as addMcp } from "./commands/mcp/add.js";
 import { listMCP as listMcp } from "./commands/mcp/list.js";
 import { removeMCP as removeMcp } from "./commands/mcp/remove.js";
-import { syncMCP as syncMcp } from "./commands/mcp/sync.js";
 import { handleAddPresetCommand } from "./commands/preset/add.js";
 import { clearCache } from "./commands/preset/cache-clear.js";
 import { removePreset } from "./commands/preset/remove.js";
@@ -126,14 +125,7 @@ export function createProgram(options?: { exitOverride?: boolean }): Command {
       await listMcp();
     });
 
-  mcpCommand
-    .command("sync")
-    .description("Sync MCP configurations to tools")
-    .option("-t, --tool <tool>", "Sync only to a specific tool")
-    .option("-d, --dry-run", "Preview changes without writing files")
-    .action(async (options) => {
-      await syncMcp(options);
-    });
+  // mcp sync removed; MCP sync now part of main 'sync' command
 
   // Preset commands
   const presetCommand = program

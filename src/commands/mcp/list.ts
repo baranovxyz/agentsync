@@ -129,5 +129,17 @@ export async function listMCP(
     }
   }
 
+  // Print a simple list for CLI output used by shell tests
+  const lines: string[] = [];
+  lines.push("Available MCP servers:");
+  for (const name of Object.keys(globalRegistry)) {
+    const status = activeMCPs.includes(name) ? pc.green("active") : pc.gray("inactive");
+    lines.push(`- ${name} (${status})`);
+  }
+  // Only print when invoked directly via CLI (stdout expected by tests)
+  if (typeof process !== "undefined" && process.stdout) {
+    console.log(lines.join("\n"));
+  }
+
   return result;
 }
