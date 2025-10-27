@@ -121,11 +121,9 @@ src/
 ├── security/
 │   ├── scanner.ts                # ✅ Secret pattern detection (25+ patterns)
 │   └── unicode-detector.ts       # ✅ CVE-2021-42574 protection
-├── targets/                      # ✅ MCP tool integrations
-│   ├── mcp-base.ts               # Target interface
-│   ├── cursor.ts                 # Cursor MCP writer
-│   ├── claude.ts                 # Claude Code MCP writer
-│   └── mcp-index.ts              # Target registry
+├── targets/                      # ✅ Per-tool converters (rules, commands, MCP)
+│   ├── tools/                    # Converters
+│   └── commands/                 # Command converters
 ├── translators/                  # 🔨 AGENTS.md translators (v0.3.0-beta)
 ├── utils/
 │   └── debounce.ts               # Advanced debouncer
@@ -382,33 +380,16 @@ tests/
 
 **Priority**: .env values override process.env
 
-### 12. MCP Targets (`src/targets/`)
+### 12. Tool Converters (`src/targets/tools/`)
 
-**Cursor Target** (`cursor.ts`):
-
-- Writes `.cursor/mcp.json`
-- Format: `{"mcpServers": {...}}` wrapper
-
-**Claude Target** (`claude.ts`):
-
-- Writes `.claude/mcp.json`
-- Format: Direct object (no wrapper)
-
-**Target Registry** (`mcp-index.ts`):
-
-- `detectMCPTargets()`: Auto-detect available tools
-- `getMCPTarget()`: Get target by name
-
-**Interface** (`mcp-base.ts`):
-
-- `detect()`: Check if tool is available
-- `syncMCP()`: Write MCP config to tool
+Unified per-tool converters for rules, commands, and MCPs. No legacy target base/registry.
 
 ### 13. MCP Commands (`src/commands/mcp/`)
 
 **Implemented Commands**:
 
-- `sync.ts`: Main sync workflow (load → filter → substitute → validate → sync)
+// `sync.ts` removed; MCP sync handled by main `sync` command
+
 - `list.ts`: Show available vs active MCPs
 - `add.ts`: Add MCP to project config
 - `remove.ts`: Remove MCP from project config

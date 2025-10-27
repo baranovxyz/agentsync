@@ -77,11 +77,8 @@ pnpm cli preset cache-clear --all  # Clear all preset caches
 pnpm cli preset select             # Interactive: include/exclude filters, MCP picks
 pnpm cli preset remove             # Interactive: remove from include/exclude or mcpServers
 
-# MCP Commands (v0.2.0-alpha - FULLY IMPLEMENTED)
-# Note: Empty MCP configs (0 servers) are valid for starting fresh or cleanup
-pnpm cli mcp sync                  # Sync MCPs to tools
-pnpm cli mcp sync --dry-run        # Preview without applying
-pnpm cli mcp sync --tool cursor    # Sync only to Cursor
+# MCP Commands (updated)
+# MCP sync is merged into main sync. Use `agentsync sync`.
 pnpm cli mcp list                  # Show available/active MCPs
 pnpm cli mcp add github            # Add MCP to project
 pnpm cli mcp remove postgres       # Remove MCP (can remove all)

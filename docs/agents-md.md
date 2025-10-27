@@ -1,6 +1,6 @@
 # AGENTS.md: Parser and Translators
 
-Status: v0.3.0-beta in progress. `init` command implemented; translators and full sync pending.
+Status: v0.3.0-beta in progress. `init` implemented; translators pending. Current approach is symlink-only for AGENTS.md per tool.
 
 ## Parser (`src/core/parser.ts`)
 

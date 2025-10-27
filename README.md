@@ -290,8 +290,8 @@ agentsync mcp add postgres
 # View all available MCPs
 agentsync mcp list
 
-# Sync to Cursor & Claude Code
-agentsync mcp sync
+# Sync everything (rules, commands, AGENTS.md links, and MCPs)
+agentsync sync
 
 # See performance improvement
 # Context: ~15K → ~3K tokens (80% reduction)
@@ -302,14 +302,14 @@ agentsync mcp sync
 
 All MCP commands are fully functional and tested (87 tests, >90% coverage):
 
-#### `agentsync mcp sync`
+### MCP Sync
 
-Sync selected MCPs to detected AI tools (Cursor, Claude Code)
+MCP sync is part of the main sync flow:
 
 ```bash
-agentsync mcp sync              # Sync to all detected tools
-agentsync mcp sync --tool cursor  # Sync only to Cursor
-agentsync mcp sync --dry-run      # Preview without applying
+agentsync sync                  # Sync rules, commands, AGENTS.md links, and MCPs
+agentsync sync --tool cursor    # Limit to a single tool
+agentsync sync --dry-run        # Preview without applying
 ```
 
 #### `agentsync mcp list`
@@ -356,7 +356,7 @@ agentsync mcp remove linear
 
 # Output:
 # ✓ Removed 'linear' from .agentsync/config.json
-# Run 'agentsync mcp sync' to apply changes.
+# Run 'agentsync sync' to apply changes.
 ```
 
 ### How It Works
@@ -475,7 +475,7 @@ Sync your unified AGENTS.md to all AI coding tools - Cursor, Claude Code, Cline,
 
 - ✅ `agentsync init` - Initialize AgentSync with AGENTS.md template
 - ✅ `agentsync sync` - Sync presets, rules, commands, and MCPs to AI tools
-- ✅ `agentsync mcp sync/add/remove/list` - MCP server management
+- ✅ `agentsync mcp add/remove/list` - MCP server management (sync via `agentsync sync`)
 - ✅ `agentsync preset list/cache-clear/select/remove` - Preset configuration
 - ✅ Interactive workflow for preset and MCP selection
 
@@ -515,7 +515,7 @@ agentsync/
 │   ├── commands/
 │   │   ├── init.ts               ✅ AGENTS.md init
 │   │   └── mcp/                  ✅ MCP commands (v0.2.0-alpha)
-│   │       ├── sync.ts           ✅ Complete
+│   │       ├── sync.ts           ⚠ merged into main sync for execution
 │   │       ├── list.ts           ✅ Complete
 │   │       ├── add.ts            ✅ Complete
 │   │       └── remove.ts         ✅ Complete

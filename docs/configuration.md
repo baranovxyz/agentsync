@@ -75,7 +75,7 @@ Use cases for empty configs:
 - Fresh projects planning MCPs later
 - Temporarily disabling all MCPs for testing
 - Template projects with no MCPs configured
-- Running `mcp sync` with empty config clears tool configs
+- MCP sync is part of `agentsync sync`. When `mcpServers` is empty, the main sync writes empty MCP target configs (clearing existing entries).
 
 ## Loading Priority
 

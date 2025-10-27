@@ -26,7 +26,7 @@ Details: ./CONTRIBUTING.md#git-workflow
 - pnpm test — run tests; pnpm test:e2e — E2E only
 - pnpm cli sync [--dry-run|--update|--tool cursor]
 - pnpm cli preset list|cache-clear
-- pnpm cli mcp sync|add|remove|list
+- pnpm cli mcp add|remove|list (sync via main `sync`)
 
 More: ./docs/cli.md
 
