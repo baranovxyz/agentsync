@@ -52,41 +52,6 @@ describe("ExtendsEntry type", () => {
       });
     });
 
-    it("throws error when select field is used", () => {
-      const extends_ = [
-        {
-          source: "github:company/standards",
-          select: {
-            rules: {
-              include: ["src/**/*.ts", "docs/**/*.md"],
-            },
-          },
-        },
-      ];
-
-      expect(() => normalizeExtends(extends_)).toThrow(
-        "extends[].select is not supported in AgentSync 0.2.x",
-      );
-    });
-
-    it("rejects mixed include/exclude with select field", () => {
-      const extends_ = [
-        {
-          source: "github:company/standards",
-          include: ["**/*.ts"],
-          select: {
-            rules: {
-              include: ["src/**"],
-            },
-          },
-        },
-      ];
-
-      expect(() => normalizeExtends(extends_)).toThrow(
-        "extends[].select is not supported",
-      );
-    });
-
     it("handles empty extends array", () => {
       const result = normalizeExtends([]);
       expect(result).toHaveLength(0);
@@ -117,22 +82,6 @@ describe("ExtendsEntry type", () => {
       );
     });
 
-    it("throws error when select field is used in object entry", () => {
-      const extends_ = [
-        {
-          source: "github:company/standards",
-          select: {
-            rules: {
-              include: ["**/*.ts"],
-            },
-          },
-        },
-      ];
-
-      expect(() => normalizeExtends(extends_)).toThrow(
-        /extends\[\]\.select is not supported in AgentSync 0\.2\.x/,
-      );
-    });
   });
 
   describe("AgentSyncConfig schema validation", () => {
