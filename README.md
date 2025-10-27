@@ -187,8 +187,8 @@ agentsync preset select
 # View configured presets with selections
 agentsync preset list --verbose
 
-# Sync with selections applied
-agentsync sync --selections
+# Sync presets to your tools
+agentsync sync
 
 # Interactively remove presets and selections
 agentsync preset remove

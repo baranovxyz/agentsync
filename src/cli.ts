@@ -19,11 +19,10 @@ import { listMCP as listMcp } from "./commands/mcp/list.js";
 import { removeMCP as removeMcp } from "./commands/mcp/remove.js";
 import { handleAddPresetCommand } from "./commands/preset/add.js";
 import { clearCache } from "./commands/preset/cache-clear.js";
+import { listPresets } from "./commands/preset/list.js";
 import { removePreset } from "./commands/preset/remove.js";
 import { selectPreset } from "./commands/preset/select.js";
-import { listPresets } from "./commands/preset/list.js";
 import { sync } from "./commands/sync.js";
-import type { PresetSelection } from "./types/schemas.js";
 
 // Set up error handling
 // Note: ErrorHandler is a static class, so we don't instantiate it
@@ -75,29 +74,11 @@ export function createProgram(options?: { exitOverride?: boolean }): Command {
     .option("-d, --dry-run", "Preview changes without writing files")
     .option("-u, --update", "Update GitHub caches (re-clone repositories)")
     .option("-t, --tool <tool>", "Sync only to a specific tool")
-    .option("-s, --selections", "Sync with interactive selections")
     .action(async (options) => {
-      let selections: PresetSelection | undefined;
-      if (options.selections) {
-        try {
-          const projectConfigContent = await readFile(
-            path.join(process.cwd(), ".agentsync", "interactive-selections.json"),
-            "utf-8",
-          );
-          const projectConfig = JSON.parse(projectConfigContent);
-          if (projectConfig.project?.selections) {
-            selections = projectConfig.project.selections;
-          }
-        } catch {
-          // Silently continue if selections can't be loaded
-        }
-      }
-
       await sync({
         dryRun: options.dryRun,
         update: options.update,
         tool: options.tool,
-        selections: selections as Record<string, any>,
       });
     });
 
@@ -178,7 +159,10 @@ export function createProgram(options?: { exitOverride?: boolean }): Command {
 
 // Main CLI entry point (only execute if this is the main module)
 // Prefer native import.meta.main when available; fall back to es-main for older Node
-const isMain = typeof import.meta.main === "boolean" ? import.meta.main : esMain(import.meta);
+const isMain =
+  typeof import.meta.main === "boolean"
+    ? import.meta.main
+    : esMain(import.meta);
 if (isMain) {
   const program = createProgram();
   program.parse();

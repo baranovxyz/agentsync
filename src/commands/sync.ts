@@ -9,11 +9,6 @@ import ora from "ora";
 import picocolors from "picocolors";
 import AuditLogger, { AuditEventType } from "../core/audit.js";
 import { ConfigError, ErrorCategory, ErrorSeverity } from "../core/errors.js";
-import { RegistryOrchestrator } from "../core/registry/registry-orchestrator.js";
-import { getConvertersForTools } from "../targets/tools/index.js";
-import type { ToolName } from "../types/index.js";
-import { validateConfig } from "../types/schemas.js";
-import { runSecurityChecks } from "../security/checks/run.js";
 import {
   filterSelectedMCPs,
   loadProjectConfig as loadProjectMcpConfig,
@@ -21,6 +16,11 @@ import {
 import { loadEnv } from "../core/mcp/env.js";
 import { loadGlobalRegistry } from "../core/mcp/registry.js";
 import { substituteAllMCPs, validateTokens } from "../core/mcp/tokens.js";
+import { RegistryOrchestrator } from "../core/registry/registry-orchestrator.js";
+import { runSecurityChecks } from "../security/checks/run.js";
+import { getConvertersForTools } from "../targets/tools/index.js";
+import type { ToolName } from "../types/index.js";
+import { validateConfig } from "../types/schemas.js";
 
 const pc = picocolors;
 
@@ -36,14 +36,13 @@ export interface MainSyncOptions {
   dryRun?: boolean;
   /** Sync only to specific tool */
   tool?: string;
-  /** Selective loading options for presets */
-  selections?: Record<string, import("../types/index.js").SelectionConfig>;
 }
 
 /**
  * Main sync command
  * Loads config, resolves presets, merges content, syncs to tools
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: orchestrates complex multi-step sync workflow
 export async function sync(options: MainSyncOptions = {}): Promise<void> {
   const cwd = options.cwd || process.cwd();
   const audit = AuditLogger.getInstance();
@@ -74,6 +73,7 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
       );
     }
 
+    // biome-ignore lint/suspicious/noImplicitAnyLet: configuration type is complex
     let config;
     try {
       config = validateConfig(JSON.parse(configContent));
@@ -98,12 +98,7 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
 
     // Validate tool if specified
     if (options.tool) {
-      const validTools: ToolName[] = [
-        "cursor",
-        "claude",
-        "cline",
-        "roocode",
-      ];
+      const validTools: ToolName[] = ["cursor", "claude", "cline", "roocode"];
       if (!validTools.includes(options.tool as ToolName)) {
         throw new ConfigError(
           `Unknown tool: ${options.tool}`,
@@ -135,12 +130,14 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
 
     // 2. Load and merge GitHub presets (if any)
     const orchestrator = new RegistryOrchestrator();
+    // biome-ignore lint/suspicious/noImplicitAnyLet: spinner type from ora library
     let presetSpinner;
 
     if (config.extends && config.extends.length > 0) {
       presetSpinner = ora("Loading GitHub libraries...").start();
     }
 
+    // biome-ignore lint/suspicious/noImplicitAnyLet: merged preset type is complex
     let merged;
     try {
       // Check if any extends entries have selection criteria
@@ -149,34 +146,11 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
           typeof entry !== "string" && (entry.include || entry.exclude),
       );
 
-      if (
-        hasSelections ||
-        (options.selections && Object.keys(options.selections).length > 0)
-      ) {
-        // Use selective loading when selections are present in config or options
-        if (options.selections && Object.keys(options.selections).length > 0) {
-          // Validate selections first
-          const validation = await orchestrator.validateSelections(
-            cwd,
-            options.selections,
-            {
-              update: options.update,
-            },
-          );
-
-          if (!validation.valid) {
-            if (presetSpinner) {
-              presetSpinner.fail("Invalid selections");
-            }
-            throw new Error(
-              `Invalid selections:\n${validation.errors.map((e) => `  - ${e}`).join("\n")}`,
-            );
-          }
-        }
-
+      if (hasSelections) {
+        // Use selective loading when selections are present in config
         merged = await orchestrator.loadAndMergeSelective(
           cwd,
-          options.selections || {},
+          {},
           {
             update: options.update,
           },
@@ -186,8 +160,7 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
           const selectionCount =
             config.extends?.filter(
               (entry) =>
-                typeof entry !== "string" &&
-                (entry.include || entry.exclude),
+                typeof entry !== "string" && (entry.include || entry.exclude),
             ).length || 0;
           presetSpinner.succeed(
             `Loaded ${config.extends?.length || 0} ${config.extends?.length === 1 ? "library" : "libraries"} with ${selectionCount} filter${selectionCount === 1 ? "" : "s"}`,

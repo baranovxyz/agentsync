@@ -78,8 +78,11 @@ export async function addPreset(
     const presetEntry = options.selection
       ? {
           source,
-          include: options.selection.rules?.include || options.selection.commands?.include || ["*"],
-          exclude: options.selection.rules?.exclude || options.selection.commands?.exclude,
+          include: options.selection.rules?.include ||
+            options.selection.commands?.include || ["*"],
+          exclude:
+            options.selection.rules?.exclude ||
+            options.selection.commands?.exclude,
         }
       : source;
 
@@ -150,12 +153,9 @@ export async function handleAddPresetCommand(
 
     if (result.selection) {
       console.log(pc.cyan("  Selection configured"));
-      console.log(
-        pc.gray("  Use 'agentsync sync --selections' to sync with selections"),
-      );
     }
 
-    console.log(pc.gray("\nRun 'agentsync sync' to apply changes"));
+    console.log(pc.gray("Run 'agentsync sync' to apply changes"));
   } else {
     console.log(pc.red(`✗ Failed to add preset: ${result.error}`));
   }
