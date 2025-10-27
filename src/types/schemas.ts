@@ -363,24 +363,7 @@ export function normalizeExtends(
       throw new Error("Source is required in extends entry");
     }
 
-    // Check for deprecated 'select' field
-    if ("select" in obj) {
-      throw new Error(
-        `extends[].select is not supported in AgentSync 0.2.x.\n\n` +
-        `Use 'include' and 'exclude' arrays instead:\n\n` +
-        `  ✗ Deprecated:\n` +
-        `    extends: [{ source: "github:org/repo", select: {...} }]\n\n` +
-        `  ✓ Use instead:\n` +
-        `    extends: [\n` +
-        `      {\n` +
-        `        source: "github:org/repo",\n` +
-        `        include: ["rules/**/*.md"],\n` +
-        `        exclude: ["rules/deprecated/*"]\n` +
-        `      }\n` +
-        `    ]\n\n` +
-        `Documentation: https://docs.agentsync.dev/configuration`,
-      );
-    }
+    // Note: select field is not supported - use include/exclude arrays instead
 
     // Extract namespace from source if not provided
     let namespace = obj.namespace as string | undefined;

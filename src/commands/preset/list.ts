@@ -54,7 +54,8 @@ export async function listPresets(
     for (const entry of allExtends) {
       const source = typeof entry === "string" ? entry : entry.source;
       const namespace = typeof entry === "string" ? "" : entry.namespace;
-      const selection = typeof entry === "object" ? entry.select : undefined;
+      const include = typeof entry === "object" ? entry.include : undefined;
+      const exclude = typeof entry === "object" ? entry.exclude : undefined;
 
       console.log(pc.bold(source));
       if (namespace) {
@@ -62,27 +63,13 @@ export async function listPresets(
       }
 
       // Display selection information if available
-      if (selection && (options.verbose || Object.keys(selection).length > 0)) {
+      if ((include || exclude) && options.verbose) {
         console.log(pc.cyan("  Selections:"));
 
-        if (selection.rules?.include) {
-          const rulesText = selection.rules.include.join(", ");
-          const excludeText = selection.rules.exclude
-            ? ` (exclude: ${selection.rules.exclude.join(", ")})`
-            : "";
-          console.log(pc.cyan(`    Rules: ${rulesText}${excludeText}`));
-        }
-
-        if (selection.commands?.include) {
-          const commandsText = selection.commands.include.join(", ");
-          const excludeText = selection.commands.exclude
-            ? ` (exclude: ${selection.commands.exclude.join(", ")})`
-            : "";
-          console.log(pc.cyan(`    Commands: ${commandsText}${excludeText}`));
-        }
-
-        if (selection.mcps && selection.mcps.length > 0) {
-          console.log(pc.cyan(`    MCPs: ${selection.mcps.join(", ")}`));
+        if (include) {
+          const includeText = include.join(", ");
+          const excludeText = exclude ? ` (exclude: ${exclude.join(", ")})` : "";
+          console.log(pc.cyan(`    Include: ${includeText}${excludeText}`));
         }
       }
 
@@ -106,24 +93,16 @@ export async function listPresets(
 
     // Show selection summary if any selections exist and verbose mode is on
     const selectionCount = allExtends.filter(
-      (e) =>
-        typeof e === "object" && e.select && Object.keys(e.select).length > 0,
+      (e) => typeof e === "object" && (e.include || e.exclude),
     ).length;
 
     if (selectionCount > 0 && options.verbose) {
       console.log(
         pc.cyan(
-          `📋 ${selectionCount} preset${selectionCount === 1 ? "" : "s"} with interactive selections`,
+          `📋 ${selectionCount} preset${selectionCount === 1 ? "" : "s"} with filters`,
         ),
       );
-      console.log(
-        pc.gray(
-          "Use 'agentsync preset interactive-select' to manage selections",
-        ),
-      );
-      console.log(
-        pc.gray("Use 'agentsync sync --selections' to sync with selections"),
-      );
+      console.log(pc.gray("Use 'agentsync sync' to sync with filters"));
       console.log();
     }
   } catch (error: any) {

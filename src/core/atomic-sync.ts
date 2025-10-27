@@ -279,12 +279,12 @@ export class AtomicSyncEngine extends EventEmitter {
         "AGENTS.md",
       );
 
-      if (unicodeResult.length > 0) {
+      if (unicodeResult.findings.length > 0) {
         throw new SecurityError(
           "Detected potential Unicode attacks",
           ErrorSeverity.HIGH,
           {
-            findings: unicodeResult.slice(0, 5),
+            findings: unicodeResult.findings.slice(0, 5),
             suggestion: "Remove suspicious Unicode characters",
           },
         );

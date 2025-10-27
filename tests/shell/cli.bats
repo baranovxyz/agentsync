@@ -36,6 +36,10 @@ setup() {
   # CLI path
   export CLI="$ROOT/dist/cli.js"
 
+  # Get version from package.json
+  export VERSION=$(node -p "require('$ROOT/package.json').version")
+  export PACKAGE_NAME="agentsync-${VERSION}.tgz"
+
   # Create temp directory for each test
   export TEST_TEMP_DIR="$(mktemp -d)"
   export ORIGINAL_PWD="$PWD"
@@ -101,6 +105,13 @@ check_cli_built() {
   run node "$CLI" --version
   [ "$status" -eq 0 ]
   [[ "$output" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]
+}
+
+@test "CLI shows exact version" {
+  check_cli_built
+  run node "$CLI" --version
+  [ "$status" -eq 0 ]
+  [ "$output" = "$VERSION" ]
 }
 
 @test "CLI shows help" {
@@ -311,6 +322,90 @@ check_cli_built() {
   run node "$CLI" --help
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Usage:" ]]
+}
+
+# ==================== Global Installation Tests ====================
+
+@test "global pnpm installation works from different directory" {
+  # Build and pack
+  cd "$ROOT"
+  pnpm build
+  npm pack
+
+  # Install globally with pnpm
+  pnpm install -g "$ROOT/$PACKAGE_NAME"
+
+  # Test from a completely different directory
+  TEMP_TEST_DIR="$(mktemp -d)"
+  cd "$TEMP_TEST_DIR"
+
+  # Test that agentsync command works (not node dist/cli.js)
+  run agentsync --version
+  [ "$status" -eq 0 ]
+  [ "$output" = "$VERSION" ]
+
+  # Cleanup
+  cd "$ROOT"
+  rm -rf "$TEMP_TEST_DIR"
+  rm -f "$ROOT/$PACKAGE_NAME"
+}
+
+@test "global npm installation works from different directory" {
+  # Build and pack
+  cd "$ROOT"
+  pnpm build
+  npm pack
+
+  # Install globally with npm
+  npm install -g "$ROOT/$PACKAGE_NAME"
+
+  # Test from a completely different directory
+  TEMP_TEST_DIR="$(mktemp -d)"
+  cd "$TEMP_TEST_DIR"
+
+  # Test that agentsync command works
+  run agentsync --version
+  [ "$status" -eq 0 ]
+  [ "$output" = "$VERSION" ]
+
+  # Cleanup
+  cd "$ROOT"
+  rm -rf "$TEMP_TEST_DIR"
+  rm -f "$ROOT/$PACKAGE_NAME"
+}
+
+@test "packed version works with npm install and npx" {
+  # Build and pack the current version
+  pnpm build
+  npm pack
+
+  # Create temp directory for testing
+  TEST_DIR="$(mktemp -d)"
+  ORIGINAL_PWD="$PWD"
+  cd "$TEST_DIR"
+
+  # Install the packed package
+  npm install "$ORIGINAL_PWD/$PACKAGE_NAME"
+
+  # Test npx execution
+  run npx agentsync --version
+  [ "$status" -eq 0 ]
+  [ "$output" = "$VERSION" ]
+
+  # Test direct binary execution
+  run ./node_modules/.bin/agentsync --version
+  [ "$status" -eq 0 ]
+  [ "$output" = "$VERSION" ]
+
+  # Test node execution of CLI file
+  run node node_modules/agentsync/dist/cli.js --version
+  [ "$status" -eq 0 ]
+  [ "$output" = "$VERSION" ]
+
+  # Cleanup
+  cd "$ORIGINAL_PWD"
+  rm -rf "$TEST_DIR"
+  rm -f "$PACKAGE_NAME"
 }
 
 # ==================== Integration Workflow Tests ====================

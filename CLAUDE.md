@@ -95,3 +95,5 @@ Details: ./docs/releasing.md
 - Favor natural workflows in tests (don’t bypass with manual setup)
 - Use typed errors with recovery guidance
 - Keep changes atomic and commits well-described
+- Handle CommanderError types properly: when using exitOverride(), check for 'commander.version' and 'commander.helpDisplayed' codes and exit with 0
+- Fix main module detection for npm binaries: use import.meta.url.endsWith('/dist/cli.js') to handle symlinks in node_modules/.bin/

@@ -14,6 +14,46 @@
 3. **Interactive Selection** (v0.2.x-alpha ✅) - Fine-grained control over preset content with file-level selections
 4. **AGENTS.md Sync** (v0.3.0-beta ⏳) - Sync unified AGENTS.md to all AI coding tools
 
+## ⚠️ Breaking Changes in v0.2.0-alpha.14
+
+**Simplified Configuration Format** - Alpha stage cleanup:
+
+- **Removed**: `extends[].select` object format
+- **Use Instead**: `include` and `exclude` arrays
+
+**Before (no longer supported):**
+
+```json
+{
+  "extends": [
+    {
+      "source": "github:org/repo",
+      "select": {
+        "rules": { "include": ["*.md"], "exclude": ["deprecated/*"] }
+      }
+    }
+  ]
+}
+```
+
+**After (current format):**
+
+```json
+{
+  "extends": [
+    {
+      "source": "github:org/repo",
+      "include": ["rules/**/*.md", "commands/**/*.md"],
+      "exclude": ["rules/deprecated/*"]
+    }
+  ]
+}
+```
+
+This is an alpha release with no deprecation period. Update your configs to the new format.
+
+---
+
 ## Installation
 
 ### Prerequisites
