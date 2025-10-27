@@ -1,379 +1,182 @@
 /**
- * Workflow Harness for In-Process CLI Testing
- *
- * Provides utilities to run CLI commands in-process without spawning child processes.
- * This enables faster, more reliable tests with better control over environment and isolation.
- *
- * Reference: Test Architecture Plan Section 5 (Workflow Harness Design)
+ * In-Process CLI Testing Harness
+ * Allows running CLI commands without spawning processes
+ * Replaces execa/spawn pattern with direct function invocation
  */
 
-import { createProgram } from "../../src/cli.js";
-import { Command } from "commander";
-import * as fs from "node:fs/promises";
+import * as os from "node:os";
 import * as path from "node:path";
-import { fileURLToPath } from "node:url";
-import { dirname } from "node:path";
-import { tmpdir } from "node:os";
+import { createProgram } from "../../src/cli.js";
+import * as fs from "../../src/utils/fs.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+export interface RunCliOptions {
+  cwd?: string;
+  env?: Record<string, string | undefined>;
+  capture?: boolean;
+}
 
-/**
- * Result of running a CLI command
- */
-export interface CliResult {
+export interface RunCliResult {
   exitCode: number;
   stdout: string;
   stderr: string;
-  output: string; // Combined stdout + stderr
 }
 
 /**
- * Options for running a CLI command
- */
-export interface RunCliOptions {
-  /** Current working directory for the command */
-  cwd?: string;
-  /** Environment variables (merged with process.env) */
-  env?: Record<string, string>;
-  /** Standard input (for interactive commands) */
-  stdin?: string;
-  /** Whether to capture output (default: true) */
-  capture?: boolean;
-  /** Additional setup/cleanup functions */
-  setup?: () => Promise<void>;
-  cleanup?: () => Promise<void>;
-}
-
-/**
- * Context for temporary test projects
- */
-export interface TestContext {
-  /** Temporary project directory */
-  projectDir: string;
-  /** Home directory override */
-  homeDir: string;
-  /** Cleanup function */
-  cleanup: () => Promise<void>;
-}
-
-/**
- * Run a CLI command in-process
- *
- * @param args - Command line arguments (without program name)
- * @param options - Execution options
- * @returns CLI result with exit code and captured output
- *
- * @example
- * const result = await runCli(['--version']);
- * expect(result.exitCode).toBe(0);
- * expect(result.stdout).toContain('0.2.0');
+ * Run CLI command in-process without spawning
+ * @param args - Command arguments (excluding 'node' and 'agentsync')
+ * @param options - Options for execution
+ * @returns Result with exit code and output
  */
 export async function runCli(
   args: string[],
-  options: RunCliOptions = {},
-): Promise<CliResult> {
-  const {
-    cwd = process.cwd(),
-    env = {},
-    capture = true,
-    setup,
-    cleanup: cleanupFn,
-  } = options;
-
-  // Save original state
+  options: RunCliOptions = {}
+): Promise<RunCliResult> {
+  const { cwd, env, capture = true } = options;
   const originalCwd = process.cwd();
-  const originalEnv = { ...process.env };
-  const originalStdoutWrite = process.stdout.write;
-  const originalStderrWrite = process.stderr.write;
-
+  const savedEnv = { ...process.env };
   let stdout = "";
   let stderr = "";
-  let exitCode = 0;
 
   try {
-    // Setup
-    if (setup) {
-      await setup();
+    // Change directory if specified
+    if (cwd) {
+      process.chdir(cwd);
     }
 
-    // Change directory
-    process.chdir(cwd);
+    // Apply environment overrides
+    if (env) {
+      for (const [k, v] of Object.entries(env)) {
+        if (v === undefined) {
+          delete (process.env as any)[k];
+        } else {
+          (process.env as any)[k] = v;
+        }
+      }
+    }
 
-    // Merge environment
-    process.env = { ...originalEnv, ...env };
+    // Create fresh program instance with exitOverride
+    const program = createProgram();
 
     // Capture output if requested
     if (capture) {
-      process.stdout.write = ((chunk: string) => {
-        stdout += chunk;
-        return true;
-      }) as any;
-
-      process.stderr.write = ((chunk: string) => {
-        stderr += chunk;
-        return true;
-      }) as any;
+      program.configureOutput({
+        writeOut: (s) => (stdout += s),
+        writeErr: (s) => (stderr += s),
+        outputError: (s) => (stderr += s),
+      });
     }
 
-    // Create and parse program
-    const program = createProgram();
-    program.exitOverride();
-
+    // Parse and execute
+    let exitCode = 0;
     try {
-      await program.parseAsync([
-        process.execPath,
-        process.argv[1], // Node and script
-        ...args,
-      ]);
+      exitCode = await program
+        .parseAsync(args, { from: "user" })
+        .then(() => 0)
+        .catch((err) => {
+          // Commander with exitOverride throws on exit
+          if (err && typeof err.code === "number") {
+            return err.code;
+          }
+          // Re-throw if not an exit error
+          throw err;
+        });
     } catch (err) {
-      if (err instanceof Error && "exitCode" in err) {
-        exitCode = (err as any).exitCode || 1;
-      } else if (err instanceof Error) {
+      // Catch any errors and convert to stderr/exit code
+      if (err instanceof Error) {
         stderr += err.message;
         exitCode = 1;
       } else {
+        stderr += String(err);
         exitCode = 1;
       }
     }
 
-    return {
-      exitCode,
-      stdout,
-      stderr,
-      output: stdout + stderr,
-    };
+    return { exitCode, stdout, stderr };
   } finally {
-    // Cleanup
+    // Restore environment
     process.chdir(originalCwd);
-    process.env = originalEnv;
-    process.stdout.write = originalStdoutWrite;
-    process.stderr.write = originalStderrWrite;
-
-    if (cleanupFn) {
-      await cleanupFn();
-    }
+    Object.keys(process.env).forEach((key) => {
+      if (!(key in savedEnv)) {
+        delete (process.env as any)[key];
+      }
+    });
+    Object.assign(process.env, savedEnv);
   }
 }
 
 /**
- * Create a temporary project directory for testing
- *
- * @param fn - Test function that receives the temporary context
- * @returns The result of the test function
- *
- * @example
- * await withTempProject(async ({ projectDir, homeDir }) => {
- *   const configPath = path.join(projectDir, '.agentsync', 'config.json');
- *   await fs.writeFile(configPath, JSON.stringify(config));
- *   const result = await runCli(['sync'], { cwd: projectDir });
- *   expect(result.exitCode).toBe(0);
- * });
+ * Create temporary project structure for testing
+ * @param fn - Async function to run with temp dirs
+ * @returns Result of fn
  */
 export async function withTempProject<T>(
-  fn: (context: TestContext) => Promise<T>,
+  fn: (ctx: { projectDir: string; homeDir: string }) => Promise<T>
 ): Promise<T> {
-  // Create temporary directories
-  const baseTemp = await fs.mkdtemp(path.join(tmpdir(), "agentsync-test-"));
-  const projectDir = path.join(baseTemp, "project");
-  const homeDir = path.join(baseTemp, "home");
-
-  await fs.mkdir(projectDir, { recursive: true });
-  await fs.mkdir(homeDir, { recursive: true });
-
-  const cleanup = async () => {
-    // Clean up recursively
-    await fs.rm(baseTemp, { recursive: true, force: true });
-  };
-
-  const context: TestContext = {
-    projectDir,
-    homeDir,
-    cleanup,
-  };
+  const projectDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), "agentsync-project-")
+  );
+  const homeDir = await fs.mkdtemp(path.join(os.tmpdir(), "agentsync-home-"));
 
   try {
-    return await fn(context);
+    return await fn({ projectDir, homeDir });
   } finally {
-    await cleanup();
+    await fs.remove(projectDir);
+    await fs.remove(homeDir);
   }
 }
 
 /**
- * Create a standard project structure for testing
- *
- * @param projectDir - Project directory
- * @param config - Project configuration (optional)
- *
- * @example
- * await withTempProject(async ({ projectDir }) => {
- *   await setupProjectStructure(projectDir, {
- *     version: "1.0",
- *     tools: ["cursor"],
- *     mcpServers: []
- *   });
- *   // Now projectDir has .agentsync/config.json with the provided config
- * });
+ * Normalize output for deterministic assertions
+ * - Converts CRLF to LF
+ * - Trims trailing whitespace
+ * - Replaces temp paths with placeholders
+ * @param output - Raw output
+ * @param tempPaths - Temp paths to replace
+ * @returns Normalized output
  */
-export async function setupProjectStructure(
-  projectDir: string,
-  config?: Record<string, any>,
-): Promise<void> {
-  const agentsyncDir = path.join(projectDir, ".agentsync");
-  await fs.mkdir(agentsyncDir, { recursive: true });
+export function normalizeOutput(
+  output: string,
+  tempPaths: Record<string, string> = {}
+): string {
+  let normalized = output
+    .replace(/\r\n/g, "\n") // CRLF → LF
+    .replace(/\n\s*$/g, "\n") // Trim trailing whitespace
+    .replace(/^(\s*\n)+/g, ""); // Remove leading blank lines
 
-  if (config) {
-    const configPath = path.join(agentsyncDir, "config.json");
-    await fs.writeFile(configPath, JSON.stringify(config, null, 2));
+  // Replace temp paths with placeholders
+  for (const [original, placeholder] of Object.entries(tempPaths)) {
+    normalized = normalized.replace(new RegExp(original, "g"), placeholder);
   }
 
-  // Create AGENTS.md placeholder
-  const agentsMdPath = path.join(projectDir, "AGENTS.md");
-  await fs.writeFile(
-    agentsMdPath,
-    "# AGENTS.md\n\nAgent configuration file.\n",
-  );
+  return normalized;
 }
 
 /**
- * Create a standard home directory structure for testing
- *
- * @param homeDir - Home directory path
- * @param config - Global MCP configuration (optional)
- *
- * @example
- * await withTempProject(async ({ projectDir, homeDir }) => {
- *   await setupHomeStructure(homeDir, {
- *     github: { command: "npx", args: ["..."] }
- *   });
- *   // Now homeDir has .agentsync/mcp.json with the provided config
- * });
+ * Assert CLI success
+ * @param result - CLI result
  */
-export async function setupHomeStructure(
-  homeDir: string,
-  config?: Record<string, any>,
-): Promise<void> {
-  const agentsyncDir = path.join(homeDir, ".agentsync");
-  await fs.mkdir(agentsyncDir, { recursive: true });
-
-  if (config) {
-    const mcpPath = path.join(agentsyncDir, "mcp.json");
-    await fs.writeFile(mcpPath, JSON.stringify(config, null, 2));
-  }
-}
-
-/**
- * Assert CLI result indicates success
- *
- * @param result - CLI result to check
- * @param message - Optional assertion message
- *
- * @example
- * const result = await runCli(['--version']);
- * assertCliSuccess(result);
- */
-export function assertCliSuccess(
-  result: CliResult,
-  message?: string,
-): asserts result is CliResult {
+export function assertSuccess(result: RunCliResult): void {
   if (result.exitCode !== 0) {
     throw new Error(
-      message ||
-        `CLI exited with code ${result.exitCode}.\nStdout:\n${result.stdout}\nStderr:\n${result.stderr}`,
+      `CLI exited with code ${result.exitCode}\nStdout: ${result.stdout}\nStderr: ${result.stderr}`
     );
   }
 }
 
 /**
- * Assert CLI result indicates failure
- *
- * @param result - CLI result to check
- * @param expectedCode - Expected exit code (default: 1)
- * @param message - Optional assertion message
- *
- * @example
- * const result = await runCli(['invalid-command']);
- * assertCliFailed(result);
+ * Assert CLI failure
+ * @param result - CLI result
+ * @param expectedCode - Expected exit code (default 1)
  */
-export function assertCliFailed(
-  result: CliResult,
-  expectedCode = 1,
-  message?: string,
-): void {
+export function assertFailure(result: RunCliResult, expectedCode = 1): void {
   if (result.exitCode === 0) {
     throw new Error(
-      message ||
-        `Expected CLI to fail with code ${expectedCode} but exited with 0.\nOutput:\n${result.output}`,
+      `Expected CLI to fail with code ${expectedCode}, but succeeded\nStdout: ${result.stdout}`
     );
   }
   if (result.exitCode !== expectedCode) {
     throw new Error(
-      message ||
-        `Expected exit code ${expectedCode} but got ${result.exitCode}.\nOutput:\n${result.output}`,
+      `Expected exit code ${expectedCode}, got ${result.exitCode}\nStderr: ${result.stderr}`
     );
-  }
-}
-
-/**
- * Read JSON file from project
- *
- * @param projectDir - Project directory
- * @param filePath - Relative file path
- * @returns Parsed JSON content
- *
- * @example
- * const config = await readProjectFile(projectDir, '.agentsync/config.json');
- */
-export async function readProjectFile(
-  projectDir: string,
-  filePath: string,
-): Promise<any> {
-  const fullPath = path.join(projectDir, filePath);
-  const content = await fs.readFile(fullPath, "utf-8");
-  return JSON.parse(content);
-}
-
-/**
- * Write JSON file to project
- *
- * @param projectDir - Project directory
- * @param filePath - Relative file path
- * @param content - Content to write (will be JSON stringified)
- *
- * @example
- * await writeProjectFile(projectDir, '.agentsync/config.json', config);
- */
-export async function writeProjectFile(
-  projectDir: string,
-  filePath: string,
-  content: any,
-): Promise<void> {
-  const fullPath = path.join(projectDir, filePath);
-  await fs.mkdir(path.dirname(fullPath), { recursive: true });
-  await fs.writeFile(fullPath, JSON.stringify(content, null, 2));
-}
-
-/**
- * Check if file exists in project
- *
- * @param projectDir - Project directory
- * @param filePath - Relative file path
- * @returns Whether the file exists
- *
- * @example
- * if (await projectFileExists(projectDir, '.agentsync/config.json')) {
- *   // ...
- * }
- */
-export async function projectFileExists(
-  projectDir: string,
-  filePath: string,
-): Promise<boolean> {
-  const fullPath = path.join(projectDir, filePath);
-  try {
-    await fs.access(fullPath);
-    return true;
-  } catch {
-    return false;
   }
 }

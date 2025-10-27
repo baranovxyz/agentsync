@@ -1,0 +1,40 @@
+name: MCP Add and Sync Workflow
+setup:
+  project:
+    files:
+      .cursor/.placeholder: ""
+  home:
+    files:
+      .agentsync/mcp.json: |
+        {
+          "github": {
+            "command": "npx",
+            "args": ["-y", "@modelcontextprotocol/server-github"],
+            "env": {
+              "GITHUB_TOKEN": "{GITHUB_TOKEN}"
+            }
+          },
+          "postgres": {
+            "command": "npx",
+            "args": ["-y", "@modelcontextprotocol/server-postgres"],
+            "env": {
+              "DATABASE_URL": "{DATABASE_URL}"
+            }
+          }
+        }
+  env:
+    GITHUB_TOKEN: ghp_test_token_123
+    DATABASE_URL: postgresql://localhost/testdb
+steps:
+  - run: ["mcp", "add", "github"]
+    expect:
+      exitCode: 0
+  - run: ["mcp", "add", "postgres"]
+    expect:
+      exitCode: 0
+  - run: ["mcp", "sync"]
+    expect:
+      exitCode: 0
+assert:
+  files:
+    .cursor/mcp.json: json
