@@ -77,3 +77,6 @@ desktop.ini
 
 # Compiled JavaScript files in tests
 **/tests/**/*.js
+
+# Agents
+.clinerules

@@ -7,6 +7,11 @@ import * as path from "node:path";
 import fg from "fast-glob";
 import type { Preset, PresetMetadata } from "../../types/preset.js";
 import { pathExists } from "../../utils/fs.js";
+import {
+  normalizePatterns,
+  validateIncludeMatches,
+  warnIfExcludeMatched,
+} from "../../utils/path-normalization.js";
 import type { MCP } from "../mcp/tokens.js";
 
 export class PresetLoader {
@@ -31,12 +36,14 @@ export class PresetLoader {
     // Load commands
     const commands = await this.loadMarkdownFiles(
       path.join(cachePath, "commands"),
+      source,
       filters,
     );
 
     // Load rules
     const rules = await this.loadMarkdownFiles(
       path.join(cachePath, "rules"),
+      source,
       filters,
     );
 
@@ -72,9 +79,11 @@ export class PresetLoader {
 
   /**
    * Load all .md files from directory
+   * Validates include/exclude patterns and provides helpful error messages
    */
   private async loadMarkdownFiles(
     dir: string,
+    source?: string,
     filters?: {
       include?: string[];
       exclude?: string[];
@@ -86,16 +95,45 @@ export class PresetLoader {
       return result;
     }
 
-    // Build glob pattern
-    const includePatterns = filters?.include || ["**/*.md"];
-    const excludePatterns = filters?.exclude || [];
+    // Normalize patterns for consistent handling
+    const includePatterns = filters?.include
+      ? normalizePatterns(filters.include)
+      : ["**/*.md"];
+    const excludePatterns = filters?.exclude
+      ? normalizePatterns(filters.exclude)
+      : [];
 
-    // Find files
+    // Find files with include patterns
     const files = await fg(includePatterns, {
       cwd: dir,
       ignore: excludePatterns,
       absolute: false,
     });
+
+    // Validate include patterns matched something
+    validateIncludeMatches(
+      includePatterns,
+      files,
+      source || "unknown",
+      dir,
+    );
+
+    // Warn if exclude patterns matched nothing
+    if (excludePatterns.length > 0) {
+      // Get all files with include patterns to count
+      const allFiles = await fg(includePatterns, {
+        cwd: dir,
+        absolute: false,
+      });
+
+      warnIfExcludeMatched(
+        excludePatterns,
+        allFiles.length,
+        files.length,
+        source || "unknown",
+        dir,
+      );
+    }
 
     // Load content
     for (const file of files) {

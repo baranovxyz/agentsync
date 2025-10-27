@@ -46,7 +46,7 @@ pnpm test src/security/scanner.test.ts
 # GitHub Actions tests on 9 platforms: Ubuntu/macOS/Windows × Node 18/20/22
 # Hierarchical timeouts: 5s unit tests, 10s hooks (2x multiplier on CI)
 # Windows requires both HOME and USERPROFILE env vars for os.homedir()
-# Coverage target: >80% (Phase 1 achieved 90%+)
+# Coverage target: >80% (v0.2.0-alpha achieved 90%+)
 
 # E2E Test Strategy (install-test.yml):
 # - Runs ONLY on-demand (manual trigger + weekly cron)
@@ -77,7 +77,7 @@ pnpm cli preset cache-clear --all  # Clear all preset caches
 pnpm cli preset select             # Interactive: include/exclude filters, MCP picks
 pnpm cli preset remove             # Interactive: remove from include/exclude or mcpServers
 
-# MCP Commands (Phase 1 - FULLY IMPLEMENTED)
+# MCP Commands (v0.2.0-alpha - FULLY IMPLEMENTED)
 # Note: Empty MCP configs (0 servers) are valid for starting fresh or cleanup
 pnpm cli mcp sync                  # Sync MCPs to tools
 pnpm cli mcp sync --dry-run        # Preview without applying
@@ -86,7 +86,7 @@ pnpm cli mcp list                  # Show available/active MCPs
 pnpm cli mcp add github            # Add MCP to project
 pnpm cli mcp remove postgres       # Remove MCP (can remove all)
 
-# Init Command (Phase 2 - PARTIALLY IMPLEMENTED)
+# Init Command (v0.3.0-beta - PARTIALLY IMPLEMENTED)
 pnpm cli init                      # Initialize with template
 ```
 

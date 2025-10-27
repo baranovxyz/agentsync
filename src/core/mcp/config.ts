@@ -20,30 +20,23 @@ export interface ProjectMCPConfig {
 }
 
 /**
- * Get MCP config file path with fallback priority:
- * 1. .agentsync/config.json (primary - team config, committed)
- * 2. agentsync.local.json (override - personal config, gitignored)
- * 3. .agentsync/config.local.json (backup - hidden directory)
+ * Get MCP config file path with load priority (nearest wins):
+ * 1. agentsync.local.json (user-local overrides, gitignored)
+ * 2. .agentsync/config.json (project config, committed)
  */
 async function getMCPConfigPath(): Promise<string | null> {
   const cwd = process.cwd();
 
-  // Primary: Team-shared config (committed, created by init/add/remove)
-  const teamPath = path.join(cwd, ".agentsync", "config.json");
-  if (await pathExists(teamPath)) {
-    return teamPath;
-  }
-
-  // Override: Personal config (gitignored, user-created)
+  // Priority 1: User-local overrides (gitignored, wins over project config)
   const localPath = path.join(cwd, "agentsync.local.json");
   if (await pathExists(localPath)) {
     return localPath;
   }
 
-  // Backup: Hidden directory local config
-  const backupPath = path.join(cwd, ".agentsync", "config.local.json");
-  if (await pathExists(backupPath)) {
-    return backupPath;
+  // Priority 2: Project config (committed)
+  const projectPath = path.join(cwd, ".agentsync", "config.json");
+  if (await pathExists(projectPath)) {
+    return projectPath;
   }
 
   return null;
@@ -74,8 +67,7 @@ export async function loadProjectConfig(
         `MCP configuration not found.\n\n` +
           `Expected one of:\n` +
           `  - .agentsync/config.json (team config, committed)\n` +
-          `  - agentsync.local.json (personal overrides, gitignored)\n` +
-          `  - .agentsync/config.local.json (backup location)\n\n` +
+          `  - agentsync.local.json (personal overrides, gitignored)\n\n` +
           `Create .agentsync/config.json with:\n` +
           `  {"version": "1.0", "tools": ["cursor", "claude"], "mcpServers": []}\n\n` +
           `Or run 'agentsync init' to set up the project.`,

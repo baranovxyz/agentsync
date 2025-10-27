@@ -41,19 +41,20 @@ describe("loadProjectConfig", () => {
     expect(result.tools).toBeUndefined();
   });
 
-  it("loads from .agentsync/config.local.json (backup location)", async () => {
+  it("ignores .agentsync/config.local.json (no longer supported)", async () => {
+    // This file should be silently ignored
     await fs.ensureDir(".agentsync");
-    const config = {
+    await fs.writeJson(".agentsync/config.local.json", {
       mcpServers: ["github"],
-    };
-    await fs.writeJson(".agentsync/config.local.json", config);
+    });
 
-    const result = await loadProjectConfig();
-
-    expect(result.mcpServers).toEqual(["github"]);
+    // Should fail because neither agentsync.local.json nor .agentsync/config.json exist
+    await expect(loadProjectConfig()).rejects.toThrow(
+      /MCP configuration not found/,
+    );
   });
 
-  it("loads from .agentsync/config.json (team-shared fallback)", async () => {
+  it("loads from .agentsync/config.json (primary fallback)", async () => {
     await fs.ensureDir(".agentsync");
     const config = {
       mcpServers: ["github"],
@@ -65,17 +66,14 @@ describe("loadProjectConfig", () => {
     expect(result.mcpServers).toEqual(["github"]);
   });
 
-  it("prefers .agentsync/config.json over other locations (team config primary)", async () => {
+  it("prefers agentsync.local.json over .agentsync/config.json (local wins)", async () => {
     await fs.ensureDir(".agentsync");
     await fs.writeJson("agentsync.local.json", { mcpServers: ["local"] });
-    await fs.writeJson(".agentsync/config.local.json", {
-      mcpServers: ["backup"],
-    });
     await fs.writeJson(".agentsync/config.json", { mcpServers: ["team"] });
 
     const result = await loadProjectConfig();
 
-    expect(result.mcpServers).toEqual(["team"]);
+    expect(result.mcpServers).toEqual(["local"]);
   });
 
   it("loads config with tools selection", async () => {

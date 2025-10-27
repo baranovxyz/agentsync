@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-alpha.13] - 2025-10-24
+
+### Breaking Changes
+
+- **Removed `.agentsync/config.local.json` support** - This fallback location is no longer checked or supported. Use `agentsync.local.json` (root) for personal MCP overrides instead. Files at the old location will be silently ignored (alpha release, no migration needed).
+
+### Changed
+
+- **Simplified configuration hierarchy** - Two-level system (instead of three):
+  - `agentsync.local.json` (personal overrides, gitignored)
+  - `.agentsync/config.json` (team config, committed)
+- **Documentation cleanup** - Removed references to unimplemented v0.3.0-beta commands from README
+- **Interactive selection docs** - Simplified from three-level to two-level hierarchy
+
+### Fixed
+
+- Configuration loading now only checks two locations instead of three, improving performance and reducing confusion
+
 ## [0.2.0-alpha.11] - 2025-01-21
 
 ### Added
@@ -124,7 +142,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **CLI Help Output** - Removed all unimplemented Phase 2 commands from help
+- **CLI Help Output** - Removed all unimplemented v0.3.0-beta commands from help
   - Removed 9 command stubs: sync, watch, validate, diff, migrate, doctor, status, tree, audit
   - Users now see only working commands (init + all MCP commands)
   - No more confusing "not yet implemented" error messages
@@ -298,13 +316,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.0-alpha.1] - 2025-01-18
 
-### 🎉 Phase 1 Complete: MCP Context Optimizer
+### 🎉 v0.2.0-alpha Complete: MCP Context Optimizer
 
 This release introduces the **MCP Context Optimizer**, a complete and production-ready feature for reducing AI context bloat through project-specific MCP server selection.
 
 ### Added
 
-#### MCP Commands (Phase 1 - COMPLETE)
+#### MCP Commands (v0.2.0-alpha - COMPLETE)
 
 - **`agentsync mcp sync`** - Sync selected MCP servers to AI coding tools
   - Auto-detects Cursor and Claude Code

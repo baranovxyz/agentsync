@@ -175,7 +175,6 @@ export class InitCommand {
     const paths = [
       path.join(cwd, ".agentsync", "config.json"), // Primary: team config
       path.join(cwd, "agentsync.local.json"), // Override: personal config
-      path.join(cwd, ".agentsync", "config.local.json"), // Backup: hidden directory
     ];
 
     for (const p of paths) {
@@ -522,7 +521,6 @@ export class InitCommand {
       ".agentsync/backups/",
       "*.backup",
       "agentsync.local.json",
-      ".agentsync/config.local.json",
     ];
 
     try {

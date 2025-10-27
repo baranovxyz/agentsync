@@ -6,9 +6,9 @@ Assistant-facing guide for working in this repo. Keep this file short: guardrail
 
 AgentSync is the infra layer for AI coding agent configuration:
 
-- MCP Context Optimizer (Phase 1 ✅)
-- GitHub Preset System (v0.2.x 🧪)
-- AGENTS.md Sync (Phase 2 ⏳)
+- MCP Context Optimizer (v0.2.0-alpha ✅)
+- GitHub Preset System (v0.2.0-alpha) 🧪
+- AGENTS.md Sync (v0.3.0-beta ⏳)
 
 ## Do/Don’t (Critical Guardrails)
 
@@ -46,7 +46,7 @@ Details: ./docs/configuration.md
 
 Details: ./docs/presets.md
 
-## AGENTS.md (Phase 2)
+## AGENTS.md (v0.3.0-beta)
 
 - `init` implemented; translators and full sync pending
 - Parser detects major sections; translators will emit tool formats
@@ -55,9 +55,9 @@ Details: ./docs/agents-md.md
 
 ## What’s Implemented
 
-- Phase 1 (MCP): complete with high coverage
+- v0.2.0-alpha (MCP): complete with high coverage
 - Presets (v0.2.x): implemented; examples + E2E
-- AGENTS.md (Phase 2): `init` done; translators/sync pending
+- AGENTS.md (v0.3.0-beta): `init` done; translators/sync pending
 
 ## Security
 
