@@ -153,7 +153,7 @@ export class InitCommand {
       );
     } else {
       console.log(
-        pc.gray("  • Sync MCP changes:   ") + pc.cyan("agentsync mcp sync"),
+        pc.gray("  • Apply changes:       ") + pc.cyan("agentsync sync"),
       );
       console.log(
         pc.gray("  • Manage MCPs:        ") + pc.cyan("agentsync mcp list"),
@@ -251,7 +251,7 @@ export class InitCommand {
       );
       console.log(
         pc.gray("     - Run ") +
-          pc.cyan("agentsync mcp sync") +
+          pc.cyan("agentsync sync") +
           pc.gray(" to apply changes"),
       );
     } catch (error) {
