@@ -80,3 +80,6 @@ desktop.ini
 
 # Agents
 .clinerules
+
+# NPM pack artifacts
+*.tgz
