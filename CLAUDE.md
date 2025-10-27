@@ -1,14 +1,14 @@
 # CLAUDE.md
 
-Assistant-facing guide for working in this repo. Keep this file short: guardrails, quick commands, config truth, and links to deeper docs.
+Assistant-facing guide. Keep this short: guardrails, quick commands, config truth, and links to deeper docs.
 
 ## Overview
 
-AgentSync is the infra layer for AI coding agent configuration:
+AgentSync: infra for AI coding agent configuration
 
-- MCP Context Optimizer (v0.2.0-alpha ✅)
-- GitHub Preset System (v0.2.0-alpha) 🧪
-- AGENTS.md Sync (v0.3.0-beta ⏳)
+- MCP Context Optimizer
+- GitHub Preset System
+- AGENTS.md Sync
 
 ## Do/Don’t (Critical Guardrails)
 
@@ -46,23 +46,15 @@ Details: ./docs/configuration.md
 
 Details: ./docs/presets.md
 
-## AGENTS.md (v0.3.0-beta)
+## AGENTS.md
 
-- `init` implemented; full sync pending
-- Parser detects major sections
+- `init` implemented; full sync is in progress
 
 Details: ./docs/agents-md.md
 
-## What’s Implemented
-
-- ✅ v0.2.0-alpha (MCP Context Optimizer): Complete with 289 tests passing
-- ✅ v0.2.x-alpha (GitHub Preset System): Complete with include/exclude filtering
-- ✅ v0.2.x-alpha (Interactive Selection): Complete with file-level selections
-- 🔨 v0.3.0-beta (AGENTS.md Sync): `init` complete; translators pending
-
 ## Security
 
-- Secret scanning (>25 patterns), Unicode attack protection, atomic writes
+- Secret scanning, Unicode attack protection, atomic writes
 
 Details: ./SECURITY.md
 
@@ -74,7 +66,7 @@ Details: ./ARCHITECTURE.md
 
 ## Testing
 
-- Unit, integration, E2E, shell, install tests; isolation via symlinked node_modules
+- Unit, workflow, and packaging smoke tests
 
 Details: ./TESTING.md and ./docs/testing/automated.md
 
@@ -96,4 +88,4 @@ Details: ./docs/releasing.md
 - Use typed errors with recovery guidance
 - Keep changes atomic and commits well-described
 - Handle CommanderError types properly: when using exitOverride(), check for 'commander.version' and 'commander.helpDisplayed' codes and exit with 0
-- Fix main module detection: prefer native `import.meta.main`, with `es-main` fallback for older Node versions
+- Fix main module detection: prefer native `import.meta.main`; fallback to `es-main` for older Node versions

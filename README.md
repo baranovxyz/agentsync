@@ -5,644 +5,93 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js Version](https://img.shields.io/node/v/agentsync)](https://nodejs.org)
 
-> The missing infrastructure layer for AI coding agent configuration management.
+> The infrastructure layer for AI coding agent configuration.
 
-**AgentSync** provides four powerful features:
+AgentSync provides:
 
-1. **MCP Context Optimizer** (v0.2.0-alpha ✅) - Reduce AI context bloat with project-specific MCP server selection
-2. **GitHub Preset System** (v0.2.0-alpha) - Share rules, commands, and MCPs via GitHub repositories
-3. **Interactive Selection** (v0.2.x-alpha ✅) - Fine-grained control over preset content with file-level selections
-4. **AGENTS.md Sync** (v0.3.0-beta ⏳) - Sync unified AGENTS.md to all AI coding tools
-
-## ⚠️ Breaking Changes in v0.2.0-alpha.14
-
-**Simplified Configuration Format** - Alpha stage cleanup:
-
-- **Removed**: `extends[].select` object format
-- **Use Instead**: `include` and `exclude` arrays
-
-**Before (no longer supported):**
-
-```json
-{
-  "extends": [
-    {
-      "source": "github:org/repo",
-      "select": {
-        "rules": { "include": ["*.md"], "exclude": ["deprecated/*"] }
-      }
-    }
-  ]
-}
-```
-
-**After (current format):**
-
-```json
-{
-  "extends": [
-    {
-      "source": "github:org/repo",
-      "include": ["rules/**/*.md", "commands/**/*.md"],
-      "exclude": ["rules/deprecated/*"]
-    }
-  ]
-}
-```
-
-This is an alpha release with no deprecation period. Update your configs to the new format.
-
----
+- MCP Context Optimizer — project-specific MCP server selection
+- GitHub Preset System — share rules, commands, and MCPs via presets
+- AGENTS.md Sync (in progress)
 
 ## Installation
 
-### Prerequisites
+Prerequisites: Node.js >= 18
 
-- Node.js >= 18.0.0
-- npm, pnpm, or yarn
-
-### From npm (Recommended)
+From npm (recommended):
 
 ```bash
-# Install globally
 npm install -g agentsync
-
-# Or with pnpm
+# or
 pnpm add -g agentsync
-
-# Or with yarn
+# or
 yarn global add agentsync
 ```
 
-### From Source (Development)
+From source (development):
 
 ```bash
-# Clone the repository
 git clone https://github.com/baranovxyz/agentsync
 cd agentsync
-
-# Install dependencies
 pnpm install
-
-# Run in development
 pnpm dev
 ```
 
-## v0.2.0-alpha: GitHub Preset System ✅ COMPLETE
-
-Share team coding standards, commands, and MCPs via GitHub repositories. **Alpha testing** - GitHub Preset System complete, awaiting validation.
-
-### Features
-
-**✅ All Features Complete:**
-
-- GitHub preset loading & merging (namespace-based collision prevention)
-- Rules sync to Cursor (`.mdc`) & Claude (`.md`)
-- Commands sync to Cursor & Claude
-- Main sync command with `--update`, `--dry-run`, `--tool` flags
-- Preset management: `list`, `cache-clear`
-- SSH/HTTPS fallback for private repos
-- Smart MCP detection and integration
-- Example preset published: `@agentsync/example-typescript`
-- 86 tests passing (82 unit/integration + 4 E2E with real GitHub repo)
-
-### Quick Start
+## Quick Start
 
 ```bash
-# Initialize project with preset support
+# Initialize in a project
 agentsync init
 
-# Extend a team preset in .agentsync/config.json
-{
-  "extends": ["github:company/coding-standards"],
-  "tools": ["cursor", "claude"]
-}
-
-# Sync libraries to your tools
-agentsync sync
-
-# Update presets and sync
-agentsync sync --update
-
-# Preview changes
-agentsync sync --dry-run
-
-# View configured presets
-agentsync preset list
-
-# Clear caches
-agentsync preset cache-clear
-```
-
-### Example: Company-Wide Standards
-
-**Create preset repo:** `github:acme/coding-standards` (current); planned generic scheme `git:host/acme/coding-standards` in a future version
-
-```
-acme/coding-standards/
-├── rules/
-│   ├── typescript.md      # TypeScript style guide
-│   └── testing.md         # Testing requirements
-├── commands/
-│   └── commit.md          # Commit message helper
-└── README.md
-```
-
-**Use in projects:**
-
-```json
-// .agentsync/config.json
-{
-  "extends": ["github:acme/coding-standards"],
-  "tools": ["cursor", "claude"]
-}
-```
-
-**Result:** All teams get consistent rules and commands automatically!
-
-Learn more in [CLAUDE.md](./CLAUDE.md#v030-beta-github-preset-system)
-
-## v0.2.x-alpha: Interactive Selection ✅ COMPLETE
-
-Fine-grained control over preset content with file-level selections and two-level configuration hierarchy.
-
-### Features
-
-**✅ All Features Complete:**
-
-- Interactive preset selection with file-level filtering
-- Two-level configuration hierarchy (project → local)
-- File pattern matching with include/exclude glob patterns
-- MCP server selection from presets
-- Interactive removal of presets and selections
-- Configuration validation and migration
-- Integration with existing preset system
-
-### Quick Start
-
-```bash
-# Interactively select presets and configure file-level selections
+# Manage presets
 agentsync preset select
+agentsync preset list
+agentsync preset cache-clear
 
-# View configured presets with selections
-agentsync preset list --verbose
+# Manage MCP servers
+agentsync mcp list
+agentsync mcp add github
 
-# Sync presets to your tools
+# Sync everything (rules, commands, AGENTS.md links, MCPs)
 agentsync sync
-
-# Interactively remove presets and selections
-agentsync preset remove
 ```
 
-### Two-Level Configuration Hierarchy
+## Examples
 
-Interactive Selection supports a two-level configuration hierarchy for flexible preset management:
-
-1. **Project Level** (`.agentsync/config.json`)
-   - Team-shared selections
-   - Project-specific overrides
-   - Committed to version control
-
-2. **Local Level** (`agentsync.local.json`)
-   - Personal overrides for this project
-   - Temporary selections
-   - Gitignored (not committed)
-
-### File-Level Selections
-
-Control exactly which files from presets are included in your project:
+### Team preset config (committed: .agentsync/config.json)
 
 ```json
 {
   "extends": [
     {
-      "source": "github:company/standards",
-      "namespace": "company",
-      "include": [
-        "rules/typescript.md",
-        "rules/testing.md",
-        "commands/commit.md"
-      ],
+      "source": "github:acme/coding-standards",
+      "include": ["rules/**/*.md", "commands/**/*.md"],
       "exclude": ["rules/deprecated/*"]
     }
-  ]
+  ],
+  "tools": ["cursor", "claude"]
 }
 ```
 
-### Use Cases
-
-**1. Selective Rule Adoption**
-
-- Adopt only relevant rules from large company presets
-- Exclude rules that don't apply to your project type
-- Gradually migrate to new standards
-
-**2. Team Customization**
-
-- Project teams customize company-wide presets
-- Different teams select different subsets
-- Maintain consistency while allowing flexibility
-
-**3. Personal Preferences**
-
-- Developers override team selections locally
-- Add personal tools without affecting team
-- Temporary selections for specific tasks
-
-Learn more in [Interactive Selection Documentation](./docs/interactive-selection.md)
-
-## v0.2.0-alpha: MCP Context Optimizer ✅ COMPLETE
-
-Keep your AI agents fast and focused with project-specific MCP (Model Context Protocol) selection.
-
-### The Problem
-
-Developers define 20+ MCP servers globally in their AI tools, then load **ALL of them** in every project, regardless of relevance. This causes:
-
-- **Context window bloat** - ~15K tokens of irrelevant tool schemas
-- **Slow AI responses** - 2-3x slower due to processing unnecessary context
-- **Tool confusion** - AI suggests wrong tools for the task
-- **Token waste** - Paying for unused context in every interaction
-
-### The Solution
-
-**Define MCPs once globally, activate only what each project needs.**
-
-```
-Global registry: 23 MCP servers defined in ~/.agentsync/mcp.json
-├── Backend API: 2 active (github, postgres) → 91% context reduction
-├── Frontend: 3 active (github, figma, vercel) → 87% context reduction
-└── DevOps: 4 active (github, aws, terraform, k8s) → 83% context reduction
-
-Result: 70-90% context reduction, 2-3x faster AI responses
-```
-
-### Quick Start
-
-```bash
-# Install AgentSync
-npm install -g agentsync
-
-# Add MCP servers to your project (creates .agentsync/config.json)
-agentsync mcp add github
-agentsync mcp add postgres
-
-# View all available MCPs
-agentsync mcp list
-
-# Sync everything (rules, commands, AGENTS.md links, and MCPs)
-agentsync sync
-
-# See performance improvement
-# Context: ~15K → ~3K tokens (80% reduction)
-# Response time: 8s → 3s (2.6x faster)
-```
-
-### MCP Commands
-
-All MCP commands are fully functional and tested (87 tests, >90% coverage):
-
-### MCP Sync
-
-MCP sync is part of the main sync flow:
-
-```bash
-agentsync sync                  # Sync rules, commands, AGENTS.md links, and MCPs
-agentsync sync --tool cursor    # Limit to a single tool
-agentsync sync --dry-run        # Preview without applying
-```
-
-#### `agentsync mcp list`
-
-Show available vs active MCP servers
-
-```bash
-agentsync mcp list
-
-# Output:
-# Global MCP Registry (23 servers):
-#
-# ✓ Active in this project (2):
-#   github - @modelcontextprotocol/server-github
-#   postgres - @modelcontextprotocol/server-postgres
-#
-# ○ Available but not active (21):
-#   linear, slack, figma, notion, aws, ...
-```
-
-#### `agentsync mcp add <server>`
-
-Add MCP server to project
-
-```bash
-agentsync mcp add linear
-
-# Output:
-# ✓ Added 'linear' to .agentsync/config.json
-#
-# MCP 'linear' requires environment variables:
-#   - LINEAR_API_KEY
-#
-# Add to .env:
-#   echo "LINEAR_API_KEY=lin_api_xxx" >> .env
-```
-
-#### `agentsync mcp remove <server>`
-
-Remove MCP server from project
-
-```bash
-agentsync mcp remove linear
-
-# Output:
-# ✓ Removed 'linear' from .agentsync/config.json
-# Run 'agentsync sync' to apply changes.
-```
-
-### How It Works
-
-1. **Global Registry** - Define all MCP servers once in `~/.agentsync/mcp.json`
-2. **Project Selection** - Select which MCPs each project needs in `.agentsync/config.json` (team-shared) or `agentsync.local.json` (personal overrides)
-3. **Token Substitution** - Securely replace `{GITHUB_TOKEN}` with actual env values
-4. **Validation** - Verify all required tokens exist before syncing
-5. **Multi-Target Sync** - Write tool-specific configs (Cursor uses wrapper, Claude doesn't)
-
-### Configuration Files
-
-#### Global Registry (`~/.agentsync/mcp.json`)
-
-**Purpose:** Define all your MCP servers once
-**Created by:** User manually
-**Location:** Home directory
+### Local overrides (personal: agentsync.local.json)
 
 ```json
 {
-  "github": {
-    "command": "npx",
-    "args": ["-y", "@modelcontextprotocol/server-github"],
-    "env": {
-      "GITHUB_TOKEN": "{GITHUB_TOKEN}"
-    }
-  },
-  "postgres": {
-    "command": "npx",
-    "args": ["-y", "@modelcontextprotocol/server-postgres"],
-    "env": {
-      "POSTGRES_URL": "{DATABASE_URL}"
-    }
-  }
-  // ... 20+ more servers
+  "mcpServers": []
 }
 ```
 
-#### Project Configuration (`.agentsync/config.json`) - COMMITTED
+## Documentation
 
-**Purpose:** Team-shared project settings (tools, presets, security rules, MCPs)
-**Created by:** `agentsync init` command
-**Modified by:** `agentsync mcp add/remove` commands
-**Git:** Committed to repository
-
-```json
-{
-  "version": "1.0",
-  "extends": ["github:acme/coding-standards"],
-  "tools": ["cursor", "claude"],
-  "mcpServers": ["github", "postgres"],
-  "useSymlinks": true
-}
-```
-
-**How to manage team MCPs:**
-
-- **Add team MCP:** `agentsync mcp add <server>` - adds to team config
-- **Remove team MCP:** `agentsync mcp remove <server>` - removes from team config
-
-#### User MCP Overrides (`agentsync.local.json`) - GITIGNORED
-
-**Purpose:** Personal MCP selections that override team/project config
-**Created by:** User manually
-**Git:** NOT committed (in `.gitignore`)
-
-Each developer maintains their own `agentsync.local.json` to select the MCPs they need for a project, which may differ from their teammates.
-
-```json
-{
-  "mcpServers": ["github", "postgres", "linear"]
-}
-```
-
-**How to create:**
-
-- **To override and use zero MCPs:** Create the file manually with `echo '{"mcpServers": []}' > agentsync.local.json`. This is useful for temporarily disabling all MCPs, including team-shared ones.
-- **To add personal MCPs:** Create the file manually and add your personal MCP selections that differ from the team config.
-
-#### Environment Variables (`.env`)
-
-**Purpose:** Store actual tokens and secrets
-**Created by:** User manually
-**Git:** NOT committed (in `.gitignore`)
-
-```bash
-GITHUB_TOKEN=ghp_your_token_here
-DATABASE_URL=postgresql://localhost:5432/mydb
-```
-
-### Performance Impact
-
-| Metric           | Before AgentSync | After AgentSync | Improvement       |
-| ---------------- | ---------------- | --------------- | ----------------- |
-| Context tokens   | ~15,000          | ~2,000          | **87% reduction** |
-| AI response time | 8-12 sec         | 3-5 sec         | **2-3x faster**   |
-| Irrelevant tools | High             | None            | **Quality boost** |
-| Token cost       | Higher           | Lower           | **Cost savings**  |
-
-### Security Features
-
-- ✅ Token validation before sync
-- ✅ .env file support (tokens never committed)
-- ✅ Missing token detection with helpful errors
-- ✅ Dry-run mode for safe testing
-
----
-
-## v0.3.0-beta: AGENTS.md Sync ⏳ IN PROGRESS
-
-Sync your unified AGENTS.md to all AI coding tools - Cursor, Claude Code, Cline, and RooCode.
-
-### Current Status
-
-**✅ Implemented Commands:**
-
-- ✅ `agentsync init` - Initialize AgentSync with AGENTS.md template
-- ✅ `agentsync sync` - Sync presets, rules, commands, and MCPs to AI tools
-- ✅ `agentsync mcp add/remove/list` - MCP server management (sync via `agentsync sync`)
-- ✅ `agentsync preset list/cache-clear/select/remove` - Preset configuration
-- ✅ Interactive workflow for preset and MCP selection
-
-**⏳ Planned Commands (v0.3.0-beta+):**
-
-- `agentsync validate` - Validate AGENTS.md format and configs
-- `agentsync diff` - Preview sync changes deterministically
-- `agentsync watch` - Watch mode for live sync (v0.4.0)
-- `agentsync migrate` - Migrate configurations
-
-### AGENTS.md Init Command
-
-```bash
-# Initialize AgentSync with AGENTS.md template
-agentsync init
-
-# Follow the interactive prompts to:
-# 1. Choose a template (default, typescript-react, python-fastapi)
-# 2. Select which AI tools you use
-# 3. Configure sync preferences
-
-# This creates:
-# - AGENTS.md in your project root
-# - .agentsync/config.json configuration
-# - .agentsync/{logs,backups,cache}/ directories
-# - Symlinks to tool-specific directories
-```
-
----
-
-## Architecture
-
-```
-agentsync/
-├── src/
-│   ├── cli.ts                    # CLI entry point
-│   ├── commands/
-│   │   ├── init.ts               ✅ AGENTS.md init
-│   │   └── mcp/                  ✅ MCP commands (v0.2.0-alpha)
-│   │       ├── sync.ts           ⚠ merged into main sync for execution
-│   │       ├── list.ts           ✅ Complete
-│   │       ├── add.ts            ✅ Complete
-│   │       └── remove.ts         ✅ Complete
-│   ├── core/
-│   │   ├── mcp/                  ✅ MCP engine (v0.2.0-alpha)
-│   │   │   ├── registry.ts       ✅ Global registry loader
-│   │   │   ├── config.ts         ✅ Project config & merger
-│   │   │   ├── tokens.ts         ✅ Token substitution
-│   │   │   └── env.ts            ✅ .env file loader
-│   │   ├── errors.ts             ✅ Error system
-│   │   ├── audit.ts              ✅ Audit logger
-│   │   └── watcher.ts            ✅ File watcher
-│   ├── security/                 ✅ Security layer
-│   │   ├── scanner.ts            ✅ Secret detection
-│   │   └── unicode-detector.ts   ✅ Unicode attack prevention
-│   ├── targets/                  ✅ MCP targets (v0.2.0-alpha)
-│   │   ├── mcp-base.ts           ✅ Target interface
-│   │   ├── cursor.ts             ✅ Cursor implementation
-│   │   ├── claude.ts             ✅ Claude Code implementation
-│   │   └── mcp-index.ts          ✅ Target registry
-│   ├── templates/                ✅ AGENTS.md templates
-│   └── types/                    ✅ TypeScript types
-└── tests/
-    ├── unit/core/mcp/            ✅ 38 tests
-    ├── integration/targets/      ✅ 16 tests
-    ├── unit/commands/mcp/        ✅ 28 tests
-    └── e2e/                      ✅ 5 tests
-
-Total: 87 tests passing, >90% coverage for MCP modules
-```
-
-## Security Features
-
-### Secret Detection (AGENTS.md & MCP)
-
-Detects and blocks high-severity secrets:
-
-- OpenAI, Anthropic API keys
-- GitHub tokens
-- AWS credentials
-- Database connection strings
-- SSH private keys
-- And 20+ more patterns...
-
-### Unicode Attack Protection (AGENTS.md)
-
-Prevents malicious hidden instructions using:
-
-- Zero-width character detection
-- Trojan Source prevention (CVE-2021-42574)
-- Homoglyph attack detection
-- Suspicious sequence analysis
-
-### Token Security (MCP)
-
-- Placeholder-based tokens (`{GITHUB_TOKEN}`)
-- Environment variable substitution
-- .env file support (gitignored)
-- Validation before sync
-- Clear error messages for missing tokens
-
-### Audit Logging
-
-- JSONL format for easy parsing
-- Automatic log rotation at 10MB
-- 90-day retention with compression
-- Tracks all file operations
-
-## Development
-
-```bash
-# Build the CLI
-pnpm build
-
-# Run all tests (125 tests)
-pnpm test
-
-# Run with coverage
-pnpm test:coverage
-
-# Run shell tests (tests real CLI execution)
-pnpm test:shell
-
-# Test MCP modules specifically
-pnpm test tests/unit/core/mcp/ tests/integration/targets/ tests/unit/commands/mcp/
-
-# Type checking
-pnpm lint
-
-# Run CLI in development
-pnpm cli --help
-pnpm cli mcp --help
-```
-
-**Test Coverage:**
-
-- **207 fully automated tests** (166 Unit, 16 E2E, 24 Shell, 26 BATS)
-- **>90% code coverage** for MCP functionality
-- **Real CLI testing** in bash/zsh environments
-- **All tests automated** - no manual testing required
-
-**See:** [TESTING.md](TESTING.md) for complete testing strategy and guides.
-
-## Contributing
-
-This project follows Apple engineering standards:
-
-- "It Just Works" - zero data loss
-- "Sweat the Details" - quality over speed
-- Test coverage >80% (MCP modules >90%)
-- Clear error messages with actionable steps
-
-For more details, please see our [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## Roadmap
-
-- [x] **v0.2.0-alpha: MCP Context Optimizer** - Project-specific MCP selection
-- [x] **v0.2.0: GitHub Preset System** - Shareable rules, commands, and MCPs
-- [ ] **v0.3.0-beta: AGENTS.md Sync** - Unified config sync to all tools
-- [ ] **v0.4.0: Advanced Features** - Watch mode, validation, monorepo support
+- CLI reference: docs/cli.md
+- Configuration: docs/configuration.md
+- Presets and selection: docs/presets.md
+- AGENTS.md: docs/agents-md.md
+- Debugging: docs/debugging.md
+- Security policy: SECURITY.md
+- Testing: TESTING.md
+- Architecture: ARCHITECTURE.md
+- Changelog (breaking changes): CHANGELOG.md
 
 ## License
 
 MIT
-
-## Acknowledgments
-
-Built on the AGENTS.md standard by OpenAI, Sourcegraph, and Google.
-
-Inspired by the need for better AI coding agent infrastructure and the Model Context Protocol (MCP) by Anthropic.
