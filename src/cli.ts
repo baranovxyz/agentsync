@@ -31,8 +31,11 @@ const pc = picocolors;
 // Note: ErrorHandler is a static class, so we don't instantiate it
 
 // Create program factory for testing
-export function createProgram(): Command {
+export function createProgram(options?: { interceptIo?: boolean }): Command {
   const program = new Command();
+
+  // Enable exitOverride for testing
+  program.exitOverride();
 
   program
     .name("agentsync")
@@ -165,19 +168,17 @@ export function createProgram(): Command {
   return program;
 }
 
-// Main CLI entry point
-const program = createProgram();
+// Main CLI entry point (only execute if this is the main module)
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const program = createProgram();
 
-
-// Error handling
-program.exitOverride();
-
-try {
-  program.parse();
-} catch (err) {
-  if (err instanceof Error) {
-    console.error(pc.red(`✗ ${err.message}`));
-    process.exit(1);
+  try {
+    program.parse();
+  } catch (err) {
+    if (err instanceof Error) {
+      console.error(pc.red(`✗ ${err.message}`));
+      process.exit(1);
+    }
+    throw err;
   }
-  throw err;
 }
