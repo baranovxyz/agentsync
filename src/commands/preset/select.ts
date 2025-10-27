@@ -8,7 +8,7 @@ import * as path from "node:path";
 import { checkbox, confirm, input, Separator, select } from "@inquirer/prompts";
 import ora from "ora";
 import * as pc from "picocolors";
-import { ConfigMerger } from "../../core/config/interactive-selection-merger.js";
+import { applySelections } from "../../core/config/interactive-selection-merger.js";
 import {
   ConfigError,
   ErrorCategory,
@@ -375,8 +375,7 @@ async function showPreview(
   console.log(pc.cyan("\n📝 Selection Preview"));
   console.log(pc.gray("--------------------"));
 
-  const merger = new ConfigMerger();
-  const applied = merger.applySelections(presetContent, selection);
+  const applied = applySelections(presetContent, selection);
 
   if (applied.rules.size > 0) {
     console.log(pc.bold("Rules:"));
@@ -420,8 +419,10 @@ async function saveSelection(
   );
 
   // Convert selection to include/exclude format
-  const includePatterns = selection.rules?.include || selection.commands?.include || ["*"];
-  const excludePatterns = selection.rules?.exclude || selection.commands?.exclude;
+  const includePatterns = selection.rules?.include ||
+    selection.commands?.include || ["*"];
+  const excludePatterns =
+    selection.rules?.exclude || selection.commands?.exclude;
 
   if (extendsIndex === undefined || extendsIndex === -1) {
     // If not found, add it
