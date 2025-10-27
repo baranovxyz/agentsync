@@ -21,15 +21,6 @@ export { normalizeExtends } from "./schemas";
 // Tool types
 export type ToolName = "cursor" | "claude" | "cline" | "roocode";
 
-// Translator interface
-export interface Translator {
-  name: ToolName;
-  translate(agentsMd: AgentsMd, targetDir: string): Promise<TranslateResult>;
-  getCurrentFiles(targetDir: string): Promise<string[]>;
-  dryRun(agentsMd: AgentsMd, targetDir: string): Promise<TranslateResult>;
-  cleanup(targetDir: string): Promise<void>;
-}
-
 // File operation types
 export interface FileOperation {
   type: "create" | "write" | "modify" | "delete" | "symlink" | "create_dir";
@@ -118,7 +109,7 @@ export interface SecurityCheckResult {
 }
 
 // Import necessary types from other modules
-import type { AgentsMd, TranslateResult } from "./schemas";
+import type { AgentsMd } from "./schemas";
 
 // Temporary type definitions until we implement the full modules
 export interface SecretFinding {
