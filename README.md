@@ -142,7 +142,7 @@ Fine-grained control over preset content with file-level selections and two-leve
 
 ```bash
 # Interactively select presets and configure file-level selections
-agentsync preset interactive-select
+agentsync preset select
 
 # View configured presets with selections
 agentsync preset list --verbose
@@ -151,10 +151,7 @@ agentsync preset list --verbose
 agentsync sync --selections
 
 # Interactively remove presets and selections
-agentsync preset interactive-remove
-
-# Add a preset with selection configuration
-agentsync preset add github:company/standards --selection
+agentsync preset remove
 ```
 
 ### Two-Level Configuration Hierarchy
@@ -181,11 +178,12 @@ Control exactly which files from presets are included in your project:
     {
       "source": "github:company/standards",
       "namespace": "company",
-      "select": {
-        "rules": ["rules/typescript.md", "rules/testing.md"],
-        "commands": ["commands/commit.md", "commands/deploy.md"],
-        "mcps": ["github", "postgres"]
-      }
+      "include": [
+        "rules/typescript.md",
+        "rules/testing.md",
+        "commands/commit.md"
+      ],
+      "exclude": ["rules/deprecated/*"]
     }
   ]
 }
@@ -433,12 +431,20 @@ Sync your unified AGENTS.md to all AI coding tools - Cursor, Claude Code, Cline,
 
 ### Current Status
 
-**Working Commands:**
+**✅ Implemented Commands:**
 
 - ✅ `agentsync init` - Initialize AgentSync with AGENTS.md template
 - ✅ `agentsync sync` - Sync presets, rules, commands, and MCPs to AI tools
-- ✅ `agentsync preset list` - List configured preset sources
-- ✅ `agentsync preset cache-clear` - Clear preset caches
+- ✅ `agentsync mcp sync/add/remove/list` - MCP server management
+- ✅ `agentsync preset list/cache-clear/select/remove` - Preset configuration
+- ✅ Interactive workflow for preset and MCP selection
+
+**⏳ Planned Commands (v0.3.0-beta+):**
+
+- `agentsync validate` - Validate AGENTS.md format and configs
+- `agentsync diff` - Preview sync changes deterministically
+- `agentsync watch` - Watch mode for live sync (v0.4.0)
+- `agentsync migrate` - Migrate configurations
 
 ### AGENTS.md Init Command
 
