@@ -137,7 +137,8 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
     try {
       // Check if any extends entries have selection criteria
       const hasSelections = config.extends?.some(
-        (entry) => typeof entry !== "string" && entry.select,
+        (entry) =>
+          typeof entry !== "string" && (entry.include || entry.exclude),
       );
 
       if (
@@ -176,10 +177,12 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
         if (presetSpinner) {
           const selectionCount =
             config.extends?.filter(
-              (entry) => typeof entry !== "string" && entry.select,
+              (entry) =>
+                typeof entry !== "string" &&
+                (entry.include || entry.exclude),
             ).length || 0;
           presetSpinner.succeed(
-            `Loaded ${config.extends?.length || 0} ${config.extends?.length === 1 ? "library" : "libraries"} with ${selectionCount} selection${selectionCount === 1 ? "" : "s"}`,
+            `Loaded ${config.extends?.length || 0} ${config.extends?.length === 1 ? "library" : "libraries"} with ${selectionCount} filter${selectionCount === 1 ? "" : "s"}`,
           );
         }
       } else {

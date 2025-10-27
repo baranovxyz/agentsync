@@ -74,9 +74,13 @@ export async function addPreset(
       }
     }
 
-    // Add preset to extends array with selection
+    // Add preset to extends array with filters
     const presetEntry = options.selection
-      ? { source, select: options.selection }
+      ? {
+          source,
+          include: options.selection.rules?.include || options.selection.commands?.include || ["*"],
+          exclude: options.selection.rules?.exclude || options.selection.commands?.exclude,
+        }
       : source;
 
     const updatedConfig = {

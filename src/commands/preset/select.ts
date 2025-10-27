@@ -419,26 +419,36 @@ async function saveSelection(
     (e) => (typeof e === "string" ? e : e.source) === presetSource,
   );
 
+  // Convert selection to include/exclude format
+  const includePatterns = selection.rules?.include || selection.commands?.include || ["*"];
+  const excludePatterns = selection.rules?.exclude || selection.commands?.exclude;
+
   if (extendsIndex === undefined || extendsIndex === -1) {
     // If not found, add it
     if (!config.extends) {
       config.extends = [];
     }
-    config.extends.push({ source: presetSource, select: selection });
+    config.extends.push({
+      source: presetSource,
+      include: includePatterns,
+      ...(excludePatterns && { exclude: excludePatterns }),
+    });
   } else {
     // If found, update it
     const extendsEntry = config.extends?.[extendsIndex];
     if (typeof extendsEntry === "string") {
-      // Convert string entry to object with selection
+      // Convert string entry to object with filters
       config.extends![extendsIndex] = {
         source: extendsEntry,
-        select: selection,
+        include: includePatterns,
+        ...(excludePatterns && { exclude: excludePatterns }),
       };
     } else if (extendsEntry) {
       // Update existing object entry
       config.extends![extendsIndex] = {
         ...extendsEntry,
-        select: selection,
+        include: includePatterns,
+        ...(excludePatterns && { exclude: excludePatterns }),
       };
     }
   }

@@ -11,7 +11,6 @@
 import { readFile } from "node:fs/promises";
 import * as path from "node:path";
 import { Command } from "commander";
-import picocolors from "picocolors";
 import { init } from "./commands/init.js";
 import { addMCP as addMcp } from "./commands/mcp/add.js";
 import { listMCP as listMcp } from "./commands/mcp/list.js";
@@ -25,24 +24,24 @@ import { listPresets } from "./commands/preset/list.js";
 import { sync } from "./commands/sync.js";
 import type { PresetSelection } from "./types/schemas.js";
 
-const pc = picocolors;
-
 // Set up error handling
 // Note: ErrorHandler is a static class, so we don't instantiate it
 
 // Create program factory for testing
-export function createProgram(options?: { interceptIo?: boolean }): Command {
+export function createProgram(options?: { exitOverride?: boolean }): Command {
   const program = new Command();
 
-  // Enable exitOverride for testing
-  program.exitOverride();
+  // Enable exitOverride for testing only
+  if (options?.exitOverride) {
+    program.exitOverride();
+  }
 
   program
     .name("agentsync")
     .description(
       "The missing infrastructure layer for AI coding agent configuration management",
     )
-    .version("0.2.0-alpha.12");
+    .version("0.2.0-alpha.14");
 
   // Init command
   program
@@ -169,16 +168,10 @@ export function createProgram(options?: { interceptIo?: boolean }): Command {
 }
 
 // Main CLI entry point (only execute if this is the main module)
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Check if this file is being run directly (not imported as a module)
+// Use path-agnostic check that works on both Unix and Windows
+const isMainModule = import.meta.url.includes('/dist/cli.js') || import.meta.url.includes('\\dist\\cli.js');
+if (isMainModule) {
   const program = createProgram();
-
-  try {
-    program.parse();
-  } catch (err) {
-    if (err instanceof Error) {
-      console.error(pc.red(`✗ ${err.message}`));
-      process.exit(1);
-    }
-    throw err;
-  }
+  program.parse();
 }
