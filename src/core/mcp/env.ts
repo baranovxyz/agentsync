@@ -34,8 +34,8 @@ export async function loadEnv(
         continue;
       }
 
-      // Parse KEY=value
-      const match = trimmed.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
+      // Parse KEY=value (allows both uppercase and lowercase keys)
+      const match = trimmed.match(/^([a-zA-Z_][a-zA-Z0-9_]*)=(.*)$/);
       if (match) {
         const [, key, value] = match;
         env[key] = value;
@@ -44,5 +44,9 @@ export async function loadEnv(
   }
 
   // process.env takes precedence over .env file (for security)
-  return { ...env, ...process.env } as Record<string, string>;
+  // Filter out undefined/null values
+  const merged = { ...env, ...process.env };
+  return Object.fromEntries(
+    Object.entries(merged).filter(([, v]) => v != null && v !== "undefined")
+  ) as Record<string, string>;
 }
