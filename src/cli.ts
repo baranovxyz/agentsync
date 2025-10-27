@@ -169,8 +169,8 @@ export function createProgram(options?: { exitOverride?: boolean }): Command {
 
 // Main CLI entry point (only execute if this is the main module)
 // Check if this file is being run directly (not imported as a module)
-// Use path-agnostic check that works on both Unix and Windows
-const isMainModule = import.meta.url.includes('/dist/cli.js') || import.meta.url.includes('\\dist\\cli.js');
+// Use endsWith for proper symlink resolution in npm binaries
+const isMainModule = import.meta.url.endsWith('/dist/cli.js') || import.meta.url.endsWith('\\dist\\cli.js');
 if (isMainModule) {
   const program = createProgram();
   program.parse();
