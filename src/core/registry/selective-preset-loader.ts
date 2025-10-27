@@ -69,8 +69,18 @@ export class SelectivePresetLoader {
 
           // Extract selection criteria from the extends entry
           let selection: SelectionConfig | undefined;
-          if (typeof entry !== "string" && entry.select) {
-            selection = entry.select;
+          if (typeof entry !== "string" && (entry.include || entry.exclude)) {
+            // Build selection from include/exclude arrays
+            selection = {
+              rules: {
+                include: entry.include,
+                exclude: entry.exclude,
+              },
+              commands: {
+                include: entry.include,
+                exclude: entry.exclude,
+              },
+            };
           }
 
           // Apply selective filtering if selection criteria exists
