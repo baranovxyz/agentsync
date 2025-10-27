@@ -19,7 +19,7 @@ export * from "./schemas";
 export { normalizeExtends } from "./schemas";
 
 // Tool types
-export type ToolName = "cursor" | "claude" | "cline" | "windsurf" | "copilot";
+export type ToolName = "cursor" | "claude" | "cline" | "roocode";
 
 // Translator interface
 export interface Translator {

@@ -10,6 +10,7 @@ import picocolors from "picocolors";
 import AuditLogger, { AuditEventType } from "../core/audit.js";
 import { ConfigError, ErrorCategory, ErrorSeverity } from "../core/errors.js";
 import { RegistryOrchestrator } from "../core/registry/registry-orchestrator.js";
+import { AgentsSyncTarget } from "../targets/agents-sync-target.js";
 import { CommandsSyncTarget } from "../targets/commands-sync-target.js";
 import { RulesSyncTarget } from "../targets/rules-sync-target.js";
 import type { ToolName } from "../types/index.js";
@@ -93,8 +94,7 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
         "cursor",
         "claude",
         "cline",
-        "windsurf",
-        "copilot",
+        "roocode",
       ];
       if (!validTools.includes(options.tool as ToolName)) {
         throw new ConfigError(
@@ -241,7 +241,22 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
       console.log(pc.gray(`Would sync ${merged.commands.size} commands`));
     }
 
-    // 5. Sync MCPs to tools (only if MCP config exists with non-empty servers)
+    // 5. Sync AGENTS.md symlinks for tools that need them
+    if (!options.dryRun && targetTools.length > 0) {
+      try {
+        const agentsSyncTarget = new AgentsSyncTarget();
+        await agentsSyncTarget.sync(targetTools, cwd);
+      } catch (error) {
+        // Log but don't fail on symlink errors
+        console.log(
+          pc.yellow(
+            `  ⚠ Could not create AGENTS.md symlinks: ${(error as Error).message}`,
+          ),
+        );
+      }
+    }
+
+    // 6. Sync MCPs to tools (only if MCP config exists with non-empty servers)
     // Check if we have actual MCP servers to sync
     let hasMcpServers = false;
     if (config.mcpServers) {

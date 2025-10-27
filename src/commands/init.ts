@@ -68,8 +68,7 @@ const TOOL_CONFIGS: Record<ToolName, string[]> = {
   cursor: [".cursor/agents.md", ".cursor/AGENTS.md"],
   claude: [".claude/AGENTS.md", "claude_project.md"],
   cline: [".cline/AGENTS.md", ".cline/instructions.md"],
-  windsurf: [".windsurf/AGENTS.md", ".windsurf/instructions.md"],
-  copilot: [".github/copilot/AGENTS.md", ".github/copilot-instructions.md"],
+  roocode: [".roo/AGENTS.md", ".roo/instructions.md"],
 };
 
 export class InitCommand {
@@ -318,8 +317,7 @@ export class InitCommand {
             { name: "Cursor", value: "cursor", checked: true },
             { name: "Claude Code", value: "claude", checked: true },
             { name: "Cline", value: "cline" },
-            { name: "Windsurf", value: "windsurf" },
-            { name: "GitHub Copilot", value: "copilot" },
+            { name: "RooCode", value: "roocode" },
           ],
         })) as ToolName[]);
 

@@ -48,7 +48,7 @@ export class ConfigMigrator {
 
     if (legacyConfig.tools) {
       newConfig.tools = legacyConfig.tools.filter((tool) =>
-        ["cursor", "claude", "cline", "windsurf", "copilot"].includes(tool),
+        ["cursor", "claude", "cline", "roocode"].includes(tool),
       ) as any;
     }
 
