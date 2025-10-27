@@ -55,9 +55,10 @@ Details: ./docs/agents-md.md
 
 ## What’s Implemented
 
-- v0.2.0-alpha (MCP): complete with high coverage
-- Presets (v0.2.x): implemented; examples + E2E
-- AGENTS.md (v0.3.0-beta): `init` done; translators/sync pending
+- ✅ v0.2.0-alpha (MCP Context Optimizer): Complete with 289 tests passing
+- ✅ v0.2.x-alpha (GitHub Preset System): Complete with include/exclude filtering
+- ✅ v0.2.x-alpha (Interactive Selection): Complete with file-level selections
+- 🔨 v0.3.0-beta (AGENTS.md Sync): `init` complete; translators pending
 
 ## Security
 
