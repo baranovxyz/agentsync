@@ -103,7 +103,6 @@ export const ExtendsSchema = z.union([
     namespace: z.string().optional(), // Override default namespace
     include: z.array(z.string()).optional(), // File patterns to include
     exclude: z.array(z.string()).optional(), // File patterns to exclude
-    select: PresetSelectionSchema.optional(), // Selection criteria for this preset
   }),
 ]);
 
@@ -327,6 +326,7 @@ export function validateLocalConfig(data: unknown): LocalConfig {
 /**
  * Normalize extends entries to a consistent format
  * Converts string entries to objects and extracts namespace from source
+ * Detects and rejects deprecated 'select' field
  */
 export function normalizeExtends(
   extends_: (string | Record<string, unknown>)[] | undefined,
@@ -335,7 +335,6 @@ export function normalizeExtends(
   namespace: string;
   include?: string[];
   exclude?: string[];
-  select?: PresetSelection;
 }> {
   if (!extends_ || extends_.length === 0) {
     return [];
@@ -364,6 +363,25 @@ export function normalizeExtends(
       throw new Error("Source is required in extends entry");
     }
 
+    // Check for deprecated 'select' field
+    if ("select" in obj) {
+      throw new Error(
+        `extends[].select is not supported in AgentSync 0.2.x.\n\n` +
+        `Use 'include' and 'exclude' arrays instead:\n\n` +
+        `  ✗ Deprecated:\n` +
+        `    extends: [{ source: "github:org/repo", select: {...} }]\n\n` +
+        `  ✓ Use instead:\n` +
+        `    extends: [\n` +
+        `      {\n` +
+        `        source: "github:org/repo",\n` +
+        `        include: ["rules/**/*.md"],\n` +
+        `        exclude: ["rules/deprecated/*"]\n` +
+        `      }\n` +
+        `    ]\n\n` +
+        `Documentation: https://docs.agentsync.dev/configuration`,
+      );
+    }
+
     // Extract namespace from source if not provided
     let namespace = obj.namespace as string | undefined;
     if (!namespace) {
@@ -381,7 +399,6 @@ export function normalizeExtends(
       namespace: string;
       include?: string[];
       exclude?: string[];
-      select?: PresetSelection;
     } = {
       source,
       namespace,
@@ -392,9 +409,6 @@ export function normalizeExtends(
     }
     if (obj.exclude) {
       result.exclude = obj.exclude as string[];
-    }
-    if (obj.select) {
-      result.select = obj.select as PresetSelection;
     }
 
     return result;

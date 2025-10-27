@@ -30,146 +30,155 @@ const pc = picocolors;
 // Set up error handling
 // Note: ErrorHandler is a static class, so we don't instantiate it
 
-// Main CLI entry point
-const program = new Command();
+// Create program factory for testing
+export function createProgram(options?: { interceptIo?: boolean }): Command {
+  const program = new Command();
 
-program
-  .name("agentsync")
-  .description(
-    "The missing infrastructure layer for AI coding agent configuration management",
-  )
-  .version("0.2.0-alpha.12");
+  // Enable exitOverride for testing
+  program.exitOverride();
 
-// Init command
-program
-  .command("init")
-  .description("Initialize AgentSync in the current project")
-  .option("-t, --template <template>", "Template to use for AGENTS.md")
-  .action((options) => {
-    init({ template: options.template });
-  });
+  program
+    .name("agentsync")
+    .description(
+      "The missing infrastructure layer for AI coding agent configuration management",
+    )
+    .version("0.2.0-alpha.12");
 
-// Sync command
-program
-  .command("sync")
-  .description("Sync AGENTS.md to your tools")
-  .option("-d, --dry-run", "Preview changes without writing files")
-  .option("-u, --update", "Update GitHub caches (re-clone repositories)")
-  .option("-t, --tool <tool>", "Sync only to a specific tool")
-  .option("-s, --selections", "Sync with interactive selections")
-  .action(async (options) => {
-    let selections: PresetSelection | undefined;
-    if (options.selections) {
-      try {
-        const projectConfigContent = await readFile(
-          path.join(process.cwd(), ".agentsync", "interactive-selections.json"),
-          "utf-8",
-        );
-        const projectConfig = JSON.parse(projectConfigContent);
-        if (projectConfig.project?.selections) {
-          selections = projectConfig.project.selections;
-        }
-      } catch {
-        // Silently continue if selections can't be loaded
-      }
-    }
-
-    await sync({
-      dryRun: options.dryRun,
-      update: options.update,
-      tool: options.tool,
-      selections: selections as Record<string, any>,
+  // Init command
+  program
+    .command("init")
+    .description("Initialize AgentSync in the current project")
+    .option("-t, --template <template>", "Template to use for AGENTS.md")
+    .action((options) => {
+      init({ template: options.template });
     });
-  });
 
-// MCP commands
-const mcpCommand = program.command("mcp").description("Manage MCP servers");
+  // Sync command
+  program
+    .command("sync")
+    .description("Sync AGENTS.md to your tools")
+    .option("-d, --dry-run", "Preview changes without writing files")
+    .option("-u, --update", "Update GitHub caches (re-clone repositories)")
+    .option("-t, --tool <tool>", "Sync only to a specific tool")
+    .option("-s, --selections", "Sync with interactive selections")
+    .action(async (options) => {
+      let selections: PresetSelection | undefined;
+      if (options.selections) {
+        try {
+          const projectConfigContent = await readFile(
+            path.join(process.cwd(), ".agentsync", "interactive-selections.json"),
+            "utf-8",
+          );
+          const projectConfig = JSON.parse(projectConfigContent);
+          if (projectConfig.project?.selections) {
+            selections = projectConfig.project.selections;
+          }
+        } catch {
+          // Silently continue if selections can't be loaded
+        }
+      }
 
-mcpCommand
-  .command("add <name>")
-  .description("Add a new MCP server")
-  .action(async (name) => {
-    await addMcp(name);
-  });
+      await sync({
+        dryRun: options.dryRun,
+        update: options.update,
+        tool: options.tool,
+        selections: selections as Record<string, any>,
+      });
+    });
 
-mcpCommand
-  .command("remove <name>")
-  .description("Remove an MCP server")
-  .action(async (name) => {
-    await removeMcp(name);
-  });
+  // MCP commands
+  const mcpCommand = program.command("mcp").description("Manage MCP servers");
 
-mcpCommand
-  .command("list")
-  .description("List all MCP servers")
-  .action(async () => {
-    await listMcp();
-  });
+  mcpCommand
+    .command("add <name>")
+    .description("Add a new MCP server")
+    .action(async (name) => {
+      await addMcp(name);
+    });
 
-mcpCommand
-  .command("sync")
-  .description("Sync MCP configurations to tools")
-  .option("-t, --tool <tool>", "Sync only to a specific tool")
-  .option("-d, --dry-run", "Preview changes without writing files")
-  .action(async (options) => {
-    await syncMcp(options);
-  });
+  mcpCommand
+    .command("remove <name>")
+    .description("Remove an MCP server")
+    .action(async (name) => {
+      await removeMcp(name);
+    });
 
-// Preset commands
-const presetCommand = program
-  .command("preset")
-  .description("Manage preset libraries");
+  mcpCommand
+    .command("list")
+    .description("List all MCP servers")
+    .action(async () => {
+      await listMcp();
+    });
 
-presetCommand
-  .command("add <source>")
-  .description("Add a preset from a GitHub source")
-  .option("-s, --selection", "Configure selection for the preset")
-  .option("-y, --yes", "Skip confirmation prompts")
-  .action(async (source, options) => {
-    await handleAddPresetCommand(source, options);
-  });
+  mcpCommand
+    .command("sync")
+    .description("Sync MCP configurations to tools")
+    .option("-t, --tool <tool>", "Sync only to a specific tool")
+    .option("-d, --dry-run", "Preview changes without writing files")
+    .action(async (options) => {
+      await syncMcp(options);
+    });
 
-presetCommand
-  .command("list")
-  .description("List all configured presets")
-  .option("-v, --verbose", "Show detailed information")
-  .action(async (options) => {
-    await listPresets(options);
-  });
+  // Preset commands
+  const presetCommand = program
+    .command("preset")
+    .description("Manage preset libraries");
 
-presetCommand
-  .command("cache-clear")
-  .description("Clear preset cache")
-  .option("-a, --all", "Clear all caches")
-  .action(async (options) => {
-    await clearCache(options);
-  });
+  presetCommand
+    .command("add <source>")
+    .description("Add a preset from a GitHub source")
+    .option("-s, --selection", "Configure selection for the preset")
+    .option("-y, --yes", "Skip confirmation prompts")
+    .action(async (source, options) => {
+      await handleAddPresetCommand(source, options);
+    });
 
-presetCommand
-  .command("select")
-  .description("Interactively select presets and file-level selections")
-  .option("-y, --yes", "Skip confirmation prompts")
-  .action(async (options) => {
-    await selectPreset(options);
-  });
+  presetCommand
+    .command("list")
+    .description("List all configured presets")
+    .option("-v, --verbose", "Show detailed information")
+    .action(async (options) => {
+      await listPresets(options);
+    });
 
-presetCommand
-  .command("remove")
-  .description("Interactively remove presets and their selections")
-  .option("-y, --yes", "Skip confirmation prompts")
-  .action(async (options) => {
-    await removePreset(options);
-  });
+  presetCommand
+    .command("cache-clear")
+    .description("Clear preset cache")
+    .option("-a, --all", "Clear all caches")
+    .action(async (options) => {
+      await clearCache(options);
+    });
 
-// Error handling
-program.exitOverride();
+  presetCommand
+    .command("select")
+    .description("Interactively select presets and file-level selections")
+    .option("-y, --yes", "Skip confirmation prompts")
+    .action(async (options) => {
+      await selectPreset(options);
+    });
 
-try {
-  program.parse();
-} catch (err) {
-  if (err instanceof Error) {
-    console.error(pc.red(`✗ ${err.message}`));
-    process.exit(1);
+  presetCommand
+    .command("remove")
+    .description("Interactively remove presets and their selections")
+    .option("-y, --yes", "Skip confirmation prompts")
+    .action(async (options) => {
+      await removePreset(options);
+    });
+
+  return program;
+}
+
+// Main CLI entry point (only execute if this is the main module)
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const program = createProgram();
+
+  try {
+    program.parse();
+  } catch (err) {
+    if (err instanceof Error) {
+      console.error(pc.red(`✗ ${err.message}`));
+      process.exit(1);
+    }
+    throw err;
   }
-  throw err;
 }

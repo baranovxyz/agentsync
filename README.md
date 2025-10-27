@@ -9,10 +9,10 @@
 
 **AgentSync** provides four powerful features:
 
-1. **MCP Context Optimizer** (Phase 1 ✅) - Reduce AI context bloat with project-specific MCP server selection
+1. **MCP Context Optimizer** (v0.2.0-alpha ✅) - Reduce AI context bloat with project-specific MCP server selection
 2. **GitHub Preset System** (v0.2.0-alpha) - Share rules, commands, and MCPs via GitHub repositories
-3. **Interactive Selection** (Phase 5 ✅) - Fine-grained control over preset content with file-level selections
-4. **AGENTS.md Sync** (Phase 2 ⏳) - Sync unified AGENTS.md to all AI coding tools
+3. **Interactive Selection** (v0.2.x-alpha ✅) - Fine-grained control over preset content with file-level selections
+4. **AGENTS.md Sync** (v0.3.0-beta ⏳) - Sync unified AGENTS.md to all AI coding tools
 
 ## Installation
 
@@ -122,16 +122,16 @@ acme/coding-standards/
 
 Learn more in [CLAUDE.md](./CLAUDE.md#v030-beta-github-preset-system)
 
-## Phase 5: Interactive Selection ✅ COMPLETE
+## v0.2.x-alpha: Interactive Selection ✅ COMPLETE
 
-Fine-grained control over preset content with file-level selections and three-level configuration hierarchy.
+Fine-grained control over preset content with file-level selections and two-level configuration hierarchy.
 
 ### Features
 
 **✅ All Features Complete:**
 
 - Interactive preset selection with file-level filtering
-- Three-level configuration hierarchy (user → project → local)
+- Two-level configuration hierarchy (project → local)
 - File pattern matching with include/exclude glob patterns
 - MCP server selection from presets
 - Interactive removal of presets and selections
@@ -157,21 +157,16 @@ agentsync preset interactive-remove
 agentsync preset add github:company/standards --selection
 ```
 
-### Three-Level Configuration Hierarchy
+### Two-Level Configuration Hierarchy
 
-Interactive Selection supports a three-level configuration hierarchy that allows for flexible preset management:
+Interactive Selection supports a two-level configuration hierarchy for flexible preset management:
 
-1. **User Level** (`~/.agentsync/interactive-selection.json`)
-   - Personal default selections for all projects
-   - User preset registry
-   - Global preferences
-
-2. **Project Level** (`.agentsync/config.json`)
+1. **Project Level** (`.agentsync/config.json`)
    - Team-shared selections
    - Project-specific overrides
    - Committed to version control
 
-3. **Local Level** (`agentsync.local.json`)
+2. **Local Level** (`agentsync.local.json`)
    - Personal overrides for this project
    - Temporary selections
    - Gitignored (not committed)
@@ -218,7 +213,7 @@ Control exactly which files from presets are included in your project:
 
 Learn more in [Interactive Selection Documentation](./docs/interactive-selection.md)
 
-## Phase 1: MCP Context Optimizer ✅ COMPLETE
+## v0.2.0-alpha: MCP Context Optimizer ✅ COMPLETE
 
 Keep your AI agents fast and focused with project-specific MCP (Model Context Protocol) selection.
 
@@ -432,7 +427,7 @@ DATABASE_URL=postgresql://localhost:5432/mydb
 
 ---
 
-## Phase 2: AGENTS.md Sync ⏳ IN PROGRESS
+## v0.3.0-beta: AGENTS.md Sync ⏳ IN PROGRESS
 
 Sync your unified AGENTS.md to all AI coding tools - Cursor, Claude Code, Cline, Windsurf, GitHub Copilot.
 
@@ -444,17 +439,6 @@ Sync your unified AGENTS.md to all AI coding tools - Cursor, Claude Code, Cline,
 - ✅ `agentsync sync` - Sync presets, rules, commands, and MCPs to AI tools
 - ✅ `agentsync preset list` - List configured preset sources
 - ✅ `agentsync preset cache-clear` - Clear preset caches
-
-**Not Yet Implemented:**
-
-- ⏳ `agentsync watch` - Auto-sync on file changes
-- ⏳ `agentsync validate` - Validate AGENTS.md format
-- ⏳ `agentsync diff` - Preview sync changes
-- ⏳ `agentsync migrate` - Import from existing configs
-- ⏳ `agentsync doctor` - Diagnose issues
-- ⏳ `agentsync status` - Show sync status
-- ⏳ `agentsync audit` - View audit logs
-- ⏳ `agentsync tree` - Show workspace tree
 
 ### AGENTS.md Init Command
 
@@ -484,13 +468,13 @@ agentsync/
 │   ├── cli.ts                    # CLI entry point
 │   ├── commands/
 │   │   ├── init.ts               ✅ AGENTS.md init
-│   │   └── mcp/                  ✅ MCP commands (Phase 1)
+│   │   └── mcp/                  ✅ MCP commands (v0.2.0-alpha)
 │   │       ├── sync.ts           ✅ Complete
 │   │       ├── list.ts           ✅ Complete
 │   │       ├── add.ts            ✅ Complete
 │   │       └── remove.ts         ✅ Complete
 │   ├── core/
-│   │   ├── mcp/                  ✅ MCP engine (Phase 1)
+│   │   ├── mcp/                  ✅ MCP engine (v0.2.0-alpha)
 │   │   │   ├── registry.ts       ✅ Global registry loader
 │   │   │   ├── config.ts         ✅ Project config & merger
 │   │   │   ├── tokens.ts         ✅ Token substitution
@@ -502,12 +486,12 @@ agentsync/
 │   ├── security/                 ✅ Security layer
 │   │   ├── scanner.ts            ✅ Secret detection
 │   │   └── unicode-detector.ts   ✅ Unicode attack prevention
-│   ├── targets/                  ✅ MCP targets (Phase 1)
+│   ├── targets/                  ✅ MCP targets (v0.2.0-alpha)
 │   │   ├── mcp-base.ts           ✅ Target interface
 │   │   ├── cursor.ts             ✅ Cursor implementation
 │   │   ├── claude.ts             ✅ Claude Code implementation
 │   │   └── mcp-index.ts          ✅ Target registry
-│   ├── translators/              🔨 TODO (Phase 2)
+│   ├── translators/              🔨 TODO (v0.3.0-beta)
 │   ├── templates/                ✅ AGENTS.md templates
 │   └── types/                    ✅ TypeScript types
 └── tests/
@@ -604,11 +588,11 @@ For more details, please see our [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Roadmap
 
-- [x] **Phase 1: MCP Context Optimizer** - Project-specific MCP selection
+- [x] **v0.2.0-alpha: MCP Context Optimizer** - Project-specific MCP selection
 - [x] **v0.2.0: GitHub Preset System** - Shareable rules, commands, and MCPs
-- [ ] **Phase 2: AGENTS.md Sync** - Unified config sync to all tools
-- [ ] **Phase 3: Advanced Features** - Watch mode, validation, monorepo support
-- [ ] **Phase 4: Additional Tools** - Windsurf, Cline, RooCode, GitHub Copilot
+- [ ] **v0.3.0-beta: AGENTS.md Sync** - Unified config sync to all tools
+- [ ] **v0.4.0: Advanced Features** - Watch mode, validation, monorepo support
+- [ ] **Future: Additional Tools** - Windsurf, Cline, RooCode, GitHub Copilot
 
 ## License
 

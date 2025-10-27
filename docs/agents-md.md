@@ -1,6 +1,6 @@
 # AGENTS.md: Parser and Translators
 
-Status: Phase 2 in progress. `init` command implemented; translators and full sync pending.
+Status: v0.3.0-beta in progress. `init` command implemented; translators and full sync pending.
 
 ## Parser (`src/core/parser.ts`)
 
