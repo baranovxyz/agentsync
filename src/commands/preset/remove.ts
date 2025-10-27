@@ -5,7 +5,7 @@
 
 import { readFile, writeFile } from "node:fs/promises";
 import * as path from "node:path";
-import { checkbox, confirm, select } from "@inquirer/prompts";
+import { confirm, select } from "@inquirer/prompts";
 import ora from "ora";
 import pc from "picocolors";
 import { UserPresetRegistry } from "../../core/registry/user-preset-registry.js";
@@ -190,10 +190,10 @@ async function getConfiguredPresetSources(config: AgentSyncConfig): Promise<
     configLevels: string[];
   }> = [];
 
-  // Check extends array for presets with selections
+  // Check extends array for presets with filters
   if (config.extends && Array.isArray(config.extends)) {
     for (const entry of config.extends) {
-      if (typeof entry === "object" && entry.select) {
+      if (typeof entry === "object" && (entry.include || entry.exclude)) {
         createPresetSourceEntry(entry.source, sources);
       }
     }
@@ -232,13 +232,13 @@ function getAvailableConfigLevels(
 ): Array<"user" | "project" | "local"> {
   const levels: Array<"user" | "project" | "local"> = [];
 
-  // Check if preset exists in extends array with selections
+  // Check if preset exists in extends array with filters
   if (config.extends && Array.isArray(config.extends)) {
     for (const entry of config.extends) {
       if (
         typeof entry === "object" &&
         entry.source === presetSource &&
-        entry.select
+        (entry.include || entry.exclude)
       ) {
         levels.push("project");
         break;
@@ -272,95 +272,34 @@ async function selectConfigLevel(
  * Let user choose removal type
  */
 async function selectRemovalType(
-  config: AgentSyncConfig,
-  presetSource: string,
+  _config: AgentSyncConfig,
+  _presetSource: string,
   _configLevel: "user" | "project" | "local",
 ): Promise<"entire" | "specific"> {
-  // Find the preset in extends array
-  let selection = null;
-  if (config.extends && Array.isArray(config.extends)) {
-    for (const entry of config.extends) {
-      if (typeof entry === "object" && entry.source === presetSource) {
-        selection = entry.select;
-        break;
-      }
-    }
-  }
-
-  if (!selection || Object.keys(selection).length === 0) {
-    return "entire";
-  }
-
-  return select({
-    message: "What would you like to remove?",
-    choices: [
-      {
-        name: "Remove the entire preset and its selections",
-        value: "entire",
-      },
-      {
-        name: "Remove specific file selections (rules, commands, MCPs)",
-        value: "specific",
-      },
-    ],
-  });
+  // For alpha, we only support entire preset removal
+  return "entire";
 }
 
 /**
  * Let user select content types for removal
  */
 async function selectContentTypesForRemoval(
-  config: AgentSyncConfig,
-  presetSource: string,
+  _config: AgentSyncConfig,
+  _presetSource: string,
   _configLevel: "user" | "project" | "local",
 ): Promise<string[]> {
-  // Find the preset in extends array
-  let selection = null;
-  if (config.extends && Array.isArray(config.extends)) {
-    for (const entry of config.extends) {
-      if (typeof entry === "object" && entry.source === presetSource) {
-        selection = entry.select;
-        break;
-      }
-    }
-  }
-
-  if (!selection) {
-    return [];
-  }
-
-  const choices = [];
-  if (selection.rules) choices.push({ name: "Rules", value: "rules" });
-  if (selection.commands) choices.push({ name: "Commands", value: "commands" });
-  if (selection.mcps) choices.push({ name: "MCPs", value: "mcps" });
-
-  if (choices.length === 0) {
-    console.log(pc.yellow("No specific selections to remove."));
-    return [];
-  }
-
-  return checkbox({
-    message: "Select content types to remove selections for:",
-    choices,
-  });
+  // For alpha, we only support entire preset removal
+  return [];
 }
 
 /**
  * Find selection for a preset source
  */
 function findPresetSelection(
-  config: AgentSyncConfig,
-  presetSource: string,
+  _config: AgentSyncConfig,
+  _presetSource: string,
 ): PresetSelection | null {
-  if (!(config.extends && Array.isArray(config.extends))) {
-    return null;
-  }
-
-  for (const entry of config.extends) {
-    if (typeof entry === "object" && entry.source === presetSource) {
-      return entry.select || null;
-    }
-  }
+  // For alpha, selections stored directly in extends entries
   return null;
 }
 
@@ -448,38 +387,15 @@ function getConfigPath(
   );
 }
 
-/**
- * Remove specific selections from entry
- */
-function removeSpecificSelections(
-  entry: { source: string; select?: PresetSelection },
-  removedTypes: string[],
-): typeof entry | null {
-  if (!entry.select) return entry;
-
-  const updatedSelect = { ...entry.select };
-  for (const type of removedTypes) {
-    if (type === "rules") updatedSelect.rules = undefined;
-    else if (type === "commands") updatedSelect.commands = undefined;
-    else if (type === "mcps") updatedSelect.mcps = undefined;
-  }
-
-  // If no selections remain, remove entire entry
-  if (Object.keys(updatedSelect).length === 0) {
-    return null;
-  }
-
-  return { ...entry, select: updatedSelect };
-}
 
 /**
  * Update extends entry for removal
  */
 function updateExtendsEntry(
-  entry: string | { source: string; select?: PresetSelection },
+  entry: string | { source: string; include?: string[]; exclude?: string[] },
   presetSource: string,
   removalType: "entire" | "specific",
-  removedTypes: string[],
+  _removedTypes: string[],
 ): typeof entry | null {
   const source = typeof entry === "string" ? entry : entry.source;
 
@@ -489,11 +405,6 @@ function updateExtendsEntry(
 
   if (removalType === "entire") {
     return null; // Mark for removal
-  }
-
-  // Remove specific selections
-  if (typeof entry === "object") {
-    return removeSpecificSelections(entry, removedTypes);
   }
 
   return entry;
