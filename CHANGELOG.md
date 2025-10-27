@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- Deprecated legacy MCP targets under `src/targets/` (mcp-base, mcp-index, legacy tool files)
+- Standalone `mcp sync` command and its unit tests (use `agentsync sync`)
+
+### Added
+
+- Pluggable pre-sync security checks under `src/security/checks/`:
+  - `agents-md-secrets` using SecurityScanner
+  - `agents-md-unicode` using UnicodeDetector
+- `runSecurityChecks(cwd, config)` integrated early in main `sync` with blocking on high severity per config
+
+### Docs
+
+- README/CLI/ARCHITECTURE updated to clarify MCP sync is part of `agentsync sync`
+- `docs/agents-md.md` updated to reflect symlink-only approach and pending translators
+
 ## [0.2.0-alpha.14] - 2025-10-27
 
 ### Breaking Changes
