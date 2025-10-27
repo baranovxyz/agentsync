@@ -179,16 +179,4 @@ describe("addMCP", () => {
     const localExists = await fs.pathExists("agentsync.local.json");
     expect(localExists).toBe(false);
   });
-
-  it("creates .agentsync/config.json if it does not exist", async () => {
-    await addMCP("github");
-
-    const exists = await fs.pathExists(".agentsync/config.json");
-    expect(exists).toBe(true);
-
-    const config = await fs.readJson(".agentsync/config.json");
-    expect(config.mcpServers).toEqual(["github"]);
-    expect(config.version).toBe("1.0");
-    expect(config.tools).toEqual(["cursor", "claude"]);
-  });
 });

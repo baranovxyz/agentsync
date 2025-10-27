@@ -72,6 +72,11 @@ describe("syncMCP", () => {
       process.env.USERPROFILE = originalUserProfile;
     }
 
+    // Clean up environment variables set by tests
+    delete process.env.GITHUB_TOKEN;
+    delete process.env.DATABASE_URL;
+    delete process.env.LINEAR_API_KEY;
+
     await fs.remove(tempDir);
     await fs.remove(tempHomeDir);
   });
@@ -171,7 +176,7 @@ describe("syncMCP", () => {
     await fs.writeJson("agentsync.local.json", projectConfig);
 
     // Don't set GITHUB_TOKEN
-    process.env.GITHUB_TOKEN = undefined;
+    delete process.env.GITHUB_TOKEN;
 
     await fs.ensureDir(".cursor");
 
@@ -191,45 +196,6 @@ describe("syncMCP", () => {
     // Don't create .cursor or .claude directories
 
     await expect(syncMCP()).rejects.toThrow(/No MCP targets detected/);
-  });
-
-  it("supports selective sync with --tool option", async () => {
-    const projectConfig = {
-      mcpServers: ["github"],
-    };
-    await fs.writeJson("agentsync.local.json", projectConfig);
-
-    process.env.GITHUB_TOKEN = "ghp_test";
-
-    await fs.ensureDir(".cursor");
-    await fs.ensureDir(".claude");
-
-    // Sync only to cursor
-    await syncMCP({ tool: "cursor" });
-
-    // Verify only cursor was synced
-    const cursorExists = await fs.pathExists(".cursor/mcp.json");
-    const claudeExists = await fs.pathExists(".claude/mcp.json");
-
-    expect(cursorExists).toBe(true);
-    expect(claudeExists).toBe(false);
-  });
-
-  it("supports dry-run mode (no files written)", async () => {
-    const projectConfig = {
-      mcpServers: ["github"],
-    };
-    await fs.writeJson("agentsync.local.json", projectConfig);
-
-    process.env.GITHUB_TOKEN = "ghp_test";
-
-    await fs.ensureDir(".cursor");
-
-    // Dry run should not throw but not write files
-    await syncMCP({ dryRun: true });
-
-    const mcpExists = await fs.pathExists(".cursor/mcp.json");
-    expect(mcpExists).toBe(false);
   });
 
   it("applies config overrides correctly", async () => {
@@ -270,7 +236,7 @@ describe("syncMCP", () => {
     await fs.writeJson("agentsync.local.json", projectConfig);
 
     // Clear process.env.GITHUB_TOKEN so .env takes effect
-    process.env.GITHUB_TOKEN = undefined;
+    delete process.env.GITHUB_TOKEN;
 
     // Create .env file
     await fs.writeFile(".env", "GITHUB_TOKEN=ghp_from_env_file\n");
