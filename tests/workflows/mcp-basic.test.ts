@@ -7,15 +7,17 @@
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { runCli, withTempProject, assertSuccess } from "../utils/workflow-harness.js";
 import * as fs from "../../src/utils/fs.js";
+import { assertSuccess, runCli } from "../utils/workflow-harness.js";
 
 describe("MCP Basic Workflow (In-Process)", () => {
   let projectDir: string;
   let homeDir: string;
 
   beforeEach(async () => {
-    projectDir = await fs.mkdtemp(path.join(os.tmpdir(), "agentsync-workflow-"));
+    projectDir = await fs.mkdtemp(
+      path.join(os.tmpdir(), "agentsync-workflow-"),
+    );
     homeDir = await fs.mkdtemp(path.join(os.tmpdir(), "agentsync-home-"));
 
     // Setup global registry
@@ -59,7 +61,7 @@ describe("MCP Basic Workflow (In-Process)", () => {
 
     // Verify config was created
     const config1 = await fs.readJson(
-      path.join(projectDir, ".agentsync", "config.json")
+      path.join(projectDir, ".agentsync", "config.json"),
     );
     expect(config1.mcpServers).toContain("github");
 
@@ -79,7 +81,7 @@ describe("MCP Basic Workflow (In-Process)", () => {
 
     // Verify sync created MCP config
     const cursorMcp = await fs.readJson(
-      path.join(projectDir, ".cursor", "mcp.json")
+      path.join(projectDir, ".cursor", "mcp.json"),
     );
     expect(cursorMcp.mcpServers.github).toBeDefined();
     expect(cursorMcp.mcpServers.github.env.GITHUB_TOKEN).toBe("ghp_test123");
@@ -100,7 +102,7 @@ describe("MCP Basic Workflow (In-Process)", () => {
 
     // Verify config is now empty
     const config2 = await fs.readJson(
-      path.join(projectDir, ".agentsync", "config.json")
+      path.join(projectDir, ".agentsync", "config.json"),
     );
     expect(config2.mcpServers).toEqual([]);
   });
@@ -131,10 +133,10 @@ describe("MCP Basic Workflow (In-Process)", () => {
 
     // Verify only cursor was synced
     const cursorExists = await fs.pathExists(
-      path.join(projectDir, ".cursor", "mcp.json")
+      path.join(projectDir, ".cursor", "mcp.json"),
     );
     const claudeExists = await fs.pathExists(
-      path.join(projectDir, ".claude", "mcp.json")
+      path.join(projectDir, ".claude", "mcp.json"),
     );
 
     expect(cursorExists).toBe(true);
@@ -164,7 +166,7 @@ describe("MCP Basic Workflow (In-Process)", () => {
 
     // Verify no MCP config was written
     const mcpExists = await fs.pathExists(
-      path.join(projectDir, ".cursor", "mcp.json")
+      path.join(projectDir, ".cursor", "mcp.json"),
     );
     expect(mcpExists).toBe(false);
   });
@@ -201,13 +203,13 @@ describe("MCP Basic Workflow (In-Process)", () => {
 
     // Verify both MCPs are synced
     const cursorMcp = await fs.readJson(
-      path.join(projectDir, ".cursor", "mcp.json")
+      path.join(projectDir, ".cursor", "mcp.json"),
     );
     expect(cursorMcp.mcpServers.github).toBeDefined();
     expect(cursorMcp.mcpServers.postgres).toBeDefined();
     expect(cursorMcp.mcpServers.github.env.GITHUB_TOKEN).toBe("ghp_test");
     expect(cursorMcp.mcpServers.postgres.env.DATABASE_URL).toBe(
-      "postgresql://localhost/db"
+      "postgresql://localhost/db",
     );
   });
 });

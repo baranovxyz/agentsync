@@ -1,7 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import SecurityScanner from "../scanner.js";
-import type { SecurityCheck, SecurityContext, SecurityFinding } from "./types.js";
+import type {
+  SecurityCheck,
+  SecurityContext,
+  SecurityFinding,
+} from "./types.js";
 
 export class AgentsMdSecretsCheck implements SecurityCheck {
   name = "agents-md-secrets" as const;
@@ -26,7 +30,10 @@ export class AgentsMdSecretsCheck implements SecurityCheck {
     return result.findings.map((f) => ({
       check: this.name,
       // Map critical to high for unified severity
-      severity: (f.severity === "critical" ? "high" : (f.severity as "low" | "medium" | "high")),
+      severity:
+        f.severity === "critical"
+          ? "high"
+          : (f.severity as "low" | "medium" | "high"),
       message: `${f.type} at line ${f.line}: ${f.suggestion}`,
       file: filePath,
     }));

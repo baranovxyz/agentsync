@@ -2,10 +2,10 @@
  * Cline Tool Converter
  */
 
-import * as path from "node:path";
 import { symlink } from "node:fs/promises";
+import * as path from "node:path";
 import type { MCP } from "../../core/mcp/tokens.js";
-import { outputFile, ensureDir, pathExists } from "../../utils/fs.js";
+import { ensureDir, outputFile, pathExists } from "../../utils/fs.js";
 import { ClineRulesConverter } from "../rules/cline-rules-converter.js";
 import type { ToolConverter } from "./types.js";
 

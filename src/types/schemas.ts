@@ -447,9 +447,7 @@ export const UserPresetEntrySchema = z.object({
 export const UserConfigSchema = z.object({
   version: z.string().default("1.0"),
   presets: z.record(z.string(), UserPresetEntrySchema),
-  tools: z
-    .array(z.enum(["cursor", "claude", "cline", "roocode"]))
-    .optional(),
+  tools: z.array(z.enum(["cursor", "claude", "cline", "roocode"])).optional(),
 });
 
 // Type exports for user config

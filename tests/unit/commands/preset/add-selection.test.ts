@@ -5,12 +5,12 @@
 import { readFile, writeFile } from "node:fs/promises";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+// The addPreset function will be implemented in src/commands/preset/add.ts
+import { addPreset } from "../../../../src/commands/preset/add.js";
 import type {
   PresetSelection,
   UserPresetEntry,
 } from "../../../../src/types/index.js";
-// The addPreset function will be implemented in src/commands/preset/add.ts
-import { addPreset } from "../../../../src/commands/preset/add.js";
 import {
   validateConfig,
   validateUserPresetEntry,
@@ -177,8 +177,6 @@ describe("preset add command with selection support", () => {
     expect(writtenConfig.extends).toEqual(["github:testorg/testrepo"]);
   });
 
-
-
   it("should not add duplicate presets", async () => {
     const configWithDuplicate = {
       ...mockConfig,
@@ -243,7 +241,7 @@ interface AddPresetResult {
 }
 
 // Mock implementation
-async function addPreset(
+async function _addPreset(
   source: string,
   options: AddPresetOptions = {},
 ): Promise<AddPresetResult> {

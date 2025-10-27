@@ -1,6 +1,6 @@
 import picocolors from "picocolors";
+import { ErrorSeverity, SecurityError } from "../../core/errors.js";
 import type { AgentSyncConfig } from "../../types/schemas.js";
-import { SecurityError, ErrorSeverity } from "../../core/errors.js";
 import { getEnabledChecks } from "./index.js";
 import type { SecurityFinding } from "./types.js";
 
@@ -23,7 +23,11 @@ export async function runSecurityChecks(
       findings.push(...result);
     } catch (error) {
       // Non-fatal: treat check failure as a warning in alpha/beta
-      console.log(pc.yellow(`  ⚠ Security check failed: ${check.name} - ${(error as Error).message}`));
+      console.log(
+        pc.yellow(
+          `  ⚠ Security check failed: ${check.name} - ${(error as Error).message}`,
+        ),
+      );
     }
   }
 
@@ -33,15 +37,21 @@ export async function runSecurityChecks(
   const low = findings.filter((f) => f.severity === "low");
 
   // Blocking behavior
-  const blockOnHighSecrets = config.security?.secretScanning?.blockOnHighSeverity !== false;
-  const blockOnHighUnicode = config.security?.unicodeDetection?.blockOnHighRisk !== false;
+  const blockOnHighSecrets =
+    config.security?.secretScanning?.blockOnHighSeverity !== false;
+  const blockOnHighUnicode =
+    config.security?.unicodeDetection?.blockOnHighRisk !== false;
 
   const hasHighSecrets = high.some((f) => f.check === "agents-md-secrets");
   const hasHighUnicode = high.some((f) => f.check === "agents-md-unicode");
 
-  if ((blockOnHighSecrets && hasHighSecrets) || (blockOnHighUnicode && hasHighUnicode)) {
+  if (
+    (blockOnHighSecrets && hasHighSecrets) ||
+    (blockOnHighUnicode && hasHighUnicode)
+  ) {
     const reasons: string[] = [];
-    if (blockOnHighSecrets && hasHighSecrets) reasons.push("high-severity secrets");
+    if (blockOnHighSecrets && hasHighSecrets)
+      reasons.push("high-severity secrets");
     if (blockOnHighUnicode && hasHighUnicode) reasons.push("high-risk Unicode");
 
     throw new SecurityError(
@@ -59,7 +69,11 @@ export async function runSecurityChecks(
     console.log(pc.yellow("\n🔐 Security warnings detected in AGENTS.md:"));
     for (const f of findings) {
       const sev = f.severity.toUpperCase();
-      console.log(pc.yellow(`  - [${sev}] (${f.check}) ${f.message}${f.file ? ` [${f.file}]` : ""}`));
+      console.log(
+        pc.yellow(
+          `  - [${sev}] (${f.check}) ${f.message}${f.file ? ` [${f.file}]` : ""}`,
+        ),
+      );
     }
     console.log();
   }

@@ -56,7 +56,7 @@ export class RegistryOrchestrator {
       extendsEntries.map((entry, i) => {
         const source = typeof entry === "string" ? entry : entry.source;
         const namespace =
-          typeof entry === "string" ? "" : (entry as any).namespace;
+          typeof entry === "string" ? "" : (entry as unknown).namespace;
         return this.presetLoader.load(
           source,
           resolvedPaths[i],
@@ -115,7 +115,7 @@ export class RegistryOrchestrator {
       extendsEntries.map((entry, i) => {
         const source = typeof entry === "string" ? entry : entry.source;
         const namespace =
-          typeof entry === "string" ? "" : (entry as any).namespace;
+          typeof entry === "string" ? "" : (entry as unknown).namespace;
         return this.presetLoader.load(
           source,
           resolvedPaths[i],
@@ -180,7 +180,7 @@ export class RegistryOrchestrator {
       extendsEntries.map((entry, i) => {
         const source = typeof entry === "string" ? entry : entry.source;
         const namespace =
-          typeof entry === "string" ? "" : (entry as any).namespace;
+          typeof entry === "string" ? "" : (entry as unknown).namespace;
         return this.presetLoader.load(
           source,
           resolvedPaths[i],

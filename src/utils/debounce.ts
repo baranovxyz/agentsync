@@ -115,7 +115,7 @@ export function debounce<T extends (...args: any[]) => any>(
     return timeoutId !== null;
   };
 
-  const debounced = function (this: any, ...args: Parameters<T>) {
+  const debounced = function (this: unknown, ...args: Parameters<T>) {
     const time = Date.now();
     const isInvoking = shouldInvoke(time);
 
@@ -150,7 +150,7 @@ export function debounce<T extends (...args: any[]) => any>(
 /**
  * Simple debounce without options
  */
-export function simpleDebounce<T extends (...args: any[]) => void>(
+export function simpleDebounce<T extends (...args: unknown[]) => void>(
   func: T,
   delay: number,
 ): (...args: Parameters<T>) => void {

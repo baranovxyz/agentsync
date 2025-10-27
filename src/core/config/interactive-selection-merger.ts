@@ -12,7 +12,7 @@ import type { Preset } from "../../types/preset.js";
 export interface AppliedSelection {
   commands: Map<string, string>;
   rules: Map<string, string>;
-  mcps: Record<string, any>;
+  mcps: Record<string, unknown>;
 }
 
 /**

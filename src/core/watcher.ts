@@ -24,7 +24,7 @@ export interface WatcherOptions {
 export interface FileChangeEvent {
   type: "add" | "change" | "unlink";
   path: string;
-  stats?: any;
+  stats?: unknown;
   timestamp: Date;
 }
 
@@ -37,7 +37,10 @@ export class AgentsMdWatcher extends EventEmitter {
   private readonly audit = AuditLogger.getInstance();
   private isWatching = false;
   private watchedFiles = new Set<string>();
-  private debouncedHandlers = new Map<string, Function>();
+  private debouncedHandlers = new Map<
+    string,
+    (event: FileChangeEvent) => void
+  >();
 
   constructor(options: WatcherOptions = {}) {
     super();
@@ -157,13 +160,13 @@ export class AgentsMdWatcher extends EventEmitter {
     if (!this.watcher) return;
 
     // File added
-    this.watcher.on("add", (filePath: string, stats: any) => {
+    this.watcher.on("add", (filePath: string, stats: unknown) => {
       this.watchedFiles.add(filePath);
       this.handleFileChange("add", filePath, stats);
     });
 
     // File changed
-    this.watcher.on("change", (filePath: string, stats: any) => {
+    this.watcher.on("change", (filePath: string, stats: unknown) => {
       this.handleFileChange("change", filePath, stats);
     });
 
@@ -188,7 +191,7 @@ export class AgentsMdWatcher extends EventEmitter {
   private handleFileChange(
     type: "add" | "change" | "unlink",
     filePath: string,
-    stats?: any,
+    stats?: unknown,
   ): void {
     // Get or create debounced handler for this file
     if (!this.debouncedHandlers.has(filePath)) {
@@ -206,7 +209,7 @@ export class AgentsMdWatcher extends EventEmitter {
       timestamp: new Date(),
     };
 
-    (handler as any)(event);
+    handler(event);
   }
 
   /**

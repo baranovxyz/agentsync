@@ -150,12 +150,7 @@ describe("Init Command Interactive Prompts", () => {
       events.keypress("enter");
 
       const result = await answer;
-      expect(result).toEqual([
-        "cursor",
-        "claude",
-        "cline",
-        "roocode",
-      ]);
+      expect(result).toEqual(["cursor", "claude", "cline", "roocode"]);
     });
 
     it("should allow selecting no tools", async () => {
