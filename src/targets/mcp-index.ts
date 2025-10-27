@@ -5,7 +5,9 @@
  */
 
 import { ClaudeTarget } from "./claude.js";
+import { ClineTarget } from "./cline.js";
 import { CursorTarget } from "./cursor.js";
+import { RooCodeTarget } from "./roocode.js";
 import type { MCPTarget } from "./mcp-base.js";
 
 /**
@@ -16,6 +18,8 @@ import type { MCPTarget } from "./mcp-base.js";
 export const MCP_TARGETS: MCPTarget[] = [
   new CursorTarget(),
   new ClaudeTarget(),
+  new ClineTarget(),
+  new RooCodeTarget(),
 ];
 
 /**

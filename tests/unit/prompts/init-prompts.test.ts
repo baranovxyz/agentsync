@@ -77,8 +77,7 @@ describe("Init Command Interactive Prompts", () => {
           { name: "Cursor", value: "cursor", checked: true },
           { name: "Claude Code", value: "claude", checked: true },
           { name: "Cline", value: "cline" },
-          { name: "Windsurf", value: "windsurf" },
-          { name: "GitHub Copilot", value: "copilot" },
+          { name: "RooCode", value: "roocode" },
         ],
       });
 
@@ -102,8 +101,7 @@ describe("Init Command Interactive Prompts", () => {
           { name: "Cursor", value: "cursor", checked: true },
           { name: "Claude Code", value: "claude", checked: true },
           { name: "Cline", value: "cline" },
-          { name: "Windsurf", value: "windsurf" },
-          { name: "GitHub Copilot", value: "copilot" },
+          { name: "RooCode", value: "roocode" },
         ],
       });
 
@@ -136,8 +134,7 @@ describe("Init Command Interactive Prompts", () => {
           { name: "Cursor", value: "cursor" },
           { name: "Claude Code", value: "claude" },
           { name: "Cline", value: "cline" },
-          { name: "Windsurf", value: "windsurf" },
-          { name: "GitHub Copilot", value: "copilot" },
+          { name: "RooCode", value: "roocode" },
         ],
       });
 
@@ -148,9 +145,7 @@ describe("Init Command Interactive Prompts", () => {
       events.keypress("down");
       events.keypress("space"); // Cline
       events.keypress("down");
-      events.keypress("space"); // Windsurf
-      events.keypress("down");
-      events.keypress("space"); // Copilot
+      events.keypress("space"); // RooCode
 
       events.keypress("enter");
 
@@ -159,8 +154,7 @@ describe("Init Command Interactive Prompts", () => {
         "cursor",
         "claude",
         "cline",
-        "windsurf",
-        "copilot",
+        "roocode",
       ]);
     });
 
