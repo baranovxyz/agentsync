@@ -28,7 +28,6 @@ This document describes the technical architecture, design decisions, and key mo
 - **Testing**: Vitest + BATS
 - **Validation**: Zod schemas
 - **File watching**: Chokidar
-- **Markdown parsing**: unified + remark
 
 ## Configuration Files
 
@@ -114,7 +113,6 @@ src/
 │   │   ├── config.ts             # Project config loader + merger
 │   │   ├── tokens.ts             # Token substitution engine
 │   │   └── env.ts                # .env file parser
-│   ├── parser.ts                 # ✅ AGENTS.md parser (remark-based)
 │   ├── errors.ts                 # ✅ Typed error hierarchy
 │   ├── audit.ts                  # ✅ JSONL audit logger
 │   └── watcher.ts                # ✅ File watcher (chokidar)
@@ -151,24 +149,7 @@ tests/
 
 ## Core Modules
 
-### 1. Parser Module (`src/core/parser.ts`)
-
-**Purpose**: Parse AGENTS.md files into structured data
-
-**Class**: `AgentsMdParser`
-
-**Key Methods**:
-
-- `parse(content, filePath)`: Parses AGENTS.md to AST
-- `extractSections(ast)`: Extracts hierarchical sections
-- `sectionsToAgentsMd(sections)`: Converts to typed structure
-- `validate(agentsMd)`: Validates against Zod schema
-
-**Section Recognition**: Overview, build/test commands, code style, structure, git workflow, permissions, MCP servers
-
-**Dependencies**: unified, remark-parse, gray-matter
-
-### 2. Secret Scanner (`src/security/scanner.ts`)
+### 1. Secret Scanner (`src/security/scanner.ts`)
 
 **Purpose**: Detect hardcoded secrets before file operations
 
@@ -187,7 +168,7 @@ tests/
 - Database: MongoDB, PostgreSQL, MySQL connection strings
 - JWT tokens, private keys, OAuth tokens
 
-### 3. Unicode Detector (`src/security/unicode-detector.ts`)
+### 2. Unicode Detector (`src/security/unicode-detector.ts`)
 
 **Purpose**: CVE-2021-42574 (Trojan Source) protection
 
@@ -203,7 +184,7 @@ tests/
 - Mixed scripts in single line
 - Context extraction: 50 chars before/after
 
-### 4. Audit Logger (`src/core/audit.ts`)
+### 3. Audit Logger (`src/core/audit.ts`)
 
 **Purpose**: Comprehensive audit trail of all operations
 
@@ -223,7 +204,7 @@ tests/
 - `SECURITY_SCAN`, `UNICODE_DETECTION`
 - `SYNC_START`, `SYNC_COMPLETE`, `SYNC_ERROR`
 
-### 5. Init Command (`src/commands/init.ts`)
+### 4. Init Command (`src/commands/init.ts`)
 
 **Purpose**: Interactive project setup wizard
 
@@ -259,7 +240,7 @@ tests/
 - Enables adding AgentSync to projects with existing AGENTS.md files
 - Does not prompt or create MCP configuration (user responsibility)
 
-### 6. Release Workflow
+### 5. Release Workflow
 
 **Command**: Use `/release` slash command
 
@@ -291,7 +272,7 @@ tests/
 - Manual PR review gate prevents accidents
 - Rollback possible if publish fails
 
-### 7. Error System (`src/core/errors.ts`)
+### 6. Error System (`src/core/errors.ts`)
 
 **Purpose**: Typed error hierarchy with recovery strategies
 
@@ -308,7 +289,7 @@ tests/
 
 **Error Recovery**: `RetryStrategy` with exponential backoff
 
-### 8. Type System (`src/types/`)
+### 7. Type System (`src/types/`)
 
 **Tool Types**: `'cursor' | 'claude' | 'cline' | 'roocode'`
 
