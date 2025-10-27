@@ -53,21 +53,26 @@ describe("MCP Error Scenarios (Workflow)", () => {
     expect(result.stderr).toMatch(/not found|unknown/i);
   });
 
-  it("should error when no target directories exist", async () => {
+  it("should sync when tools configured in config (no pre-existing dirs)", async () => {
     // Add MCP but don't create .cursor or .claude
     await runCli(["mcp", "add", "github"], {
       cwd: projectDir,
       env: { HOME: homeDir },
     });
 
-    // Sync without targets
-    const result = await runCli(["mcp", "sync"], {
+    // Provide tools via config and sync
+    await fs.ensureDir(path.join(projectDir, ".agentsync"));
+    await fs.writeJson(path.join(projectDir, ".agentsync", "config.json"), {
+      version: "1.0",
+      tools: ["cursor", "claude"],
+      mcpServers: ["github"],
+    });
+    const result = await runCli(["sync"], {
       cwd: projectDir,
       env: { HOME: homeDir, GITHUB_TOKEN: "test" },
     });
 
-    expect(result.exitCode).not.toBe(0);
-    expect(result.stderr).toMatch(/target|directory/i);
+    expect(result.exitCode).toBe(0);
   });
 
   it("should handle spaces in paths correctly", async () => {
@@ -82,7 +87,13 @@ describe("MCP Error Scenarios (Workflow)", () => {
     });
     assertSuccess(result);
 
-    result = await runCli(["mcp", "sync"], {
+    await fs.ensureDir(path.join(spacedDir, ".agentsync"));
+    await fs.writeJson(path.join(spacedDir, ".agentsync", "config.json"), {
+      version: "1.0",
+      tools: ["cursor"],
+      mcpServers: ["github"],
+    });
+    result = await runCli(["sync"], {
       cwd: spacedDir,
       env: { HOME: homeDir, GITHUB_TOKEN: "test" },
     });

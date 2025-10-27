@@ -63,8 +63,15 @@ describe("MCP Basic Workflow (In-Process)", () => {
     );
     expect(config1.mcpServers).toContain("github");
 
-    // Step 2: Sync MCP
-    result = await runCli(["mcp", "sync"], {
+    // Step 2: Sync MCP (via main sync)
+    // Configure tools in project config
+    await fs.ensureDir(path.join(projectDir, ".agentsync"));
+    await fs.writeJson(path.join(projectDir, ".agentsync", "config.json"), {
+      version: "1.0",
+      tools: ["cursor"],
+      mcpServers: ["github"],
+    });
+    result = await runCli(["sync"], {
       cwd: projectDir,
       env: { HOME: homeDir, GITHUB_TOKEN: "ghp_test123" },
     });
@@ -110,7 +117,13 @@ describe("MCP Basic Workflow (In-Process)", () => {
     });
 
     // Sync only to cursor
-    const result = await runCli(["mcp", "sync", "--tool", "cursor"], {
+    await fs.ensureDir(path.join(projectDir, ".agentsync"));
+    await fs.writeJson(path.join(projectDir, ".agentsync", "config.json"), {
+      version: "1.0",
+      tools: ["cursor", "claude"],
+      mcpServers: ["github"],
+    });
+    const result = await runCli(["sync", "--tool", "cursor"], {
       cwd: projectDir,
       env: { HOME: homeDir, GITHUB_TOKEN: "ghp_test" },
     });
@@ -137,7 +150,13 @@ describe("MCP Basic Workflow (In-Process)", () => {
     });
 
     // Dry run should not write files
-    const result = await runCli(["mcp", "sync", "--dry-run"], {
+    await fs.ensureDir(path.join(projectDir, ".agentsync"));
+    await fs.writeJson(path.join(projectDir, ".agentsync", "config.json"), {
+      version: "1.0",
+      tools: ["cursor"],
+      mcpServers: ["github"],
+    });
+    const result = await runCli(["sync", "--dry-run"], {
       cwd: projectDir,
       env: { HOME: homeDir, GITHUB_TOKEN: "ghp_test" },
     });
@@ -163,8 +182,14 @@ describe("MCP Basic Workflow (In-Process)", () => {
       env: { HOME: homeDir },
     });
 
-    // Sync with both
-    const result = await runCli(["mcp", "sync"], {
+    // Sync with both via main sync
+    await fs.ensureDir(path.join(projectDir, ".agentsync"));
+    await fs.writeJson(path.join(projectDir, ".agentsync", "config.json"), {
+      version: "1.0",
+      tools: ["cursor"],
+      mcpServers: ["github", "postgres"],
+    });
+    const result = await runCli(["sync"], {
       cwd: projectDir,
       env: {
         HOME: homeDir,
