@@ -1,494 +1,403 @@
-# Testing Strategy
+# AgentSync Testing Strategy (0.2.x → 0.4.0)
 
-> **Quick Links:** [Automated Tests](#automated-testing) · [E2E Tests](#e2e-testing) · [Pre-Release Checklist](#pre-release-checklist) · [Detailed Docs](docs/testing/)
+This document describes the test architecture and strategy for AgentSync, aligned with the roadmap and core requirements.
 
 ## Overview
 
-AgentSync uses a comprehensive, fully-automated testing strategy to ensure CLI reliability, UX quality, and production readiness.
+AgentSync uses a **three-tier testing pyramid** designed for stability, speed, and maintainability.
 
-**Test Philosophy:**
+### Guiding Principles
 
-- **Unit tests** catch regressions and validate functionality
-- **Integration tests** ensure components work together
-- **E2E tests** validate complete workflows and production package
-- **Shell tests** verify real-world CLI execution
-- **All tests automated** - no manual testing required
+- Test user-visible contracts via CLI, but run in-process for stability
+- Prefer structured data assertions (JSON/objects) over free-form strings
+- Use declarative fixtures and scenario files for reproducible tests
+- Ensure determinism: freeze time, normalize paths/newlines, sanitize nondeterministic output
+- Keep true E2E smoke suite minimal (CI-only); focus on workflows
 
-## Architecture-First Testing
+### Architecture
 
-When fixing architectural issues, follow these principles:
+```
+       ┌─────────────────────┐
+       │  E2E Smoke (CI)     │  Packaging & shebang validation
+       ├─────────────────────┤
+       │ Workflows (14)      │  In-process CLI tests, fast & stable
+       ├─────────────────────┤
+       │  Unit (425+)        │  Logic validation, fast feedback
+       └─────────────────────┘
+```
 
-- **Identify root cause before fixing symptoms** - architectural mismatches often hide behind passing mocks
-- **Use real file system operations** in integration tests instead of mocking when testing file system interactions
-- **Create helper functions** for common file operations in tests for consistency with implementation
-- **When tests pass with mocks but fail in real usage**, investigate architectural consistency
+## Test Tiers
+
+### Unit Tests (Fast, Isolated)
+
+**Location**: `tests/unit/`
+
+**Purpose**: Test pure logic with minimal filesystem/process dependencies
+
+**Examples**:
+
+- Token substitution: `tests/unit/core/mcp/tokens.test.ts`
+- Merger logic: `tests/unit/core/registry/merger.test.ts`
+- Schema validation: `tests/unit/types/schemas.test.ts`
+- Security scanners: `tests/unit/security/`
+
+**Contract**: Strong typed APIs, deterministic outputs
+
+**Performance**: < 5 seconds for full unit suite
+
+### Workflow Tests (Fast, Integrated)
+
+**Location**: `tests/workflows/`
+
+**Purpose**: Test complete user workflows in-process without spawning
+
+**Key Features**:
+
+- No shebang/permissions issues
+- Deterministic across all platforms
+- Fast (in-process execution)
+- Realistic behavior testing
+
+**Examples**:
+
+- `tests/workflows/mcp-basic.test.ts` - Complete MCP workflow
+
+**Implementation Pattern**:
+
+```typescript
+import { runCli, assertSuccess } from "../utils/workflow-harness.js";
+
+// Add MCP
+const result = await runCli(["mcp", "add", "github"], {
+  cwd: projectDir,
+  env: { HOME: homeDir },
+});
+assertSuccess(result);
+
+// Verify configuration
+const config = await fs.readJson(
+  path.join(projectDir, ".agentsync", "config.json")
+);
+expect(config.mcpServers).toContain("github");
+```
+
+**Performance**: ~40ms per test
+
+### E2E Smoke Tests (Slow, Validation)
+
+**Location**: `tests/e2e/`
+
+**Purpose**: Verify built artifact works on this platform (shebang, permissions, bundler)
+
+**Scope**: ≤ 5 tests, run only on CI
+
+**Examples**:
+
+- `tests/e2e/cli-shell.test.ts` - Verify built CLI has correct shebang
 
 ---
 
-## Quick Start
+## Infrastructure
+
+### Workflow Harness (`tests/utils/workflow-harness.ts`)
+
+Run CLI commands in-process without spawning:
+
+```typescript
+// Run command with custom environment
+const result = await runCli(["mcp", "list"], {
+  cwd: projectDir,
+  env: { HOME: homeDir },
+});
+
+// Check results
+if (result.exitCode === 0) {
+  expect(result.stdout).toContain("github");
+}
+```
+
+**Features**:
+
+- Environment variable isolation
+- Working directory control
+- Output capture
+- Exit code handling
+- Path normalization
+
+### Scenario Runner (`tests/utils/scenario-runner.ts`)
+
+Declarative YAML-based test scenarios:
+
+```yaml
+name: MCP Workflow
+setup:
+  project:
+    files:
+      .cursor/.placeholder: ""
+  home:
+    files:
+      .agentsync/mcp.json: |
+        { "github": { "command": "npx", ... } }
+  env:
+    GITHUB_TOKEN: ghp_test
+steps:
+  - run: ["mcp", "add", "github"]
+    expect:
+      exitCode: 0
+  - run: ["mcp", "sync"]
+assert:
+  files:
+    .cursor/mcp.json: json
+```
+
+---
+
+## Determinism & Stability
+
+### Environment Isolation
+
+Each test runs in isolation:
+
+- Separate temp directories for project and home
+- Environment variables reset after each test
+- No global state pollution
+
+### Path Normalization
+
+Output is normalized for assertions:
+
+- Temp paths replaced with `<PROJECT>`, `<HOME>` placeholders
+- Line endings normalized (CRLF → LF)
+- Trailing whitespace removed
+
+### Time Stability
+
+Tests don't depend on time:
+
+- No hardcoded durations
+- No timestamp assertions
+- Frozen clock in determinism utilities
+
+---
+
+## Test Coverage Requirements
+
+### By Component
+
+| Component                   | Target | Status         |
+| --------------------------- | ------ | -------------- |
+| MCP system                  | ≥ 90%  | ✅ Implemented |
+| Registry/presets            | ≥ 90%  | ✅ Implemented |
+| CLI commands                | ≥ 85%  | ✅ In progress |
+| Filtering (include/exclude) | ≥ 90%  | ✅ Implemented |
+| Error handling              | ≥ 85%  | ✅ Implemented |
+| Security scanners           | ≥ 95%  | ✅ Implemented |
+
+### Overall Target
+
+**≥ 80% code coverage** across all paths
+
+---
+
+## Running Tests
+
+### Run all tests
 
 ```bash
-# Install and build
-pnpm install
-pnpm build
-
-# Run all automated tests (~10 seconds)
 pnpm test
+```
 
-# Run specific test suites
-pnpm test:shell      # Shell execution tests (Vitest + execa)
-pnpm test:bats       # Shell script tests (BATS)
-pnpm test:coverage   # With coverage report
+### Run specific test file
 
-# Run critical tests before release
-pnpm test                                    # All tests (unit + integration + E2E)
-pnpm test tests/e2e/install-test.test.ts   # Production package validation
+```bash
+pnpm test -- tests/workflows/mcp-basic.test.ts
+```
+
+### Run tests matching pattern
+
+```bash
+pnpm test -- --grep "MCP"
+```
+
+### Run with coverage
+
+```bash
+pnpm test -- --coverage
+```
+
+### Run workflow tests only
+
+```bash
+pnpm test -- tests/workflows/
+```
+
+### Run unit tests only
+
+```bash
+pnpm test -- tests/unit/
 ```
 
 ---
 
-## Test Types
+## CI/CD Strategy
 
-| Type                             | Count   | Speed   | Coverage | Purpose                     | Documentation                                                                        |
-| -------------------------------- | ------- | ------- | -------- | --------------------------- | ------------------------------------------------------------------------------------ |
-| **Vitest (Unit/Integration)**    | 166     | ~2s     | >90%     | Core functionality          | [automated.md](docs/testing/automated.md)                                            |
-| **E2E Workflow Tests**           | 5       | ~1s     | -        | MCP lifecycle               | [automated.md](docs/testing/automated.md#e2e-workflow-tests)                         |
-| **E2E Error Scenarios**          | 11      | ~1s     | -        | Edge cases & errors         | [automated.md](docs/testing/automated.md#e2e-error-scenarios)                        |
-| **Install Test (Production)**    | 22      | ~30-60s | -        | Package validation + new UX | [automated.md](docs/testing/automated.md#install-test-production-package-validation) |
-| **Shell Tests (Vitest + execa)** | 24      | ~2s     | -        | Real CLI execution          | [shell-implementation.md](docs/testing/shell-implementation.md)                      |
-| **BATS (Shell Scripts)**         | 26      | ~5s     | -        | Shell validation            | [shell-implementation.md](docs/testing/shell-implementation.md)                      |
-| **Total**                        | **207** | ~10s    | >90%     | Complete coverage           | -                                                                                    |
+### PR Checks (Fast, Gated)
 
-**All tests are automated** - no manual testing required. E2E tests cover all workflows previously done manually.
+- Unit tests (all)
+- Workflow tests (all)
+- Coverage report
+- TypeScript compilation
 
----
+**Time**: < 2 minutes
 
-## Test Design Best Practices
+### Main Branch (Comprehensive)
 
-### Natural Flow Over Manual Setup
+- Unit + Workflow tests
+- Coverage validation (≥80%)
+- Snapshot comparisons
+- Performance regression check
 
-**Key principle:** Tests should follow user workflows, not bypass them with manual file creation.
+**Time**: < 5 minutes
 
-**❌ Avoid:**
+### Nightly OS Matrix
 
-```typescript
-// Manual setup bypasses user workflow
-await fs.writeFile(".agentsync/config.json", "{invalid json}");
-```
+- E2E smoke tests on macOS, Linux, Windows
+- Shebang validation
+- Permissions checks
+- Platform-specific PATH issues
 
-**✅ Prefer:**
-
-```typescript
-// Natural user workflow
-await initializeProject();
-await fs.writeFile(".agentsync/config.json", "{invalid json}");
-```
-
-### Helper Functions for Common Setup
-
-Create reusable helper functions for common test setup patterns:
-
-```typescript
-async function initializeProject(options = {}) {
-  const { template = "default", tools = ["cursor"] } = options;
-  const { exitCode } = await execaCli([
-    "init",
-    "--template",
-    template,
-    "--tools",
-    tools.join(","),
-  ]);
-  expect(exitCode).toBe(0);
-  const configExists = await fs.pathExists(".agentsync/config.json");
-  expect(configExists).toBe(true);
-}
-```
-
-### E2E Test Environment Requirements
-
-E2E tests require complete CLI environment setup:
-
-- **Required files:** `dist/`, `package.json`, `templates/`, `node_modules/`
-- **Templates directory:** Required for `init` command to work properly
-- **Node modules:** Use symlink approach due to ESM limitations
+**Time**: ~15 minutes (parallelized)
 
 ---
 
-## Module Resolution Testing Patterns
+## Common Issues & Solutions
 
-### Vitest Configuration Requirements
+### Issue: Test fails with "Cannot find module"
 
-When working with TypeScript projects, ensure proper module resolution:
+**Solution**: Ensure you've run `pnpm install` and `pnpm build`
 
-**tsconfig.json:**
+### Issue: Path-related test failures on Windows
 
-```json
-{
-  "compilerOptions": {
-    "moduleResolution": "node",
-    "include": ["src/**/*", "tests/**/*"]
-  }
-}
-```
+**Solution**: Tests use path normalization. If raw paths are expected, use forward slashes.
 
-**vitest.config.ts:**
+### Issue: Environment variable test pollution
+
+**Solution**: Always delete environment variables in `afterEach()`:
 
 ```typescript
-export default defineConfig({
-  resolve: {
-    alias: {
-      "@": resolve(__dirname, "./src"),
-    },
-  },
+afterEach(() => {
+  delete process.env.GITHUB_TOKEN;
 });
 ```
 
-### Troubleshooting "Cannot find module" Errors
+### Issue: Flaky timeout tests
 
-**Common Issues:**
+**Solution**: Avoid `setTimeout` in tests. Use deterministic test fixtures instead.
 
-- Tests importing with `.js` extensions (bad practice)
-- Missing `@` alias configuration
-- Incorrect `moduleResolution` setting
+---
 
-**Solutions:**
+## Adding New Tests
 
-1. Use `@` alias for all test imports: `import { something } from "@/path/to/module"`
-2. Configure `tsconfig.json` with `"moduleResolution": "node"`
-3. Include tests in TypeScript compilation: `"include": ["src/**/*", "tests/**/*"]`
-4. Update Vitest config with proper alias resolution
+### 1. Decide Tier
 
-**Pattern:**
+- **Unit**: Pure logic, no I/O → `tests/unit/`
+- **Workflow**: User-facing flow → `tests/workflows/`
+- **E2E**: Packaging/platform → `tests/e2e/`
+
+### 2. Create Test File
 
 ```typescript
-// ✅ Correct
-import { UserPresetRegistry } from "@/core/registry/user-preset-registry";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 
-// ❌ Avoid
-import { UserPresetRegistry } from "../../../src/core/registry/user-preset-registry.js";
+describe("My Feature", () => {
+  beforeEach(() => {
+    // Setup
+  });
+
+  afterEach(() => {
+    // Cleanup
+  });
+
+  it("should do something", () => {
+    // Test
+  });
+});
 ```
 
-### Major Refactoring Test Strategy
+### 3. For Workflows
 
-When performing major architecture changes:
-
-1. **Focus on Critical Tests First**: Error handling, core functionality
-2. **Fix Module Resolution Systematically**: Update all imports to use `@` alias
-3. **Expect 75-80% Pass Rate**: During major refactoring, some tests will fail due to API changes
-4. **Update Test Expectations**: Match new error handling patterns and API behavior
-5. **Preserve Test Coverage**: Maintain >80% coverage target throughout refactoring
-
-### Error Handling Test Updates
-
-When migrating to unified error handling:
-
-**Before (Specific Error Types):**
+Use the harness:
 
 ```typescript
-await expect(function()).rejects.toThrow(ConfigError);
+import { runCli, assertSuccess } from "../utils/workflow-harness.js";
+
+it("should add MCP", async () => {
+  const result = await runCli(["mcp", "add", "github"], {
+    cwd: projectDir,
+    env: { HOME: homeDir },
+  });
+  assertSuccess(result);
+});
 ```
 
-**After (Unified Error Wrapping):**
+### 4. For Scenarios
 
-```typescript
-await expect(function()).rejects.toThrow(AgentSyncError);
-```
-
-**Pattern for Error Message Testing:**
-
-```typescript
-try {
-  await function();
-} catch (error) {
-  expect(error).toBeInstanceOf(AgentSyncError);
-  if (error instanceof AgentSyncError) {
-    expect(error.getUserMessage()).toContain("expected message");
-  }
-}
-```
-
----
-
-## Automated Testing
-
-### Vitest (Primary)
-
-Fast, comprehensive unit and integration tests.
-
-```bash
-# Run all tests
-pnpm test
-
-# Watch mode
-pnpm test:watch
-
-# Coverage report
-pnpm test:coverage
-```
-
-**What's tested:**
-
-- ✅ MCP commands (list, add, sync, remove)
-- ✅ Token substitution
-- ✅ Configuration loading
-- ✅ Target detection (Cursor, Claude)
-- ✅ Error handling
-- ✅ File operations
-
-### Shell Testing
-
-Tests real CLI execution in bash/zsh environments.
-
-```bash
-# Vitest + execa (recommended)
-pnpm test:shell
-
-# BATS (optional, requires installation)
-brew install bats-core
-pnpm test:bats
-```
-
-**What's tested:**
-
-- ✅ `agentsync --version`, `--help`
-- ✅ Shebang execution (`#!/usr/bin/env node`)
-- ✅ Exit codes (0 for success, non-zero for errors)
-- ✅ Error messages in terminal
-- ✅ Cross-platform compatibility
-
-**Details:** [docs/testing/shell-implementation.md](docs/testing/shell-implementation.md)
-
-### Handling Preset Updates
-
-When major dependencies are updated, common issues include:
-
-**fs-extra v11+ Migration:**
-
-- Removed: `readJson`, `writeJson`
-- Solution: Use native `node:fs/promises` + manual JSON parsing
-- Test mocks must include all methods used (add `outputFile` to vi.mock)
-- Helper pattern for E2E tests:
-  ```typescript
-  async function writeJson(filePath: string, data: unknown): Promise<void> {
-    await fs.outputFile(
-      filePath,
-      JSON.stringify(data, null, 2) + "\n",
-      "utf-8"
-    );
-  }
-  ```
-
-**Test Isolation:**
-
-- Copy production artifacts (dist/, package.json) to temp directories
-- Use `beforeAll` for expensive setup (CLI copying), `beforeEach` for test-specific setup
-- Clean up shared resources only in `afterAll`, not `afterEach`
-
----
-
-## E2E Testing
-
-Comprehensive end-to-end tests covering complete workflows and error scenarios.
-
-**Test Files:**
-
-- `tests/e2e/mcp-workflow.test.ts` - Complete MCP lifecycle (add → sync → remove)
-- `tests/e2e/error-scenarios.test.ts` - Edge cases and error handling
-- `tests/e2e/install-test.test.ts` - Production package validation
-
-**Workflow Tests** (5 tests):
-
-- Complete MCP lifecycle workflow
-- Token substitution in real files
-- Multi-tool sync
-- Tool-specific sync (--tool flag)
-- Dry-run mode validation
-- Removing last MCP (empty config)
-
-**Error Scenarios** (11 tests):
-
-- Invalid MCP names
-- Duplicate MCP addition
-- Removing non-existent MCPs
-- Missing environment variables
-- No target directories
-- Spaces in paths
-- Invalid JSON recovery
-- Permission errors (Unix only)
-- Empty global registry
-- Auto-creating missing config
-
-**Run:**
-
-```bash
-# Run all E2E tests
-pnpm test tests/e2e/
-
-# Run specific E2E test file
-pnpm test tests/e2e/mcp-workflow.test.ts
-pnpm test tests/e2e/error-scenarios.test.ts
-pnpm test tests/e2e/install-test.test.ts
-```
-
-**Benefits:**
-
-- ✅ Fully automated - no human intervention
-- ✅ Consistent results
-- ✅ Fast execution (~10s total)
-- ✅ Runs in CI on every commit
-- ✅ Covers all workflows previously done manually
-
----
-
-## Pre-Release Checklist
-
-Before publishing to npm:
-
-### 1. Automated Tests ✅
-
-- [ ] All tests pass: `pnpm test` (207 tests)
-- [ ] E2E tests pass: `pnpm test tests/e2e/`
-- [ ] Shell tests pass: `pnpm test:shell`
-- [ ] Install test passes: `pnpm test tests/e2e/install-test.test.ts`
-- [ ] BATS tests pass: `pnpm test:bats` (if installed)
-- [ ] Coverage >80%: `pnpm test:coverage`
-- [ ] No TypeScript errors: `pnpm lint`
-
-**All testing is automated** - no manual steps required!
-
-### 2. Build & Package ✅
-
-- [ ] Clean build: `rm -rf dist && pnpm build`
-- [ ] Install test passes (validates tarball creation & installation)
-- [ ] ~~Pack tarball manually~~ (install test does this)
-- [ ] ~~Install from tarball~~ (install test does this)
-
-### 4. Documentation ✅
-
-- [ ] README.md updated
-- [ ] CHANGELOG.md updated with version changes
-- [ ] Version number correct in `package.json`
-- [ ] Examples work correctly
-
-### 5. Git ✅
-
-- [ ] All changes committed
-- [ ] Git status clean
-- [ ] Ensure on main branch after PR merge
-- [ ] Verify branch cleanup: `git branch` should show `* main`
-- [ ] Confirm up to date: `git status` should show "up to date with origin/main"
-- [ ] Create tag: `git tag v0.2.0-alpha.2`
-- [ ] Push tag: `git push --tags`
-
-### 6. Publish ✅
-
-```bash
-# Dry run (verify what will be published)
-npm publish --dry-run
-
-# Actually publish
-npm publish
-
-# Or for alpha/beta
-npm publish --tag alpha
-```
-
----
-
-## Troubleshooting
-
-### Tests Failing
-
-```bash
-# Clean install
-rm -rf node_modules dist
-pnpm install
-pnpm build
-pnpm test
-```
-
-### Shell Tests Not Working
-
-```bash
-# Rebuild CLI
-pnpm build
-
-# Check executable
-chmod +x dist/cli.js
-head -1 dist/cli.js  # Should show: #!/usr/bin/env node
-```
-
-### BATS Not Found
-
-```bash
-# Install BATS
-brew install bats-core  # macOS
-sudo apt-get install -y bats  # Ubuntu
-```
-
----
-
-## Documentation
-
-- **[Automated Testing](docs/testing/automated.md)** - Vitest and BATS details
-- **[Shell Implementation](docs/testing/shell-implementation.md)** - Shell testing deep dive
-- **E2E Tests** - See `tests/e2e/` for workflow and error scenario tests
-
----
-
-## CI/CD Integration
-
-Tests run automatically in GitHub Actions:
+Create YAML:
 
 ```yaml
-# .github/workflows/test.yml
-- run: pnpm test
-- run: pnpm test:shell
-- run: pnpm test:coverage
+name: My Scenario
+setup:
+  project:
+    files:
+      .cursor/.placeholder: ""
+steps:
+  - run: ["mcp", "list"]
+assert:
+  files:
+    .agentsync/config.json: exists
 ```
-
-**Example workflow:** [docs/testing/automated.md#cicd](docs/testing/automated.md#cicd)
 
 ---
 
-## Contributing
+## Debugging Tests
 
-When adding new features:
+### Print captured output
 
-1. ✅ Write unit tests (Vitest)
-2. ✅ Add E2E tests for new workflows
-3. ✅ Add shell tests if CLI-related
-4. ✅ Ensure all tests pass: `pnpm test`
-5. ✅ Document testing approach
+```typescript
+const result = await runCli(["mcp", "list"], { cwd });
+console.log("STDOUT:", result.stdout);
+console.log("STDERR:", result.stderr);
+console.log("Exit code:", result.exitCode);
+```
 
-**Test Coverage Requirements:**
-
-- Unit tests for all new functions
-- E2E tests for user-facing workflows
-- Error scenario tests for edge cases
-- All tests automated (no manual steps)
-
-## Refactoring Testing
-
-**After Code Refactoring:**
-
-- Run specific test files for modified functions
-- Verify functionality is preserved: `pnpm test tests/unit/commands/[module]/[file].test.ts`
-- Ensure all tests pass before proceeding with further changes
-- Focus on unit tests for modified files to catch regressions early
-
-**Pattern:**
+### Run single test
 
 ```bash
-# Test specific module after refactoring
-pnpm test tests/unit/commands/mcp/add.test.ts
+pnpm test -- --reporter=verbose tests/workflows/mcp-basic.test.ts --grep "should complete"
+```
 
-# Verify broader functionality
-pnpm test tests/unit/commands/mcp/
+### Watch mode (auto-rerun on change)
+
+```bash
+pnpm test -- --watch tests/workflows/
 ```
 
 ---
 
-**Version**: 0.2.0-alpha.2
-**Last Updated**: 2025-10-18
-**Test Coverage**: 90%+ (MCP v0.2.0-alpha)
+## Future Improvements
+
+- [ ] Scenario matrix (multiple configurations)
+- [ ] Golden file diffs with clear visualization
+- [ ] Flake detection and alerting
+- [ ] Performance regression tracking
+- [ ] Mutation testing for critical paths
+- [ ] Contract testing for plugin interfaces
+
+---
+
+## References
+
+- Test Architecture Plan: `agentsync-docs/55-plans/test-architecture-and-workflow-plan-0.2x-to-0.4.0.md`
+- Core Requirements: `agentsync-docs/10-requirements/core-requirements.md`
+- Workflow Harness: `tests/utils/workflow-harness.ts`
+- Scenario Runner: `tests/utils/scenario-runner.ts`
