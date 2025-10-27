@@ -19,7 +19,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { addMCP } from "../../src/commands/mcp/add.js";
 import { listMCP } from "../../src/commands/mcp/list.js";
 import { removeMCP } from "../../src/commands/mcp/remove.js";
-import { syncMCP } from "../../src/commands/mcp/sync.js";
+import { sync as mainSync } from "../../src/commands/sync.js";
 import * as fs from "../../src/utils/fs.js";
 
 describe("MCP Error Scenarios E2E", () => {
@@ -109,13 +109,25 @@ describe("MCP Error Scenarios E2E", () => {
 
   // Removed: covered by BATS shell tests (missing env vars)
 
-  it("should error when no target directories exist", async () => {
+  it("should succeed when no target directories exist (creates them)", async () => {
     // Don't create .cursor or .claude directories
     await addMCP("github");
     process.env.GITHUB_TOKEN = "test_token";
 
-    // Should error about missing targets
-    await expect(syncMCP()).rejects.toThrow(/target/i);
+    // Provide tools via config
+    await fs.ensureDir(path.join(".agentsync"));
+    await writeJson(path.join(".agentsync", "config.json"), {
+      version: "1.0",
+      tools: ["cursor", "claude"],
+      mcpServers: ["github"],
+    });
+
+    // Should succeed and create target files via converters (via main sync)
+    await expect(mainSync()).resolves.toBeUndefined();
+
+    const cursorExists = await fs.pathExists(".cursor/mcp.json");
+    const claudeExists = await fs.pathExists(".claude/mcp.json");
+    expect(cursorExists || claudeExists).toBe(true);
   });
 
   // Removed: covered by BATS shell tests (spaces in paths)

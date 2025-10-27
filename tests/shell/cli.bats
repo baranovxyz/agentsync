@@ -50,8 +50,9 @@ setup() {
   export TEST_HOME_DIR="$(mktemp -d)"
   export HOME="$TEST_HOME_DIR"
 
-  # Setup trap for cleanup on ANY exit (success, failure, or signal)
-  trap 'cleanup_trap' EXIT INT TERM
+  # Note: Avoid trapping EXIT which interferes with Bats harness bookkeeping.
+  # We'll still trap INT/TERM for cleanup during interruptions.
+  trap 'cleanup_trap' INT TERM
 
   # Setup global MCP registry
   mkdir -p "$HOME/.agentsync"
@@ -156,10 +157,10 @@ check_cli_built() {
   check_cli_built
   run node "$CLI" mcp add github
   [ "$status" -eq 0 ]
-  [ -f "agentsync.local.json" ]
+  [ -f ".agentsync/config.json" ]
 
   # Check config contains github
-  run cat agentsync.local.json
+  run cat .agentsync/config.json
   [[ "$output" =~ "github" ]]
 }
 
@@ -170,7 +171,7 @@ check_cli_built() {
   [ "$status" -eq 0 ]
 
   # Should only appear once in config
-  count=$(grep -o "github" agentsync.local.json | wc -l)
+  count=$(grep -o "github" .agentsync/config.json | wc -l)
   [ "$count" -eq 1 ]
 }
 
@@ -180,22 +181,39 @@ check_cli_built() {
   [ "$status" -ne 0 ]
 }
 
-# ==================== MCP Sync Tests ====================
+# ==================== MCP Sync via Main Sync Tests ====================
 
-@test "mcp sync creates target configs" {
+@test "sync creates MCP target configs" {
   check_cli_built
   node "$CLI" mcp add github
-  run node "$CLI" mcp sync
+  # configure tools in project config
+  mkdir -p .agentsync
+  cat > .agentsync/config.json <<CFG
+{
+  "version": "1.0",
+  "tools": ["cursor", "claude"],
+  "mcpServers": ["github"]
+}
+CFG
+  run node "$CLI" sync
   [ "$status" -eq 0 ]
 
   # At least one target should be created
   [ -f ".cursor/mcp.json" ] || [ -f ".claude/mcp.json" ]
 }
 
-@test "mcp sync with --dry-run doesn't create files" {
+@test "sync --dry-run doesn't create MCP files" {
   check_cli_built
   node "$CLI" mcp add github
-  run node "$CLI" mcp sync --dry-run
+  mkdir -p .agentsync
+  cat > .agentsync/config.json <<CFG
+{
+  "version": "1.0",
+  "tools": ["cursor", "claude"],
+  "mcpServers": ["github"]
+}
+CFG
+  run node "$CLI" sync --dry-run
   [ "$status" -eq 0 ]
 
   # No files should be created
@@ -203,20 +221,36 @@ check_cli_built() {
   [ ! -f ".claude/mcp.json" ]
 }
 
-@test "mcp sync with --tool creates only specified target" {
+@test "sync --tool creates only specified MCP target" {
   check_cli_built
   node "$CLI" mcp add github
-  run node "$CLI" mcp sync --tool cursor
+  mkdir -p .agentsync
+  cat > .agentsync/config.json <<CFG
+{
+  "version": "1.0",
+  "tools": ["cursor", "claude"],
+  "mcpServers": ["github"]
+}
+CFG
+  run node "$CLI" sync --tool cursor
   [ "$status" -eq 0 ]
 
   [ -f ".cursor/mcp.json" ]
   [ ! -f ".claude/mcp.json" ]
 }
 
-@test "mcp sync substitutes environment variables" {
+@test "sync substitutes environment variables for MCP" {
   check_cli_built
   node "$CLI" mcp add github
-  node "$CLI" mcp sync
+  mkdir -p .agentsync
+  cat > .agentsync/config.json <<CFG
+{
+  "version": "1.0",
+  "tools": ["cursor"],
+  "mcpServers": ["github"]
+}
+CFG
+  node "$CLI" sync
 
   # Check if GITHUB_TOKEN was substituted
   if [ -f ".cursor/mcp.json" ]; then
@@ -226,11 +260,19 @@ check_cli_built() {
   fi
 }
 
-@test "mcp sync fails without environment variables" {
+@test "sync fails without environment variables for MCP" {
   check_cli_built
   unset GITHUB_TOKEN
   node "$CLI" mcp add github
-  run node "$CLI" mcp sync
+  mkdir -p .agentsync
+  cat > .agentsync/config.json <<CFG
+{
+  "version": "1.0",
+  "tools": ["cursor"],
+  "mcpServers": ["github"]
+}
+CFG
+  run node "$CLI" sync
   [ "$status" -ne 0 ]
   [[ "$output" =~ "GITHUB_TOKEN" ]] || [[ "$output" =~ "environment" ]]
 }
@@ -246,7 +288,7 @@ check_cli_built() {
   [ "$status" -eq 0 ]
 
   # Check github removed but postgres remains
-  run cat agentsync.local.json
+  run cat .agentsync/config.json
   [[ ! "$output" =~ "github" ]]
   [[ "$output" =~ "postgres" ]]
 }
@@ -261,7 +303,8 @@ check_cli_built() {
 
 @test "handles invalid JSON config gracefully" {
   check_cli_built
-  echo "{invalid json}" > agentsync.local.json
+  mkdir -p .agentsync
+  echo "{invalid json}" > .agentsync/config.json
   run node "$CLI" mcp list
   [ "$status" -ne 0 ]
   [[ "$output" =~ "JSON" ]] || [[ "$output" =~ "parse" ]]
@@ -275,7 +318,7 @@ check_cli_built() {
   check_cli_built
   chmod 444 .cursor
   node "$CLI" mcp add github
-  run node "$CLI" mcp sync
+  run node "$CLI" sync
   [ "$status" -ne 0 ]
   chmod 755 .cursor  # Restore for cleanup
 }
@@ -376,6 +419,7 @@ check_cli_built() {
 
 @test "packed version works with npm install and npx" {
   # Build and pack the current version
+  cd "$ROOT"
   pnpm build
   npm pack
 
@@ -419,8 +463,16 @@ check_cli_built() {
   run node "$CLI" mcp add postgres
   [ "$status" -eq 0 ]
 
-  # Sync to targets
-  run node "$CLI" mcp sync
+  # Configure tools and sync to targets
+  mkdir -p .agentsync
+  cat > .agentsync/config.json <<CFG
+{
+  "version": "1.0",
+  "tools": ["cursor", "claude"],
+  "mcpServers": ["github", "postgres"]
+}
+CFG
+  run node "$CLI" sync
   [ "$status" -eq 0 ]
 
   # List should show both as active
@@ -433,7 +485,7 @@ check_cli_built() {
   [ "$status" -eq 0 ]
 
   # Sync again to update targets
-  run node "$CLI" mcp sync
+  run node "$CLI" sync
   [ "$status" -eq 0 ]
 }
 
@@ -444,8 +496,16 @@ check_cli_built() {
   node "$CLI" mcp add github
   node "$CLI" mcp add postgres
 
-  # Sync
-  run node "$CLI" mcp sync
+  # Configure tools and sync
+  mkdir -p .agentsync
+  cat > .agentsync/config.json <<CFG
+{
+  "version": "1.0",
+  "tools": ["cursor"],
+  "mcpServers": ["github", "postgres"]
+}
+CFG
+  run node "$CLI" sync
   [ "$status" -eq 0 ]
 
   # Check both are in target config
