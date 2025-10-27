@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-alpha.14] - 2025-10-27
+
+### Breaking Changes
+
+- **Removed `extends[].select` object format** - Simplified configuration to use `include`/`exclude` arrays directly on extends entries
+  - Old format: `{ source: "...", select: { rules: { include: [...] } } }`
+  - New format: `{ source: "...", include: [...], exclude: [...] }`
+  - Apply to both rules and commands filtering
+  - This is an alpha release - no migration period, update your configs to the new format
+
+### Changed
+
+- **Schema simplified** - `extends[]` entries now use `include`/`exclude` at top level
+- **Documentation updated** - README breaking changes section added with migration examples
+- **Error messages** - Removed verbose deprecation notice for old `.select` format (alpha cleanup)
+
+### Fixed
+
+- Configuration schema validation - no longer accepts deprecated `select` field
+- Preset filtering simplified - single include/exclude logic for all content types
+
 ## [0.2.0-alpha.13] - 2025-10-24
 
 ### Breaking Changes
