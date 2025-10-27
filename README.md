@@ -537,7 +537,6 @@ agentsync/
 │   │   ├── cursor.ts             ✅ Cursor implementation
 │   │   ├── claude.ts             ✅ Claude Code implementation
 │   │   └── mcp-index.ts          ✅ Target registry
-│   ├── translators/              🔨 TODO (v0.3.0-beta)
 │   ├── templates/                ✅ AGENTS.md templates
 │   └── types/                    ✅ TypeScript types
 └── tests/
