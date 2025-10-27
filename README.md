@@ -525,7 +525,6 @@ agentsync/
 │   │   │   ├── config.ts         ✅ Project config & merger
 │   │   │   ├── tokens.ts         ✅ Token substitution
 │   │   │   └── env.ts            ✅ .env file loader
-│   │   ├── parser.ts             ✅ AGENTS.md parser
 │   │   ├── errors.ts             ✅ Error system
 │   │   ├── audit.ts              ✅ Audit logger
 │   │   └── watcher.ts            ✅ File watcher
