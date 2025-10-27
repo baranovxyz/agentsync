@@ -467,7 +467,7 @@ DATABASE_URL=postgresql://localhost:5432/mydb
 
 ## v0.3.0-beta: AGENTS.md Sync ⏳ IN PROGRESS
 
-Sync your unified AGENTS.md to all AI coding tools - Cursor, Claude Code, Cline, Windsurf, GitHub Copilot.
+Sync your unified AGENTS.md to all AI coding tools - Cursor, Claude Code, Cline, and RooCode.
 
 ### Current Status
 
@@ -638,7 +638,6 @@ For more details, please see our [CONTRIBUTING.md](CONTRIBUTING.md).
 - [x] **v0.2.0: GitHub Preset System** - Shareable rules, commands, and MCPs
 - [ ] **v0.3.0-beta: AGENTS.md Sync** - Unified config sync to all tools
 - [ ] **v0.4.0: Advanced Features** - Watch mode, validation, monorepo support
-- [ ] **Future: Additional Tools** - Windsurf, Cline, RooCode, GitHub Copilot
 
 ## License
 
