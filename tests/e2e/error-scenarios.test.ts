@@ -84,32 +84,7 @@ describe("MCP Error Scenarios E2E", () => {
     await fs.remove(tempHomeDir);
   });
 
-  it("should error when adding non-existent MCP", async () => {
-    await expect(addMCP("nonexistent-mcp")).rejects.toThrow(
-      /not found in global registry/,
-    );
-  });
-
-  it("should handle duplicate MCP addition gracefully", async () => {
-    await addMCP("github");
-
-    // Adding again should not error, just not add duplicate
-    const result = await addMCP("github");
-    expect(result.added).toBe(false);
-
-    const config = JSON.parse(
-      await fs.readFile(".agentsync/config.json", "utf-8"),
-    );
-    expect(config.mcpServers).toEqual(["github"]); // No duplicate
-  });
-
-  it("should handle removing non-existent MCP gracefully", async () => {
-    await addMCP("github");
-
-    // Removing non-existent MCP should not throw, just return removed: false
-    const result = await removeMCP("nonexistent");
-    expect(result.removed).toBe(false);
-  });
+  // Removed: covered by BATS shell tests (invalid add, duplicate add, remove)
 
   it("should allow removing last MCP (empty config is valid)", async () => {
     await addMCP("github");
@@ -132,16 +107,7 @@ describe("MCP Error Scenarios E2E", () => {
     expect(configAfter.mcpServers).toEqual(["postgres"]);
   });
 
-  it("should error when syncing without environment variables", async () => {
-    // Clear env vars
-    process.env.GITHUB_TOKEN = undefined;
-
-    await fs.ensureDir(".cursor");
-    await addMCP("github");
-
-    // Should error about missing GITHUB_TOKEN
-    await expect(syncMCP()).rejects.toThrow(/GITHUB_TOKEN/);
-  });
+  // Removed: covered by BATS shell tests (missing env vars)
 
   it("should error when no target directories exist", async () => {
     // Don't create .cursor or .claude directories
@@ -152,34 +118,9 @@ describe("MCP Error Scenarios E2E", () => {
     await expect(syncMCP()).rejects.toThrow(/target/i);
   });
 
-  it("should handle spaces in paths correctly", async () => {
-    // Create directory with spaces
-    const spacedDir = path.join(tempDir, "test dir with spaces");
-    await fs.ensureDir(spacedDir);
-    await fs.ensureDir(path.join(spacedDir, ".cursor"));
-    process.chdir(spacedDir);
+  // Removed: covered by BATS shell tests (spaces in paths)
 
-    process.env.GITHUB_TOKEN = "test_token";
-    await addMCP("github");
-    await syncMCP();
-
-    // Should work without errors
-    const cursorMcp = JSON.parse(
-      await fs.readFile(path.join(spacedDir, ".cursor/mcp.json"), "utf-8"),
-    );
-    expect(cursorMcp.mcpServers.github).toBeDefined();
-  });
-
-  it("should handle invalid JSON in project config gracefully", async () => {
-    // Ensure .agentsync directory exists
-    await fs.ensureDir(".agentsync");
-    // Write invalid JSON
-    await fs.ensureDir(".agentsync");
-    await fs.writeFile(".agentsync/config.json", "{invalid json}");
-
-    // Should error with helpful message (not crash)
-    await expect(listMCP()).rejects.toThrow(/parse/i);
-  });
+  // Removed: covered by BATS shell tests (invalid JSON)
 
   it("should auto-create empty config when missing", async () => {
     // Don't create .agentsync/config.json
@@ -209,21 +150,5 @@ describe("MCP Error Scenarios E2E", () => {
     await expect(listMCP()).rejects.toThrow(/empty|configuration/i);
   });
 
-  // Skip permission tests on Windows (permissions work differently)
-  if (process.platform !== "win32") {
-    it("should handle permission errors gracefully", async () => {
-      await fs.ensureDir(".cursor");
-      // Make directory read-only
-      await chmod(".cursor", 0o444);
-
-      process.env.GITHUB_TOKEN = "test_token";
-      await addMCP("github");
-
-      // Should error with permission message
-      await expect(syncMCP()).rejects.toThrow(/permission|EACCES/i);
-
-      // Restore permissions for cleanup
-      await chmod(".cursor", 0o755);
-    });
-  }
+  // Removed: covered by BATS shell tests (permission errors on Unix)
 });

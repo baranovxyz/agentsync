@@ -83,17 +83,19 @@ expect(config.mcpServers).toContain("github");
 
 **Performance**: ~40ms per test
 
-### E2E Smoke Tests (Slow, Validation)
+### E2E Smoke Tests (Slow, Minimal Validation)
 
 **Location**: `tests/e2e/`
 
-**Purpose**: Verify built artifact works on this platform (shebang, permissions, bundler)
+**Purpose**: Validate packaging only. Ensure tarball builds, contains correct version, and CLI shebang/permissions are correct.
 
-**Scope**: ≤ 5 tests, run only on CI
+**Scope**: Minimal (≤ 4 tests). Installation/runtime path behaviors are covered by BATS.
+
+Note: If BATS runs across all CI platforms (macOS, Linux, Windows), this E2E suite may be disabled entirely; in that case ensure BATS validates packaging (shebang + exec-bit) and global PATH behavior.
 
 **Examples**:
 
-- `tests/e2e/cli-shell.test.ts` - Verify built CLI has correct shebang
+- `tests/e2e/version-smoke.test.ts` - Packaging and shebang checks only
 
 ---
 
@@ -261,10 +263,10 @@ pnpm test -- tests/unit/
 
 ### Nightly OS Matrix
 
-- E2E smoke tests on macOS, Linux, Windows
+- E2E smoke tests on macOS, Linux, Windows (packaging-only)
 - Shebang validation
-- Permissions checks
-- Platform-specific PATH issues
+- Permissions checks are covered by BATS shell tests
+- Platform-specific PATH issues covered by BATS
 
 **Time**: ~15 minutes (parallelized)
 
