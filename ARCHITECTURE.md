@@ -232,7 +232,7 @@ tests/
 **Flow**:
 
 1. Template selection (default, typescript-react, python-fastapi)
-2. Tool selection (multi-select: cursor, claude, cline, windsurf, copilot)
+2. Tool selection (multi-select: cursor, claude, cline, roocode)
 3. Symlink vs copy option
 4. .gitignore update prompt
 
@@ -252,8 +252,7 @@ tests/
 - Cursor: `.cursor/agents.md`, `.cursor/AGENTS.md`
 - Claude: `.claude/AGENTS.md`, `claude_project.md`
 - Cline: `.cline/AGENTS.md`, `.cline/instructions.md`
-- Windsurf: `.windsurf/AGENTS.md`, `.windsurf/instructions.md`
-- Copilot: `.github/copilot/AGENTS.md`, `.github/copilot-instructions.md`
+- RooCode: `.roo/AGENTS.md`, `.roo/instructions.md`
 
 **Source of Truth**: `.agentsync/config.json` (not AGENTS.md)
 
@@ -313,7 +312,7 @@ tests/
 
 ### 8. Type System (`src/types/`)
 
-**Tool Types**: `'cursor' | 'claude' | 'cline' | 'windsurf' | 'copilot'`
+**Tool Types**: `'cursor' | 'claude' | 'cline' | 'roocode'`
 
 **Core Interfaces**:
 
