@@ -133,14 +133,11 @@ export class RegistryOrchestrator {
       if (selection) {
         return {
           source,
-          select: selection,
+          ...selection,
         };
-      } else if (typeof entry !== "string" && entry.select) {
-        // Use existing selection from config
-        return entry;
       } else {
-        // No selection, return as string for backward compatibility
-        return source;
+        // No selection, return as is
+        return entry;
       }
     });
 

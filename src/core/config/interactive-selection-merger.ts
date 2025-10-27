@@ -269,17 +269,8 @@ export class ConfigMerger {
     const projectConfig = await this.loadProjectConfig(cwd);
     const localConfig = await this.loadLocalConfig(cwd);
 
-    // Extract selections from extends arrays
+    // Selections are now configured separately, not in extends
     const selections: Record<string, SelectionConfig> = {};
-
-    for (const entry of [
-      ...(projectConfig.extends || []),
-      ...(localConfig.extends || []),
-    ]) {
-      if (typeof entry === "object" && entry.select) {
-        selections[entry.source] = entry.select;
-      }
-    }
 
     return {
       presets: [
