@@ -10,7 +10,9 @@
 
 import { readFile } from "node:fs/promises";
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import { Command } from "commander";
+import esMain from "es-main";
 import { init } from "./commands/init.js";
 import { addMCP as addMcp } from "./commands/mcp/add.js";
 import { listMCP as listMcp } from "./commands/mcp/list.js";
@@ -27,6 +29,21 @@ import type { PresetSelection } from "./types/schemas.js";
 // Set up error handling
 // Note: ErrorHandler is a static class, so we don't instantiate it
 
+// Read version from package.json
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const packageJsonPath = path.resolve(__dirname, "../package.json");
+
+let version: string;
+try {
+  const packageJsonContent = await readFile(packageJsonPath, "utf-8");
+  const packageJson = JSON.parse(packageJsonContent);
+  version = packageJson.version || "0.0.0";
+} catch (error) {
+  console.warn("Failed to read version from package.json:", error);
+  version = "0.0.0";
+}
+
 // Create program factory for testing
 export function createProgram(options?: { exitOverride?: boolean }): Command {
   const program = new Command();
@@ -41,7 +58,7 @@ export function createProgram(options?: { exitOverride?: boolean }): Command {
     .description(
       "The missing infrastructure layer for AI coding agent configuration management",
     )
-    .version("0.2.0-alpha.14");
+    .version(version);
 
   // Init command
   program
@@ -168,10 +185,9 @@ export function createProgram(options?: { exitOverride?: boolean }): Command {
 }
 
 // Main CLI entry point (only execute if this is the main module)
-// Check if this file is being run directly (not imported as a module)
-// Use endsWith for proper symlink resolution in npm binaries
-const isMainModule = import.meta.url.endsWith('/dist/cli.js') || import.meta.url.endsWith('\\dist\\cli.js');
-if (isMainModule) {
+// Prefer native import.meta.main when available; fall back to es-main for older Node
+const isMain = typeof import.meta.main === "boolean" ? import.meta.main : esMain(import.meta);
+if (isMain) {
   const program = createProgram();
   program.parse();
 }

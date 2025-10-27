@@ -96,4 +96,4 @@ Details: ./docs/releasing.md
 - Use typed errors with recovery guidance
 - Keep changes atomic and commits well-described
 - Handle CommanderError types properly: when using exitOverride(), check for 'commander.version' and 'commander.helpDisplayed' codes and exit with 0
-- Fix main module detection for npm binaries: use import.meta.url.endsWith('/dist/cli.js') to handle symlinks in node_modules/.bin/
+- Fix main module detection: prefer native `import.meta.main`, with `es-main` fallback for older Node versions
