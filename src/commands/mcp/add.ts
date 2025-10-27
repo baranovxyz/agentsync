@@ -47,7 +47,10 @@ async function createNewConfig(
   serverName: string,
   configPath: string,
 ): Promise<AgentSyncConfig> {
-  await mkdir(path.join(process.cwd(), ".agentsync"), { recursive: true });
+  // Ensure project config directory exists when targeting .agentsync/config.json
+  if (configPath.endsWith(".agentsync/config.json")) {
+    await mkdir(path.join(process.cwd(), ".agentsync"), { recursive: true });
+  }
 
   const projectConfig: AgentSyncConfig = {
     version: "1.0",
@@ -110,7 +113,8 @@ export async function addMCP(serverName: string): Promise<AddMCPResult> {
   });
 
   // 3. Load or create project config
-  const configPath = path.join(process.cwd(), ".agentsync", "config.json");
+  // Always write to project config for automatic operations
+  const preferredConfigPath = path.join(process.cwd(), ".agentsync", "config.json");
   let projectConfig: AgentSyncConfig | ProjectMCPConfig;
 
   try {
@@ -118,7 +122,7 @@ export async function addMCP(serverName: string): Promise<AddMCPResult> {
   } catch (error) {
     // If config doesn't exist, create it
     if ((error as Error).message.includes("MCP configuration not found")) {
-      projectConfig = await createNewConfig(serverName, configPath);
+      projectConfig = await createNewConfig(serverName, preferredConfigPath);
       return {
         added: true,
         serverName,
@@ -133,9 +137,12 @@ export async function addMCP(serverName: string): Promise<AddMCPResult> {
 
   // 5. Save updated config
   if (added) {
-    await mkdir(path.join(process.cwd(), ".agentsync"), { recursive: true });
+    // Ensure directory exists when writing project config
+    if (preferredConfigPath.endsWith(".agentsync/config.json")) {
+      await mkdir(path.join(process.cwd(), ".agentsync"), { recursive: true });
+    }
     await writeFile(
-      configPath,
+      preferredConfigPath,
       `${JSON.stringify(projectConfig as AgentSyncConfig, null, 2)}\n`,
       "utf-8",
     );

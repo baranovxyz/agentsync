@@ -10,12 +10,17 @@ import picocolors from "picocolors";
 import AuditLogger, { AuditEventType } from "../core/audit.js";
 import { ConfigError, ErrorCategory, ErrorSeverity } from "../core/errors.js";
 import { RegistryOrchestrator } from "../core/registry/registry-orchestrator.js";
-import { AgentsSyncTarget } from "../targets/agents-sync-target.js";
-import { CommandsSyncTarget } from "../targets/commands-sync-target.js";
-import { RulesSyncTarget } from "../targets/rules-sync-target.js";
+import { getConvertersForTools } from "../targets/tools/index.js";
 import type { ToolName } from "../types/index.js";
 import { validateConfig } from "../types/schemas.js";
-import { syncMCP } from "./mcp/sync.js";
+import { runSecurityChecks } from "../security/checks/run.js";
+import {
+  filterSelectedMCPs,
+  loadProjectConfig as loadProjectMcpConfig,
+} from "../core/mcp/config.js";
+import { loadEnv } from "../core/mcp/env.js";
+import { loadGlobalRegistry } from "../core/mcp/registry.js";
+import { substituteAllMCPs, validateTokens } from "../core/mcp/tokens.js";
 
 const pc = picocolors;
 
@@ -82,6 +87,9 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
     }
 
     spinner.succeed("Configuration loaded");
+
+    // Early security checks on AGENTS.md (non-intrusive; may block on high severity per config)
+    await runSecurityChecks(cwd, config, process.env as Record<string, string>);
 
     // Determine which tools to sync to
     const targetTools: ToolName[] = options.tool
@@ -211,12 +219,16 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
       console.log();
     }
 
-    // 3. Sync rules to tools
-    if (!options.dryRun && targetTools.length > 0 && merged.rules.size > 0) {
+    // 3-5. Sync via unified per-tool converters
+    const converters = getConvertersForTools(targetTools);
+
+    // Rules
+    if (!options.dryRun && converters.length > 0 && merged.rules.size > 0) {
       const rulesSpinner = ora("Syncing rules...").start();
       try {
-        const rulesSyncTarget = new RulesSyncTarget();
-        await rulesSyncTarget.sync(merged.rules, targetTools, cwd);
+        for (const conv of converters) {
+          await conv.syncRules(merged.rules, cwd);
+        }
         rulesSpinner.succeed(`Synced ${merged.rules.size} rules`);
       } catch (error) {
         rulesSpinner.fail("Failed to sync rules");
@@ -226,12 +238,13 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
       console.log(pc.gray(`Would sync ${merged.rules.size} rules`));
     }
 
-    // 4. Sync commands to tools
-    if (!options.dryRun && targetTools.length > 0 && merged.commands.size > 0) {
+    // Commands
+    if (!options.dryRun && converters.length > 0 && merged.commands.size > 0) {
       const commandsSpinner = ora("Syncing commands...").start();
       try {
-        const commandsSyncTarget = new CommandsSyncTarget();
-        await commandsSyncTarget.sync(merged.commands, targetTools, cwd);
+        for (const conv of converters) {
+          await conv.syncCommands(merged.commands, cwd);
+        }
         commandsSpinner.succeed(`Synced ${merged.commands.size} commands`);
       } catch (error) {
         commandsSpinner.fail("Failed to sync commands");
@@ -241,18 +254,18 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
       console.log(pc.gray(`Would sync ${merged.commands.size} commands`));
     }
 
-    // 5. Sync AGENTS.md symlinks for tools that need them
-    if (!options.dryRun && targetTools.length > 0) {
-      try {
-        const agentsSyncTarget = new AgentsSyncTarget();
-        await agentsSyncTarget.sync(targetTools, cwd);
-      } catch (error) {
-        // Log but don't fail on symlink errors
-        console.log(
-          pc.yellow(
-            `  ⚠ Could not create AGENTS.md symlinks: ${(error as Error).message}`,
-          ),
-        );
+    // AGENTS.md symlinks (minimal intervention)
+    if (!options.dryRun && converters.length > 0) {
+      for (const conv of converters) {
+        try {
+          await conv.syncAgents(cwd);
+        } catch (error) {
+          console.log(
+            pc.yellow(
+              `  ⚠ Could not create AGENTS.md symlink for ${conv.name}: ${(error as Error).message}`,
+            ),
+          );
+        }
       }
     }
 
@@ -298,10 +311,18 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
     ) {
       const mcpSpinner = ora("Syncing MCP servers...").start();
       try {
-        await syncMCP({
-          tool: options.tool,
-          dryRun: false,
-        });
+        // Load, filter, substitute, validate
+        const globalRegistry = await loadGlobalRegistry();
+        const projectConfig = await loadProjectMcpConfig();
+        const selectedMCPs = filterSelectedMCPs(globalRegistry, projectConfig);
+        const env = await loadEnv();
+        const substituted = substituteAllMCPs(selectedMCPs, env);
+        validateTokens(substituted);
+
+        // Sync via converters
+        for (const conv of converters) {
+          await conv.syncMCP(substituted, cwd);
+        }
         mcpSpinner.succeed("Synced MCP servers");
       } catch (error) {
         mcpSpinner.fail("Failed to sync MCPs");
