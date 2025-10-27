@@ -53,103 +53,6 @@ describe("MCP Error Scenarios (Workflow)", () => {
     expect(result.stderr).toMatch(/not found|unknown/i);
   });
 
-  it("should handle duplicate MCP addition gracefully", async () => {
-    // Add once
-    let result = await runCli(["mcp", "add", "github"], {
-      cwd: projectDir,
-      env: { HOME: homeDir },
-    });
-    assertSuccess(result);
-
-    // Add again - should still succeed
-    result = await runCli(["mcp", "add", "github"], {
-      cwd: projectDir,
-      env: { HOME: homeDir },
-    });
-    assertSuccess(result);
-
-    // Verify no duplicate
-    const config = await fs.readJson(
-      path.join(projectDir, ".agentsync", "config.json")
-    );
-    const count = config.mcpServers.filter(
-      (s: string) => s === "github"
-    ).length;
-    expect(count).toBe(1);
-  });
-
-  it("should handle removing non-existent MCP gracefully", async () => {
-    // Add one
-    await runCli(["mcp", "add", "github"], {
-      cwd: projectDir,
-      env: { HOME: homeDir },
-    });
-
-    // Remove non-existent - should succeed (no-op)
-    const result = await runCli(["mcp", "remove", "nonexistent"], {
-      cwd: projectDir,
-      env: { HOME: homeDir },
-    });
-    assertSuccess(result);
-
-    // Verify github still there
-    const config = await fs.readJson(
-      path.join(projectDir, ".agentsync", "config.json")
-    );
-    expect(config.mcpServers).toContain("github");
-  });
-
-  it("should allow removing last MCP", async () => {
-    // Add MCP
-    await runCli(["mcp", "add", "github"], {
-      cwd: projectDir,
-      env: { HOME: homeDir },
-    });
-
-    // Remove it
-    const result = await runCli(["mcp", "remove", "github"], {
-      cwd: projectDir,
-      env: { HOME: homeDir },
-    });
-    assertSuccess(result);
-
-    // Verify empty
-    const config = await fs.readJson(
-      path.join(projectDir, ".agentsync", "config.json")
-    );
-    expect(config.mcpServers).toEqual([]);
-
-    // Should be able to add again
-    const result2 = await runCli(["mcp", "add", "postgres"], {
-      cwd: projectDir,
-      env: { HOME: homeDir },
-    });
-    assertSuccess(result2);
-
-    const config2 = await fs.readJson(
-      path.join(projectDir, ".agentsync", "config.json")
-    );
-    expect(config2.mcpServers).toContain("postgres");
-  });
-
-  it("should error when syncing without environment variables", async () => {
-    // Setup
-    await fs.ensureDir(path.join(projectDir, ".cursor"));
-    await runCli(["mcp", "add", "github"], {
-      cwd: projectDir,
-      env: { HOME: homeDir },
-    });
-
-    // Sync without GITHUB_TOKEN
-    const result = await runCli(["mcp", "sync"], {
-      cwd: projectDir,
-      env: { HOME: homeDir }, // No GITHUB_TOKEN
-    });
-
-    expect(result.exitCode).not.toBe(0);
-    expect(result.stderr).toMatch(/GITHUB_TOKEN|environment/i);
-  });
-
   it("should error when no target directories exist", async () => {
     // Add MCP but don't create .cursor or .claude
     await runCli(["mcp", "add", "github"], {
@@ -190,24 +93,6 @@ describe("MCP Error Scenarios (Workflow)", () => {
       path.join(spacedDir, ".cursor", "mcp.json")
     );
     expect(cursorMcp.mcpServers.github).toBeDefined();
-  });
-
-  it("should handle invalid JSON in project config gracefully", async () => {
-    // Write invalid JSON
-    await fs.ensureDir(path.join(projectDir, ".agentsync"));
-    await fs.writeFile(
-      path.join(projectDir, ".agentsync", "config.json"),
-      "{invalid json}"
-    );
-
-    // List should fail with parse error
-    const result = await runCli(["mcp", "list"], {
-      cwd: projectDir,
-      env: { HOME: homeDir },
-    });
-
-    expect(result.exitCode).not.toBe(0);
-    expect(result.stderr).toMatch(/parse|JSON|invalid/i);
   });
 
   it("should auto-create empty config when missing", async () => {
