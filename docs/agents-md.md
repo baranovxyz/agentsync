@@ -1,6 +1,6 @@
-# AGENTS.md: Parser and Translators
+# AGENTS.md: Parser
 
-Status: v0.3.0-beta in progress. `init` implemented; translators pending. Current approach is symlink-only for AGENTS.md per tool.
+Status: v0.3.0-beta in progress. `init` implemented; full sync pending. Current approach is symlink-only for AGENTS.md per tool.
 
 ## Parser (`src/core/parser.ts`)
 
@@ -13,23 +13,7 @@ Status: v0.3.0-beta in progress. `init` implemented; translators pending. Curren
   - `validate(agentsMd)` — validate against Zod schema
 - Section recognition: overview, build/test commands, code style, structure, git workflow, permissions, MCP servers
 
-## Translators (planned)
-
-Create `src/translators/[tool].ts` implementing the `Translator` interface.
-
-```ts
-export class CursorTranslator implements Translator {
-  async translate(agentsMd: AgentsMd): Promise<FileOperation[]> {
-    /* ... */
-  }
-  async validate(operations: FileOperation[]): Promise<void> {
-    /* ... */
-  }
-}
-```
-
-- Handle tool-specific formats (e.g., Cursor wrapper vs Claude direct object)
-- Validate operations before sync
+<!-- Translators section removed: translators are no longer referenced -->
 
 ## Templates
 

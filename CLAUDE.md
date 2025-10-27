@@ -48,8 +48,8 @@ Details: ./docs/presets.md
 
 ## AGENTS.md (v0.3.0-beta)
 
-- `init` implemented; translators and full sync pending
-- Parser detects major sections; translators will emit tool formats
+- `init` implemented; full sync pending
+- Parser detects major sections
 
 Details: ./docs/agents-md.md
 
