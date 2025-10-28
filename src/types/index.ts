@@ -9,7 +9,6 @@ export type {
   Extends,
   ExtendsEntry,
   LocalConfig,
-  PresetSelection,
   SelectionConfig,
 } from "./schemas";
 // Re-export schema types

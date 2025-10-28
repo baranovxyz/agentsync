@@ -14,7 +14,7 @@ import {
   ErrorSeverity,
   InteractiveSelectionError,
 } from "../../core/errors.js";
-import { validateConfig } from "../../types/schemas.js";
+import { type AgentSyncConfig, validateConfig } from "../../types/schemas.js";
 
 /**
  * Options for preset selection
@@ -103,7 +103,7 @@ export async function selectPreset(
 /**
  * Load current configuration
  */
-async function loadConfig(cwd: string): Promise<Record<string, unknown>> {
+async function loadConfig(cwd: string): Promise<AgentSyncConfig> {
   const configPath = path.join(cwd, ".agentsync", "config.json");
 
   try {
@@ -147,15 +147,12 @@ async function loadConfig(cwd: string): Promise<Record<string, unknown>> {
  * Let user select which preset from config to configure
  */
 async function selectPresetFromConfig(
-  config: Record<string, unknown>,
+  config: AgentSyncConfig,
 ): Promise<number> {
-  const extendsArray = (config.extends || []) as unknown[];
+  const extendsArray = config.extends || [];
 
   const choices = extendsArray.map((entry, i) => {
-    const source =
-      typeof entry === "string"
-        ? entry
-        : (entry as Record<string, unknown>).source;
+    const source = typeof entry === "string" ? entry : entry.source;
     return {
       name: `${i + 1}. ${source}`,
       value: i,

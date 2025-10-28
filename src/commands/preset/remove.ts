@@ -11,7 +11,7 @@ import pc from "picocolors";
 import { UserPresetRegistry } from "../../core/registry/user-preset-registry.js";
 import {
   type AgentSyncConfig,
-  type PresetSelection,
+  type Extends,
   validateConfig,
 } from "../../types/schemas.js";
 
@@ -197,7 +197,7 @@ async function getConfiguredPresetSources(config: AgentSyncConfig): Promise<
   // Check extends array for presets with filters
   if (config.extends && Array.isArray(config.extends)) {
     for (const entry of config.extends) {
-      if (typeof entry === "object" && (entry.include || entry.exclude)) {
+      if (entry.include || entry.exclude) {
         createPresetSourceEntry(entry.source, sources);
       }
     }
@@ -239,11 +239,7 @@ function getAvailableConfigLevels(
   // Check if preset exists in extends array with filters
   if (config.extends && Array.isArray(config.extends)) {
     for (const entry of config.extends) {
-      if (
-        typeof entry === "object" &&
-        entry.source === presetSource &&
-        (entry.include || entry.exclude)
-      ) {
+      if (entry.source === presetSource && (entry.include || entry.exclude)) {
         levels.push("project");
         break;
       }
@@ -294,6 +290,15 @@ async function selectContentTypesForRemoval(
 ): Promise<string[]> {
   // For alpha, we only support entire preset removal
   return [];
+}
+
+/**
+ * Simple selection interface for internal use
+ */
+interface PresetSelection {
+  rules?: unknown;
+  commands?: unknown;
+  mcps?: unknown;
 }
 
 /**
@@ -395,12 +400,12 @@ function getConfigPath(
  * Update extends entry for removal
  */
 function updateExtendsEntry(
-  entry: string | { source: string; include?: string[]; exclude?: string[] },
+  entry: Extends,
   presetSource: string,
   removalType: "entire" | "specific",
   _removedTypes: string[],
-): typeof entry | null {
-  const source = typeof entry === "string" ? entry : entry.source;
+): Extends | null {
+  const source = entry.source;
 
   if (source !== presetSource) {
     return entry;

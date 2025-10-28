@@ -55,8 +55,7 @@ export class RegistryOrchestrator {
     const presets = await Promise.all(
       extendsEntries.map((entry, i) => {
         const source = typeof entry === "string" ? entry : entry.source;
-        const namespace =
-          typeof entry === "string" ? "" : (entry as unknown).namespace;
+        const namespace = typeof entry === "string" ? "" : entry.namespace;
         return this.presetLoader.load(
           source,
           resolvedPaths[i],
@@ -114,8 +113,7 @@ export class RegistryOrchestrator {
     const presets = await Promise.all(
       extendsEntries.map((entry, i) => {
         const source = typeof entry === "string" ? entry : entry.source;
-        const namespace =
-          typeof entry === "string" ? "" : (entry as unknown).namespace;
+        const namespace = typeof entry === "string" ? "" : entry.namespace;
         return this.presetLoader.load(
           source,
           resolvedPaths[i],
@@ -131,10 +129,19 @@ export class RegistryOrchestrator {
       const selection = selections[source];
 
       if (selection) {
-        return {
-          source,
-          ...selection,
-        };
+        // Merge selection with existing entry, preserving namespace and other fields
+        if (typeof entry === "string") {
+          return {
+            source,
+            namespace: "", // String entries don't have namespace
+            ...selection,
+          };
+        } else {
+          return {
+            ...entry, // Preserve all existing fields including namespace
+            ...selection,
+          };
+        }
       } else {
         // No selection, return as is
         return entry;
@@ -179,8 +186,7 @@ export class RegistryOrchestrator {
     const presets = await Promise.all(
       extendsEntries.map((entry, i) => {
         const source = typeof entry === "string" ? entry : entry.source;
-        const namespace =
-          typeof entry === "string" ? "" : (entry as unknown).namespace;
+        const namespace = typeof entry === "string" ? "" : entry.namespace;
         return this.presetLoader.load(
           source,
           resolvedPaths[i],
