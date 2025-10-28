@@ -50,26 +50,6 @@ export const FileMappingSchema = z.object({
   purpose: z.string().optional(),
 });
 
-// Preset selection schema (for selective preset loading)
-export const PresetSelectionSchema = z.object({
-  rules: z
-    .object({
-      include: z.array(z.string()).optional(),
-      exclude: z.array(z.string()).optional(),
-    })
-    .optional(),
-  commands: z
-    .object({
-      include: z.array(z.string()).optional(),
-      exclude: z.array(z.string()).optional(),
-    })
-    .optional(),
-  mcps: z.array(z.string()).optional(),
-});
-
-// Selection configuration schema (alias for backward compatibility)
-export const SelectionConfigSchema = PresetSelectionSchema;
-
 // Main AGENTS.md schema
 export const AgentsMdSchema = z.object({
   projectOverview: z.string().min(1),
@@ -106,16 +86,14 @@ export const ExtendsSchema = z.union([
   }),
 ]);
 
-// Local configuration schema for .agentsync/config.json (project-level)
-export const LocalConfigSchema = z.object({
+// Configuration schema for .agentsync/config.json and agentsync.local.json
+// Both configs use the same schema; local values override project values
+export const AgentSyncConfigSchema = z.object({
   version: z.string().default("1.0"),
 
   // GitHub registry sources (v0.3.0-beta)
   extends: z.array(ExtendsSchema).optional(),
-});
 
-// Configuration schema for .agentsync/config.json
-export const AgentSyncConfigSchema = LocalConfigSchema.extend({
   // MCP servers (moved to main config in v0.3.0-beta)
   mcpServers: z
     .union([
@@ -134,7 +112,7 @@ export const AgentSyncConfigSchema = LocalConfigSchema.extend({
     ])
     .optional(),
 
-  tools: z.array(z.enum(["cursor", "claude", "cline", "roocode"])),
+  tools: z.array(z.enum(["cursor", "claude", "cline", "roocode"])).optional(),
   useSymlinks: z.boolean().default(true),
   security: z
     .object({
@@ -182,6 +160,9 @@ export const AgentSyncConfigSchema = LocalConfigSchema.extend({
     })
     .optional(),
 });
+
+// Alias for backward compatibility: both configs use same schema
+export const LocalConfigSchema = AgentSyncConfigSchema;
 
 // Translator result schema
 export const TranslateResultSchema = z.object({
@@ -300,10 +281,8 @@ export type Extends = z.infer<typeof ExtendsSchema>;
 export type ExtendsEntry = z.infer<typeof ExtendsSchema> extends (infer U)[]
   ? U
   : z.infer<typeof ExtendsSchema>;
-export type PresetSelection = z.infer<typeof PresetSelectionSchema>;
 export type AgentSyncConfig = z.infer<typeof AgentSyncConfigSchema>;
 export type LocalConfig = z.infer<typeof LocalConfigSchema>;
-export type SelectionConfig = z.infer<typeof SelectionConfigSchema>;
 export type TranslateResult = z.infer<typeof TranslateResultSchema>;
 export type SyncResult = z.infer<typeof SyncResultSchema>;
 export type Workspace = z.infer<typeof WorkspaceSchema>;

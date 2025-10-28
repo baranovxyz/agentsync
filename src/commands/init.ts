@@ -67,7 +67,7 @@ const TEMPLATES = {
 const TOOL_CONFIGS: Record<ToolName, string[]> = {
   cursor: [".cursor/agents.md", ".cursor/AGENTS.md"],
   claude: [".claude/AGENTS.md", "claude_project.md"],
-  cline: [".cline/AGENTS.md", ".cline/instructions.md"],
+  cline: [".clinerules/AGENTS.md"],
   roocode: [".roo/AGENTS.md", ".roo/instructions.md"],
 };
 
@@ -427,21 +427,11 @@ export class InitCommand {
         await ensureDir(dir);
       }
 
-      // Create config file (v0.3.0-beta format)
-      const config = {
-        version: "1.0",
-        extends: [], // GitHub presets (v0.3.0-beta)
-        mcpServers: [], // MCP servers in main config (v0.3.0-beta)
-        tools: [],
-        useSymlinks: true,
-        createdAt: new Date().toISOString(),
-      };
-
-      await outputFile(
-        path.join(agentSyncDir, "config.json"),
-        `${JSON.stringify(config, null, 2)}\n`,
-        { encoding: "utf-8" },
+      // Create config file using shared utility
+      const { ensureProjectConfig } = await import(
+        "../utils/config-creation.js"
       );
+      await ensureProjectConfig();
 
       console.log(pc.green("  ✓ Created .agentsync directory"));
     } catch (error) {
