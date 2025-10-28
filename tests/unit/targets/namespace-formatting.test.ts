@@ -177,10 +177,19 @@ describe("Namespace Formatting", () => {
   describe("Error handling", () => {
     const converter = new CursorRulesConverter();
 
-    it("throws error for invalid namespaced filename (no underscore)", () => {
-      expect(() => converter.convert("invalidfile.md", "# Content")).toThrow(
-        "Invalid namespaced filename",
-      );
+    it("handles non-namespaced filenames (project custom files)", () => {
+      // Project custom files (from .agentsync/rules/ or commands/) have no underscore
+      // They should be treated as having an empty namespace and output as-is
+      const result = converter.convert("custom-auth.md", "# Auth Rule");
+      expect(result.filename).toBe("custom-auth.mdc");
+      expect(result.content).toBe("# Auth Rule");
+    });
+
+    it("handles filenames with underscores correctly (namespace separation)", () => {
+      // Namespaced files use FIRST underscore to separate namespace from filename
+      // Additional underscores are part of the filename
+      const result = converter.convert("team_my_style_guide.md", "# Style");
+      expect(result.filename).toBe("team/my_style_guide.mdc");
     });
   });
 });

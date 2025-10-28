@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import * as path from "node:path";
 import * as fs from "node:fs/promises";
 import { tmpdir } from "node:os";
+import * as path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { sync } from "../../../src/commands/sync.js";
 import { ensureDir, pathExists } from "../../../src/utils/fs.js";
 
@@ -44,10 +44,7 @@ describe("Project Custom Rules and Commands", () => {
     );
 
     // Create minimal AGENTS.md to avoid warning
-    await fs.writeFile(
-      path.join(testDir, "AGENTS.md"),
-      "# Test AGENTS.md",
-    );
+    await fs.writeFile(path.join(testDir, "AGENTS.md"), "# Test AGENTS.md");
 
     // Execute sync in dry-run mode (won't actually sync to tools)
     await sync({
@@ -84,10 +81,7 @@ describe("Project Custom Rules and Commands", () => {
     );
 
     // Create minimal AGENTS.md
-    await fs.writeFile(
-      path.join(testDir, "AGENTS.md"),
-      "# Test AGENTS.md",
-    );
+    await fs.writeFile(path.join(testDir, "AGENTS.md"), "# Test AGENTS.md");
 
     // Execute sync in dry-run mode
     await sync({
@@ -111,10 +105,7 @@ describe("Project Custom Rules and Commands", () => {
     );
 
     // Create AGENTS.md
-    await fs.writeFile(
-      path.join(testDir, "AGENTS.md"),
-      "# Test AGENTS.md",
-    );
+    await fs.writeFile(path.join(testDir, "AGENTS.md"), "# Test AGENTS.md");
 
     // Execute sync - should not error even without custom directories
     await sync({
@@ -145,10 +136,7 @@ describe("Project Custom Rules and Commands", () => {
     );
 
     // Create AGENTS.md
-    await fs.writeFile(
-      path.join(testDir, "AGENTS.md"),
-      "# Test AGENTS.md",
-    );
+    await fs.writeFile(path.join(testDir, "AGENTS.md"), "# Test AGENTS.md");
 
     // Execute sync
     await sync({
@@ -185,10 +173,7 @@ describe("Project Custom Rules and Commands", () => {
     );
 
     // Create AGENTS.md
-    await fs.writeFile(
-      path.join(testDir, "AGENTS.md"),
-      "# Test AGENTS.md",
-    );
+    await fs.writeFile(path.join(testDir, "AGENTS.md"), "# Test AGENTS.md");
 
     // Execute sync
     await sync({
@@ -197,5 +182,60 @@ describe("Project Custom Rules and Commands", () => {
     });
 
     expect(true).toBe(true);
+  });
+
+  it("should sync both namespaced and non-namespaced custom commands", async () => {
+    // Setup: Config with cursor tool
+    await ensureDir(path.join(testDir, ".agentsync"));
+    await fs.writeFile(
+      path.join(testDir, ".agentsync", "config.json"),
+      JSON.stringify({
+        version: "1.0",
+        tools: ["cursor"],
+      }),
+    );
+
+    // Create commands directory with project custom (non-namespaced) files
+    // Project custom files should NEVER be namespaced per REQUIREMENTS.md
+    await ensureDir(path.join(testDir, ".agentsync", "commands"));
+    await fs.writeFile(
+      path.join(testDir, ".agentsync", "commands", "test.md"),
+      "# Test Command",
+    );
+    await fs.writeFile(
+      path.join(testDir, ".agentsync", "commands", "deploy.md"),
+      "# Deploy Command",
+    );
+
+    // Create AGENTS.md
+    await fs.writeFile(path.join(testDir, "AGENTS.md"), "# Test AGENTS.md");
+
+    // Execute sync
+    await sync({
+      cwd: testDir,
+      dryRun: false,
+    });
+
+    // Verify non-namespaced files are synced without namespace prefix
+    const testCommandPath = path.join(
+      testDir,
+      ".cursor",
+      "commands",
+      "test.md",
+    );
+    expect(await pathExists(testCommandPath)).toBe(true);
+    const testContent = await fs.readFile(testCommandPath, "utf-8");
+    expect(testContent).toBe("# Test Command");
+
+    // Verify second non-namespaced file
+    const deployCommandPath = path.join(
+      testDir,
+      ".cursor",
+      "commands",
+      "deploy.md",
+    );
+    expect(await pathExists(deployCommandPath)).toBe(true);
+    const deployContent = await fs.readFile(deployCommandPath, "utf-8");
+    expect(deployContent).toBe("# Deploy Command");
   });
 });
