@@ -41,8 +41,9 @@ Emerging cross-tool format; see [AGENTS.md](https://agents.md).
 
 - `.agentsync/config.json` as canonical source of truth
 - `AGENTS.md` at repository root as optional supplementary documentation
+- AgentSync does not extract configuration from AGENTS.md content
+- AgentSync does create, template, symlink, and security-scan AGENTS.md
 - AgentSync symlinks AGENTS.md to tool-specific locations for convenience (e.g., `.clinerules/AGENTS.md`)
-- AgentSync does NOT parse or generate AGENTS.md content
 
 ### Model Context Protocol (MCP) Integration
 
@@ -86,8 +87,9 @@ Industry-standard for tool integration; see [modelcontextprotocol.io](https://mo
 
 - Located: `.agentsync/rules/*.md`, `.agentsync/commands/*.md`
 - Can have frontmatter for cross-tool metadata
-- Overrides preset files with same name
-- Example: `.agentsync/rules/custom-auth.md`
+- Coexists with preset files via namespace isolation
+- Project custom files are NOT namespaced, distinguishing them from preset files which are always namespaced
+- Example: `.agentsync/rules/custom-auth.md` coexists with `company/typescript.md` from presets (or `company_typescript.md` for flat tools)
 
 **Layer 3: Tool Outputs** (generated, gitignored)
 
@@ -106,34 +108,66 @@ GitHub Presets + Project Custom → Merge → Copy to Tools
 
 **Merge strategy**: Project custom rules and commands coexist with preset rules/commands
 
-- **Preset rules/commands**: Always namespaced (e.g., `company:typescript.md`, `team:react.md`)
+- **Preset rules/commands**: Always namespaced (e.g., `company/typescript.md`, `team/react.md`)
 - **Project custom rules/commands**: Never namespaced (e.g., `typescript.md`, `auth.md`)
 - **Coexistence**: Both can exist side-by-side without collision
 - **Namespace prefixes**: Prevent conflicts between multiple presets
+
+**Namespace output format**:
+
+Files use namespace formatting in tool outputs based on each tool's capabilities:
+
+**Nested directory tools** (Cursor, Claude Code, RooCode):
+
+```
+Preset file: rules/typescript.md
+Namespace: company
+Tool output (Cursor): .cursor/rules/company/typescript.mdc
+Tool output (Claude):  .claude/rules/company/typescript.md
+Tool output (RooCode): .roo/rules/company/typescript.md
+```
+
+**Flat structure tools** (Cline):
+
+```
+Preset file: rules/typescript.md
+Namespace: company
+Tool output: .clinerules/company_typescript.md
+```
+
+Project custom files are NOT namespaced:
+
+```
+Project file: rules/auth.md
+Tool output (Cursor): .cursor/rules/auth.mdc
+Tool output (Cline):  .clinerules/auth.md
+```
 
 **Rules**: AI agent instructions and guidelines (e.g., coding standards, security practices, testing patterns)
 
 - Stored in `.agentsync/rules/` or loaded from presets
 - Synced to tool-specific formats:
-  - Cursor: `.cursor/rules/*.mdc`
-  - Claude: `.claude/commands/*.md`
-- Namespace-prefixed to prevent conflicts (e.g., `company:typescript.mdc`)
+  - Cursor: `.cursor/rules/*.mdc` (nested: `company/typescript.mdc`)
+  - Claude: `.claude/rules/*.md` (nested: `company/typescript.md`)
+  - Cline: `.clinerules/*.md` (flat: `company_typescript.md`)
+- Namespace-formatted to prevent conflicts between presets
 
 **Commands**: Slash commands for AI agents (e.g., `/commit`, `/test`, `/review`)
 
 - Stored in `.agentsync/commands/` or loaded from presets
 - Synced to tool-specific formats:
-  - Cursor: `.cursor/commands/*.md`
-  - Claude: `.claude/commands/*.md`
-- Namespace-prefixed (e.g., `company:commit.md`)
+  - Cursor: `.cursor/commands/*.md` (nested: `company/commit.md`)
+  - Claude: `.claude/commands/*.md` (nested: `company/commit.md`)
+- Namespace-formatted to prevent conflicts between presets
 
 **Sync behavior**:
 
 - Single `agentsync sync` command syncs all content
 - Namespace isolation prevents conflicts between presets
 - Deterministic output (same input = same output)
+- Files are always rewritten on each sync for simplicity (no timestamp comparison or change detection)
 
-### 3. MCP Selection from Presets
+### 3. Preset Selection from GitHub
 
 **Purpose**: Select which MCP servers to enable from preset-defined options
 
@@ -145,14 +179,15 @@ GitHub Presets + Project Custom → Merge → Copy to Tools
 
 **How it works**:
 
-- Presets define available MCP servers in their `mcp.json`
-- Project config enables subset: `"mcpServers": ["github", "postgres"]`
+- Presets provide full MCP server definitions (command, args, env) in their `mcp.json`
+- Project config enables subset via `mcpServers`: `["github", "postgres"]`
 - User can override locally: `"mcpServers": []` (disable all)
-- Token substitution for environment variables: `{VAR_NAME}`
+- Multiple presets can define the same MCP server (last-wins merge)
+- Token substitution for environment variables: `{VAR_NAME}` (missing variables trigger warning)
 
 ### 4. Preset System
 
-**Purpose**: Share rules, commands, and MCP configs across teams via extensible source plugins.
+**Purpose**: Share presets, commands, and MCP configs across teams via extensible source plugins.
 
 **Key features**:
 
@@ -172,12 +207,12 @@ github:company/standards/
 ├── rules/
 │   ├── typescript.md
 │   └── security.md
-└── mcp.json                  # Available MCPs (project/user enables subset)
+└── mcp.json                  # MCP server definitions (project/user selects which to enable)
 ```
 
 **Merging behavior**:
 
-- Rules/commands: Namespace-based (e.g., `company:commit.md`, `team:commit.md`)
+- Rules/commands: Namespace-based, tool-appropriate formatting (nested dirs or flat with underscore)
 - MCPs: Definitions merge last-wins; enablement via `mcpServers`
 
 ---
@@ -205,28 +240,19 @@ Configuration showing key patterns: organization presets, team-specific rules, n
 }
 ```
 
-**Local override** (`agentsync.local.json`):
+**Security defaults**: Security features are enabled by default. Defaults apply when:
 
-```json
-{
-  "mcpServers": []
-}
-```
+- Security section is present but fields are omitted
+- Security section is entirely absent from config
 
-**What this demonstrates**:
+Defaults only disabled if explicitly set to `false`.
 
-- Organization-wide standards (company namespace)
-- Team-specific rules (frontend namespace) with filtering
-- Local MCP override (personal preference, git-ignored)
-- Multi-tool support (works in Cursor, Claude, Cline)
+**Configuration notes**:
 
----
-
-## Agent Compatibility
-
-- **Cursor**: `.cursor/rules/*.mdc`, `.cursor/commands/*.md`, `mcp.json`
-- **Claude Code**: `.claude/commands/*.md`, symlink `CLAUDE.md` to `AGENTS.md`
-- **Cline**: `.clinerules/*.md` (rules), symlink `.clinerules/AGENTS.md` to `AGENTS.md`
+- Presets define MCP servers; projects enable via `mcpServers`
+- File filtering: `extends[].include` and `extends[].exclude` (globs relative to preset root)
+- MCP priority: `agentsync.local.json` → `.agentsync/config.json` (local wins)
+- Preset sources: `github:` in v0.2.0, generic `git:` planned
 
 ---
 
@@ -241,10 +267,10 @@ Configuration showing key patterns: organization presets, team-specific rules, n
   "version": "1.0",
   "tools": ["cursor", "claude"],
   "extends": [
-    { "source": "github:company/base", "namespace": "company" },
+    { "source": "github:company/standards", "namespace": "company" },
     {
-      "source": "github:team/backend-rules",
-      "namespace": "backend",
+      "source": "github:team/frontend-rules",
+      "namespace": "frontend",
       "include": ["rules/*.md", "commands/*.md"],
       "exclude": ["rules/deprecated/**"]
     }
@@ -256,6 +282,13 @@ Configuration showing key patterns: organization presets, team-specific rules, n
   }
 }
 ```
+
+**Security defaults**: Security features are enabled by default. Defaults apply when:
+
+- Security section is present but fields are omitted
+- Security section is entirely absent from config
+
+Defaults only disabled if explicitly set to `false`.
 
 **Configuration notes**:
 
@@ -272,9 +305,9 @@ Configuration showing key patterns: organization presets, team-specific rules, n
 
 **Merge strategy (Option A)**: Local `mcpServers` replaces project `mcpServers` entirely
 
-- If local config specifies `mcpServers`, it completely overrides the project config
+- If local config specifies `mcpServers: []` (empty array), all MCPs are disabled
 - If local config doesn't specify `mcpServers`, project config is used
-- Empty local array `[]` or object `{}` is valid and disables all MCPs
+- Empty array `[]` is the only way to completely disable MCPs
 
 **Example**:
 
@@ -301,6 +334,12 @@ Local (`agentsync.local.json`):
 - MCP selections persist to project or local config
 - Preview/confirm step required
 
+### Agent Compatibility
+
+- **Cursor**: `.cursor/rules/*.mdc`, `.cursor/commands/*.md`, `mcp.json`
+- **Claude Code**: `.claude/commands/*.md`, symlink `AGENTS.md` to `AGENTS.md`
+- **Cline**: `.clinerules/*.md` (rules), symlink `.clinerules/AGENTS.md` to `AGENTS.md`
+
 ### Directory Structure
 
 ```
@@ -317,7 +356,7 @@ Local (`agentsync.local.json`):
 │   ├── commands/*.md
 │   └── mcp.json
 ├── .claude/                   # Generated for Claude
-│   ├── CLAUDE.md
+│   ├── AGENTS.md              # Symlink to root
 │   ├── commands/*.md
 │   └── mcp.json
 └── .clinerules/               # Generated for Cline
@@ -331,14 +370,42 @@ Global data:
 
 ---
 
-## Success Criteria
+## Implementation Principles
 
-**Key metrics**:
+### 1. Standards-First
 
-- Sync latency: <5 seconds from change to propagation
-- Tool compatibility: 95%+ feature parity across supported tools
-- Onboarding speed: <10 minutes from install to working
-- Migration accuracy: 100% for supported features
+- AGENTS.md as universal format
+- JSON for configuration (portable)
+- MCP for tool integration
+
+### 2. Local-First
+
+- All operations work offline
+- No cloud dependency for core features
+- Optional `github:` sources
+- User data stays on user's machine
+
+### 3. Security by Default
+
+- Security: Secret scanning and Unicode detection (enabled by default, opt-out via `false`)
+- Audit logging for compliance
+
+### 4. Developer Experience
+
+- <10 minute setup time
+- Clear, actionable error messages
+- Interactive CLI with good defaults
+- Dry-run mode for safety
+
+### 5. Extensibility
+
+- Plugin architecture for new tools
+- Community presets
+- Preset composition (via `extends`)
+
+---
+
+## Core Requirements
 
 **Functional requirements**:
 
@@ -401,42 +468,6 @@ Despite broad adoption of AI coding tools, **no mature platform provides central
 - Parallel configuration systems (drift over time)
 
 **Our differentiator**: True cross-tool configuration synchronization using industry standards (AGENTS.md, JSON, MCP).
-
----
-
-## Implementation Principles
-
-### 1. Standards-First
-
-- AGENTS.md as universal format
-- JSON for configuration (portable)
-- MCP for tool integration
-
-### 2. Local-First
-
-- All operations work offline
-- No cloud dependency for core features
-- Optional `github:` sources
-- User data stays on user's machine
-
-### 3. Security by Default
-
-- Secret scanning before every sync
-- Unicode attack detection
-- Audit logging for compliance
-
-### 4. Developer Experience
-
-- <10 minute setup time
-- Clear, actionable error messages
-- Interactive CLI with good defaults
-- Dry-run mode for safety
-
-### 5. Extensibility
-
-- Plugin architecture for new tools
-- Community presets
-- Preset composition (via `extends`)
 
 ---
 

@@ -10,7 +10,10 @@ Presets let teams share rules, commands, and MCPs via GitHub repositories. Files
 {
   "version": "1.0",
   "extends": [
-    "github:company/standards",
+    {
+      "source": "github:company/standards",
+      "namespace": "company"
+    },
     {
       "source": "github:team/backend-rules",
       "namespace": "backend",
@@ -48,12 +51,30 @@ github:company/standards/
 
 ## Namespace-Based Merging
 
-Rules and commands use namespace prefixes:
+Rules and commands use namespace formatting based on tool capabilities.
+
+**Internal format** (used in AgentSync registry):
 
 ```
-company:commit.md     → .cursor/commands/company:commit.md
-team:commit.md        → .cursor/commands/team:commit.md
-company:typescript.md → .cursor/rules/company:typescript.md
+company_commit.md     (commands)
+company_typescript.md (rules)
+```
+
+**Tool output format** varies by tool:
+
+**Nested directory tools** (Cursor, Claude Code, RooCode):
+
+```
+company_commit.md     → .cursor/commands/company/commit.md
+team_commit.md        → .cursor/commands/team/commit.md
+company_typescript.md → .cursor/rules/company/typescript.mdc
+```
+
+**Flat structure tools** (Cline):
+
+```
+company_typescript.md → .clinerules/company_typescript.md
+team_security.md      → .clinerules/team_security.md
 ```
 
 MCPs merge without namespaces (last-wins per server name). Enablement controlled via `mcpServers`.
