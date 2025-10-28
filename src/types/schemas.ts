@@ -152,13 +152,6 @@ export const AgentSyncConfigSchema = z.object({
         .optional(),
     })
     .optional(),
-  watch: z
-    .object({
-      enabled: z.boolean().default(true),
-      debounceMs: z.number().default(500),
-      ignorePatterns: z.array(z.string()).optional(),
-    })
-    .optional(),
 });
 
 // Alias for backward compatibility: both configs use same schema
@@ -204,21 +197,6 @@ export const SyncResultSchema = z.object({
   ),
   duration: z.number(),
   timestamp: z.string(),
-});
-
-// Workspace schema for monorepo support
-export const WorkspaceSchema = z.object({
-  type: z.enum(["nx", "turborepo", "pnpm", "npm", "yarn", "single"]),
-  root: z.string(),
-  packages: z.array(
-    z.object({
-      name: z.string(),
-      path: z.string(),
-      agentsMdPath: z.string().optional(),
-      version: z.string().optional(),
-      dependencies: z.array(z.string()).optional(),
-    }),
-  ),
 });
 
 // Diff result schema
@@ -285,7 +263,6 @@ export type AgentSyncConfig = z.infer<typeof AgentSyncConfigSchema>;
 export type LocalConfig = z.infer<typeof LocalConfigSchema>;
 export type TranslateResult = z.infer<typeof TranslateResultSchema>;
 export type SyncResult = z.infer<typeof SyncResultSchema>;
-export type Workspace = z.infer<typeof WorkspaceSchema>;
 export type DiffResult = z.infer<typeof DiffResultSchema>;
 export type ValidationResult = z.infer<typeof ValidationResultSchema>;
 
