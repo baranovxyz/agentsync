@@ -10,6 +10,13 @@ import {
 
 export class ClaudeRulesConverter extends RuleConverterBase {
   /**
+   * Claude Code supports nested directories
+   */
+  supportsNestedDirs(): boolean {
+    return true;
+  }
+
+  /**
    * Claude supports plain markdown
    */
   convert(namespacedFilename: string, content: string): RuleConversionResult {
@@ -17,7 +24,7 @@ export class ClaudeRulesConverter extends RuleConverterBase {
       this.parseNamespacedFilename(namespacedFilename);
 
     // Claude keeps .md extension
-    const outputFilename = `${namespace}:${filename}`;
+    const outputFilename = this.formatOutputPath(namespace, filename);
 
     // Claude uses markdown as-is
     return {

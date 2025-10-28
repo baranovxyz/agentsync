@@ -261,7 +261,7 @@ export class SelectivePresetLoader {
 
   /**
    * Merge multiple filtered preset results with namespace formatting
-   * This is used when we need to maintain the namespace:filename format
+   * This is used when we need to maintain the namespace_filename format
    */
   mergeFilteredPresetsWithNamespaces(
     results: SelectivePresetResult[],
@@ -281,13 +281,13 @@ export class SelectivePresetLoader {
 
       // Merge commands with namespace formatting
       for (const [filename, content] of result.commands.entries()) {
-        const namespacedKey = `${preset.namespace}:${filename}`;
+        const namespacedKey = `${preset.namespace}_${filename}`;
         merged.commands.set(namespacedKey, content);
       }
 
       // Merge rules with namespace formatting
       for (const [filename, content] of result.rules.entries()) {
-        const namespacedKey = `${preset.namespace}:${filename}`;
+        const namespacedKey = `${preset.namespace}_${filename}`;
         merged.rules.set(namespacedKey, content);
       }
 
