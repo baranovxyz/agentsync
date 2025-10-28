@@ -47,12 +47,51 @@ Personal MCP overrides. Created manually for local development.
 
 Local overrides project: `agentsync.local.json` wins over `.agentsync/config.json` for MCP selection.
 
+## Project Custom Rules & Commands
+
+Override or supplement preset content with project-specific rules and commands.
+
+**Location**:
+
+- `.agentsync/rules/*.md` - Custom rules
+- `.agentsync/commands/*.md` - Custom commands
+
+**Behavior**:
+
+- Files in these directories are merged with preset content
+- Same filename overrides preset version
+- Can use frontmatter for cross-tool metadata
+- Committed to git (team-shared)
+
+**Example**:
+
+`.agentsync/rules/custom-auth.md`:
+
+```markdown
+---
+tags: [security, auth]
+scope: project
+---
+
+# Authentication Rules
+
+Use JWT tokens for all API authentication...
+```
+
+On `agentsync sync`, this becomes:
+
+- `.cursor/rules/custom-auth.mdc`
+- `.claude/rules/custom-auth.md`
+- `.clinerules/custom-auth.md`
+
 ## Paths
 
 - Global MCP registry: `~/.agentsync/mcp.json`
 - Project config: `.agentsync/config.json`
 - Local overrides: `agentsync.local.json`
 - Environment variables: `.env`
+- Project custom rules: `.agentsync/rules/`
+- Project custom commands: `.agentsync/commands/`
 
 ## Notes
 

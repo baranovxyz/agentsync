@@ -23,9 +23,12 @@ pnpm lint:fix
 ```bash
 # Main Sync (v0.2.0-beta - IMPLEMENTED)
 pnpm cli sync                      # Sync all: presets, rules, commands, MCPs
-pnpm cli sync --update             # Update GitHub caches and sync
+pnpm cli sync --pull               # Pull latest presets from sources
 pnpm cli sync --dry-run            # Preview changes without applying
 pnpm cli sync --tool cursor        # Sync only to Cursor
+
+# Gitignore Management (v0.2.0+)
+pnpm cli gitignore                 # Update .gitignore based on current config
 
 # Preset Management (v0.2.0-beta - IMPLEMENTED)
 pnpm cli preset list               # List configured presets

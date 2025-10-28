@@ -21,7 +21,12 @@ pnpm test                                     # Run all tests
 pnpm test:e2e                                 # E2E tests only
 
 # Main sync command
-pnpm cli sync [--dry-run] [--update] [--tool cursor]
+pnpm cli sync                                 # Sync (use cache)
+pnpm cli sync --pull                          # Pull latest presets
+pnpm cli sync [--dry-run] [--tool cursor]
+
+# Gitignore management
+pnpm cli gitignore                            # Update .gitignore for current tools
 
 # Preset management
 pnpm cli preset list|cache-clear|select|remove

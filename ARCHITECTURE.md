@@ -4,11 +4,31 @@ This page gives a high-level view of AgentSync’s architecture and points to de
 
 ## Overview
 
-AgentSync is a TypeScript CLI for managing AI coding agent configuration.
+AgentSync manages AI coding agent configuration through a three-layer system:
 
-- MCP Context Optimizer: select per-project MCP servers from a global registry
-- GitHub Preset System: extend shared rules, commands, and MCPs via presets
-- AGENTS.md Sync: unify configuration across tools (in progress)
+**Layer 1: GitHub Presets** (immutable, org-controlled)
+
+- Shared rules, commands, MCPs via GitHub repositories
+- Cached locally in `~/.agentsync/cache/`
+- Pull latest with `agentsync sync --pull`
+
+**Layer 2: Project Custom** (team-editable, in git)
+
+- Project-specific rules and commands in `.agentsync/rules/` and `.agentsync/commands/`
+- Overrides preset files with same name
+- Committed to git for team sharing
+
+**Layer 3: Tool Outputs** (generated, gitignored)
+
+- Synced to tool-specific directories (`.cursor/`, `.claude/`, `.clinerules/`)
+- Regenerated on each `agentsync sync`
+- Copied from Layers 1+2 (not symlinked)
+
+**AGENTS.md** (optional supplement)
+
+- Universal documentation format, read natively by some tools
+- Symlinked to tool-specific locations where needed
+- NOT the source of truth (configuration is in `.agentsync/config.json`)
 
 ## Technology
 
