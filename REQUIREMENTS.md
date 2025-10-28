@@ -1,5 +1,7 @@
 # Requirements
 
+**This is the canonical source of truth for AgentSync architecture, features, and design.** Other docs (CLAUDE.md, ARCHITECTURE.md, docs/) cross-reference this document. For quick reference, see CLAUDE.md.
+
 ## Problem Statement
 
 Teams use multiple AI coding agents (Cursor, Claude Code, Cline, Windsurf, GitHub Copilot, and other code assistants) but lack a unified way to share:

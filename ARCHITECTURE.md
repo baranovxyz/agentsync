@@ -18,25 +18,6 @@ AgentSync is a TypeScript CLI for managing AI coding agent configuration.
 - CLI: Commander.js
 - Validation: Zod
 
-## Configuration Truth
-
-- Project config (committed): `.agentsync/config.json`
-- Local overrides (gitignored): `agentsync.local.json`
-- Global MCP registry: `~/.agentsync/mcp.json`
-- Precedence: local overrides project for MCPs
-
-Example precedence:
-
-```jsonc
-// .agentsync/config.json
-{ "mcpServers": ["github"] }
-
-// agentsync.local.json
-{ "mcpServers": [] }
-
-// Effective selection: []
-```
-
 ## Key Directories
 
 ```

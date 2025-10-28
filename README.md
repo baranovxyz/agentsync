@@ -82,14 +82,16 @@ agentsync sync
 
 ## Documentation
 
-- CLI reference: docs/cli.md
-- Configuration: docs/configuration.md
-- Presets and selection: docs/presets.md
-- Testing: docs/testing.md
-- Debugging: docs/debugging.md
-- Security policy: SECURITY.md
-- Architecture: ARCHITECTURE.md
-- Changelog (breaking changes): CHANGELOG.md
+- **Start here**: REQUIREMENTS.md (feature overview and design)
+- **Quick ref**: CLAUDE.md (guardrails and commands)
+- **Configuration**: docs/configuration.md
+- **Presets**: docs/presets.md
+- **CLI**: docs/cli.md
+- **Testing**: TESTING.md
+- **Debugging**: docs/debugging.md
+- **Security**: SECURITY.md
+- **Architecture**: ARCHITECTURE.md
+- **Changelog**: CHANGELOG.md
 
 ## License
 
