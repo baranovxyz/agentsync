@@ -39,11 +39,10 @@ Emerging cross-tool format; see [AGENTS.md](https://agents.md).
 
 **Implementation approach**:
 
-- `.agentsync/` as configuration root
-- `AGENTS.md` at repository root as universal human/machine-readable format
-- `.agentsync/config.json` as canonical orchestrator with preset composition
-- Tools with native AGENTS.md support use root file directly
-- Tools requiring specific locations use symlinks (e.g., `.clinerules/AGENTS.md`)
+- `.agentsync/config.json` as canonical source of truth
+- `AGENTS.md` at repository root as optional supplementary documentation
+- AgentSync symlinks AGENTS.md to tool-specific locations for convenience (e.g., `.clinerules/AGENTS.md`)
+- AgentSync does NOT parse or generate AGENTS.md content
 
 ### Model Context Protocol (MCP) Integration
 
@@ -63,17 +62,13 @@ Industry-standard for tool integration; see [modelcontextprotocol.io](https://mo
 
 ### 1. AGENTS.md Symlink Management
 
-**Purpose**: Provide universal, unstructured documentation format (optional supplement)
+**Purpose**: Optionally provide universal documentation format via symlinks
 
-**Native AGENTS.md Support** (reads from repository root):
+**Behavior**:
 
-- Cursor
-- RooCode
-
-**Symlink Support** (for compatibility):
-
-- Claude: `CLAUDE.md` → `AGENTS.md`
-- Cline: `.clinerules/AGENTS.md` → `../AGENTS.md`
+- AgentSync creates symlinks to root `AGENTS.md` for tool-specific locations
+- Tools with native AGENTS.md support (Cursor, RooCode) read from repository root directly
+- Tools requiring specific paths have symlinks created (e.g., `.clinerules/AGENTS.md` → `../AGENTS.md`)
 
 **Important**: AGENTS.md is optional supplementary documentation. The source of truth is `.agentsync/config.json` + `agentsync.local.json` + presets.
 
@@ -109,10 +104,12 @@ GitHub Presets + Project Custom → Merge → Copy to Tools
    (Layer 1)       (Layer 2)             (Layer 3)
 ```
 
-**Merge strategy**: Project custom overrides presets
+**Merge strategy**: Project custom rules and commands coexist with preset rules/commands
 
-- Same filename in `.agentsync/rules/` overrides preset version
-- Namespace prefixes prevent conflicts between presets
+- **Preset rules/commands**: Always namespaced (e.g., `company:typescript.md`, `team:react.md`)
+- **Project custom rules/commands**: Never namespaced (e.g., `typescript.md`, `auth.md`)
+- **Coexistence**: Both can exist side-by-side without collision
+- **Namespace prefixes**: Prevent conflicts between multiple presets
 
 **Rules**: AI agent instructions and guidelines (e.g., coding standards, security practices, testing patterns)
 
@@ -271,9 +268,31 @@ Configuration showing key patterns: organization presets, team-specific rules, n
 
 **File**: `agentsync.local.json` (git-ignored, user-specific)
 
-**Purpose**: MCP selection and environment overrides only (v0.2.0)
+**Purpose**: User-specific MCP server selection overrides
 
-**Merge strategy**: Local may widen/narrow `mcpServers`; other keys ignored in v0.2.0
+**Merge strategy (Option A)**: Local `mcpServers` replaces project `mcpServers` entirely
+
+- If local config specifies `mcpServers`, it completely overrides the project config
+- If local config doesn't specify `mcpServers`, project config is used
+- Empty local array `[]` or object `{}` is valid and disables all MCPs
+
+**Example**:
+
+Project (`.agentsync/config.json`):
+
+```json
+{ "mcpServers": ["github", "postgres"] }
+```
+
+Local (`agentsync.local.json`):
+
+```json
+{ "mcpServers": ["filesystem"] }
+```
+
+**Result**: Only `filesystem` MCP is enabled (local replaces project entirely)
+
+**Rationale**: Simple and predictable. Users have full control over their local MCP selection without unexpected inheritance.
 
 ### Interactive Selection (TUI)
 
@@ -309,35 +328,6 @@ Global data:
 ~/.agentsync/logs/            # Audit logs
 ~/.agentsync/cache/           # Preset cache
 ```
-
----
-
-## Monorepo Support
-
-### Cascading Configuration
-
-**Pattern**: Nearest-file-wins (OpenAI uses 88 AGENTS.md files in their monorepo)
-
-```
-monorepo/
-├── .agentsync/config.json       # Root config
-└── packages/
-    ├── frontend/
-    │   └── .agentsync/config.json # Extends + overrides root
-    └── backend/
-        └── .agentsync/config.json # Extends + overrides root
-```
-
-### Workspace Detection (Future)
-
-**Supported monorepo types**:
-
-- Nx (`nx.json`)
-- Turborepo (`turbo.json`)
-- pnpm workspace (`pnpm-workspace.yaml`)
-- npm/yarn workspaces (`package.json` workspaces field)
-
-Selective sync CLI flags planned. `--scope` reserved for config write target (`project|local|user`).
 
 ---
 

@@ -41,8 +41,8 @@ See: ./docs/cli.md for full reference
 
 - **Configuration**: `.agentsync/config.json` (project), `agentsync.local.json` (user local) → ./docs/configuration.md
 - **Presets**: GitHub-based preset sharing with namespacing → ./REQUIREMENTS.md#preset-system
-- **AGENTS.md**: Universal AI agent format → ./REQUIREMENTS.md#agentsmdstandard-integration
-- **MCP**: Model Context Protocol integration → ./REQUIREMENTS.md#model-context-protocol-mcp-integration
+- **AGENTS.md**: Optional supplementary documentation (symlinked) → ./REQUIREMENTS.md#agentsmdstandard-integration
+- **MCP**: Model Context Protocol integration with local-replaces strategy → ./REQUIREMENTS.md#model-context-protocol-mcp-integration
 - **Security**: Secret scanning, Unicode detection → ./SECURITY.md
 
 ## Implementation Notes
@@ -52,6 +52,7 @@ See: ./docs/cli.md for full reference
 - Keep changes atomic and commits well-described
 - Handle CommanderError types: when using `exitOverride()`, check for `'commander.version'` and `'commander.helpDisplayed'` codes, exit with 0
 - Main module detection: prefer `import.meta.main`; fallback to `es-main` for older Node
-- Empty MCP configs (`[]` or `{}`) are valid and will clear tool configs
+- MCP config merging: local `mcpServers` completely replaces project `mcpServers`
+- Empty MCP configs (`[]`) are valid; local config overrides project config entirely
 
 See also: ./ARCHITECTURE.md, ./TESTING.md, ./docs/debugging.md, ./docs/releasing.md
