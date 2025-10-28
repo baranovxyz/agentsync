@@ -50,8 +50,6 @@ Details: ./docs/presets.md
 
 - `init` implemented; full sync is in progress
 
-Details: ./docs/agents-md.md
-
 ## Security
 
 - Secret scanning, Unicode attack protection, atomic writes
@@ -68,7 +66,7 @@ Details: ./ARCHITECTURE.md
 
 - Unit, workflow, and packaging smoke tests
 
-Details: ./TESTING.md and ./docs/testing/automated.md
+Details: ./TESTING.md and ./docs/testing.md
 
 ## Debugging
 

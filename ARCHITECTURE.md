@@ -20,7 +20,7 @@ AgentSync is a TypeScript CLI for managing AI coding agent configuration.
 
 ## Configuration Truth
 
-- Team config (committed): `.agentsync/config.json`
+- Project config (committed): `.agentsync/config.json`
 - Local overrides (gitignored): `agentsync.local.json`
 - Global MCP registry: `~/.agentsync/mcp.json`
 - Precedence: local overrides project for MCPs
@@ -52,8 +52,8 @@ src/
 docs/
   configuration.md
   presets.md
-  agents-md.md
   cli.md
+  testing.md
 ```
 
 ## Design Principles
@@ -67,7 +67,7 @@ docs/
 
 - Configuration: docs/configuration.md
 - Presets and selection: docs/presets.md
-- AGENTS.md: docs/agents-md.md
 - CLI reference: docs/cli.md
+- Testing: docs/testing.md
 - Debugging: docs/debugging.md
 - Security: SECURITY.md
