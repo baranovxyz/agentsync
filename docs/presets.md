@@ -96,8 +96,8 @@ Result:
 
 See [CLI documentation](cli.md) for detailed usage:
 
-- `agentsync sync` - Sync presets to tools
-- `agentsync sync --update` - Update caches and sync
+- `agentsync sync` - Sync presets to tools (uses cache)
+- `agentsync sync --pull` - Pull latest presets from sources
 - `agentsync sync --dry-run` - Preview changes
 - `agentsync preset list` - Show configured presets
 - `agentsync preset cache-clear` - Clear caches

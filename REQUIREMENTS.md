@@ -63,12 +63,56 @@ Industry-standard for tool integration; see [modelcontextprotocol.io](https://mo
 
 ### 1. AGENTS.md Symlink Management
 
-- Tools with native AGENTS.md support (e.g., Claude Code, Cursor) read from repository root directly
-- Tools requiring specific locations (e.g., Cline) get symlinks created automatically
-- Example: `.clinerules/AGENTS.md` → `AGENTS.md` (symlink)
-- No conversion or translation, just symlinks where needed
+**Purpose**: Provide universal, unstructured documentation format (optional supplement)
+
+**Native AGENTS.md Support** (reads from repository root):
+
+- Cursor
+- RooCode
+
+**Symlink Support** (for compatibility):
+
+- Claude: `CLAUDE.md` → `AGENTS.md`
+- Cline: `.clinerules/AGENTS.md` → `../AGENTS.md`
+
+**Important**: AGENTS.md is optional supplementary documentation. The source of truth is `.agentsync/config.json` + `agentsync.local.json` + presets.
 
 ### 2. Rules & Commands Sync
+
+**Architecture**: Three-layer system
+
+**Layer 1: GitHub Presets** (immutable, org-controlled)
+
+- Cached in `~/.agentsync/cache/github-org-repo/`
+- Pull latest: `agentsync sync --pull`
+- Version-controlled by organization
+
+**Layer 2: Project Custom** (team-editable, in git)
+
+- Located: `.agentsync/rules/*.md`, `.agentsync/commands/*.md`
+- Can have frontmatter for cross-tool metadata
+- Overrides preset files with same name
+- Example: `.agentsync/rules/custom-auth.md`
+
+**Layer 3: Tool Outputs** (generated, gitignored)
+
+- `.cursor/rules/*.mdc`, `.cursor/commands/*.md`
+- `.claude/commands/*.md`
+- `.clinerules/*.md`
+- Regenerated on each `agentsync sync`
+- Copied from Layers 1+2 (not symlinked)
+
+**Sync flow**:
+
+```
+GitHub Presets + Project Custom → Merge → Copy to Tools
+   (Layer 1)       (Layer 2)             (Layer 3)
+```
+
+**Merge strategy**: Project custom overrides presets
+
+- Same filename in `.agentsync/rules/` overrides preset version
+- Namespace prefixes prevent conflicts between presets
 
 **Rules**: AI agent instructions and guidelines (e.g., coding standards, security practices, testing patterns)
 
