@@ -20,61 +20,95 @@ export interface ProjectMCPConfig {
 }
 
 /**
- * Get MCP config file path with load priority (nearest wins):
+ * Get MCP config file paths with load priority:
  * 1. agentsync.local.json (user-local overrides, gitignored)
  * 2. .agentsync/config.json (project config)
  */
-async function getMCPConfigPath(): Promise<string | null> {
+async function getMCPConfigPaths(): Promise<{
+  project: string | null;
+  local: string | null;
+}> {
   const cwd = process.cwd();
 
-  // Priority 1: User-local overrides (gitignored, wins over project config)
-  const localPath = path.join(cwd, "agentsync.local.json");
-  if (await pathExists(localPath)) {
-    return localPath;
-  }
-
-  // Priority 2: Project config (folder structure)
   const projectPath = path.join(cwd, ".agentsync", "config.json");
-  if (await pathExists(projectPath)) {
-    return projectPath;
-  }
+  const localPath = path.join(cwd, "agentsync.local.json");
 
-  return null;
+  return {
+    project: (await pathExists(projectPath)) ? projectPath : null,
+    local: (await pathExists(localPath)) ? localPath : null,
+  };
 }
 
 /**
- * Load project MCP configuration
+ * Load and merge MCP configuration from project and local files
+ * Merge strategy (Option A): Local mcpServers replaces project mcpServers entirely
  * @param configPath - Optional custom path (defaults to auto-detect with fallback)
- * @returns Project configuration (empty mcpServers arrays/objects are valid)
- * @throws Error if config doesn't exist or is invalid
+ * @returns Merged configuration (empty mcpServers arrays/objects are valid)
+ * @throws Error if no config found or config is invalid
  */
 export async function loadProjectConfig(
   configPath?: string,
 ): Promise<ProjectMCPConfig> {
-  let filepath: string | null;
-
   if (configPath) {
-    // Custom path provided
-    filepath = configPath;
-    if (!(await pathExists(filepath))) {
-      throw new Error(`MCP configuration not found at: ${filepath}`);
+    // Custom path provided - load single file
+    if (!(await pathExists(configPath))) {
+      throw new Error(`MCP configuration not found at: ${configPath}`);
     }
-  } else {
-    // Auto-detect with fallback
-    filepath = await getMCPConfigPath();
-    if (!filepath) {
-      throw new Error(
-        `MCP configuration not found.\n\n` +
-          `Expected one of:\n` +
-          `  - .agentsync/config.json (team config, committed)\n` +
-          `  - agentsync.local.json (personal overrides, gitignored)\n\n` +
-          `Create .agentsync/config.json with:\n` +
-          `  {"version": "1.0", "tools": ["cursor", "claude"], "mcpServers": []}\n\n` +
-          `Or run 'agentsync init' to set up the project.`,
-      );
-    }
+    return loadConfigFile(configPath);
   }
 
+  // Auto-detect: load both project and local configs, merge with Option A strategy
+  const paths = await getMCPConfigPaths();
+
+  if (!(paths.project || paths.local)) {
+    throw new Error(
+      `MCP configuration not found.\n\n` +
+        `Expected one of:\n` +
+        `  - .agentsync/config.json (team config, committed)\n` +
+        `  - agentsync.local.json (personal overrides, gitignored)\n\n` +
+        `Create .agentsync/config.json with:\n` +
+        `  {"version": "1.0", "tools": ["cursor", "claude"], "mcpServers": []}\n\n` +
+        `Or run 'agentsync init' to set up the project.`,
+    );
+  }
+
+  // Load project config (if exists)
+  let projectConfig: ProjectMCPConfig | null = null;
+  if (paths.project) {
+    projectConfig = await loadConfigFile(paths.project);
+  }
+
+  // Load local config (if exists) - allow missing mcpServers in local config
+  let localConfig: ProjectMCPConfig | null = null;
+  if (paths.local) {
+    localConfig = await loadConfigFileOptional(paths.local);
+  }
+
+  // Merge: Option A - Local replaces project's mcpServers entirely
+  if (localConfig?.mcpServers) {
+    // Local config has mcpServers: use it, ignore project
+    return {
+      tools: localConfig.tools || projectConfig?.tools,
+      mcpServers: localConfig.mcpServers,
+    };
+  }
+
+  // No local config or local config has no mcpServers: use project
+  if (projectConfig) {
+    return projectConfig;
+  }
+
+  // Should never reach here due to early check above
+  throw new Error("MCP configuration not found");
+}
+
+/**
+ * Load and validate a single config file
+ * @param filepath - Path to config file
+ * @returns Parsed configuration
+ * @throws Error if file is invalid
+ */
+async function loadConfigFile(filepath: string): Promise<ProjectMCPConfig> {
   // Read and parse JSON
   let config: unknown;
   try {
@@ -123,6 +157,55 @@ export async function loadProjectConfig(
   }
 
   return config as ProjectMCPConfig;
+}
+
+/**
+ * Load and validate a single config file (optional mcpServers)
+ * Used for local config files where mcpServers is optional
+ * @param filepath - Path to config file
+ * @returns Parsed configuration with optional mcpServers, or null if parsing fails
+ */
+async function loadConfigFileOptional(
+  filepath: string,
+): Promise<ProjectMCPConfig | null> {
+  // Read and parse JSON
+  let config: unknown;
+  try {
+    const content = await readFile(filepath, "utf-8");
+    config = JSON.parse(content);
+  } catch (_error) {
+    // Ignore parse errors for optional files
+    return null;
+  }
+
+  // Validate structure
+  if (typeof config !== "object" || config === null) {
+    return null;
+  }
+
+  const configObj = config as Record<string, unknown>;
+
+  // mcpServers is optional for local config
+  // If it exists, validate it
+  if (configObj.mcpServers) {
+    if (
+      !Array.isArray(configObj.mcpServers) &&
+      (typeof configObj.mcpServers !== "object" ||
+        configObj.mcpServers === null)
+    ) {
+      // Invalid type, but don't throw - just ignore
+      return null;
+    }
+  }
+
+  // Return partial config (mcpServers may be undefined)
+  return {
+    tools: configObj.tools as string[] | undefined,
+    mcpServers: configObj.mcpServers as
+      | string[]
+      | Record<string, boolean | Partial<MCP>>
+      | undefined,
+  } as ProjectMCPConfig;
 }
 
 /**
