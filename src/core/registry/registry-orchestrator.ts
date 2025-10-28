@@ -23,7 +23,7 @@ export class RegistryOrchestrator {
   async loadAndMerge(
     cwd: string,
     options?: {
-      update?: boolean;
+      pull?: boolean;
     },
   ): Promise<MergedPresets> {
     // 1. Load config
@@ -47,7 +47,7 @@ export class RegistryOrchestrator {
     const resolvedPaths = await Promise.all(
       extendsEntries.map((entry) => {
         const source = typeof entry === "string" ? entry : entry.source;
-        return this.githubResolver.resolve(source, { update: options?.update });
+        return this.githubResolver.resolve(source, { pull: options?.pull });
       }),
     );
 
@@ -82,7 +82,7 @@ export class RegistryOrchestrator {
     cwd: string,
     selections: Record<string, SelectionConfig>,
     options?: {
-      update?: boolean;
+      pull?: boolean;
     },
   ): Promise<MergedPresets> {
     // 1. Load config
@@ -106,7 +106,7 @@ export class RegistryOrchestrator {
     const resolvedPaths = await Promise.all(
       extendsEntries.map((entry) => {
         const source = typeof entry === "string" ? entry : entry.source;
-        return this.githubResolver.resolve(source, { update: options?.update });
+        return this.githubResolver.resolve(source, { pull: options?.pull });
       }),
     );
 
@@ -152,7 +152,7 @@ export class RegistryOrchestrator {
     cwd: string,
     selections: Record<string, SelectionConfig>,
     options?: {
-      update?: boolean;
+      pull?: boolean;
     },
   ): Promise<{ valid: boolean; errors: string[] }> {
     // 1. Load config
@@ -171,7 +171,7 @@ export class RegistryOrchestrator {
     const resolvedPaths = await Promise.all(
       extendsEntries.map((entry) => {
         const source = typeof entry === "string" ? entry : entry.source;
-        return this.githubResolver.resolve(source, { update: options?.update });
+        return this.githubResolver.resolve(source, { pull: options?.pull });
       }),
     );
 

@@ -5,6 +5,7 @@
 
 import { readFile } from "node:fs/promises";
 import * as path from "node:path";
+import fg from "fast-glob";
 import ora from "ora";
 import picocolors from "picocolors";
 import AuditLogger, { AuditEventType } from "../core/audit.js";
@@ -25,13 +26,59 @@ import { validateConfig } from "../types/schemas.js";
 const pc = picocolors;
 
 /**
+ * Load project-specific rules from .agentsync/rules/
+ */
+async function loadProjectRules(cwd: string): Promise<Map<string, string>> {
+  const rulesDir = path.join(cwd, ".agentsync", "rules");
+
+  const { pathExists } = await import("../utils/fs.js");
+  if (!(await pathExists(rulesDir))) {
+    return new Map();
+  }
+
+  const files = await fg("**/*.md", { cwd: rulesDir, absolute: false });
+  const rules = new Map<string, string>();
+
+  for (const file of files) {
+    const filePath = path.join(rulesDir, file);
+    const content = await readFile(filePath, "utf-8");
+    rules.set(file, content);
+  }
+
+  return rules;
+}
+
+/**
+ * Load project-specific commands from .agentsync/commands/
+ */
+async function loadProjectCommands(cwd: string): Promise<Map<string, string>> {
+  const commandsDir = path.join(cwd, ".agentsync", "commands");
+
+  const { pathExists } = await import("../utils/fs.js");
+  if (!(await pathExists(commandsDir))) {
+    return new Map();
+  }
+
+  const files = await fg("**/*.md", { cwd: commandsDir, absolute: false });
+  const commands = new Map<string, string>();
+
+  for (const file of files) {
+    const filePath = path.join(commandsDir, file);
+    const content = await readFile(filePath, "utf-8");
+    commands.set(file, content);
+  }
+
+  return commands;
+}
+
+/**
  * Main sync command options (v0.3.0-beta)
  */
 export interface MainSyncOptions {
   /** Working directory (defaults to process.cwd()) */
   cwd?: string;
-  /** Update GitHub caches (re-clone repositories) */
-  update?: boolean;
+  /** Pull latest presets from sources (re-clone repositories) */
+  pull?: boolean;
   /** Dry run mode (preview without writing files) */
   dryRun?: boolean;
   /** Sync only to specific tool */
@@ -91,6 +138,19 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
     // Early security checks on AGENTS.md (non-intrusive; may block on high severity per config)
     await runSecurityChecks(cwd, config, process.env as Record<string, string>);
 
+    // Check for AGENTS.md (optional supplement)
+    const { pathExists } = await import("../utils/fs.js");
+    const agentsMdPath = path.join(cwd, "AGENTS.md");
+    if (!(await pathExists(agentsMdPath))) {
+      console.log(
+        pc.yellow("\n⚠ AGENTS.md not found.\n") +
+          pc.gray("  Create with: ") +
+          pc.cyan("agentsync init") +
+          "\n" +
+          pc.gray("  (Rules/commands/MCPs will still sync)\n"),
+      );
+    }
+
     // Determine which tools to sync to
     const targetTools: ToolName[] = options.tool
       ? [options.tool as ToolName]
@@ -105,6 +165,28 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
           "",
           `Valid tools: ${validTools.join(", ")}`,
         );
+      }
+    }
+
+    // Auto-update .gitignore if it has AgentSync section
+    const gitignorePath = path.join(cwd, ".gitignore");
+    if (await pathExists(gitignorePath)) {
+      try {
+        const gitignoreContent = await readFile(gitignorePath, "utf-8");
+        const { hasAgentSyncSection, updateAgentSyncSection } = await import(
+          "../utils/gitignore.js"
+        );
+
+        if (hasAgentSyncSection(gitignoreContent)) {
+          const updated = updateAgentSyncSection(gitignoreContent, targetTools);
+          if (updated !== gitignoreContent) {
+            const { outputFile } = await import("../utils/fs.js");
+            await outputFile(gitignorePath, updated);
+            console.log(pc.gray("  ℹ Updated .gitignore for current tools\n"));
+          }
+        }
+      } catch {
+        // Ignore errors in .gitignore update
       }
     }
 
@@ -152,7 +234,7 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
           cwd,
           {},
           {
-            update: options.update,
+            pull: options.pull,
           },
         );
 
@@ -169,7 +251,7 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
       } else {
         // Use regular loading for backward compatibility
         merged = await orchestrator.loadAndMerge(cwd, {
-          update: options.update,
+          pull: options.pull,
         });
 
         if (presetSpinner) {
@@ -192,39 +274,64 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
       console.log();
     }
 
+    // 2.5. Load and merge project custom rules/commands
+    const projectRules = await loadProjectRules(cwd);
+    const projectCommands = await loadProjectCommands(cwd);
+
+    // Merge: project custom overrides presets
+    const finalRules = new Map([...merged.rules, ...projectRules]);
+    const finalCommands = new Map([...merged.commands, ...projectCommands]);
+
+    // Update display
+    if (finalRules.size > 0 || finalCommands.size > 0) {
+      console.log(
+        pc.gray(`  Rules: ${finalRules.size}`) +
+          (projectRules.size > 0
+            ? pc.cyan(` (${projectRules.size} custom)`)
+            : ""),
+      );
+      console.log(
+        pc.gray(`  Commands: ${finalCommands.size}`) +
+          (projectCommands.size > 0
+            ? pc.cyan(` (${projectCommands.size} custom)`)
+            : ""),
+      );
+      console.log();
+    }
+
     // 3-5. Sync via unified per-tool converters
     const converters = getConvertersForTools(targetTools);
 
     // Rules
-    if (!options.dryRun && converters.length > 0 && merged.rules.size > 0) {
+    if (!options.dryRun && converters.length > 0 && finalRules.size > 0) {
       const rulesSpinner = ora("Syncing rules...").start();
       try {
         for (const conv of converters) {
-          await conv.syncRules(merged.rules, cwd);
+          await conv.syncRules(finalRules, cwd);
         }
-        rulesSpinner.succeed(`Synced ${merged.rules.size} rules`);
+        rulesSpinner.succeed(`Synced ${finalRules.size} rules`);
       } catch (error) {
         rulesSpinner.fail("Failed to sync rules");
         throw error;
       }
-    } else if (options.dryRun && merged.rules.size > 0) {
-      console.log(pc.gray(`Would sync ${merged.rules.size} rules`));
+    } else if (options.dryRun && finalRules.size > 0) {
+      console.log(pc.gray(`Would sync ${finalRules.size} rules`));
     }
 
     // Commands
-    if (!options.dryRun && converters.length > 0 && merged.commands.size > 0) {
+    if (!options.dryRun && converters.length > 0 && finalCommands.size > 0) {
       const commandsSpinner = ora("Syncing commands...").start();
       try {
         for (const conv of converters) {
-          await conv.syncCommands(merged.commands, cwd);
+          await conv.syncCommands(finalCommands, cwd);
         }
-        commandsSpinner.succeed(`Synced ${merged.commands.size} commands`);
+        commandsSpinner.succeed(`Synced ${finalCommands.size} commands`);
       } catch (error) {
         commandsSpinner.fail("Failed to sync commands");
         throw error;
       }
-    } else if (options.dryRun && merged.commands.size > 0) {
-      console.log(pc.gray(`Would sync ${merged.commands.size} commands`));
+    } else if (options.dryRun && finalCommands.size > 0) {
+      console.log(pc.gray(`Would sync ${finalCommands.size} commands`));
     }
 
     // AGENTS.md symlinks (minimal intervention)
@@ -317,8 +424,8 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
       message: "Sync workflow completed successfully",
       metadata: {
         ...options,
-        rulesCount: merged.rules.size,
-        commandsCount: merged.commands.size,
+        rulesCount: finalRules.size,
+        commandsCount: finalCommands.size,
         tools: targetTools,
       },
     });
