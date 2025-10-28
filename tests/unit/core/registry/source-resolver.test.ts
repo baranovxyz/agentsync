@@ -60,7 +60,7 @@ describe("SourceResolver", () => {
     it("resolves GitHub sources with update option", async () => {
       const source = "github:company/standards";
       const expectedPath = "/cache/github-company-standards";
-      const options = { update: true };
+      const options = { pull: true };
 
       mockGitHubResolver.resolve.mockResolvedValue(expectedPath);
 

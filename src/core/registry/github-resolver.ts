@@ -21,19 +21,19 @@ export class GitHubResolver {
   async resolve(
     sourceString: string,
     options?: {
-      update?: boolean; // Force update if already cached
+      pull?: boolean; // Force pull if already cached
     },
   ): Promise<string> {
     const source = this.parser.parse(sourceString);
     const cachePath = this.cache.getCachePath(source);
     const isCached = await this.cache.isCached(source);
 
-    if (isCached && !options?.update) {
+    if (isCached && !options?.pull) {
       // Already cached, return path
       return cachePath;
     }
 
-    if (isCached && options?.update) {
+    if (isCached && options?.pull) {
       // Update existing clone
       return await this.update(source, cachePath);
     }

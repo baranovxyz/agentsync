@@ -13,6 +13,7 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Command } from "commander";
 import esMain from "es-main";
+import { updateGitignore } from "./commands/gitignore.js";
 import { init } from "./commands/init.js";
 import { addMCP as addMcp } from "./commands/mcp/add.js";
 import { listMCP as listMcp } from "./commands/mcp/list.js";
@@ -72,14 +73,22 @@ export function createProgram(options?: { exitOverride?: boolean }): Command {
     .command("sync")
     .description("Sync AGENTS.md to your tools")
     .option("-d, --dry-run", "Preview changes without writing files")
-    .option("-u, --update", "Update GitHub caches (re-clone repositories)")
+    .option("-p, --pull", "Pull latest presets from sources")
     .option("-t, --tool <tool>", "Sync only to a specific tool")
     .action(async (options) => {
       await sync({
         dryRun: options.dryRun,
-        update: options.update,
+        pull: options.pull,
         tool: options.tool,
       });
+    });
+
+  // Gitignore command
+  program
+    .command("gitignore")
+    .description("Update .gitignore based on current config")
+    .action(async () => {
+      await updateGitignore();
     });
 
   // MCP commands
