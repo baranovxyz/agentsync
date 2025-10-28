@@ -9,10 +9,10 @@ import type { MCP } from "../mcp/tokens.js";
  * Merged result from all presets
  */
 export interface MergedPresets {
-  /** Namespaced commands: Map<"team:commit.md", content> */
+  /** Namespaced commands: Map<"team_commit.md", content> */
   commands: Map<string, string>;
 
-  /** Namespaced rules: Map<"team:typescript.md", content> */
+  /** Namespaced rules: Map<"team_typescript.md", content> */
   rules: Map<string, string>;
 
   /** Merged MCP servers */
@@ -34,13 +34,13 @@ export class Merger {
     for (const preset of presets) {
       // Merge commands
       for (const [filename, content] of preset.commands) {
-        const namespacedKey = `${preset.namespace}:${filename}`;
+        const namespacedKey = `${preset.namespace}_${filename}`;
         result.commands.set(namespacedKey, content);
       }
 
       // Merge rules
       for (const [filename, content] of preset.rules) {
-        const namespacedKey = `${preset.namespace}:${filename}`;
+        const namespacedKey = `${preset.namespace}_${filename}`;
         result.rules.set(namespacedKey, content);
       }
 

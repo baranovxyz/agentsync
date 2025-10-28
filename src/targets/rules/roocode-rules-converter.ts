@@ -10,6 +10,13 @@ import {
 
 export class RooCodeRulesConverter extends RuleConverterBase {
   /**
+   * RooCode supports nested directories (recursive reading, max depth 5)
+   */
+  supportsNestedDirs(): boolean {
+    return true;
+  }
+
+  /**
    * RooCode supports plain markdown
    */
   convert(namespacedFilename: string, content: string): RuleConversionResult {
@@ -17,7 +24,7 @@ export class RooCodeRulesConverter extends RuleConverterBase {
       this.parseNamespacedFilename(namespacedFilename);
 
     // RooCode keeps .md extension
-    const outputFilename = `${namespace}:${filename}`;
+    const outputFilename = this.formatOutputPath(namespace, filename);
 
     // RooCode uses markdown as-is
     return {

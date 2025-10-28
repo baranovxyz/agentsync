@@ -167,7 +167,10 @@ describe("ExtendsEntry type", () => {
       const config = {
         version: "1.0",
         extends: [
-          "github:company/base-standards",
+          {
+            source: "github:company/base-standards",
+            namespace: "company",
+          },
           {
             source: "github:team/backend",
             namespace: "backend-team",
@@ -180,7 +183,10 @@ describe("ExtendsEntry type", () => {
       const result = validateConfig(config);
 
       expect(result.extends).toHaveLength(2);
-      expect(result.extends?.[0]).toBe("github:company/base-standards");
+      expect(result.extends?.[0]).toEqual({
+        source: "github:company/base-standards",
+        namespace: "company",
+      });
       expect(result.extends?.[1]).toEqual({
         source: "github:team/backend",
         namespace: "backend-team",
@@ -194,6 +200,7 @@ describe("ExtendsEntry type", () => {
         extends: [
           {
             source: "github:company/standards",
+            namespace: "company",
             include: ["**/*.ts"],
           },
         ],
@@ -205,6 +212,7 @@ describe("ExtendsEntry type", () => {
       expect(result.extends).toHaveLength(1);
       expect(result.extends?.[0]).toEqual({
         source: "github:company/standards",
+        namespace: "company",
         include: ["**/*.ts"],
       });
     });
@@ -215,6 +223,7 @@ describe("ExtendsEntry type", () => {
         extends: [
           {
             source: "github:company/standards",
+            namespace: "company",
             exclude: ["**/*.test.ts"],
           },
         ],
@@ -226,6 +235,7 @@ describe("ExtendsEntry type", () => {
       expect(result.extends).toHaveLength(1);
       expect(result.extends?.[0]).toEqual({
         source: "github:company/standards",
+        namespace: "company",
         exclude: ["**/*.test.ts"],
       });
     });
@@ -421,7 +431,10 @@ describe("ExtendsEntry type", () => {
       const config = {
         version: "1.0",
         extends: [
-          "github:company/standards",
+          {
+            source: "github:company/standards",
+            namespace: "company",
+          },
           {
             source: "github:team/backend",
             namespace: "backend-team",
@@ -434,7 +447,10 @@ describe("ExtendsEntry type", () => {
 
       expect(result.version).toBe("1.0");
       expect(result.extends).toHaveLength(2);
-      expect(result.extends?.[0]).toBe("github:company/standards");
+      expect(result.extends?.[0]).toEqual({
+        source: "github:company/standards",
+        namespace: "company",
+      });
       expect(result.extends?.[1]).toEqual({
         source: "github:team/backend",
         namespace: "backend-team",
@@ -451,23 +467,12 @@ describe("ExtendsEntry type", () => {
       expect(result.extends).toBeUndefined();
     });
 
-    it("validates local config with string extends only", () => {
-      const config = {
-        extends: ["github:company/standards", "github:team/backend"],
-      };
-
-      const result = validateLocalConfig(config);
-
-      expect(result.extends).toHaveLength(2);
-      expect(result.extends?.[0]).toBe("github:company/standards");
-      expect(result.extends?.[1]).toBe("github:team/backend");
-    });
-
     it("validates local config with object extends only", () => {
       const config = {
         extends: [
           {
             source: "github:company/standards",
+            namespace: "company",
             include: ["**/*.ts"],
           },
           {
@@ -483,6 +488,7 @@ describe("ExtendsEntry type", () => {
       expect(result.extends).toHaveLength(2);
       expect(result.extends?.[0]).toEqual({
         source: "github:company/standards",
+        namespace: "company",
         include: ["**/*.ts"],
       });
       expect(result.extends?.[1]).toEqual({

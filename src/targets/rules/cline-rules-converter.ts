@@ -10,6 +10,13 @@ import {
 
 export class ClineRulesConverter extends RuleConverterBase {
   /**
+   * Cline does NOT support nested directories (flat structure only)
+   */
+  supportsNestedDirs(): boolean {
+    return false;
+  }
+
+  /**
    * Cline supports plain markdown
    */
   convert(namespacedFilename: string, content: string): RuleConversionResult {
@@ -17,7 +24,7 @@ export class ClineRulesConverter extends RuleConverterBase {
       this.parseNamespacedFilename(namespacedFilename);
 
     // Cline keeps .md extension
-    const outputFilename = `${namespace}:${filename}`;
+    const outputFilename = this.formatOutputPath(namespace, filename);
 
     // Cline uses markdown as-is
     return {
