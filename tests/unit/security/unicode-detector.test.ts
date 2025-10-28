@@ -9,7 +9,7 @@
  * Reference: Test Architecture Plan Section 9 (Security Test Suite)
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { UnicodeDetector } from "../../../src/security/unicode-detector.js";
 
 describe("UnicodeDetector", () => {
@@ -212,7 +212,7 @@ describe("UnicodeDetector", () => {
     });
 
     it("handles very long text", () => {
-      let text = "a".repeat(10000);
+      const text = "a".repeat(10000);
       const result = detector.detect(text);
       expect(result.hasProblems).toBe(false);
     });

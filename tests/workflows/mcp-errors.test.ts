@@ -7,8 +7,8 @@
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { runCli, assertSuccess } from "../utils/workflow-harness.js";
 import * as fs from "../../src/utils/fs.js";
+import { assertSuccess, runCli } from "../utils/workflow-harness.js";
 
 describe("MCP Error Scenarios (Workflow)", () => {
   let projectDir: string;
@@ -38,8 +38,8 @@ describe("MCP Error Scenarios (Workflow)", () => {
   });
 
   afterEach(async () => {
-    delete process.env.GITHUB_TOKEN;
-    delete process.env.DATABASE_URL;
+    process.env.GITHUB_TOKEN = undefined;
+    process.env.DATABASE_URL = undefined;
     await fs.remove(projectDir);
     await fs.remove(homeDir);
   });
@@ -101,7 +101,7 @@ describe("MCP Error Scenarios (Workflow)", () => {
 
     // Verify sync worked
     const cursorMcp = await fs.readJson(
-      path.join(spacedDir, ".cursor", "mcp.json")
+      path.join(spacedDir, ".cursor", "mcp.json"),
     );
     expect(cursorMcp.mcpServers.github).toBeDefined();
   });
@@ -116,13 +116,13 @@ describe("MCP Error Scenarios (Workflow)", () => {
 
     // Verify config was created
     const configExists = await fs.pathExists(
-      path.join(projectDir, ".agentsync", "config.json")
+      path.join(projectDir, ".agentsync", "config.json"),
     );
     expect(configExists).toBe(true);
 
     // Verify it's empty
     const config = await fs.readJson(
-      path.join(projectDir, ".agentsync", "config.json")
+      path.join(projectDir, ".agentsync", "config.json"),
     );
     expect(config.mcpServers).toEqual([]);
   });

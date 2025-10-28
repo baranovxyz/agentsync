@@ -10,6 +10,13 @@ import {
 
 export class RooCodeCommandsConverter extends RuleConverterBase {
   /**
+   * RooCode supports nested directories (recursive reading, max depth 5)
+   */
+  supportsNestedDirs(): boolean {
+    return true;
+  }
+
+  /**
    * RooCode commands use markdown with frontmatter
    * Extracts description and argument hints from content
    */
@@ -17,8 +24,8 @@ export class RooCodeCommandsConverter extends RuleConverterBase {
     const { namespace, filename } =
       this.parseNamespacedFilename(namespacedFilename);
 
-    // Keep as markdown, namespace in filename
-    const outputFilename = `${namespace}:${filename}`;
+    // Keep as markdown, use nested directory format
+    const outputFilename = this.formatOutputPath(namespace, filename);
 
     // Extract description and argument hint from content
     const description = this.extractDescription(content);

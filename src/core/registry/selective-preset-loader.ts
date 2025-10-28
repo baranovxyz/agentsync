@@ -9,6 +9,7 @@ import {
   ErrorHandler,
   SelectiveLoadingError,
 } from "../errors.js";
+import type { MCP } from "../mcp/tokens.js";
 
 /**
  * Result of selective preset loading
@@ -16,7 +17,7 @@ import {
 export interface SelectivePresetResult {
   commands: Map<string, string>;
   rules: Map<string, string>;
-  mcps: Record<string, any>;
+  mcps: Record<string, MCP>;
 }
 
 /**
@@ -125,7 +126,7 @@ export class SelectivePresetLoader {
       if (!preset || typeof preset !== "object") {
         throw new SelectiveLoadingError(
           "Invalid preset data provided",
-          (preset as any)?.source,
+          undefined,
           "preset",
         );
       }
@@ -133,7 +134,7 @@ export class SelectivePresetLoader {
       if (!(preset.rules && preset.commands && preset.mcps)) {
         throw new SelectiveLoadingError(
           "Preset data is missing required properties",
-          (preset as any)?.source,
+          preset.source,
           "preset",
         );
       }
@@ -261,7 +262,7 @@ export class SelectivePresetLoader {
 
   /**
    * Merge multiple filtered preset results with namespace formatting
-   * This is used when we need to maintain the namespace:filename format
+   * This is used when we need to maintain the namespace_filename format
    */
   mergeFilteredPresetsWithNamespaces(
     results: SelectivePresetResult[],
@@ -281,13 +282,13 @@ export class SelectivePresetLoader {
 
       // Merge commands with namespace formatting
       for (const [filename, content] of result.commands.entries()) {
-        const namespacedKey = `${preset.namespace}:${filename}`;
+        const namespacedKey = `${preset.namespace}_${filename}`;
         merged.commands.set(namespacedKey, content);
       }
 
       // Merge rules with namespace formatting
       for (const [filename, content] of result.rules.entries()) {
-        const namespacedKey = `${preset.namespace}:${filename}`;
+        const namespacedKey = `${preset.namespace}_${filename}`;
         merged.rules.set(namespacedKey, content);
       }
 

@@ -1,9 +1,9 @@
 import type { ToolName } from "../../types/index.js";
-import type { ToolConverter } from "./types.js";
-import { CursorToolConverter } from "./cursor-converter.js";
 import { ClaudeToolConverter } from "./claude-converter.js";
 import { ClineToolConverter } from "./cline-converter.js";
+import { CursorToolConverter } from "./cursor-converter.js";
 import { RooCodeToolConverter } from "./roocode-converter.js";
+import type { ToolConverter } from "./types.js";
 
 const ALL_CONVERTERS: Record<ToolName, ToolConverter> = {
   cursor: new CursorToolConverter(),

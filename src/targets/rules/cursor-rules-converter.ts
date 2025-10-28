@@ -10,6 +10,13 @@ import {
 
 export class CursorRulesConverter extends RuleConverterBase {
   /**
+   * Cursor supports nested directories
+   */
+  supportsNestedDirs(): boolean {
+    return true;
+  }
+
+  /**
    * Convert markdown to Cursor .mdc format
    */
   convert(namespacedFilename: string, content: string): RuleConversionResult {
@@ -18,7 +25,10 @@ export class CursorRulesConverter extends RuleConverterBase {
 
     // Cursor uses .mdc extension
     const baseFilename = filename.replace(/\.md$/, "");
-    const outputFilename = `${namespace}:${baseFilename}.mdc`;
+    const outputFilename = this.formatOutputPath(
+      namespace,
+      `${baseFilename}.mdc`,
+    );
 
     // Cursor .mdc is essentially markdown with frontmatter
     // Keep content as-is (Cursor handles frontmatter)

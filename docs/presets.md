@@ -1,114 +1,92 @@
-# GitHub Preset System (v0.2.0-beta)
+# GitHub Preset System
 
-Presets let teams share rules, commands, and MCPs via GitHub repositories. Caches live in `~/.agentsync/cache/`. Files are merged using namespace prefixes to avoid collisions.
+How to use presets. For architectural overview, see REQUIREMENTS.md#preset-system.
 
-## Core Components
+Presets let teams share rules, commands, and MCPs via GitHub repositories. Files are merged using namespace prefixes; caches live in `~/.agentsync/cache/`.
 
-```
-src/core/registry/
-├── github-source.ts          # Parse github:org/repo[@ref] format
-├── cache-manager.ts          # Manage cloned repos in ~/.agentsync/cache/
-├── github-resolver.ts        # Clone repos (SSH/HTTPS fallback)
-├── preset-loader.ts          # Load rules/commands/MCPs from repos
-├── merger.ts                 # Namespace-based merging
-└── registry-orchestrator.ts  # End-to-end workflow orchestration
-```
-
-## Config Format
+## Configuration
 
 ```json
 {
   "version": "1.0",
   "extends": [
-    "github:company/standards",
+    {
+      "source": "github:company/standards",
+      "namespace": "company"
+    },
     {
       "source": "github:team/backend-rules",
       "namespace": "backend",
       "include": ["rules/*.md", "commands/*.md"],
-      "exclude": ["rules/deprecated/**", "commands/old-*.md"]
+      "exclude": ["rules/deprecated/**"]
     }
   ],
   "mcpServers": ["github", "postgres"],
-  "tools": ["cursor", "claude"],
-  "useSymlinks": true
+  "tools": ["cursor", "claude"]
 }
 ```
 
-### File Filtering (include/exclude)
+### File Filtering
 
-- include?: string[] — globs relative to the preset root for files under `rules/` and `commands/`
-- exclude?: string[] — globs to subtract from the included set
-
-Notes:
-
-- Filtering applies to rules and commands only.
-- MCP enablement is controlled separately via the top-level `mcpServers` field.
-
-Glob examples:
-
-- `rules/*.md` — all markdown files in rules directory
-- `commands/deploy-*.md` — deploy-related command files
-- `rules/frontend/**` — all files in frontend subdirectory
+- `include` - globs relative to preset root (rules/commands only)
+- `exclude` - globs to subtract from included set
+- MCP enablement controlled via top-level `mcpServers` field
 
 ## Preset Repository Structure
 
 ```
 github:company/standards/
-├── .agentsync/
-│   └── preset.json          # Optional metadata
+├── .agentsync/preset.json    # Optional metadata
 ├── commands/
-│   ├── commit.md            # Generate commit messages
-│   ├── review.md            # Code review checklist
-│   └── test.md              # Run tests
+│   ├── commit.md
+│   ├── review.md
+│   └── test.md
 ├── rules/
-│   ├── typescript.md        # TypeScript rules
-│   ├── testing.md           # Testing guidelines
-│   └── security.md          # Security patterns
-├── mcp.json                 # Recommended MCPs for this preset
+│   ├── typescript.md
+│   ├── testing.md
+│   └── security.md
+├── mcp.json                  # Recommended MCPs
 └── README.md
 ```
 
 ## Namespace-Based Merging
 
-```
-company:commit.md     → .cursor/commands/company:commit.md
-team:commit.md        → .cursor/commands/team:commit.md
-company:typescript.md → .cursor/rules/company:typescript.mdc
-```
+Rules and commands use namespace formatting based on tool capabilities.
 
-MCPs are merged without namespaces (last-wins):
-
-- Presets may define MCP servers in `mcp.json`; definitions merge last-wins per server name
-- Enablement is controlled solely via `mcpServers` (project or local)
-
-## Key Design Decisions
-
-1. @main only initially; version tags planned for a future version
-2. Git provider scope: GitHub-only now (`github:org/repo`)
-3. Namespace required (extracted from org by default)
-4. Cache reuse in `~/.agentsync/cache/`
-5. SSH/HTTPS fallback
-
-## Usage Examples
-
-### Example 1: Company-Wide Standards Preset
-
-```json
-// .agentsync/config.json
-{
-  "version": "1.0",
-  "extends": ["github:acme/coding-standards"],
-  "tools": ["cursor", "claude"]
-}
-```
+**Internal format** (used in AgentSync registry):
 
 ```
-$ agentsync sync
-# Rules → .cursor/rules/acme:typescript.mdc
-# Commands → .cursor/commands/acme:commit.md
+company_commit.md     (commands)
+company_typescript.md (rules)
 ```
 
-### Example 2: Multiple Presets with Filtering
+**Tool output format** varies by tool:
+
+**Nested directory tools** (Cursor, Claude Code, RooCode):
+
+```
+company_commit.md     → .cursor/commands/company/commit.md
+team_commit.md        → .cursor/commands/team/commit.md
+company_typescript.md → .cursor/rules/company/typescript.mdc
+```
+
+**Flat structure tools** (Cline):
+
+```
+company_typescript.md → .clinerules/company_typescript.md
+team_security.md      → .clinerules/team_security.md
+```
+
+MCPs merge without namespaces (last-wins per server name). Enablement controlled via `mcpServers`.
+
+## Namespace Requirements
+
+- Namespace must be unique across all presets
+- Namespace must be a valid identifier (alphanumeric, hyphens, underscores)
+- Namespace must not be reserved (e.g., `github`, `postgres`, `cursor`, `claude`)
+- Namespace must be consistent across all files within a preset
+
+## Example
 
 ```json
 {
@@ -119,9 +97,10 @@ $ agentsync sync
       "source": "github:acme/backend-team",
       "namespace": "backend",
       "include": ["rules/*.md", "commands/*.md"],
-      "exclude": ["rules/deprecated/**", "commands/old-*.md"]
+      "exclude": ["rules/deprecated/**"]
     }
   ],
+  "mcpServers": ["github", "postgres"],
   "tools": ["cursor", "claude"]
 }
 ```
@@ -130,48 +109,29 @@ Result:
 
 ```
 .cursor/rules/
-├── acme:typescript.mdc
-├── acme:testing.mdc
-└── backend:api-design.mdc
+├── acme:typescript.md
+├── acme:testing.md
+└── backend:api-design.md
 
 .cursor/commands/
 ├── acme:commit.md
 └── backend:deploy.md
 ```
 
-### Example 3: Preview Changes Before Applying
+## Commands
 
-```bash
-agentsync sync --dry-run
-```
+See [CLI documentation](cli.md) for detailed usage:
 
-### Example 4: Update Preset Caches
+- `agentsync sync` - Sync presets to tools (uses cache)
+- `agentsync sync --pull` - Pull latest presets from sources
+- `agentsync sync --dry-run` - Preview changes
+- `agentsync preset list` - Show configured presets
+- `agentsync preset cache-clear` - Clear caches
 
-```bash
-agentsync sync --update
-```
+## Implementation Notes
 
-### Example 5: Sync Only to Specific Tool
-
-```bash
-agentsync sync --tool cursor
-```
-
-### Example 6: View Configured Presets
-
-```bash
-agentsync preset list
-```
-
-### Example 7: Clear Preset Caches
-
-```bash
-agentsync preset cache-clear
-agentsync preset cache-clear --all
-```
-
-## Test Coverage (Presets Area)
-
-- 12 unit tests for sync command
-- 9 integration tests for sync workflow
-- 29 unit tests for registry system
+- GitHub-only in v0.2.0 (`github:org/repo`)
+- Namespace required (extracted from org by default)
+- Caches in `~/.agentsync/cache/`
+- SSH/HTTPS fallback
+- Version tags planned for future

@@ -1,7 +1,7 @@
 import type { AgentSyncConfig } from "../../types/schemas.js";
-import type { SecurityCheck } from "./types.js";
 import { AgentsMdSecretsCheck } from "./agents-md-secrets.js";
 import { AgentsMdUnicodeCheck } from "./agents-md-unicode.js";
+import type { SecurityCheck } from "./types.js";
 
 export function getEnabledChecks(config: AgentSyncConfig): SecurityCheck[] {
   const checks: SecurityCheck[] = [];

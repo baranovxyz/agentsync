@@ -230,14 +230,15 @@ export class SecurityScanner {
     // Reset regex state and use directly (patterns are already defined with 'g' flag)
     const regex = new RegExp(pattern.source, pattern.flags);
     regex.lastIndex = 0;
-    let match;
+    let match: RegExpExecArray | null = regex.exec(line);
 
-    while ((match = regex.exec(line)) !== null) {
+    while (match !== null) {
       matches.push({
         match: match[0],
         line: lineNum,
         column: match.index,
       });
+      match = regex.exec(line);
     }
 
     return matches;
@@ -266,17 +267,19 @@ export class SecurityScanner {
 
     // Match quoted strings
     const quotedRegex = /['"]([^'"]+)['"]/g;
-    let match;
-    while ((match = quotedRegex.exec(line)) !== null) {
+    let match: RegExpExecArray | null = quotedRegex.exec(line);
+    while (match !== null) {
       tokens.push(match[1]);
+      match = quotedRegex.exec(line);
     }
 
     // Match values after = or :
     const valueRegex = /[:=]\s*([a-zA-Z0-9\-_+/]{10,})/g;
-    while ((match = valueRegex.exec(line)) !== null) {
+    match = valueRegex.exec(line);
+    while (match !== null) {
       tokens.push(match[1]);
+      match = valueRegex.exec(line);
     }
-
     return tokens;
   }
 

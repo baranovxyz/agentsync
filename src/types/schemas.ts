@@ -50,26 +50,6 @@ export const FileMappingSchema = z.object({
   purpose: z.string().optional(),
 });
 
-// Preset selection schema (for selective preset loading)
-export const PresetSelectionSchema = z.object({
-  rules: z
-    .object({
-      include: z.array(z.string()).optional(),
-      exclude: z.array(z.string()).optional(),
-    })
-    .optional(),
-  commands: z
-    .object({
-      include: z.array(z.string()).optional(),
-      exclude: z.array(z.string()).optional(),
-    })
-    .optional(),
-  mcps: z.array(z.string()).optional(),
-});
-
-// Selection configuration schema (alias for backward compatibility)
-export const SelectionConfigSchema = PresetSelectionSchema;
-
 // Main AGENTS.md schema
 export const AgentsMdSchema = z.object({
   projectOverview: z.string().min(1),
@@ -96,26 +76,21 @@ export const AgentsMdSchema = z.object({
 });
 
 // Extends schema for config
-export const ExtendsSchema = z.union([
-  z.string(), // Simple: "github:company/standards"
-  z.object({
-    source: z.string(),
-    namespace: z.string().optional(), // Override default namespace
-    include: z.array(z.string()).optional(), // File patterns to include
-    exclude: z.array(z.string()).optional(), // File patterns to exclude
-  }),
-]);
+export const ExtendsSchema = z.object({
+  source: z.string(),
+  namespace: z.string(),
+  include: z.array(z.string()).optional(),
+  exclude: z.array(z.string()).optional(),
+});
 
-// Local configuration schema for .agentsync/config.json (project-level)
-export const LocalConfigSchema = z.object({
+// Configuration schema for .agentsync/config.json and agentsync.local.json
+// Both configs use the same schema; local values override project values
+export const AgentSyncConfigSchema = z.object({
   version: z.string().default("1.0"),
 
   // GitHub registry sources (v0.3.0-beta)
   extends: z.array(ExtendsSchema).optional(),
-});
 
-// Configuration schema for .agentsync/config.json
-export const AgentSyncConfigSchema = LocalConfigSchema.extend({
   // MCP servers (moved to main config in v0.3.0-beta)
   mcpServers: z
     .union([
@@ -134,7 +109,7 @@ export const AgentSyncConfigSchema = LocalConfigSchema.extend({
     ])
     .optional(),
 
-  tools: z.array(z.enum(["cursor", "claude", "cline", "roocode"])),
+  tools: z.array(z.enum(["cursor", "claude", "cline", "roocode"])).optional(),
   useSymlinks: z.boolean().default(true),
   security: z
     .object({
@@ -174,14 +149,10 @@ export const AgentSyncConfigSchema = LocalConfigSchema.extend({
         .optional(),
     })
     .optional(),
-  watch: z
-    .object({
-      enabled: z.boolean().default(true),
-      debounceMs: z.number().default(500),
-      ignorePatterns: z.array(z.string()).optional(),
-    })
-    .optional(),
 });
+
+// Alias for backward compatibility: both configs use same schema
+export const LocalConfigSchema = AgentSyncConfigSchema;
 
 // Translator result schema
 export const TranslateResultSchema = z.object({
@@ -223,21 +194,6 @@ export const SyncResultSchema = z.object({
   ),
   duration: z.number(),
   timestamp: z.string(),
-});
-
-// Workspace schema for monorepo support
-export const WorkspaceSchema = z.object({
-  type: z.enum(["nx", "turborepo", "pnpm", "npm", "yarn", "single"]),
-  root: z.string(),
-  packages: z.array(
-    z.object({
-      name: z.string(),
-      path: z.string(),
-      agentsMdPath: z.string().optional(),
-      version: z.string().optional(),
-      dependencies: z.array(z.string()).optional(),
-    }),
-  ),
 });
 
 // Diff result schema
@@ -297,18 +253,28 @@ export type GitRule = z.infer<typeof GitRuleSchema>;
 export type McpServer = z.infer<typeof McpServerSchema>;
 export type FileMapping = z.infer<typeof FileMappingSchema>;
 export type Extends = z.infer<typeof ExtendsSchema>;
-export type ExtendsEntry = z.infer<typeof ExtendsSchema> extends (infer U)[]
-  ? U
-  : z.infer<typeof ExtendsSchema>;
-export type PresetSelection = z.infer<typeof PresetSelectionSchema>;
+export type ExtendsEntry = z.infer<typeof ExtendsSchema>;
 export type AgentSyncConfig = z.infer<typeof AgentSyncConfigSchema>;
 export type LocalConfig = z.infer<typeof LocalConfigSchema>;
-export type SelectionConfig = z.infer<typeof SelectionConfigSchema>;
 export type TranslateResult = z.infer<typeof TranslateResultSchema>;
 export type SyncResult = z.infer<typeof SyncResultSchema>;
-export type Workspace = z.infer<typeof WorkspaceSchema>;
 export type DiffResult = z.infer<typeof DiffResultSchema>;
 export type ValidationResult = z.infer<typeof ValidationResultSchema>;
+
+/**
+ * Selection configuration for filtering preset content
+ */
+export interface SelectionConfig {
+  rules?: {
+    include?: string[];
+    exclude?: string[];
+  };
+  commands?: {
+    include?: string[];
+    exclude?: string[];
+  };
+  mcps?: string[];
+}
 
 /**
  * Validate AGENTS.md content against schema
@@ -323,10 +289,36 @@ export function validateAgentsMd(data: unknown): AgentsMd {
 export function validateLocalConfig(data: unknown): LocalConfig {
   return LocalConfigSchema.parse(data);
 }
+
+/**
+ * Validate namespace against reserved words and format constraints
+ * @throws Error if namespace is invalid
+ */
+export function validateNamespace(namespace: string): void {
+  const reserved = ["custom", "local", "project", "user", "core", "default"];
+
+  if (reserved.includes(namespace.toLowerCase())) {
+    throw new Error(
+      `Namespace "${namespace}" is reserved. Choose a different namespace (e.g., "company", "team", "org").`,
+    );
+  }
+
+  if (!/^[a-zA-Z0-9_-]+$/.test(namespace)) {
+    throw new Error(
+      `Namespace "${namespace}" contains invalid characters. Use only alphanumeric characters, hyphens, and underscores.`,
+    );
+  }
+
+  if (namespace.length > 50) {
+    throw new Error(
+      `Namespace "${namespace}" exceeds maximum length of 50 characters.`,
+    );
+  }
+}
+
 /**
  * Normalize extends entries to a consistent format
- * Converts string entries to objects and extracts namespace from source
- * Detects and rejects deprecated 'select' field
+ * Requires explicit namespace for all presets to prevent naming conflicts
  */
 export function normalizeExtends(
   extends_: (string | Record<string, unknown>)[] | undefined,
@@ -342,17 +334,11 @@ export function normalizeExtends(
 
   return extends_.map((entry) => {
     if (typeof entry === "string") {
-      // Parse "github:org/repo" format
-      const match = entry.match(/^github:([^/]+)\/(.+)$/);
-      if (!match) {
-        throw new Error(
-          `Invalid GitHub source: ${entry}. Expected format: github:org/repo`,
-        );
-      }
-      return {
-        source: entry,
-        namespace: match[1],
-      };
+      throw new Error(
+        `String format for extends is deprecated. Use object format with explicit namespace:\n` +
+          `Example: { "source": "${entry}", "namespace": "your-namespace" }\n` +
+          `See https://github.com/agentsync/agentsync/docs/configuration.md for details.`,
+      );
     }
 
     // Handle object entries
@@ -363,19 +349,17 @@ export function normalizeExtends(
       throw new Error("Source is required in extends entry");
     }
 
-    // Note: select field is not supported - use include/exclude arrays instead
+    const namespace = obj.namespace as string | undefined;
 
-    // Extract namespace from source if not provided
-    let namespace = obj.namespace as string | undefined;
     if (!namespace) {
-      const match = source.match(/^github:([^/]+)\/(.+)$/);
-      if (!match) {
-        throw new Error(
-          `Invalid GitHub source: ${source}. Expected format: github:org/repo`,
-        );
-      }
-      namespace = match[1];
+      throw new Error(
+        `Namespace is required for preset "${source}" to prevent naming conflicts.\n` +
+          `Add explicit namespace: { "source": "${source}", "namespace": "your-namespace" }\n` +
+          `Example namespaces: "company", "team", "org-backend", etc.`,
+      );
     }
+
+    validateNamespace(namespace);
 
     const result: {
       source: string;
@@ -447,9 +431,7 @@ export const UserPresetEntrySchema = z.object({
 export const UserConfigSchema = z.object({
   version: z.string().default("1.0"),
   presets: z.record(z.string(), UserPresetEntrySchema),
-  tools: z
-    .array(z.enum(["cursor", "claude", "cline", "roocode"]))
-    .optional(),
+  tools: z.array(z.enum(["cursor", "claude", "cline", "roocode"])).optional(),
 });
 
 // Type exports for user config

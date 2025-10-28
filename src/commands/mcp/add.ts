@@ -114,7 +114,11 @@ export async function addMCP(serverName: string): Promise<AddMCPResult> {
 
   // 3. Load or create project config
   // Always write to project config for automatic operations
-  const preferredConfigPath = path.join(process.cwd(), ".agentsync", "config.json");
+  const preferredConfigPath = path.join(
+    process.cwd(),
+    ".agentsync",
+    "config.json",
+  );
   let projectConfig: AgentSyncConfig | ProjectMCPConfig;
 
   try {

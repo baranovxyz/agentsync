@@ -1,6 +1,6 @@
 {
   "name": "agentsync",
-  "version": "0.2.0-alpha.15",
+  "version": "0.2.0-alpha.local.1",
   "description": "The missing infrastructure layer for AI coding agent configuration management",
   "type": "module",
   "bin": {
@@ -96,12 +96,9 @@
     "commitizen": "4.3.0",
     "cz-conventional-changelog": "3.3.0",
     "husky": "9.1.6",
-    "prettier": "3.6.2",
-    "strip-ansi": "7.1.2",
     "tsx": "4.20.6",
     "typescript": "5.9.3",
     "vite": "7.1.11",
-    "vite-node": "3.2.4",
     "vitest": "3.2.4"
   },
   "config": {

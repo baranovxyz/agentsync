@@ -1,50 +1,31 @@
 # Configuration
 
-AgentSync uses separate config files with distinct purposes. Local overrides take precedence over project configuration.
+How to configure AgentSync. For architectural overview, see REQUIREMENTS.md.
 
-## Architecture Consistency
-
-All components must follow the documented file hierarchy. `.agentsync/config.json` is the primary team-shared configuration; deviations are bugs.
-
-## File Responsibilities
+## Files
 
 ### `.agentsync/config.json` (Project-level, committed)
 
-- Created by: `agentsync init`
-- Modified by: `agentsync mcp add/remove` (v0.2.0+)
-- Purpose: Team-shared settings (tools, MCP servers, extends, security)
-- Git: Committed to repository
-
-Example:
+Team-shared settings. Created by `agentsync init`, modified by `agentsync mcp add/remove`.
 
 ```json
 {
   "version": "1.0",
   "tools": ["cursor", "claude", "cline"],
+  "mcpServers": ["github", "postgres"],
+  "extends": ["github:company/standards"],
   "useSymlinks": true,
   "security": {
-    "secretScanning": {
-      "enabled": true,
-      "blockOnHighSeverity": true,
-      "entropyThreshold": 4.5
-    },
+    "secretScanning": { "enabled": true, "blockOnHighSeverity": true },
     "unicodeDetection": { "enabled": true, "blockOnHighRisk": true },
-    "auditLogging": {
-      "enabled": true,
-      "retentionDays": 90,
-      "maxFileSize": 10485760
-    }
+    "auditLogging": { "enabled": true, "retentionDays": 90 }
   }
 }
 ```
 
 ### `agentsync.local.json` (User-level, gitignored)
 
-- Created by: User manually (v0.2.0) or `agentsync mcp add --scope local` (v0.3.0+)
-- Purpose: Personal MCP overrides that differ from team config
-- Git: NOT committed (in `.gitignore`)
-
-Supported formats (empty configs are valid):
+Personal MCP overrides. Created manually for local development.
 
 ```json
 // Array format (simple selection)
@@ -58,37 +39,64 @@ Supported formats (empty configs are valid):
   }
 }
 
-// Empty config (useful for fresh start or cleanup)
+// Empty config (clears all MCPs)
 { "mcpServers": [] }
-{ "mcpServers": {} }
 ```
 
-How to create:
+## Precedence
 
-```bash
-# Manual
-echo '{"mcpServers": []}' > agentsync.local.json
+Local overrides project: `agentsync.local.json` wins over `.agentsync/config.json` for MCP selection.
+
+## Project Custom Rules & Commands
+
+Override or supplement preset content with project-specific rules and commands.
+
+**Location**:
+
+- `.agentsync/rules/*.md` - Custom rules
+- `.agentsync/commands/*.md` - Custom commands
+
+**Behavior**:
+
+- Files in these directories are merged with preset content
+- Project custom files coexist with preset files via namespace isolation
+- Project custom files are NOT namespaced; preset files use namespace formatting (e.g., `company/file.md` or `company_file.md`)
+- Can use frontmatter for cross-tool metadata
+- Committed to git (team-shared)
+
+**Example**:
+
+`.agentsync/rules/custom-auth.md`:
+
+```markdown
+---
+tags: [security, auth]
+scope: project
+---
+
+# Authentication Rules
+
+Use JWT tokens for all API authentication...
 ```
 
-Use cases for empty configs:
+On `agentsync sync`, this becomes:
 
-- Fresh projects planning MCPs later
-- Temporarily disabling all MCPs for testing
-- Template projects with no MCPs configured
-- MCP sync is part of `agentsync sync`. When `mcpServers` is empty, the main sync writes empty MCP target configs (clearing existing entries).
+- `.cursor/rules/custom-auth.mdc`
+- `.claude/rules/custom-auth.md`
+- `.clinerules/custom-auth.md`
 
-## Loading Priority
-
-`agentsync.local.json` → `.agentsync/config.json` (local has precedence).
-
-## Important Paths
+## Paths
 
 - Global MCP registry: `~/.agentsync/mcp.json`
 - Project config: `.agentsync/config.json`
 - Local overrides: `agentsync.local.json`
 - Environment variables: `.env`
+- Project custom rules: `.agentsync/rules/`
+- Project custom commands: `.agentsync/commands/`
 
 ## Notes
 
-- Writing in v0.2.0 targets `.agentsync/config.json`.
-- Future versions respect `--scope` for write targets.
+- Empty MCP array `[]` disables all MCPs
+- Optional field: if `mcpServers` is omitted, project config is used
+- v0.2.0 writes to `.agentsync/config.json` only
+- Future: `--scope` flag for write targets

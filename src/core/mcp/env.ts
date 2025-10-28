@@ -47,6 +47,6 @@ export async function loadEnv(
   // Filter out undefined/null values
   const merged = { ...env, ...process.env };
   return Object.fromEntries(
-    Object.entries(merged).filter(([, v]) => v != null && v !== "undefined")
+    Object.entries(merged).filter(([, v]) => v != null && v !== "undefined"),
   ) as Record<string, string>;
 }
