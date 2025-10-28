@@ -3,12 +3,10 @@
  * Lists available vs active MCP servers
  */
 
-import { mkdir } from "node:fs/promises";
-import * as path from "node:path";
 import picocolors from "picocolors";
 import { loadProjectConfig } from "../../core/mcp/config.js";
 import { loadGlobalRegistry } from "../../core/mcp/registry.js";
-import { outputFile } from "../../utils/fs.js";
+import { ensureProjectConfig } from "../../utils/config-creation.js";
 
 const pc = picocolors;
 
@@ -23,19 +21,7 @@ async function autoCreateMCPConfig(): Promise<void> {
     ),
   );
 
-  // Ensure .agentsync directory exists
-  await mkdir(path.join(process.cwd(), ".agentsync"), { recursive: true });
-
-  const configPath = path.join(process.cwd(), ".agentsync", "config.json");
-  const config = {
-    version: "1.0",
-    tools: ["cursor", "claude"],
-    mcpServers: [],
-  };
-
-  await outputFile(configPath, `${JSON.stringify(config, null, 2)}\n`, {
-    encoding: "utf-8",
-  });
+  await ensureProjectConfig();
 
   console.log(pc.green("✓ Created .agentsync/config.json\n"));
 }

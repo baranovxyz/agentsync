@@ -22,7 +22,7 @@ export interface ProjectMCPConfig {
 /**
  * Get MCP config file path with load priority (nearest wins):
  * 1. agentsync.local.json (user-local overrides, gitignored)
- * 2. .agentsync/config.json (project config, committed)
+ * 2. .agentsync/config.json (project config)
  */
 async function getMCPConfigPath(): Promise<string | null> {
   const cwd = process.cwd();
@@ -33,7 +33,7 @@ async function getMCPConfigPath(): Promise<string | null> {
     return localPath;
   }
 
-  // Priority 2: Project config (committed)
+  // Priority 2: Project config (folder structure)
   const projectPath = path.join(cwd, ".agentsync", "config.json");
   if (await pathExists(projectPath)) {
     return projectPath;

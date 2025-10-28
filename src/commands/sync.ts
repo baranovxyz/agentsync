@@ -254,27 +254,21 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
     }
 
     // Also check for local MCP config file (personal overrides)
-    const localMcpPaths = [
-      path.join(cwd, "agentsync.local.json"), // Personal overrides
-      path.join(cwd, ".agentsync", "config.local.json"), // Backup location
-    ];
+    const localMcpPath = path.join(cwd, "agentsync.local.json");
 
     let hasLocalMcpConfig = false;
-    for (const mcpPath of localMcpPaths) {
-      try {
-        const content = await readFile(mcpPath, "utf-8");
-        const localConfig = JSON.parse(content);
-        if (localConfig.mcpServers) {
-          if (Array.isArray(localConfig.mcpServers)) {
-            hasLocalMcpConfig = localConfig.mcpServers.length > 0;
-          } else {
-            hasLocalMcpConfig = Object.keys(localConfig.mcpServers).length > 0;
-          }
-          if (hasLocalMcpConfig) break;
+    try {
+      const content = await readFile(localMcpPath, "utf-8");
+      const localConfig = JSON.parse(content);
+      if (localConfig.mcpServers) {
+        if (Array.isArray(localConfig.mcpServers)) {
+          hasLocalMcpConfig = localConfig.mcpServers.length > 0;
+        } else {
+          hasLocalMcpConfig = Object.keys(localConfig.mcpServers).length > 0;
         }
-      } catch {
-        // File doesn't exist or invalid, try next
       }
+    } catch {
+      // File doesn't exist or invalid
     }
 
     if (
