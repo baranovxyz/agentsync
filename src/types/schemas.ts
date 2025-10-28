@@ -76,15 +76,12 @@ export const AgentsMdSchema = z.object({
 });
 
 // Extends schema for config
-export const ExtendsSchema = z.union([
-  z.string(), // Simple: "github:company/standards"
-  z.object({
-    source: z.string(),
-    namespace: z.string().optional(), // Override default namespace
-    include: z.array(z.string()).optional(), // File patterns to include
-    exclude: z.array(z.string()).optional(), // File patterns to exclude
-  }),
-]);
+export const ExtendsSchema = z.object({
+  source: z.string(),
+  namespace: z.string(),
+  include: z.array(z.string()).optional(),
+  exclude: z.array(z.string()).optional(),
+});
 
 // Configuration schema for .agentsync/config.json and agentsync.local.json
 // Both configs use the same schema; local values override project values
@@ -256,9 +253,7 @@ export type GitRule = z.infer<typeof GitRuleSchema>;
 export type McpServer = z.infer<typeof McpServerSchema>;
 export type FileMapping = z.infer<typeof FileMappingSchema>;
 export type Extends = z.infer<typeof ExtendsSchema>;
-export type ExtendsEntry = z.infer<typeof ExtendsSchema> extends (infer U)[]
-  ? U
-  : z.infer<typeof ExtendsSchema>;
+export type ExtendsEntry = z.infer<typeof ExtendsSchema>;
 export type AgentSyncConfig = z.infer<typeof AgentSyncConfigSchema>;
 export type LocalConfig = z.infer<typeof LocalConfigSchema>;
 export type TranslateResult = z.infer<typeof TranslateResultSchema>;
@@ -279,10 +274,36 @@ export function validateAgentsMd(data: unknown): AgentsMd {
 export function validateLocalConfig(data: unknown): LocalConfig {
   return LocalConfigSchema.parse(data);
 }
+
+/**
+ * Validate namespace against reserved words and format constraints
+ * @throws Error if namespace is invalid
+ */
+export function validateNamespace(namespace: string): void {
+  const reserved = ["custom", "local", "project", "user", "core", "default"];
+
+  if (reserved.includes(namespace.toLowerCase())) {
+    throw new Error(
+      `Namespace "${namespace}" is reserved. Choose a different namespace (e.g., "company", "team", "org").`,
+    );
+  }
+
+  if (!/^[a-zA-Z0-9_-]+$/.test(namespace)) {
+    throw new Error(
+      `Namespace "${namespace}" contains invalid characters. Use only alphanumeric characters, hyphens, and underscores.`,
+    );
+  }
+
+  if (namespace.length > 50) {
+    throw new Error(
+      `Namespace "${namespace}" exceeds maximum length of 50 characters.`,
+    );
+  }
+}
+
 /**
  * Normalize extends entries to a consistent format
- * Converts string entries to objects and extracts namespace from source
- * Detects and rejects deprecated 'select' field
+ * Requires explicit namespace for all presets to prevent naming conflicts
  */
 export function normalizeExtends(
   extends_: (string | Record<string, unknown>)[] | undefined,
@@ -298,17 +319,11 @@ export function normalizeExtends(
 
   return extends_.map((entry) => {
     if (typeof entry === "string") {
-      // Parse "github:org/repo" format
-      const match = entry.match(/^github:([^/]+)\/(.+)$/);
-      if (!match) {
-        throw new Error(
-          `Invalid GitHub source: ${entry}. Expected format: github:org/repo`,
-        );
-      }
-      return {
-        source: entry,
-        namespace: match[1],
-      };
+      throw new Error(
+        `String format for extends is deprecated. Use object format with explicit namespace:\n` +
+          `Example: { "source": "${entry}", "namespace": "your-namespace" }\n` +
+          `See https://github.com/agentsync/agentsync/docs/configuration.md for details.`,
+      );
     }
 
     // Handle object entries
@@ -319,19 +334,17 @@ export function normalizeExtends(
       throw new Error("Source is required in extends entry");
     }
 
-    // Note: select field is not supported - use include/exclude arrays instead
+    const namespace = obj.namespace as string | undefined;
 
-    // Extract namespace from source if not provided
-    let namespace = obj.namespace as string | undefined;
     if (!namespace) {
-      const match = source.match(/^github:([^/]+)\/(.+)$/);
-      if (!match) {
-        throw new Error(
-          `Invalid GitHub source: ${source}. Expected format: github:org/repo`,
-        );
-      }
-      namespace = match[1];
+      throw new Error(
+        `Namespace is required for preset "${source}" to prevent naming conflicts.\n` +
+          `Add explicit namespace: { "source": "${source}", "namespace": "your-namespace" }\n` +
+          `Example namespaces: "company", "team", "org-backend", etc.`,
+      );
     }
+
+    validateNamespace(namespace);
 
     const result: {
       source: string;
