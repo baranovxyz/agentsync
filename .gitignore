@@ -46,7 +46,6 @@ lerna-debug.log*
 .agentsync/backups/
 *.backup
 agentsync.local.json
-.agentsync/config.local.json
 
 # Tool configuration directories (local development)
 .claude/*
