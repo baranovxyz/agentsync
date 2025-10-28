@@ -1,6 +1,6 @@
-# CLI Usage and Commands
+# CLI Commands and Usage
 
-This document consolidates development, testing, and CLI command usage.
+For testing commands, see TESTING.md.
 
 ## Development
 
@@ -11,54 +11,11 @@ pnpm dev
 # Build for production (creates dist/cli.js)
 pnpm build
 
-# Run CLI directly in TypeScript
-pnpm cli --help
-
-# Type checking only (no emit)
+# Type checking
 pnpm lint
 
-# Format and lint code with Biome
+# Format and lint
 pnpm lint:fix
-```
-
-## Testing
-
-```bash
-# Run all tests
-pnpm test
-
-# Watch mode for TDD
-pnpm test:watch
-
-# Generate coverage report (target: >80%)
-pnpm test:coverage
-
-# Run e2e tests only
-pnpm test:e2e
-
-# Run specific test file
-pnpm test src/security/scanner.test.ts
-```
-
-### CI/CD Notes
-
-```bash
-# GitHub Actions tests on 9 platforms: Ubuntu/macOS/Windows × Node 18/20/22
-# Hierarchical timeouts: 5s unit tests, 10s hooks (2x multiplier on CI)
-# Windows requires both HOME and USERPROFILE env vars for os.homedir()
-# Coverage target: >80% (v0.2.0-alpha achieved 90%+)
-
-# E2E Test Strategy (install-test.yml):
-# - Runs ONLY on-demand (manual trigger + weekly cron)
-# - NOT triggered on push (saves ~90% CI minutes for E2E tests)
-# - Cost: ~5-9 CI minutes per run (9 platforms × 30-60s)
-# - Trigger manually: gh workflow run "Install Test"
-# - Use regular tests (test-with-bats.yml) for push validation
-
-# Lockfile Policy:
-# - ALL workflows use --frozen-lockfile (no exceptions)
-# - Ensures pnpm-lock.yaml matches package.json
-# - Prevents dependency drift between local/CI
 ```
 
 ## CLI Commands
@@ -87,11 +44,8 @@ pnpm cli mcp remove postgres       # Remove MCP (can remove all)
 pnpm cli init                      # Initialize with template
 ```
 
-## Slash Commands
+## Notes
 
-```bash
-/smart-commit        # Intelligent atomic commits grouped by type
-/extract-learnings   # Document session insights to CLAUDE.md
-/release             # Complete release workflow (PR → publish → GitHub release)
-/adapt-command       # Adapt commands for repo context
-```
+- Commands run with `pnpm cli COMMAND` in development or `agentsync COMMAND` after install
+- Use `--dry-run` for safe preview of changes
+- Use `--help` on any command for detailed options

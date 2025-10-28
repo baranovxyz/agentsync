@@ -1,8 +1,8 @@
 # Configuration
 
-AgentSync uses separate config files with distinct purposes. Local overrides take precedence over project configuration.
+How to configure AgentSync. For architectural overview, see REQUIREMENTS.md.
 
-## File Hierarchy
+## Files
 
 ### `.agentsync/config.json` (Project-level, committed)
 
@@ -43,11 +43,11 @@ Personal MCP overrides. Created manually for local development.
 { "mcpServers": [] }
 ```
 
-## Loading Priority
+## Precedence
 
-`agentsync.local.json` → `.agentsync/config.json` (local has precedence)
+Local overrides project: `agentsync.local.json` wins over `.agentsync/config.json` for MCP selection.
 
-## Important Paths
+## Paths
 
 - Global MCP registry: `~/.agentsync/mcp.json`
 - Project config: `.agentsync/config.json`
@@ -57,6 +57,5 @@ Personal MCP overrides. Created manually for local development.
 ## Notes
 
 - Empty MCP configs (`[]` or `{}`) are valid and clear tool configs
-- Writing in v0.2.0 targets `.agentsync/config.json`
-- Future versions will respect `--scope` for write targets
-- All components follow this hierarchy (deviations are bugs)
+- v0.2.0 writes to `.agentsync/config.json` only
+- Future: `--scope` flag for write targets

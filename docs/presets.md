@@ -1,8 +1,10 @@
 # GitHub Preset System
 
-Presets let teams share rules, commands, and MCPs via GitHub repositories. Caches live in `~/.agentsync/cache/`. Files are merged using namespace prefixes to avoid collisions.
+How to use presets. For architectural overview, see REQUIREMENTS.md#preset-system.
 
-## Config Format
+Presets let teams share rules, commands, and MCPs via GitHub repositories. Files are merged using namespace prefixes; caches live in `~/.agentsync/cache/`.
+
+## Configuration
 
 ```json
 {
@@ -100,18 +102,10 @@ See [CLI documentation](cli.md) for detailed usage:
 - `agentsync preset list` - Show configured presets
 - `agentsync preset cache-clear` - Clear caches
 
-## Key Design Decisions
+## Implementation Notes
 
-1. @main only initially; version tags planned for future
-2. GitHub-only (`github:org/repo`)
-3. Namespace required (extracted from org by default)
-4. Cache reuse in `~/.agentsync/cache/`
-5. SSH/HTTPS fallback
-
-## Test Coverage
-
-- 12 unit tests for sync command
-- 9 integration tests for sync workflow
-- 29 unit tests for registry system
-
-See `tests/unit/core/registry/` and `tests/workflows/` for working examples.
+- GitHub-only in v0.2.0 (`github:org/repo`)
+- Namespace required (extracted from org by default)
+- Caches in `~/.agentsync/cache/`
+- SSH/HTTPS fallback
+- Version tags planned for future

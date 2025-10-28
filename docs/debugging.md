@@ -1,4 +1,6 @@
-# Debugging and ESM Gotchas
+# Debugging and Troubleshooting
+
+For comprehensive testing info, see TESTING.md and docs/testing.md.
 
 ## Debug Tips
 

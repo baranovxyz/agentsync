@@ -16,13 +16,10 @@ Notes:
 
 ## Install Test (Production Package Validation)
 
+See docs/testing.md for comprehensive test coverage documentation.
+
 - Validates `pnpm pack` → `npm install -g` workflow
-- Covers:
-  - Tarball creation and global install
-  - Full MCP workflow (add, sync, remove)
-  - Init command with all templates
-  - Package quality checks
-- Weekly CI and pre-release runs.
+- Covers: tarball creation, global install, MCP workflow, init with templates
+- Runs weekly in CI and before releases
 
 File: `tests/e2e/install-test.test.ts`
-Workflow: `.github/workflows/install-test.yml`
