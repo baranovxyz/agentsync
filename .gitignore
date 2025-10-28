@@ -82,3 +82,6 @@ desktop.ini
 
 # NPM pack artifacts
 *.tgz
+
+# Research
+research/

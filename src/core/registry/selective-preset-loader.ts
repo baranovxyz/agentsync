@@ -9,6 +9,7 @@ import {
   ErrorHandler,
   SelectiveLoadingError,
 } from "../errors.js";
+import type { MCP } from "../mcp/tokens.js";
 
 /**
  * Result of selective preset loading
@@ -16,7 +17,7 @@ import {
 export interface SelectivePresetResult {
   commands: Map<string, string>;
   rules: Map<string, string>;
-  mcps: Record<string, unknown>;
+  mcps: Record<string, MCP>;
 }
 
 /**
@@ -125,7 +126,7 @@ export class SelectivePresetLoader {
       if (!preset || typeof preset !== "object") {
         throw new SelectiveLoadingError(
           "Invalid preset data provided",
-          (preset as Record<string, unknown>)?.source as string | undefined,
+          undefined,
           "preset",
         );
       }
@@ -133,7 +134,7 @@ export class SelectivePresetLoader {
       if (!(preset.rules && preset.commands && preset.mcps)) {
         throw new SelectiveLoadingError(
           "Preset data is missing required properties",
-          (preset as Record<string, unknown>)?.source as string | undefined,
+          preset.source,
           "preset",
         );
       }

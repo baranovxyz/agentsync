@@ -262,6 +262,21 @@ export type DiffResult = z.infer<typeof DiffResultSchema>;
 export type ValidationResult = z.infer<typeof ValidationResultSchema>;
 
 /**
+ * Selection configuration for filtering preset content
+ */
+export interface SelectionConfig {
+  rules?: {
+    include?: string[];
+    exclude?: string[];
+  };
+  commands?: {
+    include?: string[];
+    exclude?: string[];
+  };
+  mcps?: string[];
+}
+
+/**
  * Validate AGENTS.md content against schema
  */
 export function validateAgentsMd(data: unknown): AgentsMd {
