@@ -13,6 +13,7 @@ This directory contains automated shell tests for the AgentSync CLI to ensure it
 **Run:** `pnpm test:shell`
 
 **Pros:**
+
 - No additional dependencies beyond Node.js
 - Integrated with existing Vitest test suite
 - Fast execution
@@ -21,10 +22,12 @@ This directory contains automated shell tests for the AgentSync CLI to ensure it
 - Already part of your development workflow
 
 **Cons:**
+
 - Not a "true" shell environment (executes via Node.js child_process)
 - Limited shell-specific feature testing
 
 **Use Cases:**
+
 - Primary test suite for CLI functionality
 - CI/CD pipeline tests
 - Cross-platform compatibility tests
@@ -39,6 +42,7 @@ This directory contains automated shell tests for the AgentSync CLI to ensure it
 **Run:** `pnpm test:bats` (requires BATS installation)
 
 **Pros:**
+
 - Tests in actual bash/zsh shell
 - Industry-standard for shell script testing
 - TAP output for CI integration
@@ -46,11 +50,13 @@ This directory contains automated shell tests for the AgentSync CLI to ensure it
 - Better for testing shell-specific features
 
 **Cons:**
+
 - Requires separate BATS installation
 - Not integrated into Node.js tooling
 - Slower than Vitest tests
 
 **Use Cases:**
+
 - Manual testing in actual shell environments
 - Advanced shell compatibility testing
 - CI/CD for shell-specific features
@@ -129,12 +135,14 @@ pnpm build && pnpm test:shell
 ### What's Tested
 
 ✅ **Basic CLI Execution**
+
 - `--version` flag
 - `--help` flag
 - Unknown command errors
 - Shebang execution (Unix)
 
 ✅ **MCP Commands**
+
 - `mcp list` - Show available MCPs
 - `mcp add` - Add MCP to project
 - `mcp sync` - Sync to targets
@@ -143,6 +151,7 @@ pnpm build && pnpm test:shell
 - `mcp remove` - Remove MCP from project
 
 ✅ **Error Handling**
+
 - Missing MCP registry
 - Missing environment variables
 - Invalid JSON config
@@ -150,22 +159,26 @@ pnpm build && pnpm test:shell
 - Invalid command arguments
 
 ✅ **Cross-Platform**
+
 - Different line endings
 - Spaces in paths
 - HOME environment variable
 - Windows compatibility (where applicable)
 
 ✅ **Exit Codes**
+
 - Success (0)
 - Errors (non-zero)
 - Missing arguments
 
 ✅ **Output Formatting**
+
 - UTF-8 encoding
 - stdout vs stderr
 - Error messages
 
 ✅ **Integration Workflows**
+
 - Full workflow: add → sync → remove
 - Multiple MCPs
 - Environment variable substitution
@@ -190,7 +203,7 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: 18
-          cache: 'pnpm'
+          cache: "pnpm"
 
       # Install dependencies
       - run: pnpm install
@@ -238,12 +251,14 @@ bats tests/shell/cli.bats --filter "pattern"
 ### Common Issues
 
 **Issue:** Tests fail with "CLI not built"
+
 ```bash
 # Solution: Build the CLI first
 pnpm build
 ```
 
 **Issue:** Environment variable errors
+
 ```bash
 # Solution: Check .env file or set variables
 export GITHUB_TOKEN=ghp_your_token
@@ -251,29 +266,44 @@ pnpm test:shell
 ```
 
 **Issue:** Permission errors
+
 ```bash
 # Solution: Check file permissions
 ls -la dist/cli.js
 chmod +x dist/cli.js
 ```
 
+**Issue:** BATS global installation tests fail with "no such file or directory" for older versions
+
+```bash
+# Solution: Clean up any existing global installations before running tests
+pnpm remove -g agentsync 2>/dev/null || true
+npm remove -g agentsync 2>/dev/null || true
+# Then re-run tests
+pnpm test:bats
+```
+
+This issue occurs when pnpm has cached references to older package versions. The test suite
+now includes automatic cleanup, but manual cleanup may be needed if previous test runs left
+residual global installations. See the global installation tests for cleanup patterns.
+
 ## Writing New Tests
 
 ### Vitest + Execa Pattern
 
 ```typescript
-it('tests new feature', async () => {
+it("tests new feature", async () => {
   // Execute CLI command
-  const { stdout, stderr, exitCode } = await execa('node', [
+  const { stdout, stderr, exitCode } = await execa("node", [
     cliPath,
-    'command',
-    '--flag',
-    'value'
+    "command",
+    "--flag",
+    "value",
   ]);
 
   // Assert results
   expect(exitCode).toBe(0);
-  expect(stdout).toContain('expected output');
+  expect(stdout).toContain("expected output");
 });
 ```
 
@@ -291,6 +321,7 @@ it('tests new feature', async () => {
 ## Best Practices
 
 1. **Always build before testing:**
+
    ```bash
    pnpm build && pnpm test:shell
    ```
