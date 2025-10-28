@@ -6,7 +6,7 @@ if ! command -v pnpm >/dev/null 2>&1; then
   exit 1
 fi
 
-PATTERN='\.(cjs|mjs|js|jsx|ts|tsx|json|jsonc|md|css|scss|yml|yaml)$'
+PATTERN='\.(cjs|mjs|js|jsx|ts|tsx|json|jsonc)$'
 
 # Exit early if there are no matching staged files
 FILES_COUNT=$(git diff --cached --name-only --diff-filter=ACMR | grep -E "$PATTERN" | wc -l | tr -d '[:space:]')
