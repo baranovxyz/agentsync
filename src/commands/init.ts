@@ -3,7 +3,7 @@
  * Initializes AgentSync in a project
  */
 
-import { readFile, symlink } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,7 +17,7 @@ import {
   FileSystemError,
 } from "../core/errors.js";
 import type { InitOptions, ToolName } from "../types/index.js";
-import { copy, ensureDir, outputFile, pathExists } from "../utils/fs.js";
+import { ensureDir, outputFile, pathExists } from "../utils/fs.js";
 
 const pc = picocolors;
 const __filename = fileURLToPath(import.meta.url);
@@ -61,14 +61,6 @@ const TEMPLATES = {
   default: "default.md",
   "typescript-react": "typescript-react.md",
   "python-fastapi": "python-fastapi.md",
-};
-
-// Tool configuration paths
-const TOOL_CONFIGS: Record<ToolName, string[]> = {
-  cursor: [".cursor/agents.md", ".cursor/AGENTS.md"],
-  claude: [".claude/AGENTS.md", "claude_project.md"],
-  cline: [".clinerules/AGENTS.md"],
-  roocode: [".roo/AGENTS.md", ".roo/instructions.md"],
 };
 
 export class InitCommand {
@@ -216,11 +208,6 @@ export class InitCommand {
       // Create .agentsync directory
       await this.createAgentSyncDir();
 
-      // Setup tool configurations
-      if (config.tools && config.tools.length > 0) {
-        await this.setupTools(config.tools, config.useSymlinks);
-      }
-
       // Update .gitignore
       if (config.updateGitignore) {
         await this.updateGitignore(config.tools);
@@ -239,7 +226,12 @@ export class InitCommand {
       console.log(pc.green("\n✅ AgentSync initialized successfully!\n"));
       console.log(pc.gray("Next steps:"));
       console.log(pc.gray("  1. Edit AGENTS.md to match your project"));
-      console.log(pc.gray("  2. (Optional) Set up MCP servers:"));
+      console.log(
+        pc.gray("  2. Run ") +
+          pc.cyan("agentsync sync") +
+          pc.gray(" to generate tool configs"),
+      );
+      console.log(pc.gray("  3. (Optional) Set up MCP servers:"));
       console.log(
         pc.gray("     - Run ") +
           pc.cyan("agentsync mcp list") +
@@ -248,12 +240,7 @@ export class InitCommand {
       console.log(
         pc.gray("     - Run ") +
           pc.cyan("agentsync mcp add <server>") +
-          pc.gray(" to select MCPs"),
-      );
-      console.log(
-        pc.gray("     - Run ") +
-          pc.cyan("agentsync sync") +
-          pc.gray(" to apply changes"),
+          pc.gray(" to add MCPs"),
       );
     } catch (error) {
       await this.audit.logError(
@@ -272,7 +259,6 @@ export class InitCommand {
   private async interactiveSetup(options: InitOptions): Promise<{
     template: string;
     tools: ToolName[];
-    useSymlinks: boolean;
     updateGitignore: boolean;
   }> {
     // Skip interactive if all options provided
@@ -280,7 +266,6 @@ export class InitCommand {
       return {
         template: options.template,
         tools: options.tools,
-        useSymlinks: options.useSymlinks ?? true,
         updateGitignore: true,
       };
     }
@@ -322,12 +307,6 @@ export class InitCommand {
           ],
         })) as ToolName[]);
 
-      // Symlink option
-      const useSymlinks = await confirm({
-        message: "Use symlinks for tool configurations? (recommended)",
-        default: true,
-      });
-
       // Gitignore update option
       const updateGitignore = await confirm({
         message: "Add AgentSync entries to .gitignore?",
@@ -337,7 +316,6 @@ export class InitCommand {
       return {
         template,
         tools,
-        useSymlinks,
         updateGitignore,
       };
     } catch (error) {
@@ -441,57 +419,6 @@ export class InitCommand {
         agentSyncDir,
         error as Error,
       );
-    }
-  }
-
-  /**
-   * Setup tool configurations
-   */
-  private async setupTools(
-    tools: ToolName[],
-    useSymlinks: boolean,
-  ): Promise<void> {
-    console.log(pc.gray(`  Setting up tool configurations...`));
-
-    const agentsPath = path.join(process.cwd(), "AGENTS.md");
-
-    for (const tool of tools) {
-      const configPaths = TOOL_CONFIGS[tool];
-      if (!configPaths) continue;
-
-      for (const configPath of configPaths) {
-        const fullPath = path.join(process.cwd(), configPath);
-        const dir = path.dirname(fullPath);
-
-        try {
-          // Create directory if needed
-          await ensureDir(dir);
-
-          // Create symlink or copy
-          if (useSymlinks) {
-            // Check if symlink already exists
-            const exists = await pathExists(fullPath);
-            if (!exists) {
-              // Use native Node.js symlink (fs-extra v11+ removed symlink)
-              await symlink(path.relative(dir, agentsPath), fullPath);
-              console.log(
-                pc.green(`  ✓ Created symlink for ${tool}: ${configPath}`),
-              );
-            }
-          } else {
-            await copy(agentsPath, fullPath);
-            console.log(
-              pc.green(`  ✓ Created copy for ${tool}: ${configPath}`),
-            );
-          }
-        } catch (error) {
-          console.log(
-            pc.yellow(
-              `  ⚠ Could not create ${configPath}: ${(error as Error).message}`,
-            ),
-          );
-        }
-      }
     }
   }
 

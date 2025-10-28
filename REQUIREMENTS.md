@@ -337,7 +337,7 @@ Local (`agentsync.local.json`):
 ### Agent Compatibility
 
 - **Cursor**: `.cursor/rules/*.mdc`, `.cursor/commands/*.md`, `mcp.json`
-- **Claude Code**: `.claude/commands/*.md`, symlink `AGENTS.md` to `AGENTS.md`
+- **Claude Code**: `.claude/rules/*.md`, `.claude/commands/*.md`, `CLAUDE.md` at root (symlink to `AGENTS.md`)
 - **Cline**: `.clinerules/*.md` (rules), symlink `.clinerules/AGENTS.md` to `AGENTS.md`
 
 ### Directory Structure
@@ -351,17 +351,18 @@ Local (`agentsync.local.json`):
 │   ├── rules/                 # Custom rules
 │   └── backups/               # Pre-sync backups
 ├── AGENTS.md                  # Universal format
+├── CLAUDE.md                  # Symlink to AGENTS.md (for Claude)
 ├── .cursor/                   # Generated for Cursor
 │   ├── rules/*.mdc
 │   ├── commands/*.md
 │   └── mcp.json
 ├── .claude/                   # Generated for Claude
-│   ├── AGENTS.md              # Symlink to root
-│   ├── commands/*.md
+│   ├── rules/*.md             # Rules (nested dirs)
+│   ├── commands/*.md          # Commands (nested dirs)
 │   └── mcp.json
 └── .clinerules/               # Generated for Cline
-    ├── AGENTS.md              # Symlink to root
-    └── *.md                   # Rules
+    ├── AGENTS.md              # Symlink to root AGENTS.md
+    └── *.md                   # Rules (flat structure)
 
 Global data:
 ~/.agentsync/logs/            # Audit logs

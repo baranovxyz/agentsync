@@ -5,7 +5,12 @@ import type { ToolName } from "../types/index.js";
  */
 export const TOOL_GITIGNORE_PATTERNS: Record<ToolName, string[]> = {
   cursor: [".cursor/rules/", ".cursor/commands/", ".cursor/mcp.json"],
-  claude: [".claude/commands/", ".claude/mcp.json", "CLAUDE.md"],
+  claude: [
+    ".claude/rules/",
+    ".claude/commands/",
+    ".claude/mcp.json",
+    "CLAUDE.md",
+  ],
   cline: [
     ".clinerules/*.md",
     ".clinerules/AGENTS.md",
