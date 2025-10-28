@@ -31,7 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Unused AGENTS.md parser and markdown dependencies
 - Interactive selection migration module
 - Local config module (replaced by simplified approach)
-- Error handler module (functionality integrated elsewhere)  
+- Error handler module (functionality integrated elsewhere)
 - File watcher module (deferred feature)
 - Unused determinism and scenario-runner test utilities
 
