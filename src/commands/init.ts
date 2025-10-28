@@ -77,6 +77,7 @@ export class InitCommand {
   /**
    * Show current AgentSync setup status with helpful next steps
    */
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: complex status display logic
   private async showCurrentStatus(): Promise<void> {
     console.log(pc.cyan("✓ AgentSync is already initialized\n"));
 
@@ -222,7 +223,7 @@ export class InitCommand {
 
       // Update .gitignore
       if (config.updateGitignore) {
-        await this.updateGitignore();
+        await this.updateGitignore(config.tools);
       }
 
       // Log success
@@ -497,19 +498,10 @@ export class InitCommand {
   /**
    * Update .gitignore
    */
-  private async updateGitignore(): Promise<void> {
+  private async updateGitignore(tools: ToolName[]): Promise<void> {
     console.log(pc.gray("  Updating .gitignore..."));
 
     const gitignorePath = path.join(process.cwd(), ".gitignore");
-    const entries = [
-      "",
-      "# AgentSync",
-      ".agentsync/logs/",
-      ".agentsync/cache/",
-      ".agentsync/backups/",
-      "*.backup",
-      "agentsync.local.json",
-    ];
 
     try {
       let content = "";
@@ -517,16 +509,21 @@ export class InitCommand {
         content = await readFile(gitignorePath, "utf-8");
       }
 
-      // Check if already has AgentSync section
-      if (!content.includes("# AgentSync")) {
-        content += `\n${entries.join("\n")}\n`;
-        // Use fs.outputFile for consistency (creates parent dirs if needed)
+      const {
+        hasAgentSyncSection,
+        updateAgentSyncSection,
+        generateGitignoreContent,
+      } = await import("../utils/gitignore.js");
+
+      if (hasAgentSyncSection(content)) {
+        content = updateAgentSyncSection(content, tools);
+        await outputFile(gitignorePath, content);
+        console.log(pc.green("  ✓ Updated .gitignore (AgentSync section)"));
+      } else {
+        const agentSyncContent = generateGitignoreContent(tools);
+        content += `\n${agentSyncContent}`;
         await outputFile(gitignorePath, content);
         console.log(pc.green("  ✓ Updated .gitignore"));
-      } else {
-        console.log(
-          pc.gray("  ✓ .gitignore already contains AgentSync entries"),
-        );
       }
     } catch (error) {
       console.log(
