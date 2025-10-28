@@ -7,7 +7,7 @@
 3. Commit: `chore: bump version to X.Y.Z and update changelog`.
 4. Tag: `git tag vX.Y.Z`.
 5. Push: `git push origin main && git push origin vX.Y.Z`.
-6. Build & Test: `pnpm build && pnpm test`.
+6. Build & Test: `pnpm build && pnpm test && pnpm test:bats`.
 7. Publish: `npm publish`.
 
 Notes:
