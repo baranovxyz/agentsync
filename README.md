@@ -85,10 +85,9 @@ agentsync sync
 - CLI reference: docs/cli.md
 - Configuration: docs/configuration.md
 - Presets and selection: docs/presets.md
-- AGENTS.md: docs/agents-md.md
+- Testing: docs/testing.md
 - Debugging: docs/debugging.md
 - Security policy: SECURITY.md
-- Testing: TESTING.md
 - Architecture: ARCHITECTURE.md
 - Changelog (breaking changes): CHANGELOG.md
 

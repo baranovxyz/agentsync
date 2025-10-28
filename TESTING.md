@@ -1,6 +1,6 @@
 # Testing
 
-Minimal guide for running tests. See docs/testing/automated.md for full strategy and details.
+Minimal guide for running tests. See docs/testing.md for full strategy and details.
 
 ## Test pyramid
 
@@ -57,5 +57,5 @@ it("adds MCP server", async () => {
 
 ## Links
 
-- Automated testing docs: docs/testing/automated.md
+- Testing documentation: docs/testing.md
 - CLI reference: docs/cli.md
