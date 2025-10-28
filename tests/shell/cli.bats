@@ -375,6 +375,10 @@ CFG
   pnpm build
   npm pack
 
+  # Clean up any existing global installations to avoid conflicts with cached versions
+  pnpm remove -g agentsync 2>/dev/null || true
+  npm remove -g agentsync 2>/dev/null || true
+
   # Install globally with pnpm
   pnpm install -g "$ROOT/$PACKAGE_NAME"
 
@@ -389,6 +393,7 @@ CFG
 
   # Cleanup
   cd "$ROOT"
+  pnpm remove -g agentsync 2>/dev/null || true
   rm -rf "$TEMP_TEST_DIR"
   rm -f "$ROOT/$PACKAGE_NAME"
 }
@@ -398,6 +403,10 @@ CFG
   cd "$ROOT"
   pnpm build
   npm pack
+
+  # Clean up any existing global installations to avoid conflicts with cached versions
+  pnpm remove -g agentsync 2>/dev/null || true
+  npm remove -g agentsync 2>/dev/null || true
 
   # Install globally with npm
   npm install -g "$ROOT/$PACKAGE_NAME"
@@ -413,6 +422,7 @@ CFG
 
   # Cleanup
   cd "$ROOT"
+  npm remove -g agentsync 2>/dev/null || true
   rm -rf "$TEMP_TEST_DIR"
   rm -f "$ROOT/$PACKAGE_NAME"
 }
