@@ -86,7 +86,10 @@ Industry-standard for tool integration; see [modelcontextprotocol.io](https://mo
 **Layer 2: Project Custom** (team-editable, in git)
 
 - Located: `.agentsync/rules/*.md`, `.agentsync/commands/*.md`
-- Can have frontmatter for cross-tool metadata
+- **Must have frontmatter** for cross-tool metadata:
+  - **Commands**: `description` (required), `argument-hint` (optional, defaults to `[optional arguments]`)
+  - **Rules**: `description` (required), other fields optional (e.g., `globs`, `alwaysApply`, `priority`)
+  - Files without proper frontmatter will show validation warnings but still sync
 - Coexists with preset files via namespace isolation
 - Project custom files are NOT namespaced, distinguishing them from preset files which are always namespaced
 - Example: `.agentsync/rules/custom-auth.md` coexists with `company/typescript.md` from presets (or `company_typescript.md` for flat tools)
