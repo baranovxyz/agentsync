@@ -18,7 +18,7 @@ import { GitHubResolver } from "./github-resolver.js";
 export type SourceType = "github" | "filesystem" | "unknown";
 
 export interface SourceResolveOptions {
-  update?: boolean; // Force update if already cached (for GitHub sources)
+  pull?: boolean; // Force update if already cached (for GitHub sources)
 }
 
 /**

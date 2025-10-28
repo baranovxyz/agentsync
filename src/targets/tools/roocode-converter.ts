@@ -5,8 +5,8 @@
 import * as path from "node:path";
 import type { MCP } from "../../core/mcp/tokens.js";
 import { ensureDir, outputFile } from "../../utils/fs.js";
-import { RooCodeRulesConverter } from "../rules/roocode-rules-converter.js";
 import { RooCodeCommandsConverter } from "../commands/roocode-commands-converter.js";
+import { RooCodeRulesConverter } from "../rules/roocode-rules-converter.js";
 import type { ToolConverter } from "./types.js";
 
 export class RooCodeToolConverter implements ToolConverter {

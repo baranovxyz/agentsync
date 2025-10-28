@@ -12,7 +12,7 @@
  * These tests replace manual-tests/04-scenario-error-handling.md
  */
 
-import { chmod, mkdtemp } from "node:fs/promises";
+import { mkdtemp } from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";

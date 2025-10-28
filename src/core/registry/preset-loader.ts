@@ -111,12 +111,7 @@ export class PresetLoader {
     });
 
     // Validate include patterns matched something
-    validateIncludeMatches(
-      includePatterns,
-      files,
-      source || "unknown",
-      dir,
-    );
+    validateIncludeMatches(includePatterns, files, source || "unknown", dir);
 
     // Warn if exclude patterns matched nothing
     if (excludePatterns.length > 0) {

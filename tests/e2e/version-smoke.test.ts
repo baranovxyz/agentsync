@@ -11,10 +11,9 @@
  */
 
 import { execSync } from "node:child_process";
-import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
-import * as os from "node:os";
+import { readFile, stat } from "node:fs/promises";
 import * as path from "node:path";
-import { describe, expect, it, beforeAll } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 describe("Version Command E2E (Real-World Distribution)", () => {
   const projectRoot = path.resolve(".");
@@ -41,9 +40,7 @@ describe("Version Command E2E (Real-World Distribution)", () => {
 
     it("should contain correct version in package.json", async () => {
       const packageJsonPath = path.join(projectRoot, "package.json");
-      const packageJson = JSON.parse(
-        await readFile(packageJsonPath, "utf-8")
-      );
+      const packageJson = JSON.parse(await readFile(packageJsonPath, "utf-8"));
 
       expect(packageJson.version).toBe(version);
     });
@@ -54,7 +51,7 @@ describe("Version Command E2E (Real-World Distribution)", () => {
 
       // Should be executable (readable for all, executable for owner)
       expect(stats.isFile()).toBe(true);
-      expect(stats.mode & parseInt("111", 8)).toBe(parseInt("111", 8)); // executable by all
+      expect(stats.mode & 0o111).toBe(0o111); // executable by all
     });
 
     it("should have proper shebang", async () => {

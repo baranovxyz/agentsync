@@ -29,7 +29,7 @@ export interface RunCliResult {
  */
 export async function runCli(
   args: string[],
-  options: RunCliOptions = {}
+  options: RunCliOptions = {},
 ): Promise<RunCliResult> {
   const { cwd, env, capture = true } = options;
   const originalCwd = process.cwd();
@@ -110,10 +110,10 @@ export async function runCli(
  * @returns Result of fn
  */
 export async function withTempProject<T>(
-  fn: (ctx: { projectDir: string; homeDir: string }) => Promise<T>
+  fn: (ctx: { projectDir: string; homeDir: string }) => Promise<T>,
 ): Promise<T> {
   const projectDir = await fs.mkdtemp(
-    path.join(os.tmpdir(), "agentsync-project-")
+    path.join(os.tmpdir(), "agentsync-project-"),
   );
   const homeDir = await fs.mkdtemp(path.join(os.tmpdir(), "agentsync-home-"));
 
@@ -136,7 +136,7 @@ export async function withTempProject<T>(
  */
 export function normalizeOutput(
   output: string,
-  tempPaths: Record<string, string> = {}
+  tempPaths: Record<string, string> = {},
 ): string {
   let normalized = output
     .replace(/\r\n/g, "\n") // CRLF → LF
@@ -158,7 +158,7 @@ export function normalizeOutput(
 export function assertSuccess(result: RunCliResult): void {
   if (result.exitCode !== 0) {
     throw new Error(
-      `CLI exited with code ${result.exitCode}\nStdout: ${result.stdout}\nStderr: ${result.stderr}`
+      `CLI exited with code ${result.exitCode}\nStdout: ${result.stdout}\nStderr: ${result.stderr}`,
     );
   }
 }
@@ -171,12 +171,12 @@ export function assertSuccess(result: RunCliResult): void {
 export function assertFailure(result: RunCliResult, expectedCode = 1): void {
   if (result.exitCode === 0) {
     throw new Error(
-      `Expected CLI to fail with code ${expectedCode}, but succeeded\nStdout: ${result.stdout}`
+      `Expected CLI to fail with code ${expectedCode}, but succeeded\nStdout: ${result.stdout}`,
     );
   }
   if (result.exitCode !== expectedCode) {
     throw new Error(
-      `Expected exit code ${expectedCode}, got ${result.exitCode}\nStderr: ${result.stderr}`
+      `Expected exit code ${expectedCode}, got ${result.exitCode}\nStderr: ${result.stderr}`,
     );
   }
 }

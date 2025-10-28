@@ -11,9 +11,8 @@ interface LegacyAgentSyncConfig {
   extends?: string[];
   tools?: string[];
   useSymlinks?: boolean;
-  mcpServers?: string[] | Record<string, any>;
-  security?: any;
-  watch?: any;
+  mcpServers?: string[] | Record<string, unknown>;
+  security?: unknown;
 }
 
 // New configuration types
@@ -35,13 +34,13 @@ interface UserRegistryConfig {
 
 interface ProjectConfig {
   selections?: Record<string, PresetSelection>;
-  overrides?: Record<string, any>;
+  overrides?: Record<string, unknown>;
   tools?: string[];
 }
 
 interface LocalConfig {
   selections?: Record<string, PresetSelection>;
-  overrides?: Record<string, any>;
+  overrides?: Record<string, unknown>;
 }
 
 interface InteractiveSelectionConfig {
@@ -90,15 +89,12 @@ class ConfigMigrator {
     }
 
     // Migrate other settings to project.overrides
-    const otherSettings: Record<string, any> = {};
+    const otherSettings: Record<string, unknown> = {};
     if (legacyConfig.useSymlinks !== undefined) {
       otherSettings.useSymlinks = legacyConfig.useSymlinks;
     }
     if (legacyConfig.security) {
       otherSettings.security = legacyConfig.security;
-    }
-    if (legacyConfig.watch) {
-      otherSettings.watch = legacyConfig.watch;
     }
 
     if (Object.keys(otherSettings).length > 0) {
@@ -117,16 +113,20 @@ class ConfigMigrator {
   /**
    * Check if configuration is in legacy format
    */
-  isLegacyConfig(config: any): config is LegacyAgentSyncConfig {
+  isLegacyConfig(config: unknown): config is LegacyAgentSyncConfig {
+    if (typeof config !== "object" || config === null) {
+      return false;
+    }
+    const c = config as Record<string, unknown>;
     // Legacy configs have extends, tools, mcpServers at top level
     // New configs have user/project/local structure
     return (
-      (config.extends !== undefined ||
-        config.tools !== undefined ||
-        config.mcpServers !== undefined) &&
-      config.user === undefined &&
-      config.project === undefined &&
-      config.local === undefined
+      (c.extends !== undefined ||
+        c.tools !== undefined ||
+        c.mcpServers !== undefined) &&
+      c.user === undefined &&
+      c.project === undefined &&
+      c.local === undefined
     );
   }
 
@@ -223,10 +223,6 @@ describe("Interactive Selection Configuration Migration", () => {
         security: {
           secretScanning: { enabled: true },
         },
-        watch: {
-          enabled: true,
-          debounceMs: 500,
-        },
       };
 
       const result = migrator.migrateFromLegacy(legacyConfig);
@@ -242,10 +238,6 @@ describe("Interactive Selection Configuration Migration", () => {
         mcpServers: ["github", "postgres"],
         security: {
           secretScanning: { enabled: true },
-        },
-        watch: {
-          enabled: true,
-          debounceMs: 500,
         },
       });
     });
@@ -351,25 +343,27 @@ describe("Interactive Selection Configuration Migration", () => {
     });
 
     it("detects missing version", () => {
-      const invalidConfig: InteractiveSelectionConfig = {
+      const invalidConfig = {
         user: {
           presets: ["github:company/standards"],
         },
-      };
+      } as unknown;
 
-      const result = migrator.validateMigratedConfig(invalidConfig);
+      const result = migrator.validateMigratedConfig(
+        invalidConfig as InteractiveSelectionConfig,
+      );
 
       expect(result.valid).toBe(false);
       expect(result.errors).toContain("Version is required");
     });
 
     it("detects empty user presets", () => {
-      const invalidConfig: InteractiveSelectionConfig = {
+      const invalidConfig = {
         version: "2.0",
         user: {
           presets: [],
         },
-      };
+      } as InteractiveSelectionConfig;
 
       const result = migrator.validateMigratedConfig(invalidConfig);
 
@@ -416,11 +410,6 @@ describe("Interactive Selection Configuration Migration", () => {
             blockOnHighRisk: true,
           },
         },
-        watch: {
-          enabled: true,
-          debounceMs: 300,
-          ignorePatterns: ["node_modules/**", "dist/**"],
-        },
       };
 
       const result = migrator.migrateFromLegacy(realWorldConfig);
@@ -435,7 +424,6 @@ describe("Interactive Selection Configuration Migration", () => {
         "linear",
       ]);
       expect(result.project?.overrides?.security).toBeDefined();
-      expect(result.project?.overrides?.watch).toBeDefined();
     });
 
     it("preserves configuration semantics during migration", () => {

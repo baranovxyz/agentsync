@@ -57,9 +57,7 @@ describe("UserPresetRegistry error handling", () => {
     };
 
     it("should throw ValidationError for invalid preset entry data", async () => {
-      const { validateUserPresetEntry } = await import(
-        "@/types/schemas"
-      );
+      const { validateUserPresetEntry } = await import("@/types/schemas");
 
       vi.mocked(validateUserPresetEntry).mockImplementation(() => {
         throw new Error("Invalid preset entry data");
@@ -110,9 +108,7 @@ describe("UserPresetRegistry error handling", () => {
       const { validateUserPresetEntry, safeParseUserConfig } = await import(
         "@/types/schemas"
       );
-      const { pathExists, readFile, writeFile } = await import(
-        "@/utils/fs"
-      );
+      const { pathExists, readFile, writeFile } = await import("@/utils/fs");
 
       // Mock empty registry
       vi.mocked(pathExists).mockResolvedValue(true);
@@ -152,9 +148,7 @@ describe("UserPresetRegistry error handling", () => {
 
     it("should throw UserPresetRegistryError for non-existent preset", async () => {
       const { pathExists, readFile } = await import("@/utils/fs");
-      const { safeParseUserConfig } = await import(
-        "@/types/schemas"
-      );
+      const { safeParseUserConfig } = await import("@/types/schemas");
 
       // Mock empty registry
       vi.mocked(pathExists).mockResolvedValue(true);
@@ -204,9 +198,7 @@ describe("UserPresetRegistry error handling", () => {
 
     it("should throw UserPresetRegistryError for non-existent preset", async () => {
       const { pathExists, readFile } = await import("@/utils/fs");
-      const { safeParseUserConfig } = await import(
-        "@/types/schemas"
-      );
+      const { safeParseUserConfig } = await import("@/types/schemas");
 
       // Mock empty registry
       vi.mocked(pathExists).mockResolvedValue(true);
@@ -245,16 +237,16 @@ describe("UserPresetRegistry error handling", () => {
       } catch (error) {
         expect(error).toBeInstanceOf(UserPresetRegistryError);
         if (error instanceof UserPresetRegistryError) {
-          expect(error.getUserMessage()).toContain("Registry file contains invalid JSON");
+          expect(error.getUserMessage()).toContain(
+            "Registry file contains invalid JSON",
+          );
         }
       }
     });
 
     it("should include preset name in error context when available", async () => {
       const { pathExists, readFile } = await import("@/utils/fs");
-      const { safeParseUserConfig } = await import(
-        "@/types/schemas"
-      );
+      const { safeParseUserConfig } = await import("@/types/schemas");
 
       // Mock empty registry
       vi.mocked(pathExists).mockResolvedValue(true);
@@ -280,7 +272,9 @@ describe("UserPresetRegistry error handling", () => {
       } catch (error) {
         expect(error).toBeInstanceOf(UserPresetRegistryError);
         if (error instanceof UserPresetRegistryError) {
-          expect(error.getUserMessage()).toContain("Registry file contains invalid JSON");
+          expect(error.getUserMessage()).toContain(
+            "Registry file contains invalid JSON",
+          );
         }
       }
     });
@@ -318,9 +312,7 @@ describe("UserPresetRegistry error handling", () => {
 
     it("should handle invalid registry format", async () => {
       const { pathExists, readFile } = await import("@/utils/fs");
-      const { safeParseUserConfig } = await import(
-        "@/types/schemas"
-      );
+      const { safeParseUserConfig } = await import("@/types/schemas");
 
       vi.mocked(pathExists).mockResolvedValue(true);
       vi.mocked(readFile).mockResolvedValue(

@@ -28,12 +28,12 @@ describe("Merger", () => {
       const merged = merger.merge([preset1, preset2]);
 
       // Commands are namespaced
-      expect(merged.commands.get("company:commit.md")).toBe("content1");
-      expect(merged.commands.get("team:commit.md")).toBe("content2");
+      expect(merged.commands.get("company_commit.md")).toBe("content1");
+      expect(merged.commands.get("team_commit.md")).toBe("content2");
 
       // Rules are namespaced
-      expect(merged.rules.get("company:typescript.md")).toBe("rules1");
-      expect(merged.rules.get("team:api.md")).toBe("rules2");
+      expect(merged.rules.get("company_typescript.md")).toBe("rules1");
+      expect(merged.rules.get("team_api.md")).toBe("rules2");
 
       // MCPs are merged (no namespace)
       expect(merged.mcps).toEqual({
@@ -107,13 +107,13 @@ describe("Merger", () => {
       const merged = merger.merge([preset]);
 
       expect(merged.commands.size).toBe(3);
-      expect(merged.commands.get("company:commit.md")).toBe("commit content");
-      expect(merged.commands.get("company:test.md")).toBe("test content");
-      expect(merged.commands.get("company:deploy.md")).toBe("deploy content");
+      expect(merged.commands.get("company_commit.md")).toBe("commit content");
+      expect(merged.commands.get("company_test.md")).toBe("test content");
+      expect(merged.commands.get("company_deploy.md")).toBe("deploy content");
 
       expect(merged.rules.size).toBe(2);
-      expect(merged.rules.get("company:typescript.md")).toBe("ts rules");
-      expect(merged.rules.get("company:python.md")).toBe("py rules");
+      expect(merged.rules.get("company_typescript.md")).toBe("ts rules");
+      expect(merged.rules.get("company_python.md")).toBe("py rules");
     });
   });
 

@@ -75,7 +75,7 @@ export async function remove(path: string): Promise<void> {
  * Read and parse a JSON file
  * Replacement for fs-extra's readJson()
  */
-export async function readJson(file: string): Promise<any> {
+export async function readJson(file: string): Promise<unknown> {
   const content = await readFile(file, "utf-8");
   return JSON.parse(content);
 }
@@ -86,7 +86,7 @@ export async function readJson(file: string): Promise<any> {
  */
 export async function writeJson(
   file: string,
-  data: any,
+  data: unknown,
   options?: { encoding?: BufferEncoding; spaces?: number },
 ): Promise<void> {
   const dir = dirname(file);

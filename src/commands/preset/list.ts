@@ -68,7 +68,9 @@ export async function listPresets(
 
         if (include) {
           const includeText = include.join(", ");
-          const excludeText = exclude ? ` (exclude: ${exclude.join(", ")})` : "";
+          const excludeText = exclude
+            ? ` (exclude: ${exclude.join(", ")})`
+            : "";
           console.log(pc.cyan(`    Include: ${includeText}${excludeText}`));
         }
       }
@@ -105,8 +107,8 @@ export async function listPresets(
       console.log(pc.gray("Use 'agentsync sync' to sync with filters"));
       console.log();
     }
-  } catch (error: any) {
-    if (error.code === "ENOENT") {
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException)?.code === "ENOENT") {
       console.log(pc.red("✗ AgentSync not initialized"));
       console.log(pc.gray("\nRun: agentsync init"));
     } else {

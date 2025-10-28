@@ -11,24 +11,26 @@ import {
   safeParseUserConfig,
   validateConfig,
   validateLocalConfig,
+  validateNamespace,
   validateUserConfig,
   validateUserPresetEntry,
 } from "../../../src/types/schemas.js";
 
 describe("ExtendsEntry type", () => {
   describe("normalizeExtends function", () => {
-    it("normalizes string extends entries", () => {
-      const extends_ = ["github:company/standards", "github:team/backend"];
+    it("requires explicit namespace in object format", () => {
+      const extends_ = [
+        {
+          source: "github:company/standards",
+          namespace: "company",
+        },
+      ];
       const result = normalizeExtends(extends_);
 
-      expect(result).toHaveLength(2);
+      expect(result).toHaveLength(1);
       expect(result[0]).toEqual({
         source: "github:company/standards",
         namespace: "company",
-      });
-      expect(result[1]).toEqual({
-        source: "github:team/backend",
-        namespace: "team",
       });
     });
 
@@ -62,26 +64,77 @@ describe("ExtendsEntry type", () => {
       expect(result).toHaveLength(0);
     });
 
-    it("extracts namespace from source when not provided", () => {
+    it("throws error when namespace is missing", () => {
       const extends_ = [
         {
           source: "github:acme-corp/backend-rules",
           include: ["**/*.ts"],
         },
       ];
-      const result = normalizeExtends(extends_);
-
-      expect(result[0].namespace).toBe("acme-corp");
-    });
-
-    it("throws error for invalid GitHub source format", () => {
-      const extends_ = ["invalid-source-format"];
 
       expect(() => normalizeExtends(extends_)).toThrow(
-        "Invalid GitHub source: invalid-source-format. Expected format: github:org/repo",
+        /Namespace is required for preset/,
       );
     });
 
+    it("throws error when string format is used", () => {
+      const extends_ = ["github:company/standards"];
+
+      expect(() => normalizeExtends(extends_)).toThrow(
+        /String format for extends is deprecated/,
+      );
+    });
+
+    it("throws error when source is missing", () => {
+      const extends_ = [
+        {
+          namespace: "company",
+        },
+      ];
+
+      // biome-ignore lint/suspicious/noExplicitAny: Testing runtime error for invalid input
+      expect(() => normalizeExtends(extends_ as any)).toThrow(
+        "Source is required in extends entry",
+      );
+    });
+  });
+
+  describe("validateNamespace function", () => {
+    it("accepts valid namespace", () => {
+      expect(() => validateNamespace("company")).not.toThrow();
+      expect(() => validateNamespace("backend-team")).not.toThrow();
+      expect(() => validateNamespace("team_rules")).not.toThrow();
+      expect(() => validateNamespace("acme123")).not.toThrow();
+    });
+
+    it("rejects reserved namespace", () => {
+      expect(() => validateNamespace("custom")).toThrow(/reserved/);
+      expect(() => validateNamespace("local")).toThrow(/reserved/);
+      expect(() => validateNamespace("project")).toThrow(/reserved/);
+      expect(() => validateNamespace("user")).toThrow(/reserved/);
+    });
+
+    it("rejects namespace with invalid characters", () => {
+      expect(() => validateNamespace("company.rules")).toThrow(
+        /invalid characters/,
+      );
+      expect(() => validateNamespace("team@name")).toThrow(
+        /invalid characters/,
+      );
+      expect(() => validateNamespace("org name")).toThrow(/invalid characters/);
+    });
+
+    it("rejects namespace exceeding max length", () => {
+      const longNamespace = "a".repeat(51);
+      expect(() => validateNamespace(longNamespace)).toThrow(
+        /exceeds maximum length/,
+      );
+    });
+
+    it("is case-insensitive for reserved words", () => {
+      expect(() => validateNamespace("Custom")).toThrow(/reserved/);
+      expect(() => validateNamespace("LOCAL")).toThrow(/reserved/);
+    });
   });
 
   describe("AgentSyncConfig schema validation", () => {
@@ -110,13 +163,17 @@ describe("ExtendsEntry type", () => {
       });
     });
 
-    it("validates config with mixed extends entries", () => {
+    it("requires explicit namespace for all extends entries", () => {
       const config = {
         version: "1.0",
         extends: [
-          "github:company/base-standards",
+          {
+            source: "github:company/base-standards",
+            namespace: "company",
+          },
           {
             source: "github:team/backend",
+            namespace: "backend-team",
             include: ["**/*.ts"],
           },
         ],
@@ -126,9 +183,13 @@ describe("ExtendsEntry type", () => {
       const result = validateConfig(config);
 
       expect(result.extends).toHaveLength(2);
-      expect(result.extends?.[0]).toBe("github:company/base-standards");
+      expect(result.extends?.[0]).toEqual({
+        source: "github:company/base-standards",
+        namespace: "company",
+      });
       expect(result.extends?.[1]).toEqual({
         source: "github:team/backend",
+        namespace: "backend-team",
         include: ["**/*.ts"],
       });
     });
@@ -139,6 +200,7 @@ describe("ExtendsEntry type", () => {
         extends: [
           {
             source: "github:company/standards",
+            namespace: "company",
             include: ["**/*.ts"],
           },
         ],
@@ -150,6 +212,7 @@ describe("ExtendsEntry type", () => {
       expect(result.extends).toHaveLength(1);
       expect(result.extends?.[0]).toEqual({
         source: "github:company/standards",
+        namespace: "company",
         include: ["**/*.ts"],
       });
     });
@@ -160,6 +223,7 @@ describe("ExtendsEntry type", () => {
         extends: [
           {
             source: "github:company/standards",
+            namespace: "company",
             exclude: ["**/*.test.ts"],
           },
         ],
@@ -171,6 +235,7 @@ describe("ExtendsEntry type", () => {
       expect(result.extends).toHaveLength(1);
       expect(result.extends?.[0]).toEqual({
         source: "github:company/standards",
+        namespace: "company",
         exclude: ["**/*.test.ts"],
       });
     });
@@ -366,7 +431,10 @@ describe("ExtendsEntry type", () => {
       const config = {
         version: "1.0",
         extends: [
-          "github:company/standards",
+          {
+            source: "github:company/standards",
+            namespace: "company",
+          },
           {
             source: "github:team/backend",
             namespace: "backend-team",
@@ -379,7 +447,10 @@ describe("ExtendsEntry type", () => {
 
       expect(result.version).toBe("1.0");
       expect(result.extends).toHaveLength(2);
-      expect(result.extends?.[0]).toBe("github:company/standards");
+      expect(result.extends?.[0]).toEqual({
+        source: "github:company/standards",
+        namespace: "company",
+      });
       expect(result.extends?.[1]).toEqual({
         source: "github:team/backend",
         namespace: "backend-team",
@@ -396,23 +467,12 @@ describe("ExtendsEntry type", () => {
       expect(result.extends).toBeUndefined();
     });
 
-    it("validates local config with string extends only", () => {
-      const config = {
-        extends: ["github:company/standards", "github:team/backend"],
-      };
-
-      const result = validateLocalConfig(config);
-
-      expect(result.extends).toHaveLength(2);
-      expect(result.extends?.[0]).toBe("github:company/standards");
-      expect(result.extends?.[1]).toBe("github:team/backend");
-    });
-
     it("validates local config with object extends only", () => {
       const config = {
         extends: [
           {
             source: "github:company/standards",
+            namespace: "company",
             include: ["**/*.ts"],
           },
           {
@@ -428,6 +488,7 @@ describe("ExtendsEntry type", () => {
       expect(result.extends).toHaveLength(2);
       expect(result.extends?.[0]).toEqual({
         source: "github:company/standards",
+        namespace: "company",
         include: ["**/*.ts"],
       });
       expect(result.extends?.[1]).toEqual({
@@ -449,14 +510,24 @@ describe("ExtendsEntry type", () => {
 
     it("safe parse local config with valid data", () => {
       const config = {
-        extends: ["github:company/standards"],
+        extends: [
+          {
+            source: "github:company/standards",
+            namespace: "company",
+          },
+        ],
       };
 
       const result = safeParseLocalConfig(config);
 
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.extends).toEqual(["github:company/standards"]);
+        expect(result.data.extends).toEqual([
+          {
+            source: "github:company/standards",
+            namespace: "company",
+          },
+        ]);
       }
     });
 
@@ -465,6 +536,7 @@ describe("ExtendsEntry type", () => {
         extends: [
           {
             source: "github:company/standards",
+            namespace: "company",
             include: ["rules/**/*.md"],
             exclude: ["rules/deprecated/*"],
           },
@@ -477,6 +549,7 @@ describe("ExtendsEntry type", () => {
       if (result.success) {
         expect(result.data.extends?.[0]).toEqual({
           source: "github:company/standards",
+          namespace: "company",
           include: ["rules/**/*.md"],
           exclude: ["rules/deprecated/*"],
         });

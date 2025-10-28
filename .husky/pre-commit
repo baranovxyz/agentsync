@@ -1,5 +1,4 @@
 #!/bin/sh
-. "$(dirname "$0")/_/husky.sh"
 
 # Run Biome format and check on staged files only
 if ! command -v pnpm >/dev/null 2>&1; then
@@ -7,24 +6,35 @@ if ! command -v pnpm >/dev/null 2>&1; then
   exit 1
 fi
 
-# Collect staged files that Biome can handle
-STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACMR -z | grep -z -E '\.(cjs|mjs|js|jsx|ts|tsx|json|jsonc|md|css|scss|yml|yaml)$' || true)
+PATTERN='\.(cjs|mjs|js|jsx|ts|tsx|json|jsonc)$'
 
-if [ -z "$STAGED_FILES" ]; then
+# Exit early if there are no matching staged files
+FILES_COUNT=$(git diff --cached --name-only --diff-filter=ACMR | grep -E "$PATTERN" | wc -l | tr -d '[:space:]')
+if [ "$FILES_COUNT" = "0" ]; then
   exit 0
 fi
 
 echo "→ Biome: formatting staged files"
-printf '%s' "$STAGED_FILES" | xargs -0 pnpm exec biome format --write
+git diff --cached --name-only --diff-filter=ACMR -z \
+  | grep -z -E "$PATTERN" \
+  | xargs -0 pnpm exec biome format --write
 
 # Re-stage files after formatting
-printf '%s' "$STAGED_FILES" | xargs -0 git add
+git diff --cached --name-only --diff-filter=ACMR -z \
+  | grep -z -E "$PATTERN" \
+  | xargs -0 git add
 
 echo "→ Biome: auto-fixing lint issues"
-printf '%s' "$STAGED_FILES" | xargs -0 pnpm exec biome check --write --no-errors-on-unmatched
+git diff --cached --name-only --diff-filter=ACMR -z \
+  | grep -z -E "$PATTERN" \
+  | xargs -0 pnpm exec biome check --write --no-errors-on-unmatched
 
 # Re-stage files after lint fixes
-printf '%s' "$STAGED_FILES" | xargs -0 git add
+git diff --cached --name-only --diff-filter=ACMR -z \
+  | grep -z -E "$PATTERN" \
+  | xargs -0 git add
 
 echo "→ Biome: final check"
-printf '%s' "$STAGED_FILES" | xargs -0 pnpm exec biome check --no-errors-on-unmatched
+git diff --cached --name-only --diff-filter=ACMR -z \
+  | grep -z -E "$PATTERN" \
+  | xargs -0 pnpm exec biome check --no-errors-on-unmatched

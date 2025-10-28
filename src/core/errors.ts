@@ -367,143 +367,155 @@ export class SelectiveLoadingError extends InteractiveSelectionError {
 /**
  * Error handler utility class
  */
-export class ErrorHandler {
-  private static readonly MAX_STACK_DEPTH = 10;
+/**
+ * Error handler utility - wrap error with additional context
+ */
+export function wrapError(
+  error: unknown,
+  message: string,
+  category?: ErrorCategory,
+  context?: Record<string, unknown>,
+): AgentSyncError {
+  if (error instanceof AgentSyncError) {
+    // Add additional context to existing error
+    error.metadata.context = {
+      ...error.metadata.context,
+      ...context,
+      wrappedMessage: message,
+    };
+    return error;
+  }
 
-  /**
-   * Wrap an error with additional context
-   */
-  static wrap(
-    error: unknown,
-    message: string,
-    category?: ErrorCategory,
-    context?: Record<string, unknown>,
-  ): AgentSyncError {
-    if (error instanceof AgentSyncError) {
-      // Add additional context to existing error
-      error.metadata.context = {
-        ...error.metadata.context,
-        ...context,
-        wrappedMessage: message,
-      };
-      return error;
-    }
-
-    if (error instanceof Error) {
-      return new AgentSyncError(
-        `${message}: ${error.message}`,
-        category || ErrorCategory.UNKNOWN,
-        ErrorSeverity.MEDIUM,
-        error,
-        context,
-      );
-    }
-
-    // Handle non-Error objects
+  if (error instanceof Error) {
     return new AgentSyncError(
-      `${message}: ${String(error)}`,
+      `${message}: ${error.message}`,
       category || ErrorCategory.UNKNOWN,
       ErrorSeverity.MEDIUM,
-      undefined,
-      { ...context, originalValue: error },
+      error,
+      context,
     );
   }
 
-  /**
-   * Check if an error is a specific type
-   */
-  static isErrorType<T extends AgentSyncError>(
-    error: unknown,
-    errorClass: new (...args: any[]) => T,
-  ): error is T {
-    return error instanceof errorClass;
-  }
-
-  /**
-   * Get root cause of an error chain
-   */
-  static getRootCause(error: AgentSyncError): Error {
-    let current: Error | undefined = error;
-    let depth = 0;
-
-    while (
-      current instanceof AgentSyncError &&
-      current.originalError &&
-      depth < ErrorHandler.MAX_STACK_DEPTH
-    ) {
-      current = current.originalError;
-      depth++;
-    }
-
-    return current || error;
-  }
-
-  /**
-   * Format error for console output
-   */
-  static format(error: AgentSyncError, verbose: boolean = false): string {
-    const lines: string[] = [];
-
-    // Main error message
-    lines.push(`❌ ${error.getUserMessage()}`);
-
-    // Add category and severity
-    if (verbose) {
-      lines.push(`   Category: ${error.metadata.category}`);
-      lines.push(`   Severity: ${error.metadata.severity}`);
-
-      // Add context if available
-      if (error.metadata.context) {
-        lines.push("   Context:");
-        Object.entries(error.metadata.context).forEach(([key, value]) => {
-          lines.push(`     ${key}: ${JSON.stringify(value)}`);
-        });
-      }
-
-      // Add validation errors if present
-      if (error instanceof ValidationError && error.validationErrors) {
-        lines.push("   Validation Errors:");
-        error.getFormattedErrors().forEach((err) => {
-          lines.push(`     - ${err}`);
-        });
-      }
-
-      // Add stack trace
-      if (error.stack) {
-        lines.push("   Stack Trace:");
-        lines.push(
-          error.stack
-            .split("\n")
-            .map((line) => `     ${line}`)
-            .join("\n"),
-        );
-      }
-    }
-
-    return lines.join("\n");
-  }
-
-  /**
-   * Create a safe error object for serialization
-   */
-  static serialize(error: AgentSyncError): Record<string, unknown> {
-    return {
-      name: error.name,
-      message: error.message,
-      metadata: {
-        ...error.metadata,
-        timestamp: error.metadata.timestamp.toISOString(),
-        stackTrace: undefined, // Don't include stack in serialization
-      },
-      originalError: error.originalError
-        ? {
-            name: error.originalError.name,
-            message: error.originalError.message,
-          }
-        : undefined,
-    };
-  }
+  // Handle non-Error objects
+  return new AgentSyncError(
+    `${message}: ${String(error)}`,
+    category || ErrorCategory.UNKNOWN,
+    ErrorSeverity.MEDIUM,
+    undefined,
+    { ...context, originalValue: error },
+  );
 }
+
+/**
+ * Check if an error is a specific type
+ */
+export function isErrorType<T extends AgentSyncError>(
+  error: unknown,
+  errorClass: new (...args: unknown[]) => T,
+): error is T {
+  return error instanceof errorClass;
+}
+
+const MAX_STACK_DEPTH = 10;
+
+/**
+ * Get root cause of an error chain
+ */
+export function getRootCause(error: AgentSyncError): Error {
+  let current: Error | undefined = error;
+  let depth = 0;
+
+  while (
+    current instanceof AgentSyncError &&
+    current.originalError &&
+    depth < MAX_STACK_DEPTH
+  ) {
+    current = current.originalError;
+    depth++;
+  }
+
+  return current || error;
+}
+
+/**
+ * Format error for console output
+ */
+export function formatError(
+  error: AgentSyncError,
+  verbose: boolean = false,
+): string {
+  const lines: string[] = [];
+
+  // Main error message
+  lines.push(`❌ ${error.getUserMessage()}`);
+
+  // Add category and severity
+  if (verbose) {
+    lines.push(`   Category: ${error.metadata.category}`);
+    lines.push(`   Severity: ${error.metadata.severity}`);
+
+    // Add context if available
+    if (error.metadata.context) {
+      lines.push("   Context:");
+      Object.entries(error.metadata.context).forEach(([key, value]) => {
+        lines.push(`     ${key}: ${JSON.stringify(value)}`);
+      });
+    }
+
+    // Add validation errors if present
+    if (error instanceof ValidationError && error.validationErrors) {
+      lines.push("   Validation Errors:");
+      error.getFormattedErrors().forEach((err) => {
+        lines.push(`     - ${err}`);
+      });
+    }
+
+    // Add stack trace
+    if (error.stack) {
+      lines.push("   Stack Trace:");
+      lines.push(
+        error.stack
+          .split("\n")
+          .map((line) => `     ${line}`)
+          .join("\n"),
+      );
+    }
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * Create a safe error object for serialization
+ */
+export function serializeError(error: AgentSyncError): Record<string, unknown> {
+  return {
+    name: error.name,
+    message: error.message,
+    metadata: {
+      ...error.metadata,
+      timestamp: error.metadata.timestamp.toISOString(),
+      stackTrace: undefined, // Don't include stack in serialization
+    },
+    originalError: error.originalError
+      ? {
+          name: error.originalError.name,
+          message: error.originalError.message,
+        }
+      : undefined,
+  };
+}
+
+/**
+ * Error handler namespace (backwards compatibility)
+ */
+export const ErrorHandler = {
+  wrap: wrapError,
+  isErrorType: isErrorType,
+  getRootCause: getRootCause,
+  format: formatError,
+  serialize: serializeError,
+};
 
 /**
  * Error recovery strategies
@@ -541,9 +553,6 @@ export class RetryStrategy implements RecoveryStrategy {
     for (let i = 0; i < this.maxRetries; i++) {
       await new Promise((resolve) => setTimeout(resolve, delay));
       delay *= this.backoffMultiplier;
-
-      // Recovery logic would be implemented by the caller
-      throw new Error("Retry logic must be implemented by caller");
     }
   }
 

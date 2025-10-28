@@ -1,7 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { UnicodeDetector } from "../unicode-detector.js";
-import type { SecurityCheck, SecurityContext, SecurityFinding } from "./types.js";
+import type {
+  SecurityCheck,
+  SecurityContext,
+  SecurityFinding,
+} from "./types.js";
 
 export class AgentsMdUnicodeCheck implements SecurityCheck {
   name = "agents-md-unicode" as const;
