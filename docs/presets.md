@@ -29,8 +29,6 @@ Presets let teams share rules, commands, and MCPs via GitHub repositories. Files
 - `exclude` - globs to subtract from included set
 - MCP enablement controlled via top-level `mcpServers` field
 
-Examples: `rules/*.md`, `commands/deploy-*.md`, `rules/frontend/**`
-
 ## Preset Repository Structure
 
 ```
@@ -59,6 +57,13 @@ company:typescript.md → .cursor/rules/company:typescript.md
 ```
 
 MCPs merge without namespaces (last-wins per server name). Enablement controlled via `mcpServers`.
+
+## Namespace Requirements
+
+- Namespace must be unique across all presets
+- Namespace must be a valid identifier (alphanumeric, hyphens, underscores)
+- Namespace must not be reserved (e.g., `github`, `postgres`, `cursor`, `claude`)
+- Namespace must be consistent across all files within a preset
 
 ## Example
 
