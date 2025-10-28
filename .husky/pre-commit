@@ -17,7 +17,7 @@ fi
 echo "→ Biome: formatting staged files"
 git diff --cached --name-only --diff-filter=ACMR -z \
   | grep -z -E "$PATTERN" \
-  | xargs -0 pnpm exec biome format --write
+  | xargs -0 pnpm exec biome format --write --no-errors-on-unmatched
 
 # Re-stage files after formatting
 git diff --cached --name-only --diff-filter=ACMR -z \
