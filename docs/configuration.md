@@ -61,7 +61,7 @@ Override or supplement preset content with project-specific rules and commands.
 - Files in these directories are merged with preset content
 - Project custom files coexist with preset files via namespace isolation
 - Project custom files are NOT namespaced; preset files use namespace formatting (e.g., `company/file.md` or `company_file.md`)
-- Can use frontmatter for cross-tool metadata
+- **Must include frontmatter** with required metadata (see format below)
 - Committed to git (team-shared)
 
 **Example**:
@@ -84,6 +84,48 @@ On `agentsync sync`, this becomes:
 - `.cursor/rules/custom-auth.mdc`
 - `.claude/rules/custom-auth.md`
 - `.clinerules/custom-auth.md`
+
+### Frontmatter Format
+
+**Commands** (`.agentsync/commands/*.md`):
+
+- `description` (required): Brief description for UI/autocomplete
+- `argument-hint` (optional): Expected argument format, e.g., `<provider> [scopes]`
+
+Example:
+
+```markdown
+---
+description: Authenticate user with OAuth
+argument-hint: <provider> [scopes]
+---
+
+# Auth Command
+
+Authenticate using the specified provider...
+```
+
+**Rules** (`.agentsync/rules/*.md`):
+
+- `description` (required): What/when/why of the rule
+- Other fields optional: `globs`, `alwaysApply`, `priority`, `tags`, etc.
+
+Example:
+
+```markdown
+---
+description: TypeScript coding standards
+globs: "**/*.ts,**/*.tsx"
+alwaysApply: false
+priority: 1
+---
+
+# TypeScript Rules
+
+Use strict null checks...
+```
+
+**Validation**: Files without proper frontmatter will show warnings during `agentsync sync` but will still be synced with default values.
 
 ## Paths
 

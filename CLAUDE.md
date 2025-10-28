@@ -55,5 +55,6 @@ See: ./docs/cli.md for full reference
 - MCP config merging: local `mcpServers` completely replaces project `mcpServers`
 - Empty MCP array `[]` disables all MCPs; local config overrides project config entirely
 - Namespace formatting: Internal uses underscore (`_`); output uses nested dirs for Cursor/Claude/RooCode, flat for Cline
+- Frontmatter requirements: Commands require `description`; rules require `description`; missing frontmatter triggers warnings
 
 See also: ./ARCHITECTURE.md, ./TESTING.md, ./docs/debugging.md, ./docs/releasing.md
