@@ -18,7 +18,7 @@ export class RooCodeCommandsConverter extends RuleConverterBase {
 
   /**
    * RooCode commands use markdown with frontmatter
-   * Extracts description and argument hints from content
+   * Extracts description and argument hints from content, strips existing frontmatter
    */
   convert(namespacedFilename: string, content: string): RuleConversionResult {
     const { namespace, filename } =
@@ -27,13 +27,21 @@ export class RooCodeCommandsConverter extends RuleConverterBase {
     // Keep as markdown, use nested directory format
     const outputFilename = this.formatOutputPath(namespace, filename);
 
-    // Extract description and argument hint from content
-    const description = this.extractDescription(content);
-    const argumentHint = this.extractArgumentHint(content);
+    // Parse existing frontmatter and get content without it
+    const parsed = this.parseFrontmatter(content);
 
-    // Add frontmatter with metadata
-    const frontmatter = this.buildFrontmatter(description, argumentHint);
-    const convertedContent = `${frontmatter}\n${content}`;
+    // Extract or use defaults
+    const description =
+      this.extractFrontmatterField(content, "description") ||
+      this.extractFirstNonHeaderLine(parsed.content) ||
+      "Command";
+    const argumentHint =
+      this.extractFrontmatterField(content, "argument-hint") ||
+      "[optional arguments]";
+
+    // Build new frontmatter and use content WITHOUT old frontmatter
+    const frontmatter = this.buildCommandFrontmatter(description, argumentHint);
+    const convertedContent = `${frontmatter}\n${parsed.content}`;
 
     return {
       filename: outputFilename,
@@ -42,19 +50,9 @@ export class RooCodeCommandsConverter extends RuleConverterBase {
   }
 
   /**
-   * Extract description from content (first line or first paragraph)
+   * Extract first non-empty, non-header line from content
    */
-  private extractDescription(content: string): string {
-    // Try to extract from frontmatter if it exists
-    const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
-    if (frontmatterMatch) {
-      const descMatch = frontmatterMatch[1].match(/description:\s*(.+)/);
-      if (descMatch) {
-        return descMatch[1].trim();
-      }
-    }
-
-    // Otherwise, use first non-empty line
+  private extractFirstNonHeaderLine(content: string): string | null {
     const lines = content.split("\n");
     for (const line of lines) {
       const trimmed = line.trim();
@@ -62,34 +60,6 @@ export class RooCodeCommandsConverter extends RuleConverterBase {
         return trimmed.substring(0, 100); // Limit to 100 chars
       }
     }
-
-    return "Command";
-  }
-
-  /**
-   * Extract argument hint from content
-   */
-  private extractArgumentHint(content: string): string {
-    // Try to extract from frontmatter if it exists
-    const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
-    if (frontmatterMatch) {
-      const hintMatch = frontmatterMatch[1].match(/argument-hint:\s*(.+)/);
-      if (hintMatch) {
-        return hintMatch[1].trim();
-      }
-    }
-
-    // Default hint
-    return "[optional arguments]";
-  }
-
-  /**
-   * Build frontmatter for RooCode
-   */
-  private buildFrontmatter(description: string, argumentHint: string): string {
-    return `---
-description: ${description}
-argument-hint: ${argumentHint}
----`;
+    return null;
   }
 }

@@ -19,6 +19,7 @@ import { loadGlobalRegistry } from "../core/mcp/registry.js";
 import { substituteAllMCPs, validateTokens } from "../core/mcp/tokens.js";
 import { RegistryOrchestrator } from "../core/registry/registry-orchestrator.js";
 import { runSecurityChecks } from "../security/checks/run.js";
+import { RuleConverterBase } from "../targets/rules/rule-converter-base.js";
 import { getConvertersForTools } from "../targets/tools/index.js";
 import type { ToolName } from "../types/index.js";
 import { validateConfig } from "../types/schemas.js";
@@ -26,49 +27,92 @@ import { validateConfig } from "../types/schemas.js";
 const pc = picocolors;
 
 /**
+ * Simple validator helper that uses RuleConverterBase validation methods
+ */
+class FrontmatterValidator extends RuleConverterBase {
+  supportsNestedDirs(): boolean {
+    return true;
+  }
+  convert(): never {
+    throw new Error("Not implemented");
+  }
+  // Expose protected methods as public
+  public validateCommand(content: string) {
+    const { frontmatter } = this.parseFrontmatter(content);
+    return this.validateCommandFrontmatter(frontmatter);
+  }
+  public validateRule(content: string) {
+    const { frontmatter } = this.parseFrontmatter(content);
+    return this.validateRuleFrontmatter(frontmatter);
+  }
+}
+
+const validator = new FrontmatterValidator();
+
+/**
  * Load project-specific rules from .agentsync/rules/
  */
-async function loadProjectRules(cwd: string): Promise<Map<string, string>> {
+async function loadProjectRules(cwd: string): Promise<{
+  rules: Map<string, string>;
+  warnings: string[];
+}> {
   const rulesDir = path.join(cwd, ".agentsync", "rules");
 
   const { pathExists } = await import("../utils/fs.js");
   if (!(await pathExists(rulesDir))) {
-    return new Map();
+    return { rules: new Map(), warnings: [] };
   }
 
   const files = await fg("**/*.md", { cwd: rulesDir, absolute: false });
   const rules = new Map<string, string>();
+  const warnings: string[] = [];
 
   for (const file of files) {
     const filePath = path.join(rulesDir, file);
     const content = await readFile(filePath, "utf-8");
     rules.set(file, content);
+
+    // Validate frontmatter
+    const validation = validator.validateRule(content);
+    if (!validation.isValid) {
+      warnings.push(`${file}: ${validation.warnings.join(", ")}`);
+    }
   }
 
-  return rules;
+  return { rules, warnings };
 }
 
 /**
  * Load project-specific commands from .agentsync/commands/
  */
-async function loadProjectCommands(cwd: string): Promise<Map<string, string>> {
+async function loadProjectCommands(cwd: string): Promise<{
+  commands: Map<string, string>;
+  warnings: string[];
+}> {
   const commandsDir = path.join(cwd, ".agentsync", "commands");
 
   const { pathExists } = await import("../utils/fs.js");
   if (!(await pathExists(commandsDir))) {
-    return new Map();
+    return { commands: new Map(), warnings: [] };
   }
 
   const files = await fg("**/*.md", { cwd: commandsDir, absolute: false });
   const commands = new Map<string, string>();
+  const warnings: string[] = [];
 
   for (const file of files) {
     const filePath = path.join(commandsDir, file);
     const content = await readFile(filePath, "utf-8");
     commands.set(file, content);
+
+    // Validate frontmatter
+    const validation = validator.validateCommand(content);
+    if (!validation.isValid) {
+      warnings.push(`${file}: ${validation.warnings.join(", ")}`);
+    }
   }
 
-  return commands;
+  return { commands, warnings };
 }
 
 /**
@@ -275,10 +319,29 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
     }
 
     // 2.5. Load and merge project custom rules/commands
-    const projectRules = await loadProjectRules(cwd);
-    const projectCommands = await loadProjectCommands(cwd);
+    const { rules: projectRules, warnings: rulesWarnings } =
+      await loadProjectRules(cwd);
+    const { commands: projectCommands, warnings: commandsWarnings } =
+      await loadProjectCommands(cwd);
+
+    // Display frontmatter validation warnings
+    if (rulesWarnings.length > 0) {
+      console.log(pc.yellow("\n⚠ Rule file warnings:"));
+      for (const warning of rulesWarnings) {
+        console.log(pc.gray(`  ${warning}`));
+      }
+      console.log();
+    }
+    if (commandsWarnings.length > 0) {
+      console.log(pc.yellow("\n⚠ Command file warnings:"));
+      for (const warning of commandsWarnings) {
+        console.log(pc.gray(`  ${warning}`));
+      }
+      console.log();
+    }
 
     // Merge: project custom overrides presets
+    // Presets come namespaced (company_typescript.md), project custom do not (test.md)
     const finalRules = new Map([...merged.rules, ...projectRules]);
     const finalCommands = new Map([...merged.commands, ...projectCommands]);
 
