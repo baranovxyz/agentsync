@@ -59,7 +59,8 @@ Override or supplement preset content with project-specific rules and commands.
 **Behavior**:
 
 - Files in these directories are merged with preset content
-- Same filename overrides preset version
+- Project custom files coexist with preset files via namespace isolation
+- Project custom files are NOT namespaced; preset files use namespace formatting (e.g., `company/file.md` or `company_file.md`)
 - Can use frontmatter for cross-tool metadata
 - Committed to git (team-shared)
 
@@ -95,6 +96,7 @@ On `agentsync sync`, this becomes:
 
 ## Notes
 
-- Empty MCP configs (`[]` or `{}`) are valid and clear tool configs
+- Empty MCP array `[]` disables all MCPs
+- Optional field: if `mcpServers` is omitted, project config is used
 - v0.2.0 writes to `.agentsync/config.json` only
 - Future: `--scope` flag for write targets

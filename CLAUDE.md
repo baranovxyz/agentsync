@@ -53,6 +53,7 @@ See: ./docs/cli.md for full reference
 - Handle CommanderError types: when using `exitOverride()`, check for `'commander.version'` and `'commander.helpDisplayed'` codes, exit with 0
 - Main module detection: prefer `import.meta.main`; fallback to `es-main` for older Node
 - MCP config merging: local `mcpServers` completely replaces project `mcpServers`
-- Empty MCP configs (`[]`) are valid; local config overrides project config entirely
+- Empty MCP array `[]` disables all MCPs; local config overrides project config entirely
+- Namespace formatting: Internal uses underscore (`_`); output uses nested dirs for Cursor/Claude/RooCode, flat for Cline
 
 See also: ./ARCHITECTURE.md, ./TESTING.md, ./docs/debugging.md, ./docs/releasing.md
