@@ -153,9 +153,12 @@ describe("preset add command with selection support", () => {
     const writtenConfig = JSON.parse(mockWriteFile.mock.calls[0][1] as string);
     expect(writtenConfig.extends).toContain("github:existing/preset");
     // When selection is provided, preset is added as an object
-    expect(writtenConfig.extends.some((e: any) => 
-      typeof e === 'object' && e.source === "github:testorg/testrepo"
-    )).toBe(true);
+    expect(
+      writtenConfig.extends.some(
+        (e: any) =>
+          typeof e === "object" && e.source === "github:testorg/testrepo",
+      ),
+    ).toBe(true);
   });
 
   it("should create extends array if it doesn't exist", async () => {
