@@ -39,12 +39,44 @@ lerna-debug.log*
 .env.local
 .env.*.local
 
-# AgentSync specific
-.agentsync/logs/*
-!.agentsync/logs/.gitkeep
+
+# AgentSync
+.agentsync/logs/
 .agentsync/cache/
 .agentsync/backups/
 *.backup
+agentsync.local.json
+
+# Tool outputs (regenerated on sync)
+.cursor/rules/
+.cursor/commands/
+.cursor/mcp.json
+.claude/rules/
+.claude/commands/
+.claude/mcp.json
+CLAUDE.md
+
+# Keep project custom rules
+!.agentsync/rules/
+!.agentsync/commands/
+agentsync.local.json
+
+# Tool outputs (regenerated on sync)
+.cursor/rules/
+.cursor/commands/
+.cursor/mcp.json
+.claude/rules/
+.claude/commands/
+.claude/mcp.json
+CLAUDE.md
+.clinerules/*.md
+.clinerules/AGENTS.md
+cline_mcp_settings.json
+.roo/mcp.json
+
+# Keep project custom rules
+!.agentsync/rules/
+!.agentsync/commands/
 agentsync.local.json
 
 # Tool configuration directories (local development)
