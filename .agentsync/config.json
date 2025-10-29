@@ -1,0 +1,10 @@
+{
+  "version": "1.0",
+  "extends": [],
+  "mcpServers": [],
+  "tools": [
+    "cursor",
+    "claude"
+  ],
+  "useSymlinks": true
+}

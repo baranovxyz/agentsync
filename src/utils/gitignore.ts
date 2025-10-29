@@ -25,8 +25,6 @@ export const TOOL_GITIGNORE_PATTERNS: Record<ToolName, string[]> = {
 export const BASE_GITIGNORE_PATTERNS = [
   "",
   "# AgentSync",
-  ".agentsync/logs/",
-  ".agentsync/cache/",
   ".agentsync/backups/",
   "*.backup",
   "agentsync.local.json",
