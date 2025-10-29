@@ -43,7 +43,7 @@ Emerging cross-tool format; see [AGENTS.md](https://agents.md).
 - `AGENTS.md` at repository root as optional supplementary documentation
 - AgentSync does not extract configuration from AGENTS.md content
 - AgentSync does create, template, symlink, and security-scan AGENTS.md
-- AgentSync symlinks AGENTS.md to tool-specific locations for convenience (e.g., `.clinerules/AGENTS.md`)
+- AgentSync symlinks AGENTS.md to tool-specific locations for convenience if tools do not support it natively (e.g., `.clinerules/AGENTS.md`)
 
 ### Model Context Protocol (MCP) Integration
 
