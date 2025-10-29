@@ -1,21 +1,16 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   generateGitignoreContent,
   hasAgentSyncSection,
   updateAgentSyncSection,
-  BASE_GITIGNORE_PATTERNS,
-  PRESERVE_PATTERNS,
-  TOOL_GITIGNORE_PATTERNS,
 } from "../../../src/utils/gitignore.js";
-import type { ToolName } from "../../../src/types/index.js";
 
 describe("gitignore utilities", () => {
   describe("generateGitignoreContent", () => {
     it("should generate base patterns for empty tool list", () => {
       const content = generateGitignoreContent([]);
       expect(content).toContain("# AgentSync");
-      expect(content).toContain(".agentsync/logs/");
-      expect(content).toContain(".agentsync/cache/");
+      expect(content).toContain(".agentsync/backups/");
       expect(content).toContain("agentsync.local.json");
       expect(content).toContain("# Keep project custom rules");
       expect(content).toContain("!.agentsync/rules/");
