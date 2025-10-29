@@ -63,9 +63,15 @@ export function createProgram(options?: { exitOverride?: boolean }): Command {
   program
     .command("init")
     .description("Initialize AgentSync in the current project")
-    .option("-t, --template <template>", "Template to use for AGENTS.md")
+    .option(
+      "--tools <tools>",
+      "Comma-separated list of tools (cursor,claude,cline,roocode)",
+    )
     .action((options) => {
-      init({ template: options.template });
+      const tools = options.tools
+        ? options.tools.split(",").map((t: string) => t.trim())
+        : undefined;
+      init({ tools });
     });
 
   // Sync command
