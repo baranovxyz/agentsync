@@ -3,11 +3,12 @@
  * Initializes AgentSync in a project
  */
 
-import { readFile } from "node:fs/promises";
+import { readFile, rename } from "node:fs/promises";
 import { createRequire } from "node:module";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { checkbox, confirm, select } from "@inquirer/prompts";
+import { execa } from "execa";
 import picocolors from "picocolors";
 import AuditLogger, { AuditEventType } from "../core/audit.js";
 import {
@@ -153,9 +154,6 @@ export class InitCommand {
       );
     }
 
-    console.log(
-      pc.gray("  • Re-initialize:      ") + pc.cyan("agentsync init --force"),
-    );
     console.log();
   }
 
@@ -184,7 +182,7 @@ export class InitCommand {
     try {
       // Check if .agentsync/config.json already exists (source of truth)
       const configPath = path.join(process.cwd(), ".agentsync", "config.json");
-      if ((await pathExists(configPath)) && !options.force) {
+      if (await pathExists(configPath)) {
         // Show helpful status instead of blocking error
         await this.showCurrentStatus();
         return;
@@ -193,16 +191,17 @@ export class InitCommand {
       // Interactive setup if no options provided
       const config = await this.interactiveSetup(options);
 
-      // Create AGENTS.md from template (skip if already exists unless forced)
+      // Create AGENTS.md from template (skip if using existing or if already exists)
       const agentsPath = path.join(process.cwd(), "AGENTS.md");
       const shouldCreateAgentsMd =
-        !(await pathExists(agentsPath)) || options.force;
+        config.template &&
+        !(await pathExists(agentsPath)) &&
+        !config.useExistingAgentsMd;
+
       if (shouldCreateAgentsMd) {
-        await this.createAgentsMd(config.template);
-      } else {
-        console.log(
-          pc.gray("  AGENTS.md already exists, skipping template creation..."),
-        );
+        await this.createAgentsMd(config.template!);
+      } else if (config.useExistingAgentsMd || (await pathExists(agentsPath))) {
+        console.log(pc.green("  ✓ Using existing AGENTS.md"));
       }
 
       // Create .agentsync directory
@@ -254,47 +253,155 @@ export class InitCommand {
   }
 
   /**
+   * Check if current directory is a git repository
+   */
+  private async isGitRepository(): Promise<boolean> {
+    const gitDir = path.join(process.cwd(), ".git");
+    return await pathExists(gitDir);
+  }
+
+  /**
+   * Check for existing AGENTS.md or CLAUDE.md files
+   * Returns the state and path if found
+   */
+  private async checkExistingAgentsFiles(): Promise<{
+    hasAgentsMd: boolean;
+    hasClaudeMd: boolean;
+    agentsMdPath: string;
+    claudeMdPath: string;
+  }> {
+    const agentsMdPath = path.join(process.cwd(), "AGENTS.md");
+    const claudeMdPath = path.join(process.cwd(), "CLAUDE.md");
+
+    return {
+      hasAgentsMd: await pathExists(agentsMdPath),
+      hasClaudeMd: await pathExists(claudeMdPath),
+      agentsMdPath,
+      claudeMdPath,
+    };
+  }
+
+  /**
+   * Handle CLAUDE.md rename with user choice
+   * Returns true if renamed, false if user chose manual/ignore
+   */
+  private async handleClaudeMdRename(): Promise<boolean> {
+    const isGit = await this.isGitRepository();
+    const gitCommand = isGit ? "git mv" : "mv";
+
+    const choice = await select({
+      message: "Found CLAUDE.md. What would you like to do?",
+      choices: [
+        {
+          name: `Rename to AGENTS.md (using ${gitCommand})`,
+          value: "rename",
+        },
+        { name: "I'll rename it manually", value: "manual" },
+        { name: "Ignore and create from template", value: "template" },
+      ],
+      default: "rename",
+    });
+
+    if (choice === "rename") {
+      try {
+        if (isGit) {
+          // Use git mv to preserve history
+          await execa("git", ["mv", "CLAUDE.md", "AGENTS.md"], {
+            cwd: process.cwd(),
+          });
+          console.log(
+            pc.green(
+              "  ✓ Renamed CLAUDE.md → AGENTS.md (git history preserved)",
+            ),
+          );
+        } else {
+          // Regular rename
+          await rename(
+            path.join(process.cwd(), "CLAUDE.md"),
+            path.join(process.cwd(), "AGENTS.md"),
+          );
+          console.log(pc.green("  ✓ Renamed CLAUDE.md → AGENTS.md"));
+        }
+        return true;
+      } catch (error) {
+        console.log(
+          pc.yellow(
+            `  ⚠ Could not rename automatically: ${(error as Error).message}`,
+          ),
+        );
+        console.log(
+          pc.gray(
+            `  You can rename manually with: ${gitCommand} CLAUDE.md AGENTS.md`,
+          ),
+        );
+        return false;
+      }
+    } else if (choice === "manual") {
+      console.log(
+        pc.gray(
+          `  You can rename manually with: ${gitCommand} CLAUDE.md AGENTS.md`,
+        ),
+      );
+      return false;
+    }
+
+    // choice === "template" - will proceed to template selection
+    return false;
+  }
+
+  /**
    * Interactive setup wizard
    */
   private async interactiveSetup(options: InitOptions): Promise<{
-    template: string;
+    template: string | null;
     tools: ToolName[];
     updateGitignore: boolean;
+    useExistingAgentsMd: boolean;
   }> {
+    // Check for existing AGENTS.md or CLAUDE.md files first
+    const { hasAgentsMd, hasClaudeMd } = await this.checkExistingAgentsFiles();
+    let useExistingAgentsMd = false;
+
+    // Handle existing AGENTS.md
+    if (hasAgentsMd) {
+      console.log(
+        pc.cyan(
+          "  ℹ Found existing AGENTS.md - will use it instead of template",
+        ),
+      );
+      useExistingAgentsMd = true;
+    }
+    // Handle existing CLAUDE.md
+    else if (hasClaudeMd && !hasAgentsMd) {
+      const renamed = await this.handleClaudeMdRename();
+      if (renamed) {
+        useExistingAgentsMd = true;
+      }
+      // If user chose "template", will create from default template
+    }
+
     // Skip interactive if all options provided
-    if (options.template && options.tools) {
+    if (options.tools) {
       return {
-        template: options.template,
+        template: useExistingAgentsMd ? null : "default",
         tools: options.tools,
         updateGitignore: true,
+        useExistingAgentsMd,
       };
     }
 
     // Check if we're in an interactive environment
     const isInteractive = process.stdin.isTTY;
-    if (!(isInteractive || (options.template && options.tools))) {
+    if (!(isInteractive || options.tools)) {
       throw new ConfigError(
         "Non-interactive environment detected",
         "",
-        "Please provide all required options: --template <name> --tools <tool1,tool2>",
+        "Please provide all required options: --tools <tool1,tool2>",
       );
     }
 
     try {
-      // Template selection
-      const template =
-        options.template ||
-        (await select({
-          message: "Select a template:",
-          choices: [
-            { name: "Default (General Purpose)", value: "default" },
-            { name: "TypeScript React", value: "typescript-react" },
-            { name: "Python FastAPI", value: "python-fastapi" },
-          ],
-          default: "default",
-        }));
-
-      // Tool selection
+      // Tool selection (always required)
       const tools =
         options.tools ||
         ((await checkbox({
@@ -314,9 +421,10 @@ export class InitCommand {
       });
 
       return {
-        template,
+        template: useExistingAgentsMd ? null : "default",
         tools,
         updateGitignore,
+        useExistingAgentsMd,
       };
     } catch (error) {
       // Handle Ctrl+C cancellation
@@ -394,12 +502,7 @@ export class InitCommand {
     console.log(pc.gray("  Creating .agentsync directory..."));
 
     const agentSyncDir = path.join(process.cwd(), ".agentsync");
-    const dirs = [
-      agentSyncDir,
-      path.join(agentSyncDir, "logs"),
-      path.join(agentSyncDir, "backups"),
-      path.join(agentSyncDir, "cache"),
-    ];
+    const dirs = [agentSyncDir, path.join(agentSyncDir, "backups")];
 
     try {
       for (const dir of dirs) {
