@@ -502,12 +502,7 @@ export class InitCommand {
     console.log(pc.gray("  Creating .agentsync directory..."));
 
     const agentSyncDir = path.join(process.cwd(), ".agentsync");
-    const dirs = [
-      agentSyncDir,
-      path.join(agentSyncDir, "logs"),
-      path.join(agentSyncDir, "backups"),
-      path.join(agentSyncDir, "cache"),
-    ];
+    const dirs = [agentSyncDir, path.join(agentSyncDir, "backups")];
 
     try {
       for (const dir of dirs) {
