@@ -5,7 +5,7 @@
 
 import * as path from "node:path";
 import picocolors from "picocolors";
-import { getCodecRegistry } from "../targets/codec-registry.js";
+import { getCodecRegistry, type ToolCodec } from "../targets/codec-registry.js";
 import { serializeFrontmatter } from "../utils/frontmatter.js";
 import { ensureDir, outputFile } from "../utils/fs.js";
 
@@ -35,7 +35,7 @@ export async function importCommand(options: ImportOptions): Promise<void> {
   const registry = getCodecRegistry();
 
   // Detect tool type or use specified tool
-  let codec;
+  let codec: ToolCodec | undefined;
   if (options.tool) {
     codec = registry.get(options.tool);
     if (!codec) {
