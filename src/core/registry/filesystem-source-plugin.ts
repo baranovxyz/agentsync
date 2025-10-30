@@ -87,7 +87,21 @@ export class FilesystemSourcePlugin implements SourcePlugin {
     // Validate path exists and is accessible
     await this.validatePath(resolvedPath);
 
-    // Validate preset structure (warn if missing expected directories)
+    // Try tool detection (unless disabled)
+    if (!options?.noToolDetection) {
+      const { getCodecRegistry } = await import(
+        "../../targets/codec-registry.js"
+      );
+      const codecRegistry = getCodecRegistry();
+      const detected = await codecRegistry.detect(resolvedPath);
+
+      if (detected) {
+        // Return special marker that includes tool info
+        return `tool:${detected.toolName}:${resolvedPath}`;
+      }
+    }
+
+    // Standard preset directory - validate structure
     await this.validatePresetStructure(resolvedPath);
 
     return resolvedPath;

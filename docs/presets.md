@@ -64,6 +64,132 @@ Local directory presets for rapid development and private presets.
 - Should contain `rules/`, `commands/`, or `mcp.json`
 - Must be accessible and readable
 
+### Tool Directories as Preset Sources (Reference Mode)
+
+**New in v0.3.0**: AgentSync can use existing tool directories (`.cursor/`, `.claude/`, etc.) as read-only preset sources. This enables **Reference Mode** - a safe, non-destructive way to adopt AgentSync:
+
+```json
+{
+  "tools": ["claude", "cline"],
+  "extends": [
+    { "source": "fs:~/.cursor", "namespace": "cursor" }
+  ]
+}
+```
+
+#### How Reference Mode Works
+
+1. **Automatic Detection**: AgentSync detects tool directories and marks them with `tool:` prefix
+2. **Read-Only**: Source files are never copied or modified
+3. **Per-Sync Import**: Rules and commands are imported fresh on each sync
+4. **Namespace Isolation**: Content is namespaced to prevent conflicts
+5. **Coexistence**: Works alongside custom rules and other presets
+
+#### Setup Example
+
+```json
+{
+  "version": "1.0",
+  "tools": ["cursor", "claude", "cline"],
+  "extends": [
+    {
+      "source": "fs:~/.cursor",
+      "namespace": "cursor"
+    },
+    {
+      "source": "fs:github:company/standards",
+      "namespace": "company"
+    }
+  ]
+}
+```
+
+Run sync:
+
+```bash
+agentsync sync
+```
+
+AgentSync will:
+- Detect `.cursor/` directory
+- Read rules, commands, and MCPs from source
+- Import to canonical format
+- Sync to all tools in `tools` array
+- Apply namespace prefixes (`cursor/`, `company/`)
+
+#### Namespace Handling
+
+Tool directories are always namespaced:
+
+```
+Source: fs:~/.cursor (namespace: cursor)
+├─ Cursor output: .cursor/rules/cursor/typescript.mdc
+├─ Claude output: .claude/rules/cursor/typescript.md
+└─ Cline output: .clinerules/cursor_typescript.md
+```
+
+Custom namespace:
+
+```json
+{
+  "source": "fs:~/.cursor",
+  "namespace": "my-standards"
+}
+```
+
+#### Global vs Project Tool Directories
+
+Use tool directories at different scopes:
+
+```json
+{
+  "extends": [
+    { "source": "fs:~/.cursor", "namespace": "global-cursor" },
+    { "source": "fs:./.cursor", "namespace": "project-cursor" }
+  ]
+}
+```
+
+- **Global** (`~/.cursor/`): Apply to all projects
+- **Project** (`./.cursor/`): Project-specific only
+
+#### MCP Support
+
+Tool directories can include MCP configuration:
+
+```json
+{
+  "source": "fs:~/.cursor",
+  "namespace": "cursor"
+}
+```
+
+AgentSync will read `~/.cursor/mcp.json` and include it in synced MCPs (subject to `mcpServers` selection).
+
+#### Disabling Auto-Detection
+
+To prevent tool directory detection (e.g., for debugging):
+
+```bash
+agentsync sync --no-tool-detection
+```
+
+Tool directories will be treated as standard presets and validation will require `rules/`, `commands/`, or `mcp.json`.
+
+#### When to Use Reference Mode
+
+**Good for:**
+- Safe onboarding (no data loss risk)
+- Trying AgentSync without commitment
+- Maintaining existing tool as primary (no file copying)
+- Gradual adoption (can upgrade to import mode later)
+- Multi-source sharing (Cursor rules + GitHub standards)
+
+**Not ideal for:**
+- Full centralized management (use Import Mode instead)
+- Projects requiring tool-specific configurations (consider Import Mode)
+- Offline-first workflows (source must be accessible on each sync)
+
 ## Configuration
 
 ```json

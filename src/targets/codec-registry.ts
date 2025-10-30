@@ -54,6 +54,66 @@ class CodecRegistry {
     }
     return null;
   }
+
+  /**
+   * Detect tool directories in global scope (~/.cursor, ~/.claude, etc.)
+   * @returns Array of detected global tool directories
+   */
+  async detectGlobal(): Promise<
+    Array<{
+      toolName: string;
+      codec: ToolCodec;
+      info: import("../types/canonical.js").ToolDirectoryInfo;
+    }>
+  > {
+    const homeDir = process.env.HOME || process.env.USERPROFILE;
+    if (!homeDir) {
+      return [];
+    }
+
+    const detected: Array<{
+      toolName: string;
+      codec: ToolCodec;
+      info: import("../types/canonical.js").ToolDirectoryInfo;
+    }> = [];
+
+    for (const codec of this.codecs.values()) {
+      const info = await codec.detect(homeDir);
+      if (info && info.scope === "global") {
+        detected.push({ toolName: codec.name, codec, info });
+      }
+    }
+
+    return detected;
+  }
+
+  /**
+   * Detect tool directories in project scope (./.cursor, ./.claude, etc.)
+   * @param cwd - Project directory to scan
+   * @returns Array of detected project tool directories
+   */
+  async detectProject(cwd: string): Promise<
+    Array<{
+      toolName: string;
+      codec: ToolCodec;
+      info: import("../types/canonical.js").ToolDirectoryInfo;
+    }>
+  > {
+    const detected: Array<{
+      toolName: string;
+      codec: ToolCodec;
+      info: import("../types/canonical.js").ToolDirectoryInfo;
+    }> = [];
+
+    for (const codec of this.codecs.values()) {
+      const info = await codec.detect(cwd);
+      if (info && info.scope === "project") {
+        detected.push({ toolName: codec.name, codec, info });
+      }
+    }
+
+    return detected;
+  }
 }
 
 // Singleton instance
