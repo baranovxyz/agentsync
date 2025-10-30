@@ -9,6 +9,7 @@ import fg from "fast-glob";
 import ora from "ora";
 import picocolors from "picocolors";
 import AuditLogger, { AuditEventType } from "../core/audit.js";
+import { loadConfigHierarchy } from "../core/config/hierarchy.js";
 import { ConfigError, ErrorCategory, ErrorSeverity } from "../core/errors.js";
 import {
   filterSelectedMCPs,
@@ -25,7 +26,6 @@ import type {
   CanonicalRule,
   ToolName,
 } from "../types/index.js";
-import { validateConfig } from "../types/schemas.js";
 import {
   generateCommandFrontmatter,
   generateRuleFrontmatter,
@@ -147,33 +147,23 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
   });
 
   try {
-    // 1. Load and validate config
+    // 1. Load and validate config hierarchy (global → project → local)
     const spinner = ora("Loading configuration...").start();
-    const configPath = path.join(cwd, ".agentsync", "config.json");
-
-    let configContent: string;
-    try {
-      configContent = await readFile(configPath, "utf-8");
-    } catch (_error) {
-      spinner.fail("Configuration not found");
-      throw new ConfigError(
-        "AgentSync configuration not found",
-        configPath,
-        'Run "agentsync init" to initialize AgentSync in this project',
-      );
-    }
 
     // biome-ignore lint/suspicious/noImplicitAnyLet: configuration type is complex
     let config;
     try {
-      config = validateConfig(JSON.parse(configContent));
+      config = await loadConfigHierarchy(cwd);
+
+      // Log sources if present
+      if (config._sources.global) {
+        console.log(
+          pc.gray(`  Using global config: ${config._sources.global}`),
+        );
+      }
     } catch (error) {
-      spinner.fail("Invalid configuration");
-      throw new ConfigError(
-        `Invalid AgentSync configuration: ${(error as Error).message}`,
-        configPath,
-        `Check ${configPath} for syntax errors`,
-      );
+      spinner.fail("Failed to load configuration");
+      throw error;
     }
 
     spinner.succeed("Configuration loaded");
