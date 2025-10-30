@@ -71,9 +71,7 @@ Local directory presets for rapid development and private presets.
 ```json
 {
   "tools": ["claude", "cline"],
-  "extends": [
-    { "source": "fs:~/.cursor", "namespace": "cursor" }
-  ]
+  "extends": [{ "source": "fs:~/.cursor", "namespace": "cursor" }]
 }
 ```
 
@@ -111,6 +109,7 @@ agentsync sync
 ```
 
 AgentSync will:
+
 - Detect `.cursor/` directory
 - Read rules, commands, and MCPs from source
 - Import to canonical format
@@ -179,6 +178,7 @@ Tool directories will be treated as standard presets and validation will require
 #### When to Use Reference Mode
 
 **Good for:**
+
 - Safe onboarding (no data loss risk)
 - Trying AgentSync without commitment
 - Maintaining existing tool as primary (no file copying)
@@ -186,6 +186,7 @@ Tool directories will be treated as standard presets and validation will require
 - Multi-source sharing (Cursor rules + GitHub standards)
 
 **Not ideal for:**
+
 - Full centralized management (use Import Mode instead)
 - Projects requiring tool-specific configurations (consider Import Mode)
 - Offline-first workflows (source must be accessible on each sync)

@@ -49,13 +49,13 @@ describe("ToolDirectoryLoader", () => {
       const cursor = registry.get("cursor") as ToolCodec;
       const importRulesMock = vi
         .spyOn(cursor, "importRules")
-        .mockResolvedValue(mockRules);
+        .mockResolvedValue(mockRules as never);
       const importCommandsMock = vi
         .spyOn(cursor, "importCommands")
-        .mockResolvedValue(mockCommands);
+        .mockResolvedValue(mockCommands as never);
       const importMCPMock = vi
         .spyOn(cursor, "importMCP")
-        .mockResolvedValue(mockMCPs);
+        .mockResolvedValue(mockMCPs as never);
 
       const preset = await loader.load(
         "fs:~/.cursor",
@@ -117,8 +117,10 @@ describe("ToolDirectoryLoader", () => {
 
       const registry = getCodecRegistry();
       const cursor = registry.get("cursor") as ToolCodec;
-      vi.spyOn(cursor, "importRules").mockResolvedValue(mockRules);
-      vi.spyOn(cursor, "importCommands").mockResolvedValue(mockCommands);
+      vi.spyOn(cursor, "importRules").mockResolvedValue(mockRules as never);
+      vi.spyOn(cursor, "importCommands").mockResolvedValue(
+        mockCommands as never,
+      );
       vi.spyOn(cursor, "importMCP").mockResolvedValue(null);
 
       const preset = await loader.load(
@@ -151,11 +153,13 @@ describe("ToolDirectoryLoader", () => {
         markdown: "Missing description field",
       });
 
-      const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation();
+      const consoleWarnSpy = vi
+        .spyOn(console, "warn")
+        .mockImplementation(() => {});
 
       const registry = getCodecRegistry();
       const cursor = registry.get("cursor") as ToolCodec;
-      vi.spyOn(cursor, "importRules").mockResolvedValue(mockRules);
+      vi.spyOn(cursor, "importRules").mockResolvedValue(mockRules as never);
       vi.spyOn(cursor, "importCommands").mockResolvedValue(new Map());
       vi.spyOn(cursor, "importMCP").mockResolvedValue(null);
 
@@ -202,7 +206,7 @@ describe("ToolDirectoryLoader", () => {
 
       const registry = getCodecRegistry();
       const cursor = registry.get("cursor") as ToolCodec;
-      vi.spyOn(cursor, "importRules").mockResolvedValue(mockRules);
+      vi.spyOn(cursor, "importRules").mockResolvedValue(mockRules as never);
       vi.spyOn(cursor, "importCommands").mockResolvedValue(new Map());
       vi.spyOn(cursor, "importMCP").mockResolvedValue(null);
 
@@ -239,7 +243,7 @@ describe("ToolDirectoryLoader", () => {
 
       const registry = getCodecRegistry();
       const cursor = registry.get("cursor") as ToolCodec;
-      vi.spyOn(cursor, "importRules").mockResolvedValue(mockRules);
+      vi.spyOn(cursor, "importRules").mockResolvedValue(mockRules as never);
       vi.spyOn(cursor, "importCommands").mockResolvedValue(new Map());
       vi.spyOn(cursor, "importMCP").mockResolvedValue(null);
 
@@ -276,8 +280,8 @@ describe("ToolDirectoryLoader", () => {
       vi.spyOn(cursor, "importRules").mockResolvedValue(new Map());
       vi.spyOn(cursor, "importCommands").mockResolvedValue(new Map());
       vi.spyOn(cursor, "importMCP").mockResolvedValue({
-        test: { command: "test" },
-      });
+        test: { command: "test", args: [] },
+      } as never);
 
       const preset = await loader.load(
         "fs:~/.cursor",
@@ -307,7 +311,7 @@ describe("ToolDirectoryLoader", () => {
 
       const registry = getCodecRegistry();
       const cursor = registry.get("cursor") as ToolCodec;
-      vi.spyOn(cursor, "importRules").mockResolvedValue(mockRules);
+      vi.spyOn(cursor, "importRules").mockResolvedValue(mockRules as never);
       vi.spyOn(cursor, "importCommands").mockResolvedValue(new Map());
       vi.spyOn(cursor, "importMCP").mockResolvedValue(null);
 
@@ -367,8 +371,10 @@ describe("ToolDirectoryLoader", () => {
 
       const registry = getCodecRegistry();
       const cursor = registry.get("cursor") as ToolCodec;
-      vi.spyOn(cursor, "importRules").mockResolvedValue(mockRules);
-      vi.spyOn(cursor, "importCommands").mockResolvedValue(mockCommands);
+      vi.spyOn(cursor, "importRules").mockResolvedValue(mockRules as never);
+      vi.spyOn(cursor, "importCommands").mockResolvedValue(
+        mockCommands as never,
+      );
       vi.spyOn(cursor, "importMCP").mockResolvedValue(null);
 
       const preset = await loader.load(
