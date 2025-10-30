@@ -82,11 +82,16 @@ export function createProgram(options?: { exitOverride?: boolean }): Command {
     .option("-d, --dry-run", "Preview changes without writing files")
     .option("-p, --pull", "Pull latest presets from sources")
     .option("-t, --tool <tool>", "Sync only to a specific tool")
+    .option(
+      "--no-tool-detection",
+      "Disable automatic tool directory detection (for debugging)",
+    )
     .action(async (options) => {
       await sync({
         dryRun: options.dryRun,
         pull: options.pull,
         tool: options.tool,
+        noToolDetection: !options.toolDetection,
       });
     });
 

@@ -17,6 +17,8 @@ export interface ResolveOptions {
   pull?: boolean;
   /** Working directory for resolving relative paths */
   cwd?: string;
+  /** Disable automatic tool directory detection (for debugging) */
+  noToolDetection?: boolean;
 }
 
 /**

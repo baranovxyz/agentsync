@@ -124,6 +124,8 @@ export interface MainSyncOptions {
   dryRun?: boolean;
   /** Sync only to specific tool */
   tool?: string;
+  /** Disable automatic tool directory detection (for debugging) */
+  noToolDetection?: boolean;
 }
 
 /**
@@ -276,6 +278,7 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
           {},
           {
             pull: options.pull,
+            noToolDetection: options.noToolDetection,
           },
         );
 
@@ -293,6 +296,7 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
         // Use regular loading for backward compatibility
         merged = await orchestrator.loadAndMerge(cwd, {
           pull: options.pull,
+          noToolDetection: options.noToolDetection,
         });
 
         if (presetSpinner) {
