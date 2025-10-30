@@ -69,6 +69,7 @@ Local directory presets for rapid development and private presets.
 ```json
 {
   "version": "1.0",
+  "tools": ["cursor", "claude"],
   "extends": [
     {
       "source": "github:company/standards",
@@ -85,8 +86,7 @@ Local directory presets for rapid development and private presets.
       "exclude": ["rules/deprecated/**"]
     }
   ],
-  "mcpServers": ["github", "postgres"],
-  "tools": ["cursor", "claude"]
+  "mcpServers": ["github", "postgres"]
 }
 ```
 
@@ -145,18 +145,22 @@ MCPs merge without namespaces (last-wins per server name). Enablement controlled
 
 ## Namespace Requirements
 
+- Namespace must be explicitly specified in config (no automatic extraction)
 - Namespace must be unique across all presets
 - Namespace must be a valid identifier (alphanumeric, hyphens, underscores)
 - Namespace must not be reserved (e.g., `github`, `postgres`, `cursor`, `claude`)
-- Namespace must be consistent across all files within a preset
 
 ## Example
 
 ```json
 {
   "version": "1.0",
+  "tools": ["cursor", "claude"],
   "extends": [
-    "github:acme/coding-standards",
+    {
+      "source": "github:acme/coding-standards",
+      "namespace": "acme"
+    },
     {
       "source": "github:acme/backend-team",
       "namespace": "backend",
@@ -164,22 +168,36 @@ MCPs merge without namespaces (last-wins per server name). Enablement controlled
       "exclude": ["rules/deprecated/**"]
     }
   ],
-  "mcpServers": ["github", "postgres"],
-  "tools": ["cursor", "claude"]
+  "mcpServers": ["github", "postgres"]
 }
 ```
 
 Result:
 
+**Nested directory tools** (Cursor, Claude):
+
 ```
 .cursor/rules/
-├── acme:typescript.md
-├── acme:testing.md
-└── backend:api-design.md
+├── acme/
+│   ├── typescript.mdc
+│   └── testing.mdc
+└── backend/
+    └── api-design.mdc
 
 .cursor/commands/
-├── acme:commit.md
-└── backend:deploy.md
+├── acme/
+│   └── commit.md
+└── backend/
+    └── deploy.md
+```
+
+**Flat structure tools** (Cline):
+
+```
+.clinerules/
+├── acme_typescript.md
+├── acme_testing.md
+└── backend_api-design.md
 ```
 
 ## Commands

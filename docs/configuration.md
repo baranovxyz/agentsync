@@ -125,7 +125,7 @@ Local overrides project: `agentsync.local.json` wins over `.agentsync/config.jso
 
 ## Project Custom Rules & Commands
 
-Override or supplement preset content with project-specific rules and commands.
+Add project-specific rules and commands that coexist with preset content via namespace isolation.
 
 **Location**:
 
@@ -134,9 +134,10 @@ Override or supplement preset content with project-specific rules and commands.
 
 **Behavior**:
 
-- Files in these directories are merged with preset content
-- Project custom files coexist with preset files via namespace isolation
-- Project custom files are NOT namespaced; preset files use namespace formatting (e.g., `company/file.md` or `company_file.md`)
+- Files in these directories coexist with preset content (no overriding)
+- Project custom files are NOT namespaced
+- Preset files use namespace formatting (e.g., `company/file.md` or `company_file.md`)
+- Namespace isolation prevents conflicts between project and preset files
 - **Must include frontmatter** with required metadata (see format below)
 - Committed to git (team-shared)
 
