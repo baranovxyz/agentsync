@@ -176,6 +176,85 @@ export class InitCommand {
     return null;
   }
 
+  /**
+   * Detect existing tool directories (global and project scope)
+   * Used in Sprint 2 init wizard for mode selection
+   */
+  async detectExistingTools(): Promise<{
+    global: Array<{
+      toolName: string;
+      codec: import("../targets/tools/types.js").ToolCodec;
+      info: import("../types/index.js").ToolDirectoryInfo;
+    }>;
+    project: Array<{
+      toolName: string;
+      codec: import("../targets/tools/types.js").ToolCodec;
+      info: import("../types/index.js").ToolDirectoryInfo;
+    }>;
+  }> {
+    const { getCodecRegistry } = await import("../targets/codec-registry.js");
+    const registry = getCodecRegistry();
+    return {
+      global: await registry.detectGlobal(),
+      project: await registry.detectProject(process.cwd()),
+    };
+  }
+
+  /**
+   * Select onboarding mode (Reference/Import/Fresh)
+   * Used in Sprint 2 init wizard for mode selection
+   */
+  async selectOnboardingMode(
+    detectedTools: Array<{
+      toolName: string;
+      info: import("../types/index.js").ToolDirectoryInfo;
+    }>,
+  ): Promise<"reference" | "import" | "fresh"> {
+    if (detectedTools.length === 0) {
+      return "fresh";
+    }
+
+    return await select({
+      message: "How do you want to set up AgentSync?",
+      choices: [
+        {
+          name: "Reference Mode (read-only, no file copying)",
+          value: "reference",
+          description: "Use existing tool configs as preset sources",
+        },
+        {
+          name: "Import Mode (copy to .agentsync/, full features)",
+          value: "import",
+          description: "Import and convert existing configs",
+        },
+        {
+          name: "Fresh Start (new configuration)",
+          value: "fresh",
+        },
+      ],
+    });
+  }
+
+  /**
+   * Offer to set up global configuration
+   * Used in Sprint 2 init wizard for global setup
+   */
+  async offerGlobalSetup(): Promise<boolean> {
+    const { globalConfigExists } = await import("../utils/global-config.js");
+
+    if (await globalConfigExists()) {
+      return await confirm({
+        message: "Global AgentSync config exists. Update it?",
+        default: false,
+      });
+    }
+
+    return await confirm({
+      message: "Set up global AgentSync config (~/.agentsync/)?",
+      default: true,
+    });
+  }
+
   async execute(options: InitOptions): Promise<void> {
     console.log(pc.blue("🚀 Initializing AgentSync...\n"));
 
