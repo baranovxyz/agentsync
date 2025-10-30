@@ -304,7 +304,31 @@ github:company/standards/
 - Project-level config: `.agentsync/config.json` (team rules, per-project)
 - Both created on first init, global setup offered on every init
 - Project config extends/overrides global config
-- Separate preset namespaces (personal vs team)
+- Duplicate preset sources: project version replaces global automatically
+- User controls namespaces (can use different namespaces to keep both versions)
+
+**Preset Deduplication**:
+
+When the same preset source appears in both global and project configs:
+
+- **Behavior**: Project version completely replaces global version
+- **Detection**: By source URL (e.g., `github:company/standards`)
+- **User notification**: Info message logged during sync
+- **To keep both**: Use different namespaces in each config
+
+**Example**:
+
+```json
+// Both configs reference same source - project wins:
+Global:  { "source": "github:company/standards", "namespace": "company" }
+Project: { "source": "github:company/standards", "namespace": "company" }
+Result:  Only project version syncs
+
+// Different namespaces - both kept:
+Global:  { "source": "github:company/standards", "namespace": "company-global" }
+Project: { "source": "github:company/standards", "namespace": "company" }
+Result:  Both sync with different namespaces
+```
 
 **Backup & Restore**:
 
