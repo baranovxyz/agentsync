@@ -6,6 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { SUPPORTED_TOOLS } from "../../../src/constants.js";
 import { getConverterByName } from "../../../src/targets/tools/index.js";
+import type { ToolName } from "../../../src/types/index.js";
 import {
   AgentSyncConfigSchema,
   UserConfigSchema,
@@ -168,7 +169,7 @@ describe("Architecture Consistency", () => {
 
         // Should be able to get converters for all validated tools
         for (const tool of tools) {
-          expect(() => getConverterByName(tool as any)).not.toThrow();
+          expect(() => getConverterByName(tool as ToolName)).not.toThrow();
         }
       }
     });
