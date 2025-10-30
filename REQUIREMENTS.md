@@ -312,7 +312,7 @@ Defaults only disabled if explicitly set to `false`.
 - If local config doesn't specify `mcpServers`, project config is used
 - Empty array `[]` is the only way to completely disable MCPs
 
-**Example**:
+**Array format (simple selection)**:
 
 Project (`.agentsync/config.json`):
 
@@ -327,6 +327,34 @@ Local (`agentsync.local.json`):
 ```
 
 **Result**: Only `filesystem` MCP is enabled (local replaces project entirely)
+
+**Object format (with per-server overrides)**:
+
+Project (`.agentsync/config.json`):
+
+```json
+{ "mcpServers": ["github", "postgres"] }
+```
+
+Local (`agentsync.local.json`):
+
+```json
+{
+  "mcpServers": {
+    "github": true,
+    "postgres": { "env": { "POSTGRES_URL": "custom_value" } }
+  }
+}
+```
+
+**Result**: Both MCPs enabled, with postgres using custom environment variable.
+
+**Format rules**:
+
+- String array: Simple enable/disable selection
+- Object: Per-server configuration with env overrides
+- Boolean values (`true`/`false`) enable/disable specific servers
+- Object values provide server-specific overrides (env, args, etc.)
 
 **Rationale**: Simple and predictable. Users have full control over their local MCP selection without unexpected inheritance.
 
