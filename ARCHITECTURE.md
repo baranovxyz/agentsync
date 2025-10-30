@@ -15,7 +15,8 @@ AgentSync manages AI coding agent configuration through a three-layer system:
 **Layer 2: Project Custom** (team-editable, in git)
 
 - Project-specific rules and commands in `.agentsync/rules/` and `.agentsync/commands/`
-- Overrides preset files with same name
+- Coexists with preset files via namespace isolation
+- Project custom files are NOT namespaced; preset files ARE namespaced
 - Committed to git for team sharing
 
 **Layer 3: Tool Outputs** (generated, gitignored)

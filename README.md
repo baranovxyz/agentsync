@@ -102,7 +102,7 @@ agentsync sync
 ## Documentation
 
 - **Start here**: REQUIREMENTS.md (feature overview and design)
-- **Quick ref**: CLAUDE.md (guardrails and commands)
+- **Quick ref**: AGENTS.md (AI agent context)
 - **Configuration**: docs/configuration.md
 - **Presets**: docs/presets.md
 - **CLI**: docs/cli.md
