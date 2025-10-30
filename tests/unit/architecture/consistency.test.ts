@@ -73,11 +73,18 @@ describe("Architecture Consistency", () => {
       for (const tool of SUPPORTED_TOOLS) {
         const converter = getConverterByName(tool);
 
-        // Check all required methods exist
-        expect(typeof converter.syncAgents).toBe("function");
+        // Check all required methods exist (bidirectional codec interface)
+        // Output methods (Canonical → Tool)
+        expect(typeof converter.syncAgentsMd).toBe("function");
         expect(typeof converter.syncRules).toBe("function");
         expect(typeof converter.syncCommands).toBe("function");
         expect(typeof converter.syncMCP).toBe("function");
+
+        // Input methods (Tool → Canonical)
+        expect(typeof converter.detect).toBe("function");
+        expect(typeof converter.importRules).toBe("function");
+        expect(typeof converter.importCommands).toBe("function");
+        expect(typeof converter.importMCP).toBe("function");
 
         // Check name property
         expect(converter.name).toBe(tool);

@@ -9,6 +9,9 @@ import { CursorCodec } from "./tools/cursor-codec.js";
 import { RooCodeCodec } from "./tools/roocode-codec.js";
 import type { ToolCodec } from "./tools/types.js";
 
+// Re-export ToolCodec type for convenience
+export type { ToolCodec };
+
 /**
  * Singleton registry for tool codecs
  */

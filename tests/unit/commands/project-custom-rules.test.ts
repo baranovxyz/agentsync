@@ -225,7 +225,9 @@ describe("Project Custom Rules and Commands", () => {
     );
     expect(await pathExists(testCommandPath)).toBe(true);
     const testContent = await fs.readFile(testCommandPath, "utf-8");
-    expect(testContent).toBe("# Test Command");
+    // Frontmatter is auto-generated for files without it
+    expect(testContent).toContain("# Test Command");
+    expect(testContent).toContain("---"); // Has frontmatter
 
     // Verify second non-namespaced file
     const deployCommandPath = path.join(
@@ -236,6 +238,7 @@ describe("Project Custom Rules and Commands", () => {
     );
     expect(await pathExists(deployCommandPath)).toBe(true);
     const deployContent = await fs.readFile(deployCommandPath, "utf-8");
-    expect(deployContent).toBe("# Deploy Command");
+    expect(deployContent).toContain("# Deploy Command");
+    expect(deployContent).toContain("---"); // Has frontmatter
   });
 });
