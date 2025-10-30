@@ -78,7 +78,36 @@ export const AgentsMdSchema = z.object({
 
 // Extends schema for config
 export const ExtendsSchema = z.object({
-  source: z.string(),
+  source: z
+    .string()
+    .min(1, "Source cannot be empty")
+    .refine(
+      (s) => {
+        // GitHub sources
+        if (s.startsWith("github:")) {
+          return /^github:[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+(@[a-zA-Z0-9_.-]+)?$/.test(
+            s,
+          );
+        }
+
+        // Filesystem sources
+        if (s.startsWith("fs:")) {
+          const path = s.slice(3);
+          return path.length > 0 && !path.includes("://");
+        }
+
+        // Absolute or relative paths (no protocol)
+        return !(
+          s.includes("://") ||
+          s.startsWith("http") ||
+          s.startsWith("git@")
+        );
+      },
+      {
+        message:
+          "Source must be github:org/repo[@ref], fs:./path, /absolute/path, or ./relative/path",
+      },
+    ),
   namespace: z.string(),
   include: z.array(z.string()).optional(),
   exclude: z.array(z.string()).optional(),
