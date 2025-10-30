@@ -1,8 +1,68 @@
-# GitHub Preset System
+# Preset System
 
 How to use presets. For architectural overview, see REQUIREMENTS.md#preset-system.
 
-Presets let teams share rules, commands, and MCPs via GitHub repositories. Files are merged using namespace prefixes; caches live in `~/.agentsync/cache/`.
+Presets let teams share rules, commands, and MCPs via multiple source types. AgentSync uses a plugin architecture to support different sources:
+
+- **GitHub repositories** - Remote presets cached locally
+- **Filesystem directories** - Local presets for development
+- **Future**: Generic git repositories, HTTP downloads
+
+Files are merged using namespace prefixes to prevent conflicts.
+
+## Source Types
+
+### GitHub Sources
+
+Remote presets hosted on GitHub. Cloned to `~/.agentsync/cache/` on first use.
+
+```json
+{
+  "extends": [{ "source": "github:company/standards", "namespace": "company" }]
+}
+```
+
+**Features:**
+
+- Format: `github:org/repo[@ref]`
+- Uses `@main` by default
+- SSH/HTTPS fallback
+- Cached locally
+- Update with `--pull` flag
+
+### Filesystem Sources
+
+Local directory presets for rapid development and private presets.
+
+```json
+{
+  "extends": [
+    { "source": "fs:./local-presets", "namespace": "local" },
+    { "source": "/Users/shared/team-rules", "namespace": "team" },
+    { "source": "./presets/company", "namespace": "company" }
+  ]
+}
+```
+
+**Supported formats:**
+
+- `fs:./path` - Explicit filesystem prefix
+- `/absolute/path` - Absolute paths
+- `./relative/path` - Relative with dot
+- `relative/path` - Simple relative paths
+
+**Use cases:**
+
+- Developing presets before publishing to GitHub
+- Private presets not suitable for GitHub
+- Symlinks to shared network drives
+- Team presets in monorepo
+
+**Requirements:**
+
+- Must be a directory
+- Should contain `rules/`, `commands/`, or `mcp.json`
+- Must be accessible and readable
 
 ## Configuration
 
@@ -13,6 +73,10 @@ Presets let teams share rules, commands, and MCPs via GitHub repositories. Files
     {
       "source": "github:company/standards",
       "namespace": "company"
+    },
+    {
+      "source": "fs:./team-presets",
+      "namespace": "team"
     },
     {
       "source": "github:team/backend-rules",
