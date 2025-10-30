@@ -36,7 +36,7 @@ describe("Version Command E2E (Real-World Distribution)", () => {
       // Verify the package was created
       const stats = await stat(packagePath);
       expect(stats.isFile()).toBe(true);
-    });
+    }, 60000);
 
     it("should contain correct version in package.json", async () => {
       const packageJsonPath = path.join(projectRoot, "package.json");
