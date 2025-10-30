@@ -1,6 +1,7 @@
 /**
  * Filesystem source plugin
  * Handles local directory paths as preset sources
+ * Supports both standard presets and tool directories (via codecs)
  */
 
 import { access, stat } from "node:fs/promises";

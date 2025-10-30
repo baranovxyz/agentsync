@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 import { Command } from "commander";
 import esMain from "es-main";
 import { updateGitignore } from "./commands/gitignore.js";
+import { importCommand } from "./commands/import.js";
 import { init } from "./commands/init.js";
 import { addMCP as addMcp } from "./commands/mcp/add.js";
 import { listMCP as listMcp } from "./commands/mcp/list.js";
@@ -95,6 +96,20 @@ export function createProgram(options?: { exitOverride?: boolean }): Command {
     .description("Update .gitignore based on current config")
     .action(async () => {
       await updateGitignore();
+    });
+
+  // Import command
+  program
+    .command("import <source>")
+    .description("Import rules, commands, and MCP from existing tool directory")
+    .option("-t, --tool <tool>", "Specify tool type (cursor, claude, cline)")
+    .option("-o, --output <path>", "Output directory (default: .agentsync)")
+    .action(async (source, options) => {
+      await importCommand({
+        source,
+        tool: options.tool,
+        output: options.output,
+      });
     });
 
   // MCP commands
