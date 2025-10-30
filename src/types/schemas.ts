@@ -4,6 +4,7 @@
  */
 
 import { z } from "zod";
+import { SUPPORTED_TOOLS } from "../constants.js";
 
 // Command schema for build and test commands
 export const CommandSchema = z.object({
@@ -77,7 +78,36 @@ export const AgentsMdSchema = z.object({
 
 // Extends schema for config
 export const ExtendsSchema = z.object({
-  source: z.string(),
+  source: z
+    .string()
+    .min(1, "Source cannot be empty")
+    .refine(
+      (s) => {
+        // GitHub sources
+        if (s.startsWith("github:")) {
+          return /^github:[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+(@[a-zA-Z0-9_.-]+)?$/.test(
+            s,
+          );
+        }
+
+        // Filesystem sources
+        if (s.startsWith("fs:")) {
+          const path = s.slice(3);
+          return path.length > 0 && !path.includes("://");
+        }
+
+        // Absolute or relative paths (no protocol)
+        return !(
+          s.includes("://") ||
+          s.startsWith("http") ||
+          s.startsWith("git@")
+        );
+      },
+      {
+        message:
+          "Source must be github:org/repo[@ref], fs:./path, /absolute/path, or ./relative/path",
+      },
+    ),
   namespace: z.string(),
   include: z.array(z.string()).optional(),
   exclude: z.array(z.string()).optional(),
@@ -109,7 +139,7 @@ export const AgentSyncConfigSchema = z.object({
     ])
     .optional(),
 
-  tools: z.array(z.enum(["cursor", "claude", "cline", "roocode"])).optional(),
+  tools: z.array(z.enum(SUPPORTED_TOOLS)).optional(),
   useSymlinks: z.boolean().default(true),
   security: z
     .object({
@@ -431,7 +461,7 @@ export const UserPresetEntrySchema = z.object({
 export const UserConfigSchema = z.object({
   version: z.string().default("1.0"),
   presets: z.record(z.string(), UserPresetEntrySchema),
-  tools: z.array(z.enum(["cursor", "claude", "cline", "roocode"])).optional(),
+  tools: z.array(z.enum(SUPPORTED_TOOLS)).optional(),
 });
 
 // Type exports for user config

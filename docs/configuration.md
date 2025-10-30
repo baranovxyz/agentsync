@@ -13,7 +13,10 @@ Team-shared settings. Created by `agentsync init`, modified by `agentsync mcp ad
   "version": "1.0",
   "tools": ["cursor", "claude", "cline"],
   "mcpServers": ["github", "postgres"],
-  "extends": ["github:company/standards"],
+  "extends": [
+    { "source": "github:company/standards", "namespace": "company" },
+    { "source": "fs:./local-presets", "namespace": "local" }
+  ],
   "useSymlinks": true,
   "security": {
     "secretScanning": { "enabled": true, "blockOnHighSeverity": true },
@@ -22,6 +25,79 @@ Team-shared settings. Created by `agentsync init`, modified by `agentsync mcp ad
   }
 }
 ```
+
+## Preset Sources
+
+AgentSync supports multiple preset source types through a plugin architecture:
+
+### GitHub Sources
+
+Remote presets hosted on GitHub (requires git clone on first use):
+
+```json
+{
+  "extends": [{ "source": "github:company/standards", "namespace": "company" }]
+}
+```
+
+**Format**: `github:org/repo[@ref]`
+
+- Uses `@main` by default
+- Cached in `~/.agentsync/cache/github-org-repo/`
+- Pull latest with `agentsync sync --pull`
+
+### Filesystem Sources
+
+Local directory presets for development or private presets:
+
+```json
+{
+  "extends": [
+    { "source": "fs:./local-presets", "namespace": "local" },
+    { "source": "/Users/shared/team-rules", "namespace": "team" },
+    { "source": "./relative/path", "namespace": "dev" }
+  ]
+}
+```
+
+**Supported formats**:
+
+- `fs:./path` - Explicit filesystem prefix
+- `/absolute/path` - Absolute paths
+- `./relative/path` - Relative with dot prefix
+- `relative/path` - Simple relative paths
+
+**Benefits**:
+
+- Fast iteration (no git clone)
+- Private presets not on GitHub
+- Symlink to shared network drives
+- Local development of presets before publishing
+
+**Requirements**:
+
+- Path must be a directory
+- Directory should contain at least one of: `rules/`, `commands/`, `mcp.json`
+- Path must be accessible and readable
+
+### Namespace Isolation
+
+All presets require explicit namespaces to prevent conflicts:
+
+```json
+{
+  "extends": [
+    { "source": "github:company/standards", "namespace": "company" },
+    { "source": "github:team/frontend", "namespace": "frontend" },
+    { "source": "fs:./local-rules", "namespace": "local" }
+  ]
+}
+```
+
+Files from each preset are namespaced in tool outputs:
+
+- **Nested tools** (Cursor, Claude): `company/typescript.mdc`
+- **Flat tools** (Cline): `company_typescript.md`
 
 ### `agentsync.local.json` (User-level, gitignored)
 
@@ -49,7 +125,7 @@ Local overrides project: `agentsync.local.json` wins over `.agentsync/config.jso
 
 ## Project Custom Rules & Commands
 
-Override or supplement preset content with project-specific rules and commands.
+Add project-specific rules and commands that coexist with preset content via namespace isolation.
 
 **Location**:
 
@@ -58,9 +134,10 @@ Override or supplement preset content with project-specific rules and commands.
 
 **Behavior**:
 
-- Files in these directories are merged with preset content
-- Project custom files coexist with preset files via namespace isolation
-- Project custom files are NOT namespaced; preset files use namespace formatting (e.g., `company/file.md` or `company_file.md`)
+- Files in these directories coexist with preset content (no overriding)
+- Project custom files are NOT namespaced
+- Preset files use namespace formatting (e.g., `company/file.md` or `company_file.md`)
+- Namespace isolation prevents conflicts between project and preset files
 - **Must include frontmatter** with required metadata (see format below)
 - Committed to git (team-shared)
 

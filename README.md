@@ -64,6 +64,7 @@ agentsync sync
   "extends": [
     {
       "source": "github:acme/coding-standards",
+      "namespace": "acme",
       "include": ["rules/**/*.md", "commands/**/*.md"],
       "exclude": ["rules/deprecated/*"]
     }
@@ -71,6 +72,24 @@ agentsync sync
   "tools": ["cursor", "claude"]
 }
 ```
+
+### Filesystem presets (local development)
+
+```json
+{
+  "extends": [
+    { "source": "github:company/standards", "namespace": "company" },
+    { "source": "fs:./local-presets", "namespace": "local" }
+  ],
+  "tools": ["cursor", "claude"]
+}
+```
+
+**Use cases:**
+
+- Develop presets locally before publishing to GitHub
+- Private presets not suitable for version control
+- Fast iteration without git commits
 
 ### Local overrides (personal: agentsync.local.json)
 
@@ -83,7 +102,7 @@ agentsync sync
 ## Documentation
 
 - **Start here**: REQUIREMENTS.md (feature overview and design)
-- **Quick ref**: CLAUDE.md (guardrails and commands)
+- **Quick ref**: AGENTS.md (AI agent context)
 - **Configuration**: docs/configuration.md
 - **Presets**: docs/presets.md
 - **CLI**: docs/cli.md

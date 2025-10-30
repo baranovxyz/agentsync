@@ -1,18 +1,83 @@
-# GitHub Preset System
+# Preset System
 
 How to use presets. For architectural overview, see REQUIREMENTS.md#preset-system.
 
-Presets let teams share rules, commands, and MCPs via GitHub repositories. Files are merged using namespace prefixes; caches live in `~/.agentsync/cache/`.
+Presets let teams share rules, commands, and MCPs via multiple source types. AgentSync uses a plugin architecture to support different sources:
+
+- **GitHub repositories** - Remote presets cached locally
+- **Filesystem directories** - Local presets for development
+- **Future**: Generic git repositories, HTTP downloads
+
+Files are merged using namespace prefixes to prevent conflicts.
+
+## Source Types
+
+### GitHub Sources
+
+Remote presets hosted on GitHub. Cloned to `~/.agentsync/cache/` on first use.
+
+```json
+{
+  "extends": [{ "source": "github:company/standards", "namespace": "company" }]
+}
+```
+
+**Features:**
+
+- Format: `github:org/repo[@ref]`
+- Uses `@main` by default
+- SSH/HTTPS fallback
+- Cached locally
+- Update with `--pull` flag
+
+### Filesystem Sources
+
+Local directory presets for rapid development and private presets.
+
+```json
+{
+  "extends": [
+    { "source": "fs:./local-presets", "namespace": "local" },
+    { "source": "/Users/shared/team-rules", "namespace": "team" },
+    { "source": "./presets/company", "namespace": "company" }
+  ]
+}
+```
+
+**Supported formats:**
+
+- `fs:./path` - Explicit filesystem prefix
+- `/absolute/path` - Absolute paths
+- `./relative/path` - Relative with dot
+- `relative/path` - Simple relative paths
+
+**Use cases:**
+
+- Developing presets before publishing to GitHub
+- Private presets not suitable for GitHub
+- Symlinks to shared network drives
+- Team presets in monorepo
+
+**Requirements:**
+
+- Must be a directory
+- Should contain `rules/`, `commands/`, or `mcp.json`
+- Must be accessible and readable
 
 ## Configuration
 
 ```json
 {
   "version": "1.0",
+  "tools": ["cursor", "claude"],
   "extends": [
     {
       "source": "github:company/standards",
       "namespace": "company"
+    },
+    {
+      "source": "fs:./team-presets",
+      "namespace": "team"
     },
     {
       "source": "github:team/backend-rules",
@@ -21,8 +86,7 @@ Presets let teams share rules, commands, and MCPs via GitHub repositories. Files
       "exclude": ["rules/deprecated/**"]
     }
   ],
-  "mcpServers": ["github", "postgres"],
-  "tools": ["cursor", "claude"]
+  "mcpServers": ["github", "postgres"]
 }
 ```
 
@@ -81,18 +145,22 @@ MCPs merge without namespaces (last-wins per server name). Enablement controlled
 
 ## Namespace Requirements
 
+- Namespace must be explicitly specified in config (no automatic extraction)
 - Namespace must be unique across all presets
 - Namespace must be a valid identifier (alphanumeric, hyphens, underscores)
 - Namespace must not be reserved (e.g., `github`, `postgres`, `cursor`, `claude`)
-- Namespace must be consistent across all files within a preset
 
 ## Example
 
 ```json
 {
   "version": "1.0",
+  "tools": ["cursor", "claude"],
   "extends": [
-    "github:acme/coding-standards",
+    {
+      "source": "github:acme/coding-standards",
+      "namespace": "acme"
+    },
     {
       "source": "github:acme/backend-team",
       "namespace": "backend",
@@ -100,22 +168,36 @@ MCPs merge without namespaces (last-wins per server name). Enablement controlled
       "exclude": ["rules/deprecated/**"]
     }
   ],
-  "mcpServers": ["github", "postgres"],
-  "tools": ["cursor", "claude"]
+  "mcpServers": ["github", "postgres"]
 }
 ```
 
 Result:
 
+**Nested directory tools** (Cursor, Claude):
+
 ```
 .cursor/rules/
-├── acme:typescript.md
-├── acme:testing.md
-└── backend:api-design.md
+├── acme/
+│   ├── typescript.mdc
+│   └── testing.mdc
+└── backend/
+    └── api-design.mdc
 
 .cursor/commands/
-├── acme:commit.md
-└── backend:deploy.md
+├── acme/
+│   └── commit.md
+└── backend/
+    └── deploy.md
+```
+
+**Flat structure tools** (Cline):
+
+```
+.clinerules/
+├── acme_typescript.md
+├── acme_testing.md
+└── backend_api-design.md
 ```
 
 ## Commands
