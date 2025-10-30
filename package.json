@@ -15,7 +15,7 @@
   ],
   "scripts": {
     "dev": "tsx watch src/cli.ts",
-    "build": "tsc && vite build",
+    "build": "tsc && vite build && node scripts/add-shebang.js",
     "postbuild": "node scripts/add-shebang.js",
     "test": "vitest run",
     "test:watch": "vitest --watch",
