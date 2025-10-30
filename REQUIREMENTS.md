@@ -198,7 +198,7 @@ Tool output (Cline):  .clinerules/auth.md
 - **Namespaces**: Required for all presets to prevent naming conflicts
 - **File filtering**: `include`/`exclude` globs for selective sync
 - **Caching**: Sources cached in `~/.agentsync/cache/` for performance
-- **Plugin architecture**: Extensible system (GitHub v0.2.x, filesystem/custom planned)
+- **Plugin architecture**: Extensible system (GitHub + filesystem sources)
 
 **Preset structure**:
 
