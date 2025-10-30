@@ -4,11 +4,14 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { SUPPORTED_TOOLS, type ToolName } from "../../../src/types/index.js";
 import {
+  AgentSyncConfigSchema,
   type ExtendsEntry,
   normalizeExtends,
   safeParseLocalConfig,
   safeParseUserConfig,
+  UserConfigSchema,
   validateConfig,
   validateLocalConfig,
   validateNamespace,
@@ -553,6 +556,58 @@ describe("ExtendsEntry type", () => {
           include: ["rules/**/*.md"],
           exclude: ["rules/deprecated/*"],
         });
+      }
+    });
+  });
+
+  describe("Supported tools single source of truth", () => {
+    it("has exactly 4 supported tools", () => {
+      expect(SUPPORTED_TOOLS).toHaveLength(4);
+    });
+
+    it("includes cursor, claude, cline, and roocode", () => {
+      expect(SUPPORTED_TOOLS).toEqual(["cursor", "claude", "cline", "roocode"]);
+    });
+
+    it("TypeScript type matches the constant", () => {
+      // TypeScript compile-time check that ToolName matches SUPPORTED_TOOLS
+      const tools: ToolName[] = [...SUPPORTED_TOOLS];
+      expect(tools).toEqual(SUPPORTED_TOOLS);
+    });
+
+    it("AgentSyncConfigSchema accepts all supported tools", () => {
+      for (const tool of SUPPORTED_TOOLS) {
+        const config = {
+          version: "1.0",
+          tools: [tool],
+        };
+        const result = AgentSyncConfigSchema.safeParse(config);
+        expect(result.success).toBe(true);
+      }
+    });
+
+    it("UserConfigSchema accepts all supported tools", () => {
+      for (const tool of SUPPORTED_TOOLS) {
+        const config = {
+          version: "1.0",
+          presets: {},
+          tools: [tool],
+        };
+        const result = UserConfigSchema.safeParse(config);
+        expect(result.success).toBe(true);
+      }
+    });
+
+    it("schemas reject unsupported tools", () => {
+      const invalidTools = ["windsurf", "copilot", "invalid"];
+
+      for (const invalidTool of invalidTools) {
+        const config = {
+          version: "1.0",
+          tools: [invalidTool],
+        };
+        const result = AgentSyncConfigSchema.safeParse(config);
+        expect(result.success).toBe(false);
       }
     });
   });
