@@ -4,6 +4,7 @@
  */
 
 import { z } from "zod";
+import { SUPPORTED_TOOLS } from "../constants.js";
 
 // Command schema for build and test commands
 export const CommandSchema = z.object({
@@ -109,7 +110,7 @@ export const AgentSyncConfigSchema = z.object({
     ])
     .optional(),
 
-  tools: z.array(z.enum(["cursor", "claude", "cline", "roocode"])).optional(),
+  tools: z.array(z.enum(SUPPORTED_TOOLS)).optional(),
   useSymlinks: z.boolean().default(true),
   security: z
     .object({
@@ -431,7 +432,7 @@ export const UserPresetEntrySchema = z.object({
 export const UserConfigSchema = z.object({
   version: z.string().default("1.0"),
   presets: z.record(z.string(), UserPresetEntrySchema),
-  tools: z.array(z.enum(["cursor", "claude", "cline", "roocode"])).optional(),
+  tools: z.array(z.enum(SUPPORTED_TOOLS)).optional(),
 });
 
 // Type exports for user config
