@@ -205,7 +205,7 @@ export class InitCommand {
       }
 
       // Create .agentsync directory
-      await this.createAgentSyncDir();
+      await this.createAgentSyncDir(config.tools);
 
       // Update .gitignore
       if (config.updateGitignore) {
@@ -498,7 +498,7 @@ export class InitCommand {
   /**
    * Create .agentsync directory structure
    */
-  private async createAgentSyncDir(): Promise<void> {
+  private async createAgentSyncDir(tools: ToolName[]): Promise<void> {
     console.log(pc.gray("  Creating .agentsync directory..."));
 
     const agentSyncDir = path.join(process.cwd(), ".agentsync");
@@ -513,7 +513,7 @@ export class InitCommand {
       const { ensureProjectConfig } = await import(
         "../utils/config-creation.js"
       );
-      await ensureProjectConfig();
+      await ensureProjectConfig(undefined, { tools });
 
       console.log(pc.green("  ✓ Created .agentsync directory"));
     } catch (error) {
