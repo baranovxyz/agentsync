@@ -17,10 +17,14 @@ describe("Tool Converters Registry", () => {
       const converter = getConverterByName(tool);
       expect(converter).toBeDefined();
       expect(converter).toHaveProperty("name");
-      expect(converter).toHaveProperty("syncAgents");
+      expect(converter).toHaveProperty("syncAgentsMd");
       expect(converter).toHaveProperty("syncRules");
       expect(converter).toHaveProperty("syncCommands");
       expect(converter).toHaveProperty("syncMCP");
+      expect(converter).toHaveProperty("detect");
+      expect(converter).toHaveProperty("importRules");
+      expect(converter).toHaveProperty("importCommands");
+      expect(converter).toHaveProperty("importMCP");
     }
   });
 
@@ -30,10 +34,14 @@ describe("Tool Converters Registry", () => {
 
     for (const converter of converters) {
       expect(converter).toBeDefined();
-      expect(converter).toHaveProperty("syncAgents");
+      expect(converter).toHaveProperty("syncAgentsMd");
       expect(converter).toHaveProperty("syncRules");
       expect(converter).toHaveProperty("syncCommands");
       expect(converter).toHaveProperty("syncMCP");
+      expect(converter).toHaveProperty("detect");
+      expect(converter).toHaveProperty("importRules");
+      expect(converter).toHaveProperty("importCommands");
+      expect(converter).toHaveProperty("importMCP");
     }
   });
 
@@ -42,10 +50,14 @@ describe("Tool Converters Registry", () => {
       const converter = getConverterByName(tool);
 
       // Verify converter has all required methods
-      expect(typeof converter.syncAgents).toBe("function");
+      expect(typeof converter.syncAgentsMd).toBe("function");
       expect(typeof converter.syncRules).toBe("function");
       expect(typeof converter.syncCommands).toBe("function");
       expect(typeof converter.syncMCP).toBe("function");
+      expect(typeof converter.detect).toBe("function");
+      expect(typeof converter.importRules).toBe("function");
+      expect(typeof converter.importCommands).toBe("function");
+      expect(typeof converter.importMCP).toBe("function");
     }
   });
 
