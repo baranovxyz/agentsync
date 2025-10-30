@@ -2,6 +2,12 @@
  * Core type definitions for AgentSync
  */
 
+// Import and re-export constants (single source of truth for supported tools)
+import type { ToolName as ToolNameType } from "../constants.js";
+
+export { SUPPORTED_TOOLS } from "../constants.js";
+export type ToolName = ToolNameType;
+
 // Re-export preset types
 export * from "./preset";
 // Re-export interactive selection types
@@ -16,9 +22,6 @@ export * from "./schemas";
 
 // Re-export utility functions
 export { normalizeExtends } from "./schemas";
-
-// Tool types
-export type ToolName = "cursor" | "claude" | "cline" | "roocode";
 
 // File operation types
 export interface FileOperation {
