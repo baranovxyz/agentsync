@@ -3,15 +3,19 @@
  */
 
 import micromatch from "micromatch";
-import type { SelectionConfig } from "../../types/index.js";
+import type {
+  CanonicalCommand,
+  CanonicalRule,
+  SelectionConfig,
+} from "../../types/index.js";
 import type { Preset } from "../../types/preset.js";
 
 /**
- * Applied selection result
+ * Applied selection result in canonical format
  */
 export interface AppliedSelection {
-  commands: Map<string, string>;
-  rules: Map<string, string>;
+  commands: Map<string, CanonicalCommand>;
+  rules: Map<string, CanonicalRule>;
   mcps: Record<string, unknown>;
 }
 

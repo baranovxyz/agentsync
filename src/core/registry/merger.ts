@@ -1,19 +1,21 @@
 /**
  * Merger - combines multiple presets with namespace-based conflict prevention
+ * Works with canonical format (parsed frontmatter + markdown)
  */
 
+import type { CanonicalCommand, CanonicalRule } from "../../types/canonical.js";
 import type { Preset } from "../../types/preset.js";
 import type { MCP } from "../mcp/tokens.js";
 
 /**
- * Merged result from all presets
+ * Merged result from all presets in canonical format
  */
 export interface MergedPresets {
-  /** Namespaced commands: Map<"team_commit.md", content> */
-  commands: Map<string, string>;
+  /** Namespaced commands in canonical format: Map<"team_commit.md", CanonicalCommand> */
+  commands: Map<string, CanonicalCommand>;
 
-  /** Namespaced rules: Map<"team_typescript.md", content> */
-  rules: Map<string, string>;
+  /** Namespaced rules in canonical format: Map<"team_typescript.md", CanonicalRule> */
+  rules: Map<string, CanonicalRule>;
 
   /** Merged MCP servers */
   mcps: Record<string, MCP>;

@@ -19,41 +19,28 @@ import { loadGlobalRegistry } from "../core/mcp/registry.js";
 import { substituteAllMCPs, validateTokens } from "../core/mcp/tokens.js";
 import { RegistryOrchestrator } from "../core/registry/registry-orchestrator.js";
 import { runSecurityChecks } from "../security/checks/run.js";
-import { RuleConverterBase } from "../targets/rules/rule-converter-base.js";
 import { getConvertersForTools } from "../targets/tools/index.js";
-import type { ToolName } from "../types/index.js";
+import type {
+  CanonicalCommand,
+  CanonicalRule,
+  ToolName,
+} from "../types/index.js";
 import { validateConfig } from "../types/schemas.js";
+import {
+  generateCommandFrontmatter,
+  generateRuleFrontmatter,
+  parseFrontmatter,
+  validateCommandFrontmatter,
+  validateRuleFrontmatter,
+} from "../utils/frontmatter.js";
 
 const pc = picocolors;
 
 /**
- * Simple validator helper that uses RuleConverterBase validation methods
- */
-class FrontmatterValidator extends RuleConverterBase {
-  supportsNestedDirs(): boolean {
-    return true;
-  }
-  convert(): never {
-    throw new Error("Not implemented");
-  }
-  // Expose protected methods as public
-  public validateCommand(content: string) {
-    const { frontmatter } = this.parseFrontmatter(content);
-    return this.validateCommandFrontmatter(frontmatter);
-  }
-  public validateRule(content: string) {
-    const { frontmatter } = this.parseFrontmatter(content);
-    return this.validateRuleFrontmatter(frontmatter);
-  }
-}
-
-const validator = new FrontmatterValidator();
-
-/**
- * Load project-specific rules from .agentsync/rules/
+ * Load project-specific rules from .agentsync/rules/ in canonical format
  */
 async function loadProjectRules(cwd: string): Promise<{
-  rules: Map<string, string>;
+  rules: Map<string, CanonicalRule>;
   warnings: string[];
 }> {
   const rulesDir = path.join(cwd, ".agentsync", "rules");
@@ -64,18 +51,23 @@ async function loadProjectRules(cwd: string): Promise<{
   }
 
   const files = await fg("**/*.md", { cwd: rulesDir, absolute: false });
-  const rules = new Map<string, string>();
+  const rules = new Map<string, CanonicalRule>();
   const warnings: string[] = [];
 
   for (const file of files) {
     const filePath = path.join(rulesDir, file);
     const content = await readFile(filePath, "utf-8");
-    rules.set(file, content);
 
-    // Validate frontmatter
-    const validation = validator.validateRule(content);
-    if (!validation.isValid) {
-      warnings.push(`${file}: ${validation.warnings.join(", ")}`);
+    // Parse into canonical format
+    const { frontmatter, markdown } = parseFrontmatter(content);
+
+    // Validate or auto-generate frontmatter
+    if (validateRuleFrontmatter(frontmatter)) {
+      rules.set(file, { frontmatter, markdown });
+    } else {
+      warnings.push(`${file}: Missing or invalid frontmatter, auto-generating`);
+      const generatedFrontmatter = generateRuleFrontmatter(file);
+      rules.set(file, { frontmatter: generatedFrontmatter, markdown });
     }
   }
 
@@ -83,10 +75,10 @@ async function loadProjectRules(cwd: string): Promise<{
 }
 
 /**
- * Load project-specific commands from .agentsync/commands/
+ * Load project-specific commands from .agentsync/commands/ in canonical format
  */
 async function loadProjectCommands(cwd: string): Promise<{
-  commands: Map<string, string>;
+  commands: Map<string, CanonicalCommand>;
   warnings: string[];
 }> {
   const commandsDir = path.join(cwd, ".agentsync", "commands");
@@ -97,18 +89,23 @@ async function loadProjectCommands(cwd: string): Promise<{
   }
 
   const files = await fg("**/*.md", { cwd: commandsDir, absolute: false });
-  const commands = new Map<string, string>();
+  const commands = new Map<string, CanonicalCommand>();
   const warnings: string[] = [];
 
   for (const file of files) {
     const filePath = path.join(commandsDir, file);
     const content = await readFile(filePath, "utf-8");
-    commands.set(file, content);
 
-    // Validate frontmatter
-    const validation = validator.validateCommand(content);
-    if (!validation.isValid) {
-      warnings.push(`${file}: ${validation.warnings.join(", ")}`);
+    // Parse into canonical format
+    const { frontmatter, markdown } = parseFrontmatter(content);
+
+    // Validate or auto-generate frontmatter
+    if (validateCommandFrontmatter(frontmatter)) {
+      commands.set(file, { frontmatter, markdown });
+    } else {
+      warnings.push(`${file}: Missing or invalid frontmatter, auto-generating`);
+      const generatedFrontmatter = generateCommandFrontmatter(file);
+      commands.set(file, { frontmatter: generatedFrontmatter, markdown });
     }
   }
 
@@ -365,6 +362,7 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
     // 3-5. Sync via unified per-tool converters
     const converters = getConvertersForTools(targetTools);
 
+    // Data is already in canonical format, sync directly
     // Rules
     if (!options.dryRun && converters.length > 0 && finalRules.size > 0) {
       const rulesSpinner = ora("Syncing rules...").start();
@@ -401,7 +399,7 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
     if (!options.dryRun && converters.length > 0) {
       for (const conv of converters) {
         try {
-          await conv.syncAgents(cwd);
+          await conv.syncAgentsMd(cwd);
         } catch (error) {
           console.log(
             pc.yellow(
