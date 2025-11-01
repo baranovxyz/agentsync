@@ -22,7 +22,13 @@ import {
   serializeFrontmatter,
   validateRuleFrontmatter,
 } from "../../utils/frontmatter.js";
-import { pathExists } from "../../utils/fs.js";
+import {
+  ensureDir,
+  outputFile,
+  pathExists,
+  remove,
+  symlink,
+} from "../../utils/fs.js";
 import { ClineRulesConverter } from "../rules/cline-rules-converter.js";
 import type { ToolCodec } from "./types.js";
 
@@ -165,7 +171,6 @@ export class ClineCodec implements ToolCodec {
    * Sync AGENTS.md for Cline (create .clinerules/AGENTS.md symlink)
    */
   async syncAgentsMd(cwd: string): Promise<void> {
-    const { symlink, remove } = await import("../../utils/fs.js");
     const clinerulesMdPath = path.join(cwd, ".clinerules", "AGENTS.md");
     const agentsMdPath = path.join(cwd, "AGENTS.md");
 
@@ -175,7 +180,6 @@ export class ClineCodec implements ToolCodec {
     }
 
     // Ensure .clinerules directory exists
-    const { ensureDir } = await import("../../utils/fs.js");
     await ensureDir(path.join(cwd, ".clinerules"));
 
     // Remove existing symlink/file if it exists
@@ -221,7 +225,6 @@ export class ClineCodec implements ToolCodec {
       const outputPath = path.join(rulesDir, converted.filename);
 
       // Use outputFile from fs utils to ensure directories exist
-      const { outputFile } = await import("../../utils/fs.js");
       await outputFile(outputPath, converted.content, { encoding: "utf-8" });
     }
   }

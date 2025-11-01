@@ -24,7 +24,7 @@ import {
   validateCommandFrontmatter,
   validateRuleFrontmatter,
 } from "../../utils/frontmatter.js";
-import { pathExists } from "../../utils/fs.js";
+import { ensureDir, outputFile, pathExists } from "../../utils/fs.js";
 import { CursorCommandsConverter } from "../commands/cursor-commands-converter.js";
 import { CursorRulesConverter } from "../rules/cursor-rules-converter.js";
 import type { ToolCodec } from "./types.js";
@@ -259,7 +259,6 @@ export class CursorCodec implements ToolCodec {
       const outputPath = path.join(rulesDir, converted.filename);
 
       // Use outputFile from fs utils to ensure directories exist
-      const { outputFile } = await import("../../utils/fs.js");
       await outputFile(outputPath, converted.content, { encoding: "utf-8" });
     }
   }
@@ -286,7 +285,6 @@ export class CursorCodec implements ToolCodec {
       const outputPath = path.join(commandsDir, converted.filename);
 
       // Use outputFile from fs utils
-      const { outputFile } = await import("../../utils/fs.js");
       await outputFile(outputPath, converted.content, { encoding: "utf-8" });
     }
   }
@@ -296,7 +294,6 @@ export class CursorCodec implements ToolCodec {
    */
   async syncMCP(mcps: Record<string, MCP>, cwd: string): Promise<void> {
     const cursorDir = path.join(cwd, ".cursor");
-    const { ensureDir, outputFile } = await import("../../utils/fs.js");
 
     await ensureDir(cursorDir);
     const mcpFile = path.join(cursorDir, "mcp.json");

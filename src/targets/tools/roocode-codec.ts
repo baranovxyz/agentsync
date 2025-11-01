@@ -24,7 +24,7 @@ import {
   validateCommandFrontmatter,
   validateRuleFrontmatter,
 } from "../../utils/frontmatter.js";
-import { pathExists } from "../../utils/fs.js";
+import { ensureDir, outputFile, pathExists } from "../../utils/fs.js";
 import { RooCodeCommandsConverter } from "../commands/roocode-commands-converter.js";
 import { RooCodeRulesConverter } from "../rules/roocode-rules-converter.js";
 import type { ToolCodec } from "./types.js";
@@ -256,7 +256,6 @@ export class RooCodeCodec implements ToolCodec {
       const outputPath = path.join(rulesDir, converted.filename);
 
       // Use outputFile from fs utils to ensure directories exist
-      const { outputFile } = await import("../../utils/fs.js");
       await outputFile(outputPath, converted.content, { encoding: "utf-8" });
     }
   }
@@ -283,7 +282,6 @@ export class RooCodeCodec implements ToolCodec {
       const outputPath = path.join(commandsDir, converted.filename);
 
       // Use outputFile from fs utils
-      const { outputFile } = await import("../../utils/fs.js");
       await outputFile(outputPath, converted.content, { encoding: "utf-8" });
     }
   }
@@ -293,7 +291,6 @@ export class RooCodeCodec implements ToolCodec {
    */
   async syncMCP(mcps: Record<string, MCP>, cwd: string): Promise<void> {
     const rooDir = path.join(cwd, ".roo");
-    const { ensureDir, outputFile } = await import("../../utils/fs.js");
 
     await ensureDir(rooDir);
     const mcpFile = path.join(rooDir, "mcp.json");
