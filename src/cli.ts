@@ -24,6 +24,7 @@ import { clearCache } from "./commands/preset/cache-clear.js";
 import { listPresets } from "./commands/preset/list.js";
 import { removePreset } from "./commands/preset/remove.js";
 import { selectPreset } from "./commands/preset/select.js";
+import { statusCommand } from "./commands/status.js";
 import { sync } from "./commands/sync.js";
 
 // Set up error handling
@@ -93,6 +94,14 @@ export function createProgram(options?: { exitOverride?: boolean }): Command {
         tool: options.tool,
         noToolDetection: !options.toolDetection,
       });
+    });
+
+  // Status command
+  program
+    .command("status")
+    .description("Show AgentSync configuration status")
+    .action(async () => {
+      await statusCommand();
     });
 
   // Gitignore command

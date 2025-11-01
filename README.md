@@ -42,6 +42,13 @@ pnpm dev
 # Initialize in a project
 agentsync init
 
+# Check current configuration status
+agentsync status
+
+# Import existing tool configurations
+agentsync import ~/.cursor    # Import from global Cursor config
+agentsync import .            # Auto-detect and import from current project
+
 # Manage presets
 agentsync preset select
 agentsync preset list
