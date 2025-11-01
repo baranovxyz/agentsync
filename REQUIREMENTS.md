@@ -342,8 +342,8 @@ Result:  Both sync with different namespaces
 
 - Detect existing tool directories (`~/.cursor/`, `~/.claude/`, etc.) via codec detection
 - Offer mode selection: Reference / Import / Fresh
-- Handle duplicates: Ask user for each conflict (import both with prefix, choose one, or merge)
-- No saved preferences for conflicts (always prompt)
+- Handle duplicates: Automatic last-wins resolution (most recently modified file wins)
+- Show warnings for detected duplicates with clear resolution information
 - Convert formats and generate frontmatter via codecs
 - Verify with preview before applying
 
