@@ -24,7 +24,13 @@ import {
   validateCommandFrontmatter,
   validateRuleFrontmatter,
 } from "../../utils/frontmatter.js";
-import { pathExists } from "../../utils/fs.js";
+import {
+  ensureDir,
+  outputFile,
+  pathExists,
+  remove,
+  symlink,
+} from "../../utils/fs.js";
 import { ClaudeCommandsConverter } from "../commands/claude-commands-converter.js";
 import { ClaudeRulesConverter } from "../rules/claude-rules-converter.js";
 import type { ToolCodec } from "./types.js";
@@ -231,7 +237,6 @@ export class ClaudeCodec implements ToolCodec {
    * Sync AGENTS.md for Claude (create CLAUDE.md symlink)
    */
   async syncAgentsMd(cwd: string): Promise<void> {
-    const { symlink, remove } = await import("../../utils/fs.js");
     const claudeMdPath = path.join(cwd, "CLAUDE.md");
     const agentsMdPath = path.join(cwd, "AGENTS.md");
 
@@ -282,7 +287,6 @@ export class ClaudeCodec implements ToolCodec {
       const outputPath = path.join(rulesDir, converted.filename);
 
       // Use outputFile from fs utils to ensure directories exist
-      const { outputFile } = await import("../../utils/fs.js");
       await outputFile(outputPath, converted.content, { encoding: "utf-8" });
     }
   }
@@ -309,7 +313,6 @@ export class ClaudeCodec implements ToolCodec {
       const outputPath = path.join(commandsDir, converted.filename);
 
       // Use outputFile from fs utils
-      const { outputFile } = await import("../../utils/fs.js");
       await outputFile(outputPath, converted.content, { encoding: "utf-8" });
     }
   }
@@ -319,7 +322,6 @@ export class ClaudeCodec implements ToolCodec {
    */
   async syncMCP(mcps: Record<string, MCP>, cwd: string): Promise<void> {
     const claudeDir = path.join(cwd, ".claude");
-    const { ensureDir, outputFile } = await import("../../utils/fs.js");
 
     await ensureDir(claudeDir);
     const mcpFile = path.join(claudeDir, "mcp.json");

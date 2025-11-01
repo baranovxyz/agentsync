@@ -10,35 +10,39 @@ export default defineConfig({
     },
     rollupOptions: {
       external: (id) => {
-        // Externalize all node built-ins
-        if (
-          id.startsWith("node:") ||
-          [
-            "fs",
-            "path",
-            "os",
-            "crypto",
-            "util",
-            "stream",
-            "child_process",
-            "zlib",
-            "url",
-            "http",
-            "https",
-            "net",
-            "tls",
-            "events",
-            "assert",
-            "buffer",
-            "querystring",
-            "string_decoder",
-            "timers",
-            "vm",
-            "process",
-            "module",
-          ].includes(id)
-        ) {
+        // Externalize all node built-ins (with or without node: prefix, including subpaths)
+        if (id.startsWith("node:")) {
           return true;
+        }
+        // Check for node built-ins without node: prefix (including subpaths like fs/promises)
+        const builtins = [
+          "fs",
+          "path",
+          "os",
+          "crypto",
+          "util",
+          "stream",
+          "child_process",
+          "zlib",
+          "url",
+          "http",
+          "https",
+          "net",
+          "tls",
+          "events",
+          "assert",
+          "buffer",
+          "querystring",
+          "string_decoder",
+          "timers",
+          "vm",
+          "process",
+          "module",
+        ];
+        for (const builtin of builtins) {
+          if (id === builtin || id.startsWith(`${builtin}/`)) {
+            return true;
+          }
         }
         // Externalize fs-extra (bundling causes issues with methods like fs.stat)
         if (id === "fs-extra" || id.startsWith("fs-extra/")) {

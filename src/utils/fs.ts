@@ -97,15 +97,17 @@ export async function writeJson(
 }
 
 // Re-export native APIs that don't need wrappers
+// Note: We explicitly list each export to ensure they're included in the bundle
 export {
-  readFile,
+  access,
   appendFile,
+  mkdtemp,
+  readFile,
   readdir,
+  rename,
   stat,
   symlink,
-  rename,
   writeFile,
-  access,
-  mkdtemp,
 };
 export { constants } from "node:fs";
+export { cp };
