@@ -8,6 +8,26 @@ AgentSync is the infrastructure layer for AI coding agent configuration. It sync
 
 **Tech Stack**: TypeScript, Node.js 18+, pnpm, Vitest, Commander.js
 
+## Design Philosophy
+
+**Alpha Software**: This tool is in active development. Breaking changes are expected and encouraged to improve UX. No migration paths needed - we break compatibility freely for better design.
+
+**CLI-First Design**:
+
+- Non-interactive by default (scriptable, CI/CD friendly)
+- Use `--confirm` flag for interactive confirmations when needed
+- Commands should work without user input
+- Designed for automation first, human interaction second
+- Preview/dry-run modes are opt-in, not default
+
+**Ergonomics**:
+
+- Sensible defaults that "just work"
+- Minimal required arguments
+- Verbose output opt-in via `--verbose`
+- Fast operations (status, discovery separate concerns)
+- Clear, actionable error messages
+
 ## Critical Guardrails
 
 - **NEVER push to `main`** - Always: branch → commit → PR → merge on GitHub

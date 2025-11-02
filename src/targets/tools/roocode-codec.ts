@@ -40,20 +40,39 @@ export class RooCodeCodec implements ToolCodec {
    * Detect if path contains a RooCode tool directory
    */
   async detect(basePath: string): Promise<ToolDirectoryInfo | null> {
-    const rooDir = path.join(basePath, ".roo");
+    // Check two scenarios:
+    // 1. basePath itself is .roo directory (user provided the tool dir directly)
+    // 2. basePath contains .roo directory (standard case)
+    let rooDir: string;
 
-    if (!(await pathExists(rooDir))) {
-      return null;
-    }
+    // First, check if basePath itself looks like a .roo directory
+    const rulesInBase = path.join(basePath, "rules");
+    const commandsInBase = path.join(basePath, "commands");
+    const mcpInBase = path.join(basePath, "mcp.json");
 
-    // Check if it's a directory
-    try {
-      const stats = await stat(rooDir);
-      if (!stats.isDirectory()) {
+    const hasRooStructure =
+      (await pathExists(rulesInBase)) ||
+      (await pathExists(commandsInBase)) ||
+      (await pathExists(mcpInBase));
+
+    if (hasRooStructure && path.basename(basePath) === ".roo") {
+      rooDir = basePath;
+    } else {
+      rooDir = path.join(basePath, ".roo");
+
+      if (!(await pathExists(rooDir))) {
         return null;
       }
-    } catch {
-      return null;
+
+      // Check if it's a directory
+      try {
+        const stats = await stat(rooDir);
+        if (!stats.isDirectory()) {
+          return null;
+        }
+      } catch {
+        return null;
+      }
     }
 
     // Determine scope (global vs project)

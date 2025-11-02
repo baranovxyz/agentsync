@@ -40,20 +40,39 @@ export class CursorCodec implements ToolCodec {
    * Detect if path contains a Cursor tool directory
    */
   async detect(basePath: string): Promise<ToolDirectoryInfo | null> {
-    const cursorDir = path.join(basePath, ".cursor");
+    // Check two scenarios:
+    // 1. basePath itself is .cursor directory (user provided the tool dir directly)
+    // 2. basePath contains .cursor directory (standard case)
+    let cursorDir: string;
 
-    if (!(await pathExists(cursorDir))) {
-      return null;
-    }
+    // First, check if basePath itself looks like a .cursor directory
+    const rulesInBase = path.join(basePath, "rules");
+    const commandsInBase = path.join(basePath, "commands");
+    const mcpInBase = path.join(basePath, "mcp.json");
 
-    // Check if it's a directory
-    try {
-      const stats = await stat(cursorDir);
-      if (!stats.isDirectory()) {
+    const hasCursorStructure =
+      (await pathExists(rulesInBase)) ||
+      (await pathExists(commandsInBase)) ||
+      (await pathExists(mcpInBase));
+
+    if (hasCursorStructure && path.basename(basePath) === ".cursor") {
+      cursorDir = basePath;
+    } else {
+      cursorDir = path.join(basePath, ".cursor");
+
+      if (!(await pathExists(cursorDir))) {
         return null;
       }
-    } catch {
-      return null;
+
+      // Check if it's a directory
+      try {
+        const stats = await stat(cursorDir);
+        if (!stats.isDirectory()) {
+          return null;
+        }
+      } catch {
+        return null;
+      }
     }
 
     // Determine scope (global vs project)

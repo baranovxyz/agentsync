@@ -43,20 +43,47 @@ export class ClineCodec implements ToolCodec {
    * Detect if path contains a Cline tool directory
    */
   async detect(basePath: string): Promise<ToolDirectoryInfo | null> {
-    const clineDir = path.join(basePath, ".clinerules");
+    // Check two scenarios:
+    // 1. basePath itself is .clinerules directory (user provided the tool dir directly)
+    // 2. basePath contains .clinerules directory (standard case)
+    let clineDir: string;
 
-    if (!(await pathExists(clineDir))) {
-      return null;
-    }
+    // First, check if basePath itself looks like a .clinerules directory
+    // Cline has flat .md files (no nested structure)
+    const hasClineStructure =
+      path.basename(basePath) === ".clinerules" && (await pathExists(basePath));
 
-    // Check if it's a directory
-    try {
-      const stats = await stat(clineDir);
-      if (!stats.isDirectory()) {
+    if (hasClineStructure) {
+      // Check if there are any .md files
+      try {
+        const mdFiles = await fg("*.md", {
+          cwd: basePath,
+          absolute: false,
+        });
+        if (mdFiles.length > 0) {
+          clineDir = basePath;
+        } else {
+          return null;
+        }
+      } catch {
         return null;
       }
-    } catch {
-      return null;
+    } else {
+      clineDir = path.join(basePath, ".clinerules");
+
+      if (!(await pathExists(clineDir))) {
+        return null;
+      }
+
+      // Check if it's a directory
+      try {
+        const stats = await stat(clineDir);
+        if (!stats.isDirectory()) {
+          return null;
+        }
+      } catch {
+        return null;
+      }
     }
 
     // Determine scope (global vs project)

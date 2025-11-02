@@ -27,6 +27,8 @@ export interface ImportOptions {
   tool?: string;
   source: string;
   output?: string;
+  confirm?: boolean;
+  verbose?: boolean;
 }
 
 /**
@@ -137,32 +139,6 @@ export async function importCommand(options: ImportOptions): Promise<void> {
   const commandDuplicates = detectDuplicates(allCommands);
   const allDuplicates = [...ruleDuplicates, ...commandDuplicates];
 
-  // Warn about duplicates and apply last-wins resolution
-  if (allDuplicates.length > 0) {
-    console.log(pc.yellow(`\n⚠️  ${formatDuplicateSummary(allDuplicates)}\n`));
-
-    for (const duplicate of allDuplicates) {
-      console.log(pc.dim(formatDuplicateDetails(duplicate)));
-      const winner = applyLastWinsResolution(duplicate);
-      console.log(
-        pc.cyan(
-          `     → Using: ${winner.source}/${winner.filename} (last-wins resolution)\n`,
-        ),
-      );
-    }
-
-    console.log(
-      pc.yellow(
-        "Note: Conflicts resolved using 'last-wins' strategy (most recently modified).",
-      ),
-    );
-    console.log(
-      pc.gray(
-        "      You can manually adjust imported files after import completes.\n",
-      ),
-    );
-  }
-
   // Apply last-wins to deduped collections
   const finalRules = new Map<string, CanonicalRule>();
   for (const duplicate of ruleDuplicates) {
@@ -187,6 +163,95 @@ export async function importCommand(options: ImportOptions): Promise<void> {
       finalCommands.set(filename, command);
     }
   }
+
+  // Get MCP info for preview
+  let mcps: Record<string, any> | null = null;
+  if (info.hasMCP) {
+    mcps = await codec.importMCP(info.path);
+  }
+
+  // ============================================================================
+  // PREVIEW PHASE
+  // ============================================================================
+  console.log(pc.bold("\n📋 Import Summary"));
+  console.log(pc.gray("─".repeat(40)));
+
+  // Show what will be imported
+  if (finalRules.size > 0) {
+    console.log(pc.cyan(`\n  Rules: ${finalRules.size}`));
+    if (options.verbose) {
+      for (const filename of finalRules.keys()) {
+        console.log(pc.gray(`    • ${filename}`));
+      }
+    }
+  }
+
+  if (finalCommands.size > 0) {
+    console.log(pc.cyan(`\n  Commands: ${finalCommands.size}`));
+    if (options.verbose) {
+      for (const filename of finalCommands.keys()) {
+        console.log(pc.gray(`    • ${filename}`));
+      }
+    }
+  }
+
+  if (mcps && Object.keys(mcps).length > 0) {
+    console.log(pc.cyan(`\n  MCP Servers: ${Object.keys(mcps).length}`));
+    if (options.verbose) {
+      for (const serverName of Object.keys(mcps)) {
+        console.log(pc.gray(`    • ${serverName}`));
+      }
+    }
+  }
+
+  // Show duplicate warnings if any
+  if (allDuplicates.length > 0) {
+    console.log(pc.yellow(`\n  ⚠️  ${formatDuplicateSummary(allDuplicates)}`));
+
+    for (const duplicate of allDuplicates) {
+      console.log(pc.dim(`\n${formatDuplicateDetails(duplicate)}`));
+      const winner = applyLastWinsResolution(duplicate);
+      console.log(
+        pc.cyan(
+          `     → Using: ${winner.source}/${winner.filename} (last-wins)`,
+        ),
+      );
+    }
+
+    console.log(
+      pc.yellow(
+        "\n  Note: Conflicts resolved using 'last-wins' strategy (most recently modified).",
+      ),
+    );
+  }
+
+  console.log(pc.gray("\n  Output directory: ") + pc.cyan(outputPath));
+  console.log(pc.gray("─".repeat(40)));
+
+  // Confirmation prompt (only if --confirm flag is provided)
+  if (options.confirm) {
+    const readline = await import("node:readline");
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+
+    const answer = await new Promise<string>((resolve) => {
+      rl.question(pc.bold("\nProceed with import? (Y/n) "), resolve);
+    });
+    rl.close();
+
+    if (answer.toLowerCase() === "n" || answer.toLowerCase() === "no") {
+      console.log(pc.yellow("\n✗ Import cancelled\n"));
+      return;
+    }
+  }
+
+  console.log(pc.blue("\n📥 Importing files...\n"));
+
+  // ============================================================================
+  // EXECUTION PHASE
+  // ============================================================================
 
   // Write rules
   if (finalRules.size > 0) {
@@ -221,20 +286,16 @@ export async function importCommand(options: ImportOptions): Promise<void> {
     console.log();
   }
 
-  // Import MCP
-  if (info.hasMCP) {
-    console.log(pc.cyan("Importing MCP configuration..."));
-    const mcps = await codec.importMCP(info.path);
-
-    if (mcps && Object.keys(mcps).length > 0) {
-      const mcpFile = path.join(outputPath, "mcp.json");
-      await outputFile(mcpFile, JSON.stringify({ mcpServers: mcps }, null, 2), {
-        encoding: "utf-8",
-      });
-      console.log(
-        pc.green(`  ✓ Imported ${Object.keys(mcps).length} MCP servers\n`),
-      );
-    }
+  // Write MCP
+  if (mcps && Object.keys(mcps).length > 0) {
+    console.log(pc.cyan("Writing MCP configuration..."));
+    const mcpFile = path.join(outputPath, "mcp.json");
+    await outputFile(mcpFile, JSON.stringify({ mcpServers: mcps }, null, 2), {
+      encoding: "utf-8",
+    });
+    console.log(
+      pc.green(`  ✓ Wrote ${Object.keys(mcps).length} MCP servers\n`),
+    );
   }
 
   // Print summary
@@ -269,13 +330,10 @@ export async function importCommand(options: ImportOptions): Promise<void> {
   }
 
   // MCP summary
-  if (info.hasMCP) {
-    const mcps = await codec.importMCP(info.path);
-    if (mcps && Object.keys(mcps).length > 0) {
-      console.log(
-        pc.green(`  ✓ Imported ${Object.keys(mcps).length} MCP servers`),
-      );
-    }
+  if (mcps && Object.keys(mcps).length > 0) {
+    console.log(
+      pc.green(`  ✓ Imported ${Object.keys(mcps).length} MCP servers`),
+    );
   }
 
   console.log(pc.gray("─".repeat(40)));
