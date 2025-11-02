@@ -5,11 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.3.0-beta.0] - 2025-11-02
+## [0.2.0-alpha.21] - 2025-11-02
+
+### Added
+
+- Config hierarchy system with preset deduplication
+- Tool detection and onboarding helpers in init wizard
+- Status command to display configuration status
+- Import command now includes duplicate detection with last-wins resolution
 
 ### Changed
 
-- Version bump to 0.3.0 beta release
+- Sync command now integrates config hierarchy loading
+- README restructured with user-focused messaging
+
+### Fixed
+
+- Bundling issues with node:fs/promises imports resolved
+- Cline command limitations now properly documented
+
+### Documentation
+
+- Added canonical format and codec system architecture documentation
+- Added BATS test documentation to testing guide
+- Improved cross-references and documentation links
+- Cleaned up outdated version labels
+
+## [0.2.0-alpha.20] - 2025-11-02
+
+### Changed
+
+- Version bump for npm testing
 
 ## [0.2.0-alpha.19] - 2025-10-30
 
