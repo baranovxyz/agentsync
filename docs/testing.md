@@ -28,9 +28,9 @@ pnpm test:bats
 
 AgentSync uses three complementary testing approaches:
 
-### 1. Vitest (Primary - 149 tests, ~2s)
+### 1. Vitest (Primary)
 
-Fast, comprehensive unit and integration tests.
+Fast, comprehensive unit and integration tests with >90% code coverage.
 
 ```
 tests/
@@ -70,7 +70,7 @@ describe("Feature", () => {
 
 See test files in `tests/` for working examples.
 
-### 2. Shell Tests (Vitest + execa - 24 tests, ~2s)
+### 2. Shell Tests (Vitest + execa)
 
 Tests CLI execution in real shell environments using Node.js `execa`.
 
@@ -93,7 +93,7 @@ it("executes --version", async () => {
 });
 ```
 
-### 3. BATS (Optional - 26 tests, ~5s)
+### 3. BATS (Optional)
 
 Bash Automated Testing System for true shell validation.
 
@@ -125,15 +125,16 @@ See `tests/shell/cli.bats` for complete test suite.
 
 ## Test Coverage
 
-| Module          | Tests   | Coverage | Status |
-| --------------- | ------- | -------- | ------ |
-| MCP Core        | 38      | 95%      | ✅     |
-| MCP Commands    | 28      | 92%      | ✅     |
-| Targets         | 16      | 90%      | ✅     |
-| Shell Execution | 24      | -        | ✅     |
-| Install/Package | 17      | -        | ✅     |
-| Init Command    | 14      | 85%      | ✅     |
-| **Total**       | **192** | **>90%** | ✅     |
+AgentSync maintains comprehensive test coverage across all major modules:
+
+- **MCP Core**: High coverage (>90%) of MCP configuration, merging, and registry operations
+- **MCP Commands**: Thorough testing of CLI commands (add, list, remove)
+- **Targets**: Codec validation for all supported tools (Cursor, Claude, Cline, RooCode)
+- **Shell Execution**: CLI validation in real shell environments
+- **Install/Package**: Production package validation
+- **Init Command**: Template initialization workflows
+
+**Overall Coverage**: >90% across the codebase
 
 ## Install Test (Production Package Validation)
 
@@ -221,13 +222,12 @@ Tests run on 9 platforms: Ubuntu/macOS/Windows × Node 18/20/22
 
 ## Performance
 
-| Test Suite                | Tests   | Duration    | Use Case            |
-| ------------------------- | ------- | ----------- | ------------------- |
-| Vitest (unit/integration) | 149     | ~2.3s       | Daily development   |
-| Shell (Vitest + execa)    | 24      | ~1.8s       | CLI validation      |
-| Install Test (E2E)        | 17      | ~30-60s     | Pre-release         |
-| BATS (optional)           | 26      | ~5.0s       | Manual verification |
-| **Total**                 | **216** | **~40-65s** | Full suite          |
+| Test Suite                | Duration      | Use Case            |
+| ------------------------- | ------------- | ------------------- |
+| Vitest (unit/integration) | Fast (~2s)    | Daily development   |
+| Shell (Vitest + execa)    | Fast (~2s)    | CLI validation      |
+| Install Test (E2E)        | Slow (30-60s) | Pre-release         |
+| BATS (optional)           | Medium (~5s)  | Manual verification |
 
 ## Troubleshooting
 
