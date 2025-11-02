@@ -158,20 +158,19 @@ Configure Model Context Protocol servers once, use everywhere:
 
 ### 5. Security First
 
-- **Secret scanning** — Prevents accidental API key commits
+- **Secret scanning** — Prevents accidental API key commits (enabled by default)
 - **Unicode detection** — Blocks hidden character attacks
 - **Audit logging** — Track all configuration changes
 - **Local-first** — Your data never leaves your machine
 
 ## 📦 Supported Tools
 
-| Tool         | Rules                    | Commands                    | MCP Servers | AGENTS.md |
-| ------------ | ------------------------ | --------------------------- | ----------- | --------- |
-| **Cursor**   | ✅ `.cursor/rules/*.mdc` | ✅ `.cursor/commands/*.md`  | ✅          | ✅        |
-| **Claude**   | ✅ `.claude/rules/*.md`  | ✅ `.claude/commands/*.md`  | ✅          | ✅        |
-| **Cline**    | ✅ `.clinerules/*.md`    | ⏳ Coming soon              | ✅          | ✅        |
-| **Roocode**  | ✅ `.roocode/rules/*.md` | ✅ `.roocode/commands/*.md` | ✅          | ✅        |
-| **Windsurf** | 🚧 Coming soon           | 🚧 Coming soon              | 🚧          | 🚧        |
+| Tool        | Rules                    | Commands                   | MCP Servers | AGENTS.md |
+| ----------- | ------------------------ | -------------------------- | ----------- | --------- |
+| **Cursor**  | ✅ `.cursor/rules/*.mdc` | ✅ `.cursor/commands/*.md` | ✅          | ✅        |
+| **Claude**  | ✅ `.claude/rules/*.md`  | ✅ `.claude/commands/*.md` | ✅          | ✅        |
+| **Cline**   | ✅ `.clinerules/*.md`    | ❌ Not supported           | ✅          | ✅        |
+| **Roocode** | ✅ `.roo/rules/*.md`     | ✅ `.roo/commands/*.md`    | ✅          | ✅        |
 
 ## 🎮 Commands
 
