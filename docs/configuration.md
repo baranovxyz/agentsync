@@ -1,6 +1,6 @@
 # Configuration
 
-How to configure AgentSync. For architectural overview, see REQUIREMENTS.md.
+How to configure AgentSync. For implementation details, see ARCHITECTURE.md.
 
 ## Files
 
@@ -23,6 +23,16 @@ Team-shared settings. Created by `agentsync init`, modified by `agentsync mcp ad
     "unicodeDetection": { "enabled": true, "blockOnHighRisk": true },
     "auditLogging": { "enabled": true, "retentionDays": 90 }
   }
+}
+```
+
+**Note**: Security scanning is enabled by default. Set `"enabled": false` to opt out.
+
+```json
+// Minimal config (security enabled by default)
+{
+  "version": "1.0",
+  "tools": ["cursor"]
 }
 ```
 
