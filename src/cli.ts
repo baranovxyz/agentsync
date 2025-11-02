@@ -13,6 +13,7 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Command } from "commander";
 import esMain from "es-main";
+import { discoverCommand } from "./commands/discover.js";
 import { updateGitignore } from "./commands/gitignore.js";
 import { importCommand } from "./commands/import.js";
 import { init } from "./commands/init.js";
@@ -104,6 +105,14 @@ export function createProgram(options?: { exitOverride?: boolean }): Command {
       await statusCommand();
     });
 
+  // Discover command
+  program
+    .command("discover")
+    .description("Discover tool directories in project and global scope")
+    .action(async () => {
+      await discoverCommand();
+    });
+
   // Gitignore command
   program
     .command("gitignore")
@@ -118,11 +127,15 @@ export function createProgram(options?: { exitOverride?: boolean }): Command {
     .description("Import rules, commands, and MCP from existing tool directory")
     .option("-t, --tool <tool>", "Specify tool type (cursor, claude, cline)")
     .option("-o, --output <path>", "Output directory (default: .agentsync)")
+    .option("-c, --confirm", "Show preview and ask for confirmation")
+    .option("-v, --verbose", "Show detailed file list in preview")
     .action(async (source, options) => {
       await importCommand({
         source,
         tool: options.tool,
         output: options.output,
+        confirm: options.confirm,
+        verbose: options.verbose,
       });
     });
 
