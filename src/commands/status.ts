@@ -12,8 +12,10 @@ const pc = picocolors;
  * Display status of current AgentSync configuration
  */
 export async function statusCommand(): Promise<void> {
+  const cwd = process.cwd();
+
   try {
-    const merged = await loadConfigHierarchy(process.cwd());
+    const merged = await loadConfigHierarchy(cwd);
 
     // Title
     console.log(pc.bold("\n📊 AgentSync Status\n"));
@@ -102,8 +104,28 @@ export async function statusCommand(): Promise<void> {
     );
     console.log();
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    console.error(pc.red(`❌ ${message}`));
-    process.exit(1);
+    // Check if it's a ConfigError (no project config)
+    if (
+      error instanceof Error &&
+      error.message.includes("Project config not found")
+    ) {
+      console.log(pc.yellow("\n❌ No AgentSync configuration found.\n"));
+      console.log(pc.gray("To get started:"));
+      console.log(
+        pc.gray("  • Run ") +
+          pc.cyan("agentsync init") +
+          pc.gray(" to initialize"),
+      );
+      console.log(
+        pc.gray("  • Run ") +
+          pc.cyan("agentsync discover") +
+          pc.gray(" to find existing tool directories"),
+      );
+      console.log();
+    } else {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      console.error(pc.red(`❌ ${message}`));
+      process.exit(1);
+    }
   }
 }
