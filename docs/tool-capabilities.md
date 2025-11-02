@@ -114,9 +114,9 @@ Due to cross-platform compatibility issues with colons (`:`) in filenames, Agent
 
 **Special Features**:
 
-- CLAUDE.md support (root directory, or symlink to AGENTS.md)
+- AGENTS.md support (root directory)
 - Command frontmatter (description, argument-hint, model, allowed-tools)
-- Hierarchical CLAUDE.md loading (project, parent dirs, home folder)
+- Hierarchical AGENTS.md loading (project, parent dirs, home folder)
 
 ### RooCode
 

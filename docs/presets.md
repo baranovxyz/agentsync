@@ -1,6 +1,6 @@
 # Preset System
 
-How to use presets. For architectural overview, see REQUIREMENTS.md#preset-system.
+How to use presets. For implementation details, see ARCHITECTURE.md.
 
 Presets let teams share rules, commands, and MCPs via multiple source types. AgentSync uses a plugin architecture to support different sources:
 

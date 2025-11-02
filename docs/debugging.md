@@ -1,6 +1,6 @@
 # Debugging and Troubleshooting
 
-For comprehensive testing info, see TESTING.md and docs/testing.md.
+For comprehensive testing info, see [TESTING.md](../TESTING.md) and [docs/testing.md](testing.md).
 
 ## Debug Tips
 
