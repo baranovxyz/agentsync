@@ -21,29 +21,29 @@ pnpm lint:fix
 ## CLI Commands
 
 ```bash
-# Main Sync (v0.2.0-beta - IMPLEMENTED)
+# Main Sync
 pnpm cli sync                      # Sync all: presets, rules, commands, MCPs
 pnpm cli sync --pull               # Pull latest presets from sources
 pnpm cli sync --dry-run            # Preview changes without applying
 pnpm cli sync --tool cursor        # Sync only to Cursor
 
-# Gitignore Management (v0.2.0+)
+# Gitignore Management
 pnpm cli gitignore                 # Update .gitignore based on current config
 
-# Preset Management (v0.2.0-beta - IMPLEMENTED)
+# Preset Management
 pnpm cli preset list               # List configured presets
 pnpm cli preset cache-clear        # Clear project preset caches
 pnpm cli preset cache-clear --all  # Clear all preset caches
 pnpm cli preset select             # Interactive: include/exclude filters, MCP picks
 pnpm cli preset remove             # Interactive: remove from include/exclude or mcpServers
 
-# MCP Commands (updated)
+# MCP Commands
 # MCP sync is merged into main sync. Use `agentsync sync`.
 pnpm cli mcp list                  # Show available/active MCPs
 pnpm cli mcp add github            # Add MCP to project
 pnpm cli mcp remove postgres       # Remove MCP (can remove all)
 
-# Init Command (v0.3.0-beta - PARTIALLY IMPLEMENTED)
+# Init Command
 pnpm cli init                      # Initialize with template
 ```
 
