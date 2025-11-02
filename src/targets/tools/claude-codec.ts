@@ -46,20 +46,39 @@ export class ClaudeCodec implements ToolCodec {
    * Detect if path contains a Claude tool directory
    */
   async detect(basePath: string): Promise<ToolDirectoryInfo | null> {
-    const claudeDir = path.join(basePath, ".claude");
+    // Check two scenarios:
+    // 1. basePath itself is .claude directory (user provided the tool dir directly)
+    // 2. basePath contains .claude directory (standard case)
+    let claudeDir: string;
 
-    if (!(await pathExists(claudeDir))) {
-      return null;
-    }
+    // First, check if basePath itself looks like a .claude directory
+    const rulesInBase = path.join(basePath, "rules");
+    const commandsInBase = path.join(basePath, "commands");
+    const mcpInBase = path.join(basePath, "mcp.json");
 
-    // Check if it's a directory
-    try {
-      const stats = await stat(claudeDir);
-      if (!stats.isDirectory()) {
+    const hasClaudeStructure =
+      (await pathExists(rulesInBase)) ||
+      (await pathExists(commandsInBase)) ||
+      (await pathExists(mcpInBase));
+
+    if (hasClaudeStructure && path.basename(basePath) === ".claude") {
+      claudeDir = basePath;
+    } else {
+      claudeDir = path.join(basePath, ".claude");
+
+      if (!(await pathExists(claudeDir))) {
         return null;
       }
-    } catch {
-      return null;
+
+      // Check if it's a directory
+      try {
+        const stats = await stat(claudeDir);
+        if (!stats.isDirectory()) {
+          return null;
+        }
+      } catch {
+        return null;
+      }
     }
 
     // Determine scope (global vs project)
