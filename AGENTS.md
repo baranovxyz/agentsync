@@ -4,6 +4,8 @@
 
 AgentSync is the infrastructure layer for AI coding agent configuration. It syncs rules, commands, and MCP servers across different AI tools (Claude, Cursor, Cline, RooCode).
 
+**Note**: Cline does not support slash commands (only rules and MCP servers).
+
 **Tech Stack**: TypeScript, Node.js 18+, pnpm, Vitest, Commander.js
 
 ## Critical Guardrails
@@ -62,7 +64,7 @@ pnpm cli <command>        # Test CLI commands (after build)
 **Tool Output**
 
 - Cursor/Claude/RooCode: Nested directories (`preset/name/`)
-- Cline: Flat structure (`preset_name_`)
+- Cline: Flat structure (`preset_name_`) - rules only, no command support
 - Each tool has specific converter in `src/targets/`
 
 **MCP Integration**

@@ -1,10 +1,10 @@
 # Requirements
 
-**This is the canonical source of truth for AgentSync architecture, features, and design.** Other docs (CLAUDE.md, ARCHITECTURE.md, docs/) cross-reference this document. For quick reference, see CLAUDE.md.
+**This is the canonical source of truth for AgentSync architecture, features, and design.** Other docs (ARCHITECTURE.md, docs/) cross-reference this document. For implementation details, see ARCHITECTURE.md.
 
 ## Problem Statement
 
-Teams use multiple AI coding agents (Cursor, Claude Code, Cline, Windsurf, GitHub Copilot, and other code assistants) but lack a unified way to share:
+Teams use multiple AI coding agents (Cursor, Claude Code, Cline, GitHub Copilot, and other code assistants) but lack a unified way to share:
 
 - Rules/configurations
 - Slash commands
@@ -574,8 +574,9 @@ Local (`agentsync.local.json`):
 ### Agent Compatibility
 
 - **Cursor**: `.cursor/rules/*.mdc`, `.cursor/commands/*.md`, `mcp.json`
-- **Claude Code**: `.claude/rules/*.md`, `.claude/commands/*.md`, `CLAUDE.md` at root (symlink to `AGENTS.md`)
-- **Cline**: `.clinerules/*.md` (rules), symlink `.clinerules/AGENTS.md` to `AGENTS.md`
+- **Claude Code**: `.claude/rules/*.md`, `.claude/commands/*.md`
+- **Cline**: `.clinerules/*.md` (rules only, commands not supported)
+- **Roocode**: `.roo/rules/*.md`, `.roo/commands/*.md`
 
 ### Directory Structure
 
@@ -588,7 +589,6 @@ Local (`agentsync.local.json`):
 │   ├── rules/                 # Custom rules
 │   └── backups/               # Pre-sync backups
 ├── AGENTS.md                  # Universal format
-├── CLAUDE.md                  # Symlink to AGENTS.md (for Claude)
 ├── .cursor/                   # Generated for Cursor (via CursorCodec)
 │   ├── rules/*.mdc
 │   ├── commands/*.md
