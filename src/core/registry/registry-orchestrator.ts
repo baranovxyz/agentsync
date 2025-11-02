@@ -5,16 +5,17 @@
 import { readFile } from "node:fs/promises";
 import * as path from "node:path";
 import type { SelectionConfig } from "../../types/index.js";
-import { validateConfig } from "../../types/schemas.js";
-import { GitHubResolver } from "./github-resolver.js";
+import { normalizeExtends, validateConfig } from "../../types/schemas.js";
 import { type MergedPresets, Merger } from "./merger.js";
 import { PresetLoader } from "./preset-loader.js";
 import { SelectivePresetLoader } from "./selective-preset-loader.js";
+import { SourceResolver } from "./source-resolver.js";
+import { ToolDirectoryLoader } from "./tool-directory-loader.js";
 
 export class RegistryOrchestrator {
-  private githubResolver = new GitHubResolver();
   private presetLoader = new PresetLoader();
   private selectivePresetLoader = new SelectivePresetLoader();
+  private toolDirectoryLoader = new ToolDirectoryLoader();
   private merger = new Merger();
 
   /**
@@ -24,6 +25,7 @@ export class RegistryOrchestrator {
     cwd: string,
     options?: {
       pull?: boolean;
+      noToolDetection?: boolean;
     },
   ): Promise<MergedPresets> {
     // 1. Load config
@@ -31,8 +33,8 @@ export class RegistryOrchestrator {
     const configContent = await readFile(configPath, "utf-8");
     const config = validateConfig(JSON.parse(configContent));
 
-    // 2. Normalize extends entries
-    const extendsEntries = config.extends || [];
+    // 2. Normalize extends entries (always returns objects with namespace)
+    const extendsEntries = normalizeExtends(config.extends);
 
     if (extendsEntries.length === 0) {
       // No presets, return empty
@@ -43,24 +45,47 @@ export class RegistryOrchestrator {
       };
     }
 
-    // 3. Resolve all GitHub sources (clone if needed)
+    // 3. Resolve all sources using SourceResolver (handles GitHub and filesystem)
+    const resolver = new SourceResolver();
     const resolvedPaths = await Promise.all(
-      extendsEntries.map((entry) => {
-        const source = typeof entry === "string" ? entry : entry.source;
-        return this.githubResolver.resolve(source, { pull: options?.pull });
-      }),
+      extendsEntries.map((entry) =>
+        resolver.resolve(entry.source, {
+          pull: options?.pull,
+          cwd,
+          noToolDetection: options?.noToolDetection,
+        }),
+      ),
     );
 
     // 4. Load all presets
     const presets = await Promise.all(
-      extendsEntries.map((entry, i) => {
-        const source = typeof entry === "string" ? entry : entry.source;
-        const namespace = typeof entry === "string" ? "" : entry.namespace;
+      extendsEntries.map(async (entry, i) => {
+        const resolvedPath = resolvedPaths[i];
+
+        // Check for tool directory marker
+        if (resolvedPath.startsWith("tool:")) {
+          const parts = resolvedPath.split(":");
+          if (parts.length !== 3) {
+            throw new Error(`Invalid tool marker format: ${resolvedPath}`);
+          }
+          const [, toolName, actualPath] = parts;
+          return this.toolDirectoryLoader.load(
+            entry.source,
+            actualPath,
+            toolName,
+            entry.namespace, // Already required by schema
+          );
+        }
+
+        // Standard preset
         return this.presetLoader.load(
-          source,
-          resolvedPaths[i],
-          namespace || "",
-          {},
+          entry.source,
+          resolvedPath,
+          entry.namespace,
+          {
+            include: entry.include,
+            exclude: entry.exclude,
+          },
         );
       }),
     );
@@ -82,6 +107,7 @@ export class RegistryOrchestrator {
     selections: Record<string, SelectionConfig>,
     options?: {
       pull?: boolean;
+      noToolDetection?: boolean;
     },
   ): Promise<MergedPresets> {
     // 1. Load config
@@ -89,8 +115,8 @@ export class RegistryOrchestrator {
     const configContent = await readFile(configPath, "utf-8");
     const config = validateConfig(JSON.parse(configContent));
 
-    // 2. Normalize extends entries
-    const extendsEntries = config.extends || [];
+    // 2. Normalize extends entries (always returns objects with namespace)
+    const extendsEntries = normalizeExtends(config.extends);
 
     if (extendsEntries.length === 0) {
       // No presets, return empty
@@ -101,24 +127,47 @@ export class RegistryOrchestrator {
       };
     }
 
-    // 3. Resolve all GitHub sources (clone if needed)
+    // 3. Resolve all sources using SourceResolver
+    const resolver = new SourceResolver();
     const resolvedPaths = await Promise.all(
-      extendsEntries.map((entry) => {
-        const source = typeof entry === "string" ? entry : entry.source;
-        return this.githubResolver.resolve(source, { pull: options?.pull });
-      }),
+      extendsEntries.map((entry) =>
+        resolver.resolve(entry.source, {
+          pull: options?.pull,
+          cwd,
+          noToolDetection: options?.noToolDetection,
+        }),
+      ),
     );
 
     // 4. Load all presets
     const presets = await Promise.all(
-      extendsEntries.map((entry, i) => {
-        const source = typeof entry === "string" ? entry : entry.source;
-        const namespace = typeof entry === "string" ? "" : entry.namespace;
+      extendsEntries.map(async (entry, i) => {
+        const resolvedPath = resolvedPaths[i];
+
+        // Check for tool directory marker
+        if (resolvedPath.startsWith("tool:")) {
+          const parts = resolvedPath.split(":");
+          if (parts.length !== 3) {
+            throw new Error(`Invalid tool marker format: ${resolvedPath}`);
+          }
+          const [, toolName, actualPath] = parts;
+          return this.toolDirectoryLoader.load(
+            entry.source,
+            actualPath,
+            toolName,
+            entry.namespace,
+          );
+        }
+
+        // Standard preset
         return this.presetLoader.load(
-          source,
-          resolvedPaths[i],
-          namespace || "",
-          {},
+          entry.source,
+          resolvedPath,
+          entry.namespace,
+          {
+            include: entry.include,
+            exclude: entry.exclude,
+          },
         );
       }),
     );
@@ -160,6 +209,7 @@ export class RegistryOrchestrator {
     selections: Record<string, SelectionConfig>,
     options?: {
       pull?: boolean;
+      noToolDetection?: boolean;
     },
   ): Promise<{ valid: boolean; errors: string[] }> {
     // 1. Load config
@@ -167,31 +217,54 @@ export class RegistryOrchestrator {
     const configContent = await readFile(configPath, "utf-8");
     const config = validateConfig(JSON.parse(configContent));
 
-    // 2. Normalize extends entries
-    const extendsEntries = config.extends || [];
+    // 2. Normalize extends entries (always returns objects with namespace)
+    const extendsEntries = normalizeExtends(config.extends);
 
     if (extendsEntries.length === 0) {
       return { valid: true, errors: [] };
     }
 
-    // 3. Resolve all GitHub sources (clone if needed)
+    // 3. Resolve all sources using SourceResolver
+    const resolver = new SourceResolver();
     const resolvedPaths = await Promise.all(
-      extendsEntries.map((entry) => {
-        const source = typeof entry === "string" ? entry : entry.source;
-        return this.githubResolver.resolve(source, { pull: options?.pull });
-      }),
+      extendsEntries.map((entry) =>
+        resolver.resolve(entry.source, {
+          pull: options?.pull,
+          cwd,
+          noToolDetection: options?.noToolDetection,
+        }),
+      ),
     );
 
     // 4. Load all presets
     const presets = await Promise.all(
-      extendsEntries.map((entry, i) => {
-        const source = typeof entry === "string" ? entry : entry.source;
-        const namespace = typeof entry === "string" ? "" : entry.namespace;
+      extendsEntries.map(async (entry, i) => {
+        const resolvedPath = resolvedPaths[i];
+
+        // Check for tool directory marker
+        if (resolvedPath.startsWith("tool:")) {
+          const parts = resolvedPath.split(":");
+          if (parts.length !== 3) {
+            throw new Error(`Invalid tool marker format: ${resolvedPath}`);
+          }
+          const [, toolName, actualPath] = parts;
+          return this.toolDirectoryLoader.load(
+            entry.source,
+            actualPath,
+            toolName,
+            entry.namespace,
+          );
+        }
+
+        // Standard preset
         return this.presetLoader.load(
-          source,
-          resolvedPaths[i],
-          namespace || "",
-          {},
+          entry.source,
+          resolvedPath,
+          entry.namespace,
+          {
+            include: entry.include,
+            exclude: entry.exclude,
+          },
         );
       }),
     );

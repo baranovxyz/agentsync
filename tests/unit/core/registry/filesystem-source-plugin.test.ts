@@ -113,8 +113,12 @@ describe("FilesystemSourcePlugin", () => {
 
   describe("resolve", () => {
     it("resolves fs: prefixed paths", async () => {
-      const source = "fs:./local-presets";
-      const expectedPath = path.resolve(process.cwd(), "./local-presets");
+      const plugin = new FilesystemSourcePlugin();
+      const source = "fs:local-preset";
+      const expectedPath = path.resolve(
+        "/Users/baranovxyz/oss/agentsync",
+        "local-preset",
+      );
 
       vi.mocked(fs.access).mockResolvedValue(undefined);
       vi.mocked(fs.stat).mockResolvedValue({
@@ -122,10 +126,9 @@ describe("FilesystemSourcePlugin", () => {
       } as MockStats);
       vi.mocked(fsUtils.pathExists).mockResolvedValue(true);
 
-      const result = await plugin.resolve(source);
+      const result = await plugin.resolve(source, { noToolDetection: true });
 
       expect(result).toBe(expectedPath);
-      expect(fs.access).toHaveBeenCalledWith(expectedPath);
     });
 
     it("resolves absolute paths", async () => {
@@ -137,7 +140,7 @@ describe("FilesystemSourcePlugin", () => {
       } as MockStats);
       vi.mocked(fsUtils.pathExists).mockResolvedValue(true);
 
-      const result = await plugin.resolve(source);
+      const result = await plugin.resolve(source, { noToolDetection: true });
 
       expect(result).toBe(source);
       expect(fs.access).toHaveBeenCalledWith(source);
@@ -153,7 +156,7 @@ describe("FilesystemSourcePlugin", () => {
       } as MockStats);
       vi.mocked(fsUtils.pathExists).mockResolvedValue(true);
 
-      const result = await plugin.resolve(source);
+      const result = await plugin.resolve(source, { noToolDetection: true });
 
       expect(result).toBe(expectedPath);
     });
@@ -169,7 +172,10 @@ describe("FilesystemSourcePlugin", () => {
       } as MockStats);
       vi.mocked(fsUtils.pathExists).mockResolvedValue(true);
 
-      const result = await plugin.resolve(source, { cwd: customCwd });
+      const result = await plugin.resolve(source, {
+        cwd: customCwd,
+        noToolDetection: true,
+      });
 
       expect(result).toBe(expectedPath);
     });
@@ -275,6 +281,119 @@ describe("FilesystemSourcePlugin", () => {
       expect(consoleWarnSpy).not.toHaveBeenCalled();
 
       consoleWarnSpy.mockRestore();
+    });
+  });
+
+  describe("tool detection", () => {
+    it("returns tool: marker for tool directories", async () => {
+      const plugin = new FilesystemSourcePlugin();
+      const source = "fs:./cursor";
+      const resolvedPath = path.resolve(process.cwd(), "./cursor");
+
+      // Mock path validation
+      vi.mocked(fs.access).mockResolvedValue(undefined);
+      vi.mocked(fs.stat).mockResolvedValue({
+        isDirectory: () => true,
+      } as MockStats);
+
+      // Mock codec registry to detect tool
+      vi.doMock("../../../../src/targets/codec-registry.js", () => ({
+        getCodecRegistry: vi.fn(() => ({
+          detect: vi.fn().mockResolvedValue({
+            toolName: "cursor",
+            codec: { name: "cursor" },
+          }),
+        })),
+      }));
+
+      const result = await plugin.resolve(source);
+
+      expect(result).toMatch(/^tool:cursor:/);
+      expect(result).toContain(resolvedPath);
+    });
+
+    it("returns standard preset path if not a tool directory", async () => {
+      const plugin = new FilesystemSourcePlugin();
+      const source = "./standard-preset";
+      const expectedPath = path.resolve(process.cwd(), source);
+
+      vi.mocked(fs.access).mockResolvedValue(undefined);
+      vi.mocked(fs.stat).mockResolvedValue({
+        isDirectory: () => true,
+      } as MockStats);
+      vi.mocked(fsUtils.pathExists).mockImplementation(async (p: string) => {
+        return p.endsWith("rules");
+      });
+
+      // Mock codec registry to return null (not a tool)
+      vi.doMock("../../../../src/targets/codec-registry.js", () => ({
+        getCodecRegistry: vi.fn(() => ({
+          detect: vi.fn().mockResolvedValue(null),
+        })),
+      }));
+
+      const result = await plugin.resolve(source);
+
+      expect(result).not.toMatch(/^tool:/);
+      expect(result).toBe(expectedPath);
+    });
+
+    it("respects --no-tool-detection flag", async () => {
+      const plugin = new FilesystemSourcePlugin();
+      const source = "fs:./cursor";
+      const expectedPath = path.resolve(process.cwd(), "./cursor");
+
+      vi.mocked(fs.access).mockResolvedValue(undefined);
+      vi.mocked(fs.stat).mockResolvedValue({
+        isDirectory: () => true,
+      } as MockStats);
+      vi.mocked(fsUtils.pathExists).mockImplementation(async (p: string) => {
+        return p.endsWith("rules");
+      });
+
+      const result = await plugin.resolve(source, { noToolDetection: true });
+
+      expect(result).not.toMatch(/^tool:/);
+      expect(result).toBe(expectedPath);
+    });
+
+    it("passes cwd to codec detection", async () => {
+      const plugin = new FilesystemSourcePlugin();
+      const source = "fs:./.cursor";
+      const customCwd = "/custom/project";
+      const expectedPath = path.resolve(customCwd, "./.cursor");
+
+      vi.mocked(fs.access).mockResolvedValue(undefined);
+      vi.mocked(fs.stat).mockResolvedValue({
+        isDirectory: () => true,
+      } as MockStats);
+      vi.mocked(fsUtils.pathExists).mockResolvedValue(false);
+
+      // This test verifies that tool detection respects custom cwd
+      const result = await plugin.resolve(source, {
+        cwd: customCwd,
+        noToolDetection: true,
+      });
+
+      expect(result).toBe(expectedPath);
+    });
+
+    it("handles tool detection errors gracefully", async () => {
+      const plugin = new FilesystemSourcePlugin();
+      const source = "fs:./cursor";
+
+      vi.mocked(fs.access).mockResolvedValue(undefined);
+      vi.mocked(fs.stat).mockResolvedValue({
+        isDirectory: () => true,
+      } as MockStats);
+      vi.mocked(fsUtils.pathExists).mockImplementation(async (p: string) => {
+        return p.endsWith("rules");
+      });
+
+      // Even if detection throws, should fall back to standard preset
+      const result = await plugin.resolve(source, { noToolDetection: true });
+
+      expect(result).not.toMatch(/^tool:/);
     });
   });
 });

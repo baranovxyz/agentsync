@@ -1,21 +1,35 @@
+/**
+ * Tool Converter/Codec Registry Integration
+ * This file provides backward compatibility with the old converter API
+ * while using the new codec registry internally
+ */
+
 import type { ToolName } from "../../types/index.js";
-import { ClaudeToolConverter } from "./claude-converter.js";
-import { ClineToolConverter } from "./cline-converter.js";
-import { CursorToolConverter } from "./cursor-converter.js";
-import { RooCodeToolConverter } from "./roocode-converter.js";
-import type { ToolConverter } from "./types.js";
+import { getCodecRegistry } from "../codec-registry.js";
+import type { ToolCodec, ToolConverter } from "./types.js";
 
-const ALL_CONVERTERS: Record<ToolName, ToolConverter> = {
-  cursor: new CursorToolConverter(),
-  claude: new ClaudeToolConverter(),
-  cline: new ClineToolConverter(),
-  roocode: new RooCodeToolConverter(),
-};
-
+/**
+ * Get converters for multiple tools
+ * @deprecated Use getCodecRegistry() directly for new code
+ */
 export function getConvertersForTools(tools: ToolName[]): ToolConverter[] {
-  return tools.map((t) => ALL_CONVERTERS[t]);
+  const registry = getCodecRegistry();
+  return tools
+    .map((t) => registry.get(t))
+    .filter((c): c is ToolCodec => c !== undefined);
 }
 
+/**
+ * Get converter by tool name
+ * @deprecated Use getCodecRegistry().get() directly for new code
+ */
 export function getConverterByName(tool: ToolName): ToolConverter {
-  return ALL_CONVERTERS[tool];
+  const registry = getCodecRegistry();
+  const codec = registry.get(tool);
+  if (!codec) {
+    throw new Error(
+      `No codec registered for tool: ${tool}. This tool may not be fully implemented yet.`,
+    );
+  }
+  return codec;
 }

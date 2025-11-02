@@ -114,9 +114,9 @@ Due to cross-platform compatibility issues with colons (`:`) in filenames, Agent
 
 **Special Features**:
 
-- CLAUDE.md support (root directory, or symlink to AGENTS.md)
+- AGENTS.md support (root directory)
 - Command frontmatter (description, argument-hint, model, allowed-tools)
-- Hierarchical CLAUDE.md loading (project, parent dirs, home folder)
+- Hierarchical AGENTS.md loading (project, parent dirs, home folder)
 
 ### RooCode
 
@@ -210,4 +210,4 @@ Official documentation:
 - [Cursor Rules](https://cursor.com/docs/context/rules)
 - [Claude Code Settings](https://docs.claude.com/en/docs/claude-code/settings)
 - [RooCode Custom Instructions](https://docs.roocode.com/features/custom-instructions)
-- [Cline Rules](https://cline.ghost.io/cline-rules/)
+- [Cline Rules](https://cline.ghost.io/cline-rules/) (rules only, no command support)

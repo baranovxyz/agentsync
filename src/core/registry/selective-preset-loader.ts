@@ -3,7 +3,13 @@
  */
 
 import micromatch from "micromatch";
-import type { Extends, Preset, SelectionConfig } from "../../types/index.js";
+import type {
+  CanonicalCommand,
+  CanonicalRule,
+  Extends,
+  Preset,
+  SelectionConfig,
+} from "../../types/index.js";
 import {
   ErrorCategory,
   ErrorHandler,
@@ -12,11 +18,11 @@ import {
 import type { MCP } from "../mcp/tokens.js";
 
 /**
- * Result of selective preset loading
+ * Result of selective preset loading in canonical format
  */
 export interface SelectivePresetResult {
-  commands: Map<string, string>;
-  rules: Map<string, string>;
+  commands: Map<string, CanonicalCommand>;
+  rules: Map<string, CanonicalRule>;
   mcps: Record<string, MCP>;
 }
 
