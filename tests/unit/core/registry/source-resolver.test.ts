@@ -43,7 +43,9 @@ describe("SourceResolver", () => {
         } as MockStats);
         vi.mocked(fsUtils.pathExists).mockResolvedValue(true);
 
-        const result = await sourceResolver.resolve(source);
+        const result = await sourceResolver.resolve(source, {
+          noToolDetection: true,
+        });
 
         expect(result).toBe(expectedPath);
       });
@@ -57,7 +59,9 @@ describe("SourceResolver", () => {
         } as MockStats);
         vi.mocked(fsUtils.pathExists).mockResolvedValue(true);
 
-        const result = await sourceResolver.resolve(source);
+        const result = await sourceResolver.resolve(source, {
+          noToolDetection: true,
+        });
 
         expect(result).toBe(source);
       });
@@ -72,7 +76,9 @@ describe("SourceResolver", () => {
         } as MockStats);
         vi.mocked(fsUtils.pathExists).mockResolvedValue(true);
 
-        const result = await sourceResolver.resolve(source);
+        const result = await sourceResolver.resolve(source, {
+          noToolDetection: true,
+        });
 
         expect(result).toBe(expectedPath);
       });
@@ -86,8 +92,13 @@ describe("SourceResolver", () => {
       }).not.toThrow();
 
       expect(() => {
-        sourceResolver.validateSource("github:org/repo@v1.0.0");
+        sourceResolver.validateSource("github:org/repo@main");
       }).not.toThrow();
+
+      // v0.3.0-beta only supports @main
+      expect(() => {
+        sourceResolver.validateSource("github:org/repo@v1.0.0");
+      }).toThrow(/not supported in v0.3.0-beta/);
     });
 
     it("validates filesystem sources", () => {

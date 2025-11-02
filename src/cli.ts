@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 import { Command } from "commander";
 import esMain from "es-main";
 import { updateGitignore } from "./commands/gitignore.js";
+import { importCommand } from "./commands/import.js";
 import { init } from "./commands/init.js";
 import { addMCP as addMcp } from "./commands/mcp/add.js";
 import { listMCP as listMcp } from "./commands/mcp/list.js";
@@ -23,6 +24,7 @@ import { clearCache } from "./commands/preset/cache-clear.js";
 import { listPresets } from "./commands/preset/list.js";
 import { removePreset } from "./commands/preset/remove.js";
 import { selectPreset } from "./commands/preset/select.js";
+import { statusCommand } from "./commands/status.js";
 import { sync } from "./commands/sync.js";
 
 // Set up error handling
@@ -81,12 +83,25 @@ export function createProgram(options?: { exitOverride?: boolean }): Command {
     .option("-d, --dry-run", "Preview changes without writing files")
     .option("-p, --pull", "Pull latest presets from sources")
     .option("-t, --tool <tool>", "Sync only to a specific tool")
+    .option(
+      "--no-tool-detection",
+      "Disable automatic tool directory detection (for debugging)",
+    )
     .action(async (options) => {
       await sync({
         dryRun: options.dryRun,
         pull: options.pull,
         tool: options.tool,
+        noToolDetection: !options.toolDetection,
       });
+    });
+
+  // Status command
+  program
+    .command("status")
+    .description("Show AgentSync configuration status")
+    .action(async () => {
+      await statusCommand();
     });
 
   // Gitignore command
@@ -95,6 +110,20 @@ export function createProgram(options?: { exitOverride?: boolean }): Command {
     .description("Update .gitignore based on current config")
     .action(async () => {
       await updateGitignore();
+    });
+
+  // Import command
+  program
+    .command("import <source>")
+    .description("Import rules, commands, and MCP from existing tool directory")
+    .option("-t, --tool <tool>", "Specify tool type (cursor, claude, cline)")
+    .option("-o, --output <path>", "Output directory (default: .agentsync)")
+    .action(async (source, options) => {
+      await importCommand({
+        source,
+        tool: options.tool,
+        output: options.output,
+      });
     });
 
   // MCP commands

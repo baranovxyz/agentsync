@@ -8,6 +8,8 @@ import type { ToolName as ToolNameType } from "../constants.js";
 export { SUPPORTED_TOOLS } from "../constants.js";
 export type ToolName = ToolNameType;
 
+// Re-export canonical format types
+export * from "./canonical";
 // Re-export preset types
 export * from "./preset";
 // Re-export interactive selection types

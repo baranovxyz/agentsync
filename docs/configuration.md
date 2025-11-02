@@ -1,6 +1,6 @@
 # Configuration
 
-How to configure AgentSync. For architectural overview, see REQUIREMENTS.md.
+How to configure AgentSync. For implementation details, see ARCHITECTURE.md.
 
 ## Files
 
@@ -23,6 +23,16 @@ Team-shared settings. Created by `agentsync init`, modified by `agentsync mcp ad
     "unicodeDetection": { "enabled": true, "blockOnHighRisk": true },
     "auditLogging": { "enabled": true, "retentionDays": 90 }
   }
+}
+```
+
+**Note**: Security scanning is enabled by default. Set `"enabled": false` to opt out.
+
+```json
+// Minimal config (security enabled by default)
+{
+  "version": "1.0",
+  "tools": ["cursor"]
 }
 ```
 
@@ -79,6 +89,61 @@ Local directory presets for development or private presets:
 - Path must be a directory
 - Directory should contain at least one of: `rules/`, `commands/`, `mcp.json`
 - Path must be accessible and readable
+
+#### Tool Directories as Sources (Reference Mode)
+
+AgentSync automatically detects tool directories and can use them as read-only preset sources through **Reference Mode**. This enables safe onboarding without copying files:
+
+```json
+{
+  "tools": ["claude", "cline"],
+  "extends": [{ "source": "fs:~/.cursor", "namespace": "cursor" }]
+}
+```
+
+**How it works**:
+
+- Tool directories (`.cursor/`, `.claude/`, `.cline/`, `.roo/`) are automatically detected
+- Rules and commands are read and imported on each sync
+- Source files remain unchanged (read-only)
+- Content is namespaced in outputs to prevent conflicts
+- Custom rules in `.agentsync/rules/` coexist with tool directory rules
+
+**Global and project tool directories**:
+
+```json
+{
+  "extends": [
+    { "source": "fs:~/.cursor", "namespace": "cursor" },
+    { "source": "fs:./.cursor", "namespace": "project-cursor" }
+  ]
+}
+```
+
+- Global: `~/.cursor/` - User-level config (applies to all projects)
+- Project: `./.cursor/` - Project-level config (this project only)
+
+**Namespace handling**:
+
+- Tool directories are always namespaced (e.g., `cursor/typescript.md`)
+- Tool name used as default namespace if not specified
+- Supports custom namespaces for flexibility
+
+**Benefits of Reference Mode**:
+
+- Non-destructive adoption (existing tool config unchanged)
+- Zero file copying
+- Safe experimentation (easy to remove)
+- Progressive enhancement (can upgrade to full management later)
+- Mix sources from different tools in single project
+
+**Disabling tool detection**:
+
+```bash
+agentsync sync --no-tool-detection
+```
+
+Use `--no-tool-detection` flag to disable automatic tool directory detection for debugging or if you want to treat tool directories as standard presets.
 
 ### Namespace Isolation
 

@@ -1,11 +1,20 @@
 /**
  * Preset loader - loads rules, commands, and MCPs from cached GitHub repos
+ * Parses all content into canonical format (frontmatter + markdown)
  */
 
 import { readFile } from "node:fs/promises";
 import * as path from "node:path";
 import fg from "fast-glob";
+import type { CanonicalCommand, CanonicalRule } from "../../types/canonical.js";
 import type { Preset, PresetMetadata } from "../../types/preset.js";
+import {
+  generateCommandFrontmatter,
+  generateRuleFrontmatter,
+  parseFrontmatter,
+  validateCommandFrontmatter,
+  validateRuleFrontmatter,
+} from "../../utils/frontmatter.js";
 import { pathExists } from "../../utils/fs.js";
 import {
   normalizePatterns,
@@ -33,15 +42,15 @@ export class PresetLoader {
     // Override namespace if metadata specifies
     const finalNamespace = metadata?.namespace || namespace;
 
-    // Load commands
-    const commands = await this.loadMarkdownFiles(
+    // Load commands (parse into canonical format)
+    const commands = await this.loadCommands(
       path.join(cachePath, "commands"),
       source,
       filters,
     );
 
-    // Load rules
-    const rules = await this.loadMarkdownFiles(
+    // Load rules (parse into canonical format)
+    const rules = await this.loadRules(
       path.join(cachePath, "rules"),
       source,
       filters,
@@ -78,23 +87,103 @@ export class PresetLoader {
   }
 
   /**
-   * Load all .md files from directory
-   * Validates include/exclude patterns and provides helpful error messages
+   * Load commands from directory and parse into canonical format
    */
-  private async loadMarkdownFiles(
+  private async loadCommands(
     dir: string,
     source?: string,
     filters?: {
       include?: string[];
       exclude?: string[];
     },
-  ): Promise<Map<string, string>> {
-    const result = new Map<string, string>();
+  ): Promise<Map<string, CanonicalCommand>> {
+    const result = new Map<string, CanonicalCommand>();
 
     if (!(await pathExists(dir))) {
       return result;
     }
 
+    // Get list of files to load
+    const files = await this.getFilteredFiles(dir, source, filters);
+
+    // Load and parse each file
+    for (const file of files) {
+      const filePath = path.join(dir, file);
+      const content = await readFile(filePath, "utf-8");
+
+      // Parse frontmatter
+      const { frontmatter, markdown } = parseFrontmatter(content);
+
+      // Validate or auto-generate frontmatter
+      if (validateCommandFrontmatter(frontmatter)) {
+        result.set(file, { frontmatter, markdown });
+      } else {
+        console.warn(
+          `Warning: ${file} in ${source || "preset"} missing or invalid frontmatter, auto-generating`,
+        );
+        const generatedFrontmatter = generateCommandFrontmatter(file);
+        result.set(file, { frontmatter: generatedFrontmatter, markdown });
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Load rules from directory and parse into canonical format
+   */
+  private async loadRules(
+    dir: string,
+    source?: string,
+    filters?: {
+      include?: string[];
+      exclude?: string[];
+    },
+  ): Promise<Map<string, CanonicalRule>> {
+    const result = new Map<string, CanonicalRule>();
+
+    if (!(await pathExists(dir))) {
+      return result;
+    }
+
+    // Get list of files to load
+    const files = await this.getFilteredFiles(dir, source, filters);
+
+    // Load and parse each file
+    for (const file of files) {
+      const filePath = path.join(dir, file);
+      const content = await readFile(filePath, "utf-8");
+
+      // Parse frontmatter
+      const { frontmatter, markdown } = parseFrontmatter(content);
+
+      // Validate or auto-generate frontmatter
+      if (validateRuleFrontmatter(frontmatter)) {
+        result.set(file, { frontmatter, markdown });
+      } else {
+        console.warn(
+          `Warning: ${file} in ${source || "preset"} missing or invalid frontmatter, auto-generating`,
+        );
+        const generatedFrontmatter = generateRuleFrontmatter(file);
+        result.set(file, { frontmatter: generatedFrontmatter, markdown });
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Get filtered list of .md files from directory
+   * Validates include/exclude patterns and provides helpful error messages
+   */
+  private async getFilteredFiles(
+    dir: string,
+    source?: string,
+    filters?: {
+      include?: string[];
+      exclude?: string[];
+    },
+  ): Promise<string[]> {
     // Normalize patterns for consistent handling
     const includePatterns = filters?.include
       ? normalizePatterns(filters.include)
@@ -130,14 +219,7 @@ export class PresetLoader {
       );
     }
 
-    // Load content
-    for (const file of files) {
-      const filePath = path.join(dir, file);
-      const content = await readFile(filePath, "utf-8");
-      result.set(file, content);
-    }
-
-    return result;
+    return files;
   }
 
   /**
