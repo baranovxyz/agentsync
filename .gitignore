@@ -99,8 +99,10 @@ desktop.ini
 # NPM pack artifacts
 *.tgz
 
-# Research
+# Internal preparation artifacts
 research/
-
-# Bugs
 bugs/
+scripts/audit-opensource.js
+OPENSOURCE_AUDIT.md
+AUDIT_QUICKSTART.md
+AUDIT_SUMMARY.md
