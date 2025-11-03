@@ -7,6 +7,19 @@
 
 > **Stop copying configs between AI coding tools. Sync them all with one command.**
 
+## ⚠️ Alpha Status
+
+**AgentSync is in active alpha development.** This means:
+
+- 🔄 **Breaking changes are expected** — We prioritize better UX over backward compatibility
+- 📦 **No guaranteed migration paths** — Config formats may change between versions
+- 🎯 **Built for early adopters** — If you want stability, wait for 1.0.0
+- 🚀 **Rapid iteration** — New features and improvements ship frequently
+
+We're committed to reaching stability. See [ROADMAP.md](./ROADMAP.md) for our path to 1.0.0.
+
+**Current version: 0.2.0-alpha.22**
+
 ## 😫 The Problem
 
 Are you tired of:
