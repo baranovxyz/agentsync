@@ -510,36 +510,56 @@ Defaults only disabled if explicitly set to `false`.
 
 **File**: `agentsync.local.json` (git-ignored, user-specific)
 
-**Purpose**: User-specific MCP server selection overrides
+**Purpose**: User-specific MCP configuration and selection overrides
 
-**Merge strategy (Option A)**: Local `mcpServers` replaces project `mcpServers` entirely
+**Merge strategy**:
 
-- If local config specifies `mcpServers: []` (empty array), all MCPs are disabled
-- If local config doesn't specify `mcpServers`, project config is used
-- Empty array `[]` is the only way to completely disable MCPs
+- `mcpServers`: Simple override by key (last level wins per server)
+- `mcpInclude`: Union across levels (accumulates selections)
+- `mcpExclude`: Union across levels (accumulates exclusions)
 
-**Array format (simple selection)**:
+**MCP Configuration Structure**:
+
+Each level (global/project/local) can define:
+
+1. **Registry** (`mcpServers`): Available MCP server definitions
+2. **Selection** (`mcpInclude`/`mcpExclude`): Which servers to activate
+
+**Example: Complete Flow**:
+
+Global (`~/.agentsync/config.json`):
+
+```json
+{
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": { "GITHUB_TOKEN": "{GITHUB_TOKEN}" }
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem"],
+      "env": { "ROOT_PATH": "{HOME}" }
+    }
+  }
+}
+```
 
 Project (`.agentsync/config.json`):
 
 ```json
-{ "mcpServers": ["github", "postgres"] }
-```
-
-Local (`agentsync.local.json`):
-
-```json
-{ "mcpServers": ["filesystem"] }
-```
-
-**Result**: Only `filesystem` MCP is enabled (local replaces project entirely)
-
-**Object format (with per-server overrides)**:
-
-Project (`.agentsync/config.json`):
-
-```json
-{ "mcpServers": ["github", "postgres"] }
+{
+  "mcpServers": {
+    "postgres": {
+      "command": "docker",
+      "args": ["exec", "postgres-mcp"],
+      "env": { "POSTGRES_URL": "{POSTGRES_URL}" }
+    }
+  },
+  "mcpInclude": ["github", "postgres"],
+  "mcpExclude": ["filesystem"]
+}
 ```
 
 Local (`agentsync.local.json`):
@@ -547,22 +567,62 @@ Local (`agentsync.local.json`):
 ```json
 {
   "mcpServers": {
-    "github": true,
-    "postgres": { "env": { "POSTGRES_URL": "custom_value" } }
-  }
+    "my-custom": {
+      "command": "node",
+      "args": ["./my-mcp.js"],
+      "env": {}
+    }
+  },
+  "mcpExclude": ["postgres"]
 }
 ```
 
-**Result**: Both MCPs enabled, with postgres using custom environment variable.
+**Result**:
 
-**Format rules**:
+- **Merged Registry**: `{ github, filesystem, postgres, my-custom }` (all defined servers)
+- **Merged Include**: `["github", "postgres"]` (from project, default if none specified is all registry)
+- **Merged Exclude**: `["filesystem", "postgres"]` (union from project + local)
+- **Active Servers**: `github, my-custom`
+  - `github`: from global, included by project
+  - `filesystem`: from global, excluded by project
+  - `postgres`: from project, excluded by local
+  - `my-custom`: from local, auto-included (all defined are included by default)
 
-- String array: Simple enable/disable selection
-- Object: Per-server configuration with env overrides
-- Boolean values (`true`/`false`) enable/disable specific servers
-- Object values provide server-specific overrides (env, args, etc.)
+**Server Definition Format** (Cursor-compatible):
 
-**Rationale**: Simple and predictable. Users have full control over their local MCP selection without unexpected inheritance.
+Command-based (local process):
+
+```json
+{
+  "command": "npx",
+  "args": ["-y", "mcp-server"],
+  "env": { "API_KEY": "value" }
+}
+```
+
+URL-based (HTTP remote):
+
+```json
+{
+  "url": "http://localhost:3000/mcp",
+  "headers": { "API_KEY": "value" }
+}
+```
+
+**Merge Rules**:
+
+- Registry merge: `{ ...global, ...project, ...local }` (per-key override)
+- Include merge: Union of all include arrays across levels
+- Exclude merge: Union of all exclude arrays across levels
+- Default: If no `mcpInclude` specified at any level, all defined servers are included
+- Final active: (Included servers) minus (Excluded servers)
+
+**Rationale**:
+
+- Matches Cursor/Claude MCP config format (industry standard)
+- Flexible: Can inherit and extend, or override specific servers
+- Explicit control: Include/exclude patterns familiar from VSCode, Docker Compose
+- No field conflicts: Doesn't use `enabled`/`disabled` which tools may use
 
 ### Interactive Selection (TUI)
 

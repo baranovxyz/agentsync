@@ -12,7 +12,19 @@ Team-shared settings. Created by `agentsync init`, modified by `agentsync mcp ad
 {
   "version": "1.0",
   "tools": ["cursor", "claude", "cline"],
-  "mcpServers": ["github", "postgres"],
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": { "GITHUB_TOKEN": "{GITHUB_TOKEN}" }
+    },
+    "postgres": {
+      "command": "docker",
+      "args": ["exec", "postgres-mcp"],
+      "env": { "POSTGRES_URL": "{POSTGRES_URL}" }
+    }
+  },
+  "mcpInclude": ["github", "postgres"],
   "extends": [
     { "source": "github:company/standards", "namespace": "company" },
     { "source": "fs:./local-presets", "namespace": "local" }
@@ -169,24 +181,60 @@ Files from each preset are namespaced in tool outputs:
 Personal MCP overrides. Created manually for local development.
 
 ```json
-// Array format (simple selection)
-{ "mcpServers": ["github", "postgres"] }
-
-// Object format (with overrides)
+// Add a local MCP server
 {
   "mcpServers": {
-    "github": true,
-    "postgres": { "env": { "POSTGRES_URL": "custom_value" } }
+    "my-local": {
+      "command": "node",
+      "args": ["./my-mcp.js"],
+      "env": {}
+    }
   }
 }
 
-// Empty config (clears all MCPs)
-{ "mcpServers": [] }
+// Exclude a project MCP locally
+{
+  "mcpExclude": ["postgres"]
+}
+
+// Override server definition
+{
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": { "GITHUB_TOKEN": "{MY_LOCAL_TOKEN}" }
+    }
+  }
+}
 ```
+
+## MCP Configuration
+
+**Registry** (`mcpServers`): Defines available MCP server configurations
+
+- Merges per-key across global → project → local (last wins)
+- Supports both command-based (local process) and URL-based (HTTP remote) formats
+
+**Selection** (`mcpInclude`/`mcpExclude`): Controls which servers are active
+
+- `mcpInclude`: Union across levels (accumulates)
+- `mcpExclude`: Union across levels (accumulates)
+- Default: All defined servers are included if no `mcpInclude` specified
+- Active servers = (Included servers) - (Excluded servers)
+
+**Example flow**:
+
+Global: Defines `github`, `filesystem`
+Project: Defines `postgres`, includes `["github", "postgres"]`, excludes `["filesystem"]`
+Local: Defines `my-local`, excludes `["postgres"]`
+
+Result: Active servers = `github`, `my-local`
 
 ## Precedence
 
-Local overrides project: `agentsync.local.json` wins over `.agentsync/config.json` for MCP selection.
+- MCP registry: Per-server override (local > project > global)
+- MCP selection: Union of include/exclude arrays across all levels
 
 ## Project Custom Rules & Commands
 
