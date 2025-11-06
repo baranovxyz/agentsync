@@ -42,7 +42,7 @@ describe("loadConfigHierarchy", () => {
         version: "1.0",
         tools: ["cursor"],
         extends: [],
-        mcpServers: [],
+        mcpServers: {},
         useSymlinks: true,
       }),
     );
@@ -65,7 +65,7 @@ describe("loadConfigHierarchy", () => {
         version: "1.0",
         tools: ["claude"],
         extends: [],
-        mcpServers: [],
+        mcpServers: {},
         useSymlinks: true,
       }),
     );
@@ -79,7 +79,7 @@ describe("loadConfigHierarchy", () => {
         version: "1.0",
         tools: ["cursor", "cline"],
         extends: [],
-        mcpServers: [],
+        mcpServers: {},
         useSymlinks: true,
       }),
     );
@@ -104,7 +104,7 @@ describe("loadConfigHierarchy", () => {
             namespace: "company-global",
           },
         ],
-        mcpServers: [],
+        mcpServers: {},
         useSymlinks: true,
       }),
     );
@@ -123,7 +123,7 @@ describe("loadConfigHierarchy", () => {
             namespace: "company",
           },
         ],
-        mcpServers: [],
+        mcpServers: {},
         useSymlinks: true,
       }),
     );
@@ -153,7 +153,7 @@ describe("loadConfigHierarchy", () => {
             namespace: "personal",
           },
         ],
-        mcpServers: [],
+        mcpServers: {},
         useSymlinks: true,
       }),
     );
@@ -172,7 +172,7 @@ describe("loadConfigHierarchy", () => {
             namespace: "company",
           },
         ],
-        mcpServers: [],
+        mcpServers: {},
         useSymlinks: true,
       }),
     );
@@ -203,7 +203,7 @@ describe("loadConfigHierarchy", () => {
             namespace: "company-global",
           },
         ],
-        mcpServers: [],
+        mcpServers: {},
         useSymlinks: true,
       }),
     );
@@ -222,7 +222,7 @@ describe("loadConfigHierarchy", () => {
             namespace: "company",
           },
         ],
-        mcpServers: [],
+        mcpServers: {},
         useSymlinks: true,
       }),
     );
@@ -234,8 +234,8 @@ describe("loadConfigHierarchy", () => {
     expect(merged._deduplicationLog).toHaveLength(1);
   });
 
-  it("applies local MCP overrides", async () => {
-    // Create project config
+  it("merges MCP servers registry and include/exclude", async () => {
+    // Create project config with some servers
     const projectConfigPath = path.join(tempDir, ".agentsync", "config.json");
     await ensureDir(path.dirname(projectConfigPath));
     await outputFile(
@@ -244,43 +244,40 @@ describe("loadConfigHierarchy", () => {
         version: "1.0",
         tools: [],
         extends: [],
-        mcpServers: ["github", "postgres"],
+        mcpServers: {
+          github: { command: "npx", args: ["-y", "mcp-github"], env: {} },
+          postgres: { command: "docker", args: ["exec", "pg"], env: {} },
+        },
+        mcpInclude: ["github", "postgres"],
         useSymlinks: true,
       }),
     );
 
-    // Create local config
+    // Create local config that adds a server and excludes one
     const localPath = path.join(tempDir, "agentsync.local.json");
     await outputFile(
       localPath,
       JSON.stringify({
-        mcpServers: ["filesystem"],
+        mcpServers: {
+          filesystem: { command: "npx", args: ["-y", "mcp-fs"], env: {} },
+        },
+        mcpExclude: ["postgres"],
       }),
     );
 
     const merged = await loadConfigHierarchy(tempDir);
 
-    expect(merged.mcpServers).toEqual(["filesystem"]);
-  });
+    // Registry should have all 3 servers
+    expect(Object.keys(merged.mcpServers || {})).toHaveLength(3);
+    expect(merged.mcpServers).toHaveProperty("github");
+    expect(merged.mcpServers).toHaveProperty("postgres");
+    expect(merged.mcpServers).toHaveProperty("filesystem");
 
-  it("uses project mcpServers if no local override", async () => {
-    // Create project config
-    const projectConfigPath = path.join(tempDir, ".agentsync", "config.json");
-    await ensureDir(path.dirname(projectConfigPath));
-    await outputFile(
-      projectConfigPath,
-      JSON.stringify({
-        version: "1.0",
-        tools: [],
-        extends: [],
-        mcpServers: ["github"],
-        useSymlinks: true,
-      }),
-    );
+    // Include should have project's list
+    expect(merged.mcpInclude).toEqual(["github", "postgres"]);
 
-    const merged = await loadConfigHierarchy(tempDir);
-
-    expect(merged.mcpServers).toEqual(["github"]);
+    // Exclude should have local's list
+    expect(merged.mcpExclude).toEqual(["postgres"]);
   });
 
   it("records sources in merged config", async () => {
@@ -294,7 +291,7 @@ describe("loadConfigHierarchy", () => {
         version: "1.0",
         tools: [],
         extends: [],
-        mcpServers: [],
+        mcpServers: {},
         useSymlinks: true,
       }),
     );
@@ -308,7 +305,7 @@ describe("loadConfigHierarchy", () => {
         version: "1.0",
         tools: [],
         extends: [],
-        mcpServers: [],
+        mcpServers: {},
         useSymlinks: true,
       }),
     );
@@ -318,7 +315,7 @@ describe("loadConfigHierarchy", () => {
     await outputFile(
       localPath,
       JSON.stringify({
-        mcpServers: [],
+        mcpServers: {},
       }),
     );
 
