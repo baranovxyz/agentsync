@@ -151,33 +151,71 @@ check_cli_built() {
   [ "$status" -ne 0 ]
 }
 
-# ==================== MCP Add Tests ====================
+# ==================== MCP Enable Tests ====================
 
-@test "mcp add creates config file" {
+@test "mcp enable creates config file" {
   check_cli_built
-  run node "$CLI" mcp add github
-  [ "$status" -eq 0 ]
-  [ -f ".agentsync/config.json" ]
 
-  # Check config contains github
+  # Create project config with MCP server definitions
+  mkdir -p .agentsync
+  cat > .agentsync/config.json <<CFG
+{
+  "version": "1.0",
+  "tools": ["cursor", "claude"],
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_TOKEN": "{GITHUB_TOKEN}"
+      }
+    }
+  }
+}
+CFG
+
+  run node "$CLI" mcp enable github
+  [ "$status" -eq 0 ]
+
+  # Check config contains github in mcpEnabled
   run cat .agentsync/config.json
+  [[ "$output" =~ "mcpEnabled" ]]
   [[ "$output" =~ "github" ]]
 }
 
-@test "mcp add handles duplicate gracefully" {
+@test "mcp enable handles duplicate gracefully" {
   check_cli_built
-  node "$CLI" mcp add github
-  run node "$CLI" mcp add github
+
+  # Create project config with MCP server definitions
+  mkdir -p .agentsync
+  cat > .agentsync/config.json <<CFG
+{
+  "version": "1.0",
+  "tools": ["cursor", "claude"],
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_TOKEN": "{GITHUB_TOKEN}"
+      }
+    }
+  }
+}
+CFG
+
+  node "$CLI" mcp enable github
+  run node "$CLI" mcp enable github
   [ "$status" -eq 0 ]
 
-  # Should only appear once in config
-  count=$(grep -o "github" .agentsync/config.json | wc -l)
-  [ "$count" -eq 1 ]
+  # Should only appear once in mcpEnabled array
+  count=$(grep -o '"github"' .agentsync/config.json | wc -l)
+  [ "$count" -le 2 ]  # One in mcpServers, one in mcpEnabled
 }
 
-@test "mcp add fails on invalid MCP name" {
+@test "mcp enable fails on invalid MCP name" {
   check_cli_built
-  run node "$CLI" mcp add nonexistent-mcp
+  run node "$CLI" mcp enable nonexistent-mcp
   [ "$status" -ne 0 ]
 }
 
@@ -185,14 +223,22 @@ check_cli_built() {
 
 @test "sync creates MCP target configs" {
   check_cli_built
-  node "$CLI" mcp add github
-  # configure tools in project config
+  # configure tools in project config with MCP server definitions
   mkdir -p .agentsync
   cat > .agentsync/config.json <<CFG
 {
   "version": "1.0",
   "tools": ["cursor", "claude"],
-  "mcpServers": ["github"]
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_TOKEN": "{GITHUB_TOKEN}"
+      }
+    }
+  },
+  "mcpEnabled": ["github"]
 }
 CFG
   run node "$CLI" sync
@@ -204,13 +250,21 @@ CFG
 
 @test "sync --dry-run doesn't create MCP files" {
   check_cli_built
-  node "$CLI" mcp add github
   mkdir -p .agentsync
   cat > .agentsync/config.json <<CFG
 {
   "version": "1.0",
   "tools": ["cursor", "claude"],
-  "mcpServers": ["github"]
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_TOKEN": "{GITHUB_TOKEN}"
+      }
+    }
+  },
+  "mcpEnabled": ["github"]
 }
 CFG
   run node "$CLI" sync --dry-run
@@ -223,13 +277,21 @@ CFG
 
 @test "sync --tool creates only specified MCP target" {
   check_cli_built
-  node "$CLI" mcp add github
   mkdir -p .agentsync
   cat > .agentsync/config.json <<CFG
 {
   "version": "1.0",
   "tools": ["cursor", "claude"],
-  "mcpServers": ["github"]
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_TOKEN": "{GITHUB_TOKEN}"
+      }
+    }
+  },
+  "mcpEnabled": ["github"]
 }
 CFG
   run node "$CLI" sync --tool cursor
@@ -241,13 +303,21 @@ CFG
 
 @test "sync substitutes environment variables for MCP" {
   check_cli_built
-  node "$CLI" mcp add github
   mkdir -p .agentsync
   cat > .agentsync/config.json <<CFG
 {
   "version": "1.0",
   "tools": ["cursor"],
-  "mcpServers": ["github"]
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_TOKEN": "{GITHUB_TOKEN}"
+      }
+    }
+  },
+  "mcpEnabled": ["github"]
 }
 CFG
   node "$CLI" sync
@@ -263,13 +333,21 @@ CFG
 @test "sync fails without environment variables for MCP" {
   check_cli_built
   unset GITHUB_TOKEN
-  node "$CLI" mcp add github
   mkdir -p .agentsync
   cat > .agentsync/config.json <<CFG
 {
   "version": "1.0",
   "tools": ["cursor"],
-  "mcpServers": ["github"]
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_TOKEN": "{GITHUB_TOKEN}"
+      }
+    }
+  },
+  "mcpEnabled": ["github"]
 }
 CFG
   run node "$CLI" sync
@@ -277,26 +355,55 @@ CFG
   [[ "$output" =~ "GITHUB_TOKEN" ]] || [[ "$output" =~ "environment" ]]
 }
 
-# ==================== MCP Remove Tests ====================
+# ==================== MCP Disable Tests ====================
 
-@test "mcp remove updates config" {
+@test "mcp disable updates local config" {
   check_cli_built
-  # Add two MCPs so we can remove one
-  node "$CLI" mcp add github
-  node "$CLI" mcp add postgres
-  run node "$CLI" mcp remove github
+  # Create project config with MCP servers enabled
+  mkdir -p .agentsync
+  cat > .agentsync/config.json <<CFG
+{
+  "version": "1.0",
+  "tools": ["cursor", "claude"],
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_TOKEN": "{GITHUB_TOKEN}"
+      }
+    },
+    "postgres": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres"],
+      "env": {
+        "POSTGRES_URL": "{DATABASE_URL}"
+      }
+    }
+  },
+  "mcpEnabled": ["github", "postgres"]
+}
+CFG
+
+  # Disable one via local config
+  run node "$CLI" mcp disable github
   [ "$status" -eq 0 ]
 
-  # Check github removed but postgres remains
-  run cat .agentsync/config.json
-  [[ ! "$output" =~ "github" ]]
-  [[ "$output" =~ "postgres" ]]
+  # Check github is in mcpDisabled in local config
+  run cat .agentsync/agentsync.local.json
+  [[ "$output" =~ "github" ]]
+  [[ "$output" =~ "mcpDisabled" ]]
 }
 
-@test "mcp remove fails on non-existent MCP" {
+@test "mcp disable fails on non-existent MCP" {
   check_cli_built
-  run node "$CLI" mcp remove nonexistent
-  [ "$status" -ne 0 ]
+  # Disable should work even if MCP not in registry (it just adds to mcpDisabled)
+  run node "$CLI" mcp disable nonexistent
+  [ "$status" -eq 0 ]
+
+  # Check it was added to mcpDisabled
+  run cat .agentsync/agentsync.local.json
+  [[ "$output" =~ "nonexistent" ]]
 }
 
 # ==================== Error Handling Tests ====================
@@ -317,7 +424,26 @@ CFG
 
   check_cli_built
   chmod 444 .cursor
-  node "$CLI" mcp add github
+
+  # Create project config with MCP server
+  mkdir -p .agentsync
+  cat > .agentsync/config.json <<CFG
+{
+  "version": "1.0",
+  "tools": ["cursor"],
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_TOKEN": "{GITHUB_TOKEN}"
+      }
+    }
+  },
+  "mcpEnabled": ["github"]
+}
+CFG
+
   run node "$CLI" sync
   [ "$status" -ne 0 ]
   chmod 755 .cursor  # Restore for cleanup
@@ -464,24 +590,41 @@ CFG
 
 # ==================== Integration Workflow Tests ====================
 
-@test "full workflow: add → sync → remove" {
+@test "full workflow: enable → sync → disable" {
   check_cli_built
 
-  # Add two MCPs
-  run node "$CLI" mcp add github
-  [ "$status" -eq 0 ]
-  run node "$CLI" mcp add postgres
-  [ "$status" -eq 0 ]
-
-  # Configure tools and sync to targets
+  # Create project config with MCP server definitions
   mkdir -p .agentsync
   cat > .agentsync/config.json <<CFG
 {
   "version": "1.0",
   "tools": ["cursor", "claude"],
-  "mcpServers": ["github", "postgres"]
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_TOKEN": "{GITHUB_TOKEN}"
+      }
+    },
+    "postgres": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres"],
+      "env": {
+        "POSTGRES_URL": "{DATABASE_URL}"
+      }
+    }
+  }
 }
 CFG
+
+  # Enable two MCPs
+  run node "$CLI" mcp enable github
+  [ "$status" -eq 0 ]
+  run node "$CLI" mcp enable postgres
+  [ "$status" -eq 0 ]
+
+  # Sync to targets
   run node "$CLI" sync
   [ "$status" -eq 0 ]
 
@@ -490,8 +633,8 @@ CFG
   [[ "$output" =~ "github" ]]
   [[ "$output" =~ "postgres" ]]
 
-  # Remove one MCP
-  run node "$CLI" mcp remove github
+  # Disable one MCP
+  run node "$CLI" mcp disable github
   [ "$status" -eq 0 ]
 
   # Sync again to update targets
@@ -502,19 +645,36 @@ CFG
 @test "supports multiple MCPs" {
   check_cli_built
 
-  # Add two MCPs
-  node "$CLI" mcp add github
-  node "$CLI" mcp add postgres
-
-  # Configure tools and sync
+  # Create project config with MCP server definitions
   mkdir -p .agentsync
   cat > .agentsync/config.json <<CFG
 {
   "version": "1.0",
   "tools": ["cursor"],
-  "mcpServers": ["github", "postgres"]
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_TOKEN": "{GITHUB_TOKEN}"
+      }
+    },
+    "postgres": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres"],
+      "env": {
+        "POSTGRES_URL": "{DATABASE_URL}"
+      }
+    }
+  }
 }
 CFG
+
+  # Enable two MCPs
+  node "$CLI" mcp enable github
+  node "$CLI" mcp enable postgres
+
+  # Sync
   run node "$CLI" sync
   [ "$status" -eq 0 ]
 
