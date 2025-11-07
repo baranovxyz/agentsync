@@ -14,5 +14,6 @@
         "POSTGRES_URL": "{POSTGRES_URL}"
       }
     }
-  }
+  },
+  "mcpEnabled": ["github", "postgres"]
 }

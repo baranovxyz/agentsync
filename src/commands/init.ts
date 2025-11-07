@@ -132,7 +132,7 @@ export class InitCommand {
     if (!mcpConfigExists) {
       console.log(
         pc.gray("  • Set up MCP servers: ") +
-          pc.cyan("agentsync mcp add <server>"),
+          pc.cyan("agentsync mcp enable <server>"),
       );
       console.log(
         pc.gray("  • View MCP options:   ") + pc.cyan("agentsync mcp list"),
@@ -140,7 +140,7 @@ export class InitCommand {
     } else if (mcpCount === 0) {
       console.log(
         pc.gray("  • Add an MCP server:  ") +
-          pc.cyan("agentsync mcp add github"),
+          pc.cyan("agentsync mcp enable github"),
       );
       console.log(
         pc.gray("  • View MCP options:   ") + pc.cyan("agentsync mcp list"),
@@ -317,7 +317,7 @@ export class InitCommand {
       );
       console.log(
         pc.gray("     - Run ") +
-          pc.cyan("agentsync mcp add <server>") +
+          pc.cyan("agentsync mcp enable <server>") +
           pc.gray(" to add MCPs"),
       );
     } catch (error) {

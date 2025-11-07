@@ -40,8 +40,8 @@ pnpm cli preset remove             # Interactive: remove from include/exclude or
 # MCP Commands
 # MCP sync is merged into main sync. Use `agentsync sync`.
 pnpm cli mcp list                  # Show available/active MCPs
-pnpm cli mcp add github            # Add MCP to project
-pnpm cli mcp remove postgres       # Remove MCP (can remove all)
+pnpm cli mcp enable github         # Enable MCP in project
+pnpm cli mcp disable postgres      # Disable MCP (adds to local config)
 
 # Init Command
 pnpm cli init                      # Initialize with template

@@ -144,11 +144,11 @@ pnpm build && pnpm test:shell
 ✅ **MCP Commands**
 
 - `mcp list` - Show available MCPs
-- `mcp add` - Add MCP to project
+- `mcp enable` - Enable MCP in project
 - `mcp sync` - Sync to targets
 - `mcp sync --dry-run` - Preview without applying
 - `mcp sync --tool cursor` - Sync to specific tool
-- `mcp remove` - Remove MCP from project
+- `mcp disable` - Disable MCP (adds to local config)
 
 ✅ **Error Handling**
 
@@ -179,7 +179,7 @@ pnpm build && pnpm test:shell
 
 ✅ **Integration Workflows**
 
-- Full workflow: add → sync → remove
+- Full workflow: enable → sync → disable
 - Multiple MCPs
 - Environment variable substitution
 

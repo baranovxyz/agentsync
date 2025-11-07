@@ -170,23 +170,23 @@ export async function loadConfigHierarchy(cwd: string): Promise<MergedConfig> {
     ...(local?.mcpServers || {}),
   };
 
-  // Include: Union across levels (accumulates)
-  const allInclude = [
-    ...(global?.mcpInclude || []),
-    ...(project.mcpInclude || []),
-    ...(local?.mcpInclude || []),
+  // Enabled: Union across levels (accumulates)
+  const allEnabled = [
+    ...(global?.mcpEnabled || []),
+    ...(project.mcpEnabled || []),
+    ...(local?.mcpEnabled || []),
   ];
-  const mergedMcpInclude =
-    allInclude.length > 0 ? [...new Set(allInclude)] : undefined;
+  const mergedMcpEnabled =
+    allEnabled.length > 0 ? [...new Set(allEnabled)] : undefined;
 
-  // Exclude: Union across levels (accumulates)
-  const allExclude = [
-    ...(global?.mcpExclude || []),
-    ...(project.mcpExclude || []),
-    ...(local?.mcpExclude || []),
+  // Disabled: Union across levels (accumulates)
+  const allDisabled = [
+    ...(global?.mcpDisabled || []),
+    ...(project.mcpDisabled || []),
+    ...(local?.mcpDisabled || []),
   ];
-  const mergedMcpExclude =
-    allExclude.length > 0 ? [...new Set(allExclude)] : undefined;
+  const mergedMcpDisabled =
+    allDisabled.length > 0 ? [...new Set(allDisabled)] : undefined;
 
   // 4. Merge final config
   const merged: MergedConfig = {
@@ -194,8 +194,8 @@ export async function loadConfigHierarchy(cwd: string): Promise<MergedConfig> {
     tools: project.tools || global?.tools || [],
     extends: deduped as AgentSyncConfig["extends"],
     mcpServers: mergedMcpServers,
-    mcpInclude: mergedMcpInclude,
-    mcpExclude: mergedMcpExclude,
+    mcpEnabled: mergedMcpEnabled,
+    mcpDisabled: mergedMcpDisabled,
     security: project.security || global?.security,
     useSymlinks: project.useSymlinks ?? global?.useSymlinks ?? true,
     _sources: {

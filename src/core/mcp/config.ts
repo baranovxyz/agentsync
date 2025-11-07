@@ -258,18 +258,58 @@ export function filterSelectedMCPs(
       // If value is object, merge with global config
       else if (typeof value === "object" && value !== null) {
         const global = globalRegistry[serverName];
-        result[serverName] = {
-          command: global.command,
-          args: [...global.args],
-          // Merge env variables (override takes precedence)
-          env: {
-            ...(global.env || {}),
-            ...(value.env || {}),
-          },
-        };
+
+        // Only command-based MCPs can be merged
+        if ("command" in global) {
+          result[serverName] = {
+            command: global.command,
+            args: [...global.args],
+            // Merge env variables (override takes precedence)
+            env: {
+              ...(global.env || {}),
+              ...("env" in value && value.env ? value.env : {}),
+            },
+          };
+        } else {
+          // URL-based MCP - can't merge, use global as-is
+          result[serverName] = JSON.parse(JSON.stringify(global));
+        }
       }
     }
   }
 
   return result;
+}
+
+/**
+ * Determine active MCP servers from merged config registry and enabled/disabled filters
+ * OPT-IN: Only servers explicitly listed in mcpEnabled are active
+ * @param registry - Merged MCP server registry from config hierarchy
+ * @param mcpEnabled - Servers to enable (REQUIRED for any servers to be active)
+ * @param mcpDisabled - Servers to disable (overrides mcpEnabled)
+ * @returns Record of active MCP server configs
+ */
+export function getActiveMCPs(
+  registry: Record<string, unknown>,
+  mcpEnabled?: string[],
+  mcpDisabled?: string[],
+): Record<string, unknown> {
+  // OPT-IN: Only explicitly enabled servers (empty/undefined = no servers)
+  const enabledServers = mcpEnabled || [];
+
+  // Filter out disabled servers (disabled wins)
+  const disabledServers = new Set(mcpDisabled || []);
+  const activeServers = enabledServers.filter(
+    (name) => !disabledServers.has(name),
+  );
+
+  // Build active MCP configs
+  const activeMCPs: Record<string, unknown> = {};
+  for (const name of activeServers) {
+    if (registry[name]) {
+      activeMCPs[name] = registry[name];
+    }
+  }
+
+  return activeMCPs;
 }

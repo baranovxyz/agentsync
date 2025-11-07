@@ -26,7 +26,7 @@ describe("MCP Config Merging (Option A: Local Replaces Project)", () => {
     await fs.writeFile(
       projectConfigPath,
       JSON.stringify({
-        mcpServers: ["github", "postgres"],
+        mcpServers: { github: true, postgres: true },
       }),
     );
 
@@ -36,7 +36,7 @@ describe("MCP Config Merging (Option A: Local Replaces Project)", () => {
 
     try {
       const config = await loadProjectConfig();
-      expect(config.mcpServers).toEqual(["github", "postgres"]);
+      expect(config.mcpServers).toEqual({ github: true, postgres: true });
     } finally {
       process.chdir(originalCwd);
     }
@@ -51,7 +51,7 @@ describe("MCP Config Merging (Option A: Local Replaces Project)", () => {
     await fs.writeFile(
       projectConfigPath,
       JSON.stringify({
-        mcpServers: ["github", "postgres"],
+        mcpServers: { github: true, postgres: true },
       }),
     );
     await fs.writeFile(
@@ -83,7 +83,7 @@ describe("MCP Config Merging (Option A: Local Replaces Project)", () => {
     await fs.writeFile(
       projectConfigPath,
       JSON.stringify({
-        mcpServers: ["github", "postgres"],
+        mcpServers: { github: true, postgres: true },
       }),
     );
     await fs.writeFile(
@@ -101,7 +101,7 @@ describe("MCP Config Merging (Option A: Local Replaces Project)", () => {
     try {
       const config = await loadProjectConfig();
       // Local doesn't have mcpServers, so project config is used
-      expect(config.mcpServers).toEqual(["github", "postgres"]);
+      expect(config.mcpServers).toEqual({ github: true, postgres: true });
     } finally {
       process.chdir(originalCwd);
     }
@@ -116,13 +116,13 @@ describe("MCP Config Merging (Option A: Local Replaces Project)", () => {
     await fs.writeFile(
       projectConfigPath,
       JSON.stringify({
-        mcpServers: ["github", "postgres"],
+        mcpServers: { github: true, postgres: true },
       }),
     );
     await fs.writeFile(
       localConfigPath,
       JSON.stringify({
-        mcpServers: [],
+        mcpServers: {},
       }),
     );
 
@@ -133,7 +133,7 @@ describe("MCP Config Merging (Option A: Local Replaces Project)", () => {
     try {
       const config = await loadProjectConfig();
       // Local empty array disables all MCPs
-      expect(config.mcpServers).toEqual([]);
+      expect(config.mcpServers).toEqual({});
     } finally {
       process.chdir(originalCwd);
     }

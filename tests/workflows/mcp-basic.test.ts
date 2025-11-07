@@ -1,6 +1,6 @@
 /**
  * MCP Basic Workflow Test
- * Tests the complete MCP workflow: add → sync → list → remove
+ * Tests the complete MCP workflow: enable → sync → list → disable
  * Using in-process CLI harness instead of spawn
  */
 
@@ -48,31 +48,39 @@ describe("MCP Basic Workflow (In-Process)", () => {
     await fs.remove(homeDir);
   });
 
-  it("should complete full MCP workflow: add → sync → remove", async () => {
+  it("should complete full MCP workflow: enable → sync → disable", async () => {
     // Create .cursor directory
     await fs.ensureDir(path.join(projectDir, ".cursor"));
 
-    // Step 1: Add MCP
-    let result = await runCli(["mcp", "add", "github"], {
+    // Step 1: Setup MCP server definition and enable it
+    await fs.ensureDir(path.join(projectDir, ".agentsync"));
+    await fs.writeJson(path.join(projectDir, ".agentsync", "config.json"), {
+      version: "1.0",
+      tools: ["cursor"],
+      mcpServers: {
+        github: {
+          command: "npx",
+          args: ["-y", "@modelcontextprotocol/server-github"],
+          env: {
+            GITHUB_TOKEN: "{GITHUB_TOKEN}",
+          },
+        },
+      },
+    });
+
+    let result = await runCli(["mcp", "enable", "github"], {
       cwd: projectDir,
       env: { HOME: homeDir },
     });
     assertSuccess(result);
 
-    // Verify config was created
-    const config1 = await fs.readJson(
+    // Verify config was updated
+    const config1 = (await fs.readJson(
       path.join(projectDir, ".agentsync", "config.json"),
-    );
-    expect(config1.mcpServers).toContain("github");
+    )) as { mcpEnabled?: string[] };
+    expect(config1.mcpEnabled).toContain("github");
 
     // Step 2: Sync MCP (via main sync)
-    // Configure tools in project config
-    await fs.ensureDir(path.join(projectDir, ".agentsync"));
-    await fs.writeJson(path.join(projectDir, ".agentsync", "config.json"), {
-      version: "1.0",
-      tools: ["cursor"],
-      mcpServers: ["github"],
-    });
     result = await runCli(["sync"], {
       cwd: projectDir,
       env: { HOME: homeDir, GITHUB_TOKEN: "ghp_test123" },
@@ -80,9 +88,9 @@ describe("MCP Basic Workflow (In-Process)", () => {
     assertSuccess(result);
 
     // Verify sync created MCP config
-    const cursorMcp = await fs.readJson(
+    const cursorMcp = (await fs.readJson(
       path.join(projectDir, ".cursor", "mcp.json"),
-    );
+    )) as { mcpServers: Record<string, { env: Record<string, string> }> };
     expect(cursorMcp.mcpServers.github).toBeDefined();
     expect(cursorMcp.mcpServers.github.env.GITHUB_TOKEN).toBe("ghp_test123");
 
@@ -93,18 +101,18 @@ describe("MCP Basic Workflow (In-Process)", () => {
     });
     assertSuccess(result);
 
-    // Step 4: Remove MCP
-    result = await runCli(["mcp", "remove", "github"], {
+    // Step 4: Disable MCP
+    result = await runCli(["mcp", "disable", "github"], {
       cwd: projectDir,
       env: { HOME: homeDir },
     });
     assertSuccess(result);
 
-    // Verify config is now empty
-    const config2 = await fs.readJson(
-      path.join(projectDir, ".agentsync", "config.json"),
-    );
-    expect(config2.mcpServers).toEqual([]);
+    // Verify github is now in mcpDisabled
+    const localConfig = (await fs.readJson(
+      path.join(projectDir, ".agentsync", "agentsync.local.json"),
+    )) as { mcpDisabled?: string[] };
+    expect(localConfig.mcpDisabled).toContain("github");
   });
 
   it("should sync only to specified tool with --tool flag", async () => {
@@ -112,19 +120,28 @@ describe("MCP Basic Workflow (In-Process)", () => {
     await fs.ensureDir(path.join(projectDir, ".cursor"));
     await fs.ensureDir(path.join(projectDir, ".claude"));
 
-    // Add MCP
-    await runCli(["mcp", "add", "github"], {
+    // Setup MCP server definition and enable it
+    await fs.ensureDir(path.join(projectDir, ".agentsync"));
+    await fs.writeJson(path.join(projectDir, ".agentsync", "config.json"), {
+      version: "1.0",
+      tools: ["cursor", "claude"],
+      mcpServers: {
+        github: {
+          command: "npx",
+          args: ["-y", "@modelcontextprotocol/server-github"],
+          env: {
+            GITHUB_TOKEN: "{GITHUB_TOKEN}",
+          },
+        },
+      },
+    });
+
+    await runCli(["mcp", "enable", "github"], {
       cwd: projectDir,
       env: { HOME: homeDir },
     });
 
     // Sync only to cursor
-    await fs.ensureDir(path.join(projectDir, ".agentsync"));
-    await fs.writeJson(path.join(projectDir, ".agentsync", "config.json"), {
-      version: "1.0",
-      tools: ["cursor", "claude"],
-      mcpServers: ["github"],
-    });
     const result = await runCli(["sync", "--tool", "cursor"], {
       cwd: projectDir,
       env: { HOME: homeDir, GITHUB_TOKEN: "ghp_test" },
@@ -146,18 +163,28 @@ describe("MCP Basic Workflow (In-Process)", () => {
   it("should support dry-run mode", async () => {
     await fs.ensureDir(path.join(projectDir, ".cursor"));
 
-    await runCli(["mcp", "add", "github"], {
+    // Setup MCP server definition and enable it
+    await fs.ensureDir(path.join(projectDir, ".agentsync"));
+    await fs.writeJson(path.join(projectDir, ".agentsync", "config.json"), {
+      version: "1.0",
+      tools: ["cursor"],
+      mcpServers: {
+        github: {
+          command: "npx",
+          args: ["-y", "@modelcontextprotocol/server-github"],
+          env: {
+            GITHUB_TOKEN: "{GITHUB_TOKEN}",
+          },
+        },
+      },
+    });
+
+    await runCli(["mcp", "enable", "github"], {
       cwd: projectDir,
       env: { HOME: homeDir },
     });
 
     // Dry run should not write files
-    await fs.ensureDir(path.join(projectDir, ".agentsync"));
-    await fs.writeJson(path.join(projectDir, ".agentsync", "config.json"), {
-      version: "1.0",
-      tools: ["cursor"],
-      mcpServers: ["github"],
-    });
     const result = await runCli(["sync", "--dry-run"], {
       cwd: projectDir,
       env: { HOME: homeDir, GITHUB_TOKEN: "ghp_test" },
@@ -174,23 +201,40 @@ describe("MCP Basic Workflow (In-Process)", () => {
   it("should handle multiple MCPs", async () => {
     await fs.ensureDir(path.join(projectDir, ".cursor"));
 
-    // Add multiple MCPs
-    await runCli(["mcp", "add", "github"], {
+    // Setup MCP server definitions
+    await fs.ensureDir(path.join(projectDir, ".agentsync"));
+    await fs.writeJson(path.join(projectDir, ".agentsync", "config.json"), {
+      version: "1.0",
+      tools: ["cursor"],
+      mcpServers: {
+        github: {
+          command: "npx",
+          args: ["-y", "@modelcontextprotocol/server-github"],
+          env: {
+            GITHUB_TOKEN: "{GITHUB_TOKEN}",
+          },
+        },
+        postgres: {
+          command: "npx",
+          args: ["-y", "@modelcontextprotocol/server-postgres"],
+          env: {
+            DATABASE_URL: "{DATABASE_URL}",
+          },
+        },
+      },
+    });
+
+    // Enable multiple MCPs
+    await runCli(["mcp", "enable", "github"], {
       cwd: projectDir,
       env: { HOME: homeDir },
     });
-    await runCli(["mcp", "add", "postgres"], {
+    await runCli(["mcp", "enable", "postgres"], {
       cwd: projectDir,
       env: { HOME: homeDir },
     });
 
     // Sync with both via main sync
-    await fs.ensureDir(path.join(projectDir, ".agentsync"));
-    await fs.writeJson(path.join(projectDir, ".agentsync", "config.json"), {
-      version: "1.0",
-      tools: ["cursor"],
-      mcpServers: ["github", "postgres"],
-    });
     const result = await runCli(["sync"], {
       cwd: projectDir,
       env: {
@@ -202,9 +246,9 @@ describe("MCP Basic Workflow (In-Process)", () => {
     assertSuccess(result);
 
     // Verify both MCPs are synced
-    const cursorMcp = await fs.readJson(
+    const cursorMcp = (await fs.readJson(
       path.join(projectDir, ".cursor", "mcp.json"),
-    );
+    )) as { mcpServers: Record<string, { env: Record<string, string> }> };
     expect(cursorMcp.mcpServers.github).toBeDefined();
     expect(cursorMcp.mcpServers.postgres).toBeDefined();
     expect(cursorMcp.mcpServers.github.env.GITHUB_TOKEN).toBe("ghp_test");

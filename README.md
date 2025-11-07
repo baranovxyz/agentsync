@@ -196,7 +196,7 @@ agentsync preset add github:org/repo
 
 # Manage MCP servers
 agentsync mcp list          # Show available MCP servers
-agentsync mcp add github    # Add a specific server
+agentsync mcp enable github    # Enable a specific server
 ```
 
 ## 📚 Documentation

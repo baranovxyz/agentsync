@@ -234,7 +234,7 @@ describe("loadConfigHierarchy", () => {
     expect(merged._deduplicationLog).toHaveLength(1);
   });
 
-  it("merges MCP servers registry and include/exclude", async () => {
+  it("merges MCP servers registry and enabled/disabled", async () => {
     // Create project config with some servers
     const projectConfigPath = path.join(tempDir, ".agentsync", "config.json");
     await ensureDir(path.dirname(projectConfigPath));
@@ -248,12 +248,12 @@ describe("loadConfigHierarchy", () => {
           github: { command: "npx", args: ["-y", "mcp-github"], env: {} },
           postgres: { command: "docker", args: ["exec", "pg"], env: {} },
         },
-        mcpInclude: ["github", "postgres"],
+        mcpEnabled: ["github", "postgres"],
         useSymlinks: true,
       }),
     );
 
-    // Create local config that adds a server and excludes one
+    // Create local config that adds a server and disables one
     const localPath = path.join(tempDir, "agentsync.local.json");
     await outputFile(
       localPath,
@@ -261,7 +261,7 @@ describe("loadConfigHierarchy", () => {
         mcpServers: {
           filesystem: { command: "npx", args: ["-y", "mcp-fs"], env: {} },
         },
-        mcpExclude: ["postgres"],
+        mcpDisabled: ["postgres"],
       }),
     );
 
@@ -273,11 +273,11 @@ describe("loadConfigHierarchy", () => {
     expect(merged.mcpServers).toHaveProperty("postgres");
     expect(merged.mcpServers).toHaveProperty("filesystem");
 
-    // Include should have project's list
-    expect(merged.mcpInclude).toEqual(["github", "postgres"]);
+    // Enabled should have project's list
+    expect(merged.mcpEnabled).toEqual(["github", "postgres"]);
 
-    // Exclude should have local's list
-    expect(merged.mcpExclude).toEqual(["postgres"]);
+    // Disabled should have local's list
+    expect(merged.mcpDisabled).toEqual(["postgres"]);
   });
 
   it("records sources in merged config", async () => {
