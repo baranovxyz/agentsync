@@ -6,7 +6,7 @@ How to configure AgentSync. For implementation details, see ARCHITECTURE.md.
 
 ### `.agentsync/config.json` (Project-level, committed)
 
-Team-shared settings. Created by `agentsync init`, modified by `agentsync mcp add/remove`.
+Team-shared settings. Created by `agentsync init`, modified by `agentsync mcp enable/disable`.
 
 ```json
 {
@@ -24,7 +24,7 @@ Team-shared settings. Created by `agentsync init`, modified by `agentsync mcp ad
       "env": { "POSTGRES_URL": "{POSTGRES_URL}" }
     }
   },
-  "mcpInclude": ["github", "postgres"],
+  "mcpEnabled": ["github", "postgres"],
   "extends": [
     { "source": "github:company/standards", "namespace": "company" },
     { "source": "fs:./local-presets", "namespace": "local" }
@@ -192,9 +192,9 @@ Personal MCP overrides. Created manually for local development.
   }
 }
 
-// Exclude a project MCP locally
+// Disable a project MCP locally
 {
-  "mcpExclude": ["postgres"]
+  "mcpDisabled": ["postgres"]
 }
 
 // Override server definition
@@ -216,20 +216,20 @@ Personal MCP overrides. Created manually for local development.
 - Merges per-key across global → project → local (last wins)
 - Supports both command-based (local process) and URL-based (HTTP remote) formats
 
-**Selection** (`mcpInclude`/`mcpExclude`): Controls which servers are active
+**Selection** (`mcpEnabled`/`mcpDisabled`): Controls which servers are active
 
-- `mcpInclude`: Union across levels (accumulates)
-- `mcpExclude`: Union across levels (accumulates)
-- Default: All defined servers are included if no `mcpInclude` specified
-- Active servers = (Included servers) - (Excluded servers)
+- `mcpEnabled`: Union across levels (accumulates)
+- `mcpDisabled`: Union across levels (accumulates)
+- Default: Only explicitly enabled servers are active (opt-in model)
+- Active servers = (Enabled servers) - (Disabled servers)
 
 **Example flow**:
 
 Global: Defines `github`, `filesystem`
-Project: Defines `postgres`, includes `["github", "postgres"]`, excludes `["filesystem"]`
-Local: Defines `my-local`, excludes `["postgres"]`
+Project: Defines `postgres`, enables `["github", "postgres"]`
+Local: Defines `my-local`, enables `["my-local"]`, disables `["postgres"]`
 
-Result: Active servers = `github`, `my-local`
+Result: Active servers = `github`, `my-local` (postgres is disabled by local override)
 
 ## Precedence
 

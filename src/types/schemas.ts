@@ -142,11 +142,11 @@ export const AgentSyncConfigSchema = z.object({
     )
     .optional(),
 
-  // MCP selection: Which servers to include (union across levels)
-  mcpInclude: z.array(z.string()).optional(),
+  // MCP selection: Which servers to enable (union across levels)
+  mcpEnabled: z.array(z.string()).optional(),
 
-  // MCP exclusion: Which servers to exclude (union across levels)
-  mcpExclude: z.array(z.string()).optional(),
+  // MCP exclusion: Which servers to disable (union across levels)
+  mcpDisabled: z.array(z.string()).optional(),
 
   tools: z.array(z.enum(SUPPORTED_TOOLS)).optional(),
   useSymlinks: z.boolean().default(true),

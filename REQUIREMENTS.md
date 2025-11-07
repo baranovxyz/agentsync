@@ -515,15 +515,15 @@ Defaults only disabled if explicitly set to `false`.
 **Merge strategy**:
 
 - `mcpServers`: Simple override by key (last level wins per server)
-- `mcpInclude`: Union across levels (accumulates selections)
-- `mcpExclude`: Union across levels (accumulates exclusions)
+- `mcpEnabled`: Union across levels (accumulates selections)
+- `mcpDisabled`: Union across levels (accumulates exclusions)
 
 **MCP Configuration Structure**:
 
 Each level (global/project/local) can define:
 
 1. **Registry** (`mcpServers`): Available MCP server definitions
-2. **Selection** (`mcpInclude`/`mcpExclude`): Which servers to activate
+2. **Selection** (`mcpEnabled`/`mcpDisabled`): Which servers to activate
 
 **Example: Complete Flow**:
 
@@ -557,8 +557,8 @@ Project (`.agentsync/config.json`):
       "env": { "POSTGRES_URL": "{POSTGRES_URL}" }
     }
   },
-  "mcpInclude": ["github", "postgres"],
-  "mcpExclude": ["filesystem"]
+  "mcpEnabled": ["github", "postgres"],
+  "mcpDisabled": ["filesystem"]
 }
 ```
 
@@ -573,20 +573,20 @@ Local (`agentsync.local.json`):
       "env": {}
     }
   },
-  "mcpExclude": ["postgres"]
+  "mcpDisabled": ["postgres"]
 }
 ```
 
 **Result**:
 
 - **Merged Registry**: `{ github, filesystem, postgres, my-custom }` (all defined servers)
-- **Merged Include**: `["github", "postgres"]` (from project, default if none specified is all registry)
-- **Merged Exclude**: `["filesystem", "postgres"]` (union from project + local)
+- **Merged Enabled**: `["github", "postgres"]` (from project, opt-in: only explicitly enabled)
+- **Merged Disabled**: `["filesystem", "postgres"]` (union from project + local)
 - **Active Servers**: `github, my-custom`
-  - `github`: from global, included by project
-  - `filesystem`: from global, excluded by project
-  - `postgres`: from project, excluded by local
-  - `my-custom`: from local, auto-included (all defined are included by default)
+  - `github`: from global, enabled by project
+  - `filesystem`: from global, disabled by project (not in enabled list)
+  - `postgres`: from project, disabled by local override
+  - `my-custom`: from local, not in any enabled list (won't be active - opt-in required)
 
 **Server Definition Format** (Cursor-compatible):
 
@@ -612,10 +612,10 @@ URL-based (HTTP remote):
 **Merge Rules**:
 
 - Registry merge: `{ ...global, ...project, ...local }` (per-key override)
-- Include merge: Union of all include arrays across levels
-- Exclude merge: Union of all exclude arrays across levels
-- Default: If no `mcpInclude` specified at any level, all defined servers are included
-- Final active: (Included servers) minus (Excluded servers)
+- Enabled merge: Union of all enabled arrays across levels
+- Disabled merge: Union of all disabled arrays across levels
+- Default: Only explicitly enabled servers are active (opt-in model)
+- Final active: (Enabled servers) minus (Disabled servers)
 
 **Rationale**:
 

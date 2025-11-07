@@ -16,9 +16,9 @@ import { mkdtemp } from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { addMCP } from "../../src/commands/mcp/add.js";
+import { disableMCP } from "../../src/commands/mcp/disable.js";
+import { enableMCP } from "../../src/commands/mcp/enable.js";
 import { listMCP } from "../../src/commands/mcp/list.js";
-import { removeMCP } from "../../src/commands/mcp/remove.js";
 import { sync as mainSync } from "../../src/commands/sync.js";
 import * as fs from "../../src/utils/fs.js";
 
@@ -86,41 +86,66 @@ describe("MCP Error Scenarios E2E", () => {
 
   // Removed: covered by BATS shell tests (invalid add, duplicate add, remove)
 
-  it("should allow removing last MCP (empty config is valid)", async () => {
-    await addMCP("github");
+  it("should allow disabling last MCP (empty mcpEnabled is valid)", async () => {
+    // Setup MCP server definitions
+    await fs.ensureDir(path.join(".agentsync"));
+    await writeJson(path.join(".agentsync", "config.json"), {
+      version: "1.0",
+      mcpServers: {
+        github: {
+          command: "npx",
+          args: ["-y", "@modelcontextprotocol/server-github"],
+          env: { GITHUB_TOKEN: "{GITHUB_TOKEN}" },
+        },
+        postgres: {
+          command: "npx",
+          args: ["-y", "@modelcontextprotocol/server-postgres"],
+          env: { DATABASE_URL: "{DATABASE_URL}" },
+        },
+      },
+    });
 
-    // Removing last MCP should succeed
-    const result = await removeMCP("github");
-    expect(result.removed).toBe(true);
+    await enableMCP("github");
 
-    // Config should have empty array
-    const config = JSON.parse(
-      await fs.readFile(".agentsync/config.json", "utf-8"),
+    // Disabling should succeed (adds to mcpDisabled in local config)
+    const result = await disableMCP("github");
+    expect(result.disabled).toBe(true);
+
+    // Local config should have github in mcpDisabled
+    const localConfig = JSON.parse(
+      await fs.readFile(".agentsync/agentsync.local.json", "utf-8"),
     );
-    expect(config.mcpServers).toEqual([]);
+    expect(localConfig.mcpDisabled).toContain("github");
 
-    // Should still be able to add MCPs after
-    await addMCP("postgres");
+    // Should still be able to enable MCPs after
+    await enableMCP("postgres");
     const configAfter = JSON.parse(
       await fs.readFile(".agentsync/config.json", "utf-8"),
     );
-    expect(configAfter.mcpServers).toEqual(["postgres"]);
+    expect(configAfter.mcpEnabled).toContain("postgres");
   });
 
   // Removed: covered by BATS shell tests (missing env vars)
 
   it("should succeed when no target directories exist (creates them)", async () => {
     // Don't create .cursor or .claude directories
-    await addMCP("github");
     process.env.GITHUB_TOKEN = "test_token";
 
-    // Provide tools via config
+    // Setup MCP server definition and enable it
     await fs.ensureDir(path.join(".agentsync"));
     await writeJson(path.join(".agentsync", "config.json"), {
       version: "1.0",
       tools: ["cursor", "claude"],
-      mcpServers: ["github"],
+      mcpServers: {
+        github: {
+          command: "npx",
+          args: ["-y", "@modelcontextprotocol/server-github"],
+          env: { GITHUB_TOKEN: "{GITHUB_TOKEN}" },
+        },
+      },
     });
+
+    await enableMCP("github");
 
     // Should succeed and create target files via converters (via main sync)
     await expect(mainSync()).resolves.toBeUndefined();
@@ -141,12 +166,12 @@ describe("MCP Error Scenarios E2E", () => {
     // List should auto-create empty config
     const result = await listMCP();
 
-    // Config should now exist with empty array
+    // Config should now exist with empty/default structure
     expect(await fs.pathExists(".agentsync/config.json")).toBe(true);
     const config = JSON.parse(
       await fs.readFile(".agentsync/config.json", "utf-8"),
     );
-    expect(config.mcpServers).toEqual([]);
+    expect(config.mcpEnabled || []).toEqual([]);
 
     // Should show all as inactive
     expect(result.active).toEqual([]);

@@ -11,6 +11,7 @@ import picocolors from "picocolors";
 import AuditLogger, { AuditEventType } from "../core/audit.js";
 import { loadConfigHierarchy } from "../core/config/hierarchy.js";
 import { ConfigError, ErrorCategory, ErrorSeverity } from "../core/errors.js";
+import { getActiveMCPs } from "../core/mcp/config.js";
 import { loadEnv } from "../core/mcp/env.js";
 import { substituteAllMCPs, validateTokens } from "../core/mcp/tokens.js";
 import { RegistryOrchestrator } from "../core/registry/registry-orchestrator.js";
@@ -436,29 +437,13 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
       const mcpSpinner = ora("Syncing MCP servers...").start();
       try {
         // Use already-merged config from hierarchy (fixes bug)
-        // Determine active servers based on include/exclude logic
+        // Determine active servers based on enabled/disabled logic
         const registry = config.mcpServers || {};
-        const allServerNames = Object.keys(registry);
-
-        // If mcpInclude specified, use it; otherwise all servers are included
-        const includedServers =
-          config.mcpInclude && config.mcpInclude.length > 0
-            ? config.mcpInclude
-            : allServerNames;
-
-        // Filter out excluded servers
-        const excludedServers = new Set(config.mcpExclude || []);
-        const activeServers = includedServers.filter(
-          (name) => !excludedServers.has(name),
-        );
-
-        // Build active MCP configs
-        const activeMCPs: Record<string, (typeof registry)[string]> = {};
-        for (const name of activeServers) {
-          if (registry[name]) {
-            activeMCPs[name] = registry[name];
-          }
-        }
+        const activeMCPs = getActiveMCPs(
+          registry,
+          config.mcpEnabled,
+          config.mcpDisabled,
+        ) as Record<string, import("../core/mcp/tokens.js").MCP>;
 
         // Load env and substitute tokens
         const env = await loadEnv();

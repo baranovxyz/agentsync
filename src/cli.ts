@@ -17,9 +17,9 @@ import { discoverCommand } from "./commands/discover.js";
 import { updateGitignore } from "./commands/gitignore.js";
 import { importCommand } from "./commands/import.js";
 import { init } from "./commands/init.js";
-import { addMCP as addMcp } from "./commands/mcp/add.js";
+import { disableMCP } from "./commands/mcp/disable.js";
+import { enableMCP } from "./commands/mcp/enable.js";
 import { listMCP as listMcp } from "./commands/mcp/list.js";
-import { removeMCP as removeMcp } from "./commands/mcp/remove.js";
 import { handleAddPresetCommand } from "./commands/preset/add.js";
 import { clearCache } from "./commands/preset/cache-clear.js";
 import { listPresets } from "./commands/preset/list.js";
@@ -143,17 +143,27 @@ export function createProgram(options?: { exitOverride?: boolean }): Command {
   const mcpCommand = program.command("mcp").description("Manage MCP servers");
 
   mcpCommand
-    .command("add <name>")
-    .description("Add a new MCP server")
+    .command("enable <name>")
+    .description("Enable MCP server (adds to mcpEnabled)")
     .action(async (name) => {
-      await addMcp(name);
+      const result = await enableMCP(name);
+      if (result.enabled) {
+        console.log(`✓ Enabled MCP server '${name}'`);
+      } else if (result.alreadyEnabled) {
+        console.log(`MCP server '${name}' is already enabled`);
+      }
     });
 
   mcpCommand
-    .command("remove <name>")
-    .description("Remove an MCP server")
+    .command("disable <name>")
+    .description("Disable MCP server (adds to mcpDisabled in local config)")
     .action(async (name) => {
-      await removeMcp(name);
+      const result = await disableMCP(name);
+      if (result.disabled) {
+        console.log(`✓ Disabled MCP server '${name}' in local config`);
+      } else if (result.alreadyDisabled) {
+        console.log(`MCP server '${name}' is already disabled`);
+      }
     });
 
   mcpCommand

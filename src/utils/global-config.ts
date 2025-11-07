@@ -88,7 +88,7 @@ export async function ensureGlobalConfig(tools?: ToolName[]): Promise<void> {
     version: "1.0",
     tools: tools || [],
     extends: [],
-    mcpServers: [],
+    mcpServers: {},
     useSymlinks: true,
   };
 

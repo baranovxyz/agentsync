@@ -18,7 +18,7 @@ export function createDefaultConfig(options?: {
   return {
     version: "1.0",
     extends: [],
-    mcpServers: [],
+    mcpServers: {},
     tools: (options?.tools || ["cursor", "claude"]) as any,
     useSymlinks: true,
   };
