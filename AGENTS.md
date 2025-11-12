@@ -183,6 +183,7 @@ pnpm cli <command>        # Test CLI commands (after build)
 - Biome for formatting/linting
 - Prefer functional patterns
 - Avoid `any`, use `unknown` when needed
+- **Always use `readJsonValidated()` with Zod schemas** - Never use plain `readJson()` or type assertions (`as`). Runtime validation prevents bugs and provides better error messages. This applies to all JSON reading in tests and production code.
 
 ## Debugging
 
