@@ -7,6 +7,11 @@ import { readFile, stat } from "node:fs/promises";
 import * as path from "node:path";
 import fg from "fast-glob";
 import type { MCP } from "../../core/mcp/tokens.js";
+import {
+  addMCPToToolConfig,
+  disableMCPInToolConfig,
+  removeMCPFromToolConfig,
+} from "../../core/mcp/tool-config.js";
 import type {
   CanonicalCommand,
   CanonicalRule,
@@ -347,5 +352,38 @@ export class ClaudeCodec implements ToolCodec {
     await outputFile(mcpFile, `${JSON.stringify(config, null, 2)}\n`, {
       encoding: "utf-8",
     });
+  }
+
+  // =============================================================================
+  // MCP Operations: Direct tool config manipulation
+  // =============================================================================
+
+  /**
+   * Add or update MCP server in tool config (.mcp.json)
+   */
+  async addMCP(
+    name: string,
+    config: MCP,
+    cwd: string,
+    force?: boolean,
+  ): Promise<void> {
+    const mcpFile = path.join(cwd, ".mcp.json");
+    await addMCPToToolConfig(mcpFile, name, config, force);
+  }
+
+  /**
+   * Disable (remove) MCP server from tool config
+   */
+  async disableMCP(name: string, cwd: string): Promise<void> {
+    const mcpFile = path.join(cwd, ".mcp.json");
+    await disableMCPInToolConfig(mcpFile, name);
+  }
+
+  /**
+   * Remove MCP server from tool config
+   */
+  async removeMCP(name: string, cwd: string): Promise<void> {
+    const mcpFile = path.join(cwd, ".mcp.json");
+    await removeMCPFromToolConfig(mcpFile, name);
   }
 }
