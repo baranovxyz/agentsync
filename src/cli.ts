@@ -20,6 +20,7 @@ import { init } from "./commands/init.js";
 import { disableMCP } from "./commands/mcp/disable.js";
 import { enableMCP } from "./commands/mcp/enable.js";
 import { listMCP as listMcp } from "./commands/mcp/list.js";
+import { removeMCP } from "./commands/mcp/remove.js";
 import { handleAddPresetCommand } from "./commands/preset/add.js";
 import { clearCache } from "./commands/preset/cache-clear.js";
 import { listPresets } from "./commands/preset/list.js";
@@ -144,25 +145,115 @@ export function createProgram(options?: { exitOverride?: boolean }): Command {
 
   mcpCommand
     .command("enable <name>")
-    .description("Enable MCP server (adds to mcpEnabled)")
-    .action(async (name) => {
-      const result = await enableMCP(name);
+    .description("Enable MCP server (ephemeral or managed mode)")
+    .option(
+      "-t, --tool <tool>",
+      "Sync to specific tool (claude, cursor, cline, roocode)",
+    )
+    .option("--json <json>", "Inline MCP config as JSON")
+    .option("--transport <type>", "Transport type (stdio, http, sse)")
+    .option(
+      "--env <var>",
+      "Environment variable KEY=value (repeatable)",
+      (val: string, prev: string[]) => (prev ? [...prev, val] : [val]),
+    )
+    .option(
+      "--header <header>",
+      "HTTP header NAME:VALUE (repeatable)",
+      (val: string, prev: string[]) => (prev ? [...prev, val] : [val]),
+    )
+    .option("-u, --url <url>", "URL for http/sse transport")
+    .option("--preset <preset>", "Load from preset (github:owner/repo)")
+    .option("-s, --scope <scope>", "Scope for persistent mode (global/project)")
+    .option("-f, --force", "Force overwrite if exists")
+    .action(async (name, options) => {
+      // Parse env and headers
+      const env: Record<string, string> = {};
+      if (options.env) {
+        for (const pair of options.env) {
+          const [key, value] = pair.split("=");
+          if (key && value) env[key] = value;
+        }
+      }
+
+      const headers: Record<string, string> = {};
+      if (options.header) {
+        for (const pair of options.header) {
+          const [key, value] = pair.split(":");
+          if (key && value) headers[key.trim()] = value.trim();
+        }
+      }
+
+      const result = await enableMCP(name, {
+        tool: options.tool,
+        json: options.json,
+        transport: options.transport,
+        env: Object.keys(env).length > 0 ? env : undefined,
+        headers: Object.keys(headers).length > 0 ? headers : undefined,
+        url: options.url,
+        preset: options.preset,
+        scope: options.scope,
+        force: options.force,
+      });
+
+      const modeLabel =
+        result.mode === "ephemeral"
+          ? " (ephemeral)"
+          : result.mode === "persistent"
+            ? " (persistent)"
+            : "";
+
       if (result.enabled) {
-        console.log(`✓ Enabled MCP server '${name}'`);
-      } else if (result.alreadyEnabled) {
-        console.log(`MCP server '${name}' is already enabled`);
+        console.log(`✓ Enabled MCP server '${name}'${modeLabel}`);
+        if (result.syncedToTools) {
+          console.log(`  Synced to: ${result.syncedToTools.join(", ")}`);
+        }
       }
     });
 
   mcpCommand
     .command("disable <name>")
-    .description("Disable MCP server (adds to mcpDisabled in local config)")
-    .action(async (name) => {
-      const result = await disableMCP(name);
+    .description("Disable MCP server (managed or ephemeral mode)")
+    .option("-t, --tool <tool>", "Ephemeral mode: remove from tool config")
+    .action(async (name, options) => {
+      const result = await disableMCP(name, { tool: options.tool });
       if (result.disabled) {
-        console.log(`✓ Disabled MCP server '${name}' in local config`);
+        const mode =
+          result.mode === "ephemeral" ? " (ephemeral)" : " (managed)";
+        console.log(`✓ Disabled MCP server '${name}'${mode}`);
       } else if (result.alreadyDisabled) {
         console.log(`MCP server '${name}' is already disabled`);
+      }
+    });
+
+  mcpCommand
+    .command("remove <name>")
+    .description("Remove MCP server from tool config")
+    .option(
+      "-t, --tool <tool>",
+      "Tool to remove from (claude, cursor, cline, roocode)",
+    )
+    .option(
+      "-s, --scope <scope>",
+      "Scope to remove from registry (global/project)",
+    )
+    .option("--from-registry", "Also remove from config registry")
+    .action(async (name, options) => {
+      const result = await removeMCP(name, {
+        tool: options.tool,
+        scope: options.scope,
+        fromRegistry: options.fromRegistry,
+      });
+
+      if (result.removed) {
+        if (result.removedFromTool) {
+          console.log(
+            `✓ Removed MCP server '${name}' from ${options.tool} config`,
+          );
+        }
+        if (result.removedFromConfig) {
+          console.log(`✓ Removed MCP server '${name}' from config registry`);
+        }
       }
     });
 
