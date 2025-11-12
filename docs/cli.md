@@ -39,9 +39,21 @@ pnpm cli preset remove             # Interactive: remove from include/exclude or
 
 # MCP Commands
 # MCP sync is merged into main sync. Use `agentsync sync`.
-pnpm cli mcp list                  # Show available/active MCPs
-pnpm cli mcp enable github         # Enable MCP in project
+
+# Ephemeral mode (one-time sync to tool, no config save)
+pnpm cli mcp enable tracker --tool claude --json '{"command":"npx","args":["-y","@org/tracker"]}'
+pnpm cli mcp enable tracker --tool claude --transport stdio -- npx -y @org/tracker
+pnpm cli mcp disable github --tool claude
+pnpm cli mcp remove github --tool claude
+
+# Persistent mode (save to config + auto-sync)
+pnpm cli mcp enable tracker --json '...' --scope global
+pnpm cli mcp enable tracker --json '...' --scope project
+
+# Managed mode (registry lookup, existing behavior)
+pnpm cli mcp enable github         # Enable MCP from registry in project
 pnpm cli mcp disable postgres      # Disable MCP (adds to local config)
+pnpm cli mcp list                  # Show available/active MCPs
 
 # Init Command
 pnpm cli init                      # Initialize with template
