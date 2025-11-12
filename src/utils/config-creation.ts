@@ -5,6 +5,7 @@
 
 import { mkdir } from "node:fs/promises";
 import * as path from "node:path";
+import type { ToolName } from "../types/index.js";
 import type { AgentSyncConfig } from "../types/schemas.js";
 import { outputFile } from "./fs.js";
 
@@ -13,13 +14,13 @@ import { outputFile } from "./fs.js";
  * Used by init and mcp list commands
  */
 export function createDefaultConfig(options?: {
-  tools?: string[];
+  tools?: ToolName[];
 }): AgentSyncConfig {
   return {
     version: "1.0",
     extends: [],
     mcpServers: {},
-    tools: (options?.tools || ["cursor", "claude"]) as any,
+    tools: options?.tools || ["cursor", "claude"],
     useSymlinks: true,
   };
 }
@@ -31,7 +32,7 @@ export function createDefaultConfig(options?: {
  */
 export async function ensureProjectConfig(
   cwd?: string,
-  options?: { tools?: string[] },
+  options?: { tools?: ToolName[] },
 ): Promise<AgentSyncConfig> {
   const workDir = cwd || process.cwd();
   const agentSyncDir = path.join(workDir, ".agentsync");
