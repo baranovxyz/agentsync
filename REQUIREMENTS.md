@@ -214,7 +214,55 @@ Tool output (Cline):  .clinerules/auth.md
 - Deterministic output (same input = same output)
 - Files are always rewritten on each sync for simplicity (no timestamp comparison or change detection)
 
-### 3. Preset Selection from GitHub
+### 3. Inline MCP Configuration
+
+**Purpose**: Enable MCP servers directly from CLI without agentsync project setup (standalone mode)
+
+**Modes**:
+
+- **Ephemeral** (one-time sync, no config save): `agentsync mcp enable <name> --tool <tool> --json/--transport/--preset`
+- **Persistent** (save to config + sync): `agentsync mcp enable <name> --json/--transport/--preset --scope global/project`
+- **Registry** (lookup in config hierarchy): `agentsync mcp enable <name> --tool <tool>` (existing)
+
+**Inline config sources** (precedence):
+
+1. `--json '<mcp-config-json>'` - Direct JSON MCP definition
+2. `--transport stdio/http/sse` + flags - Parse transport to MCP definition
+3. `--preset github:owner/repo` - Extract from preset's MCP registry
+4. Fallback - Look up in config hierarchy (global→project→local)
+
+**Transport flags**:
+
+- Stdio: `--transport stdio --env KEY=val -- npx command args`
+- HTTP: `--transport http <url> --header "Name: Value"`
+- SSE: `--transport sse <url> --header "Name: Value"`
+
+**Codec operations** (tool-specific):
+
+- `addMCP()` - Add/update MCP in tool config (merge or force overwrite)
+- `disableMCP()` - Remove MCP from tool config
+- `removeMCP()` - Remove MCP from tool config
+
+**Example**:
+
+```bash
+# Ephemeral: Add tracker MCP to Claude Code once
+agentsync mcp enable tracker --tool claude --json '{"command":"npx","args":["-y","@org/tracker"]}'
+
+# Persistent: Save to global config and sync to all tools
+agentsync mcp enable tracker --json '{"command":"npx","args":["-y","@org/tracker"]}' --scope global
+
+# Via transport flags
+agentsync mcp enable tracker --tool claude --transport stdio --env API_KEY=my-key -- npx -y @org/tracker
+
+# From preset
+agentsync mcp enable tracker --tool claude --preset github:company/mcp-servers
+
+# Via registry (existing behavior)
+agentsync mcp enable tracker --tool claude
+```
+
+### 4. Preset Selection from GitHub
 
 **Purpose**: Select which MCP servers to enable from preset-defined options
 
