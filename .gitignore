@@ -103,6 +103,16 @@ desktop.ini
 research/
 bugs/
 scripts/audit-opensource.js
-OPENSOURCE_AUDIT.md
-AUDIT_QUICKSTART.md
-AUDIT_SUMMARY.md
+
+# Ignore all root .md files except essential ones
+/*.md
+# Allow essential documentation files
+!README.md
+!CHANGELOG.md
+!CONTRIBUTING.md
+!CODE_OF_CONDUCT.md
+!SECURITY.md
+!ARCHITECTURE.md
+!REQUIREMENTS.md
+!TESTING.md
+!AGENTS.md

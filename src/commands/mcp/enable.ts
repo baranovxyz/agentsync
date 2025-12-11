@@ -240,7 +240,7 @@ async function enableMCPPersistent(
   const config = await loadOrCreateConfig(configPath);
 
   // Update config with new MCP
-  updateConfigWithMCP(config, serverName, mcpConfig, options.force);
+  updateConfigWithMCP(config, serverName, mcpConfig, options.force ?? false);
 
   // Ensure config dir exists and save
   const configDir = path.dirname(configPath);
@@ -251,7 +251,12 @@ async function enableMCPPersistent(
   const toolsToSync = options.tool
     ? [options.tool]
     : config.tools || ["claude"];
-  await syncMCPToTools(serverName, mcpConfig, toolsToSync, options.force);
+  await syncMCPToTools(
+    serverName,
+    mcpConfig,
+    toolsToSync,
+    options.force ?? false,
+  );
 
   return {
     enabled: true,

@@ -115,10 +115,7 @@ describe("FilesystemSourcePlugin", () => {
     it("resolves fs: prefixed paths", async () => {
       const plugin = new FilesystemSourcePlugin();
       const source = "fs:local-preset";
-      const expectedPath = path.resolve(
-        "/Users/baranovxyz/oss/agentsync",
-        "local-preset",
-      );
+      const expectedPath = path.resolve(process.cwd(), "local-preset");
 
       vi.mocked(fs.access).mockResolvedValue(undefined);
       vi.mocked(fs.stat).mockResolvedValue({
