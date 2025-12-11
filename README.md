@@ -7,6 +7,23 @@
 
 > **Stop copying configs between AI coding tools. Sync them all with one command.**
 
+## 🚧 Project Status
+
+AgentSync is in **active development** (alpha). Core features are stable and tested, but the API may change as we refine the user experience. We welcome early adopters and contributors!
+
+**What works well:**
+
+- ✅ Core sync functionality across all supported tools
+- ✅ GitHub preset system
+- ✅ MCP server management
+- ✅ Security scanning
+
+**Roadmap to 1.0:**
+
+- More preset registry sources
+- Enhanced configuration UI
+- Additional AI tool support
+
 ## 😫 The Problem
 
 Are you tired of:

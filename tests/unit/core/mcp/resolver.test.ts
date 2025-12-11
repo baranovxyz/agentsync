@@ -38,17 +38,13 @@ describe("resolveMCPConfig", () => {
     });
 
     it("prefers preset over registry", () => {
-      // Registry lookup not fully implemented yet, so this tests the partial implementation
-      const _result = resolveMCPConfig({
-        preset: "github:owner/repo",
-      });
-
+      // Preset extraction not implemented yet, so this tests that it throws appropriately
       // Should fail since preset extraction not implemented
       expect(() => {
         resolveMCPConfig({
           preset: "github:owner/repo",
         });
-      }).toThrow();
+      }).toThrow("Preset extraction not yet implemented");
     });
   });
 

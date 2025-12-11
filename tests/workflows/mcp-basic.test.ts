@@ -163,7 +163,8 @@ describe("MCP Basic Workflow (In-Process)", () => {
   it("should support dry-run mode", async () => {
     await fs.ensureDir(path.join(projectDir, ".cursor"));
 
-    // Setup MCP server definition and enable it
+    // Setup MCP server definition with mcpEnabled (without calling mcp enable)
+    // This tests that sync --dry-run doesn't write files even when MCPs are enabled
     await fs.ensureDir(path.join(projectDir, ".agentsync"));
     await fs.writeJson(path.join(projectDir, ".agentsync", "config.json"), {
       version: "1.0",
@@ -177,11 +178,7 @@ describe("MCP Basic Workflow (In-Process)", () => {
           },
         },
       },
-    });
-
-    await runCli(["mcp", "enable", "github"], {
-      cwd: projectDir,
-      env: { HOME: homeDir },
+      mcpEnabled: ["github"],
     });
 
     // Dry run should not write files

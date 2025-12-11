@@ -16,7 +16,7 @@ import type { MCP } from "../../core/mcp/tokens.js";
 import { getConvertersForTools } from "../../targets/tools/index.js";
 import type { ToolConverterName } from "../../targets/tools/types.js";
 import type { AgentSyncConfig } from "../../types/schemas.js";
-import { pathExists } from "../../utils/fs.js";
+import { ensureDir, pathExists } from "../../utils/fs.js";
 
 export interface EnableMCPOptions {
   // Inline config sources (ephemeral or persistent)
@@ -55,12 +55,12 @@ export interface EnableMCPResult {
 /**
  * Enable MCP server with support for multiple modes
  * @param serverName - MCP server name
- * @param options - Enable options
+ * @param options - Enable options (optional, defaults to registry mode)
  * @returns Enable result
  */
 export async function enableMCP(
   serverName: string,
-  options: EnableMCPOptions,
+  options: EnableMCPOptions = {},
 ): Promise<EnableMCPResult> {
   // Detect mode: inline config flags present?
   const hasInlineConfig = options.json || options.transport || options.preset;
@@ -140,49 +140,53 @@ async function enableMCPEphemeral(
 }
 
 /**
- * Persistent mode: save to config + sync
+ * Get config path for given scope
  */
-async function enableMCPPersistent(
-  serverName: string,
-  mcpConfig: MCP,
-  options: EnableMCPOptions,
-): Promise<EnableMCPResult> {
-  const cwd = process.cwd();
-  const scope = options.scope || "project";
-
-  // Determine config path
-  let configPath: string;
+function getConfigPathForScope(scope: "global" | "project"): string {
   if (scope === "global") {
     const homeDir = process.env.HOME || process.env.USERPROFILE;
     if (!homeDir) {
       throw new Error("Cannot determine home directory for global config");
     }
-    configPath = path.join(homeDir, ".agentsync", "config.json");
-  } else {
-    configPath = path.join(cwd, ".agentsync", "config.json");
+    return path.join(homeDir, ".agentsync", "config.json");
   }
+  return path.join(process.cwd(), ".agentsync", "config.json");
+}
 
-  // Load or create config
-  let config: AgentSyncConfig;
+/**
+ * Load existing config or create default
+ */
+async function loadOrCreateConfig(
+  configPath: string,
+): Promise<AgentSyncConfig> {
   if (await pathExists(configPath)) {
     const content = await readFile(configPath, "utf-8");
-    config = JSON.parse(content);
-  } else {
-    config = {
-      version: "1.0",
-      tools: ["claude"],
-      mcpServers: {},
-      useSymlinks: true,
-    };
+    return JSON.parse(content);
   }
+  return {
+    version: "1.0",
+    tools: ["claude"],
+    mcpServers: {},
+    useSymlinks: true,
+  };
+}
 
+/**
+ * Update config with new MCP server
+ */
+function updateConfigWithMCP(
+  config: AgentSyncConfig,
+  serverName: string,
+  mcpConfig: MCP,
+  force: boolean,
+): void {
   // Ensure mcpServers exists
   if (!config.mcpServers || typeof config.mcpServers !== "object") {
     config.mcpServers = {};
   }
 
   // Check if exists
-  if (config.mcpServers[serverName] && !options.force) {
+  if (config.mcpServers[serverName] && !force) {
     throw new Error(
       `MCP server '${serverName}' already defined in config. Use --force to overwrite.`,
     );
@@ -198,30 +202,56 @@ async function enableMCPPersistent(
   if (!config.mcpEnabled.includes(serverName)) {
     config.mcpEnabled.push(serverName);
   }
+}
 
-  // Ensure config dir exists
-  const configDir = path.dirname(configPath);
-  if (!(await pathExists(configDir))) {
-    // Create it (would need mkdir util)
-    throw new Error(`Config directory does not exist: ${configDir}`);
+/**
+ * Sync MCP to tools
+ */
+async function syncMCPToTools(
+  serverName: string,
+  mcpConfig: MCP,
+  tools: ToolConverterName[],
+  force: boolean,
+): Promise<void> {
+  const cwd = process.cwd();
+  const converters = getConvertersForTools(tools);
+
+  for (const codec of converters) {
+    try {
+      await codec.addMCP(serverName, mcpConfig, cwd, force);
+    } catch (_error) {
+      // Some tools may not support MCP, continue
+    }
   }
+}
 
-  // Save config
+/**
+ * Persistent mode: save to config + sync
+ */
+async function enableMCPPersistent(
+  serverName: string,
+  mcpConfig: MCP,
+  options: EnableMCPOptions,
+): Promise<EnableMCPResult> {
+  const scope = options.scope || "project";
+  const configPath = getConfigPathForScope(scope);
+
+  // Load or create config
+  const config = await loadOrCreateConfig(configPath);
+
+  // Update config with new MCP
+  updateConfigWithMCP(config, serverName, mcpConfig, options.force);
+
+  // Ensure config dir exists and save
+  const configDir = path.dirname(configPath);
+  await ensureDir(configDir);
   await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf-8");
 
   // Auto-sync to tools in config (or specified tool)
   const toolsToSync = options.tool
     ? [options.tool]
     : config.tools || ["claude"];
-  const converters = getConvertersForTools(toolsToSync);
-
-  for (const codec of converters) {
-    try {
-      await codec.addMCP(serverName, mcpConfig, cwd, options.force);
-    } catch (_error) {
-      // Some tools may not support MCP, continue
-    }
-  }
+  await syncMCPToTools(serverName, mcpConfig, toolsToSync, options.force);
 
   return {
     enabled: true,
