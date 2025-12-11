@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 GitHub Discussions
+    url: https://github.com/baranovxyz/agentsync/discussions
+    about: Ask questions and discuss ideas with the community
+  - name: 📚 Documentation
+    url: https://github.com/baranovxyz/agentsync#readme
+    about: Check the README and documentation for answers
+  - name: 🔒 Security Vulnerability
+    url: https://github.com/baranovxyz/agentsync/security/advisories/new
+    about: Report a security vulnerability (please do not use public issues)
