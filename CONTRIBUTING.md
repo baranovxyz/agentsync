@@ -31,6 +31,35 @@ This project and everyone participating in it is governed by the [Code of Conduc
 - Test: `pnpm test`
 - Lint (typecheck): `pnpm lint`
 
+## CI/CD and GitHub Actions
+
+### Required Secrets for Forks
+
+If you fork this repository and want to run all CI checks, you'll need to configure these secrets in your fork's settings:
+
+**Optional Secrets:**
+
+- `CODECOV_TOKEN` - For uploading test coverage reports to Codecov
+  - Only needed if you want coverage reporting
+  - CI will pass without it (coverage upload step is informational)
+
+- `GITLEAKS_LICENSE` - For enhanced Gitleaks scanning features
+  - Free tier works without a license
+  - Get a license from [gitleaks.io](https://gitleaks.io) if needed
+
+### CI Workflows
+
+The project runs multiple CI workflows:
+
+1. **Main CI** (`ci.yml`) - Tests on multiple OS/Node versions
+2. **Security Scanners** (`security-scanners.yml`) - Semgrep, Gitleaks, OSV Scanner
+3. **CodeQL** (`codeql.yml`) - GitHub security scanning
+4. **Commitlint** - Validates commit message format
+5. **Semantic PR** - Validates PR titles
+6. **PR Size** - Warns on large PRs
+
+All workflows must pass before a PR can be merged.
+
 ## Security
 
 - Do not include secrets in issues, PRs, code, or tests.

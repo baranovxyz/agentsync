@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Alpha Versioning Policy
+
+**AgentSync is currently in alpha (0.x.x-alpha.y).** During this phase:
+
+- ⚠️ **Breaking changes may occur without notice or migration paths**
+- ⚠️ **Config formats, CLI interfaces, and APIs may change**
+- ⚠️ **We prioritize UX improvements over backward compatibility**
+
+See [ROADMAP.md](./ROADMAP.md) for our path to 1.0.0 stability.
+
 ## [0.2.0-alpha.22] - 2025-11-03
 
 ### Added

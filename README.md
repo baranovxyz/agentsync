@@ -219,6 +219,7 @@ agentsync mcp enable github    # Enable a specific server
 ## 📚 Documentation
 
 - **Getting Started**: See Quick Start above
+- **FAQ & Troubleshooting**: [docs/faq.md](./docs/faq.md)
 - **Requirements & Design**: [REQUIREMENTS.md](./REQUIREMENTS.md)
 - **Configuration Guide**: [docs/configuration.md](./docs/configuration.md)
 - **Preset System**: [docs/presets.md](./docs/presets.md)
