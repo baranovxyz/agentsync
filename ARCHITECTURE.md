@@ -125,6 +125,12 @@ Each codec implements both import (read) and export (write) operations:
 - `syncCommands`: Convert canonical commands to tool-specific format
 - `syncMCP`: Generate tool-specific MCP configuration
 
+**MCP Operations** (Direct tool config manipulation, ephemeral mode):
+
+- `addMCP(name, config, cwd, force?)`: Add or update MCP server in tool config (merge by default, overwrite if force=true)
+- `disableMCP(name, cwd)`: Remove MCP server from tool config
+- `removeMCP(name, cwd)`: Remove MCP server from tool config (alias to disable)
+
 **INPUT Operations** (Tool Format → Canonical):
 
 - `detect`: Discover existing tool directories (global vs project scope)

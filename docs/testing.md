@@ -144,7 +144,7 @@ Validates the complete `pnpm pack` → `npm install -g` workflow.
 
 - Tarball creation and size (<5MB)
 - Global installation
-- Full MCP workflow (add, sync, remove)
+- Full MCP workflow (enable, sync, disable)
 - Init command with templates
 - Error handling
 

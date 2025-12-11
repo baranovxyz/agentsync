@@ -54,7 +54,7 @@ describe("substituteTokens", () => {
 
 End-to-end user workflows, running in-process (not spawning).
 
-**When to write**: Testing complete CLI workflows (add → sync → remove)
+**When to write**: Testing complete CLI workflows (enable → sync → disable)
 
 **Example**:
 

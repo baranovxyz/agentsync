@@ -162,12 +162,40 @@ export async function loadConfigHierarchy(cwd: string): Promise<MergedConfig> {
     }
   }
 
-  // 3. Merge
+  // 3. Merge MCP configuration
+  // Registry: Simple override by key (last level wins)
+  const mergedMcpServers = {
+    ...(global?.mcpServers || {}),
+    ...(project.mcpServers || {}),
+    ...(local?.mcpServers || {}),
+  };
+
+  // Enabled: Union across levels (accumulates)
+  const allEnabled = [
+    ...(global?.mcpEnabled || []),
+    ...(project.mcpEnabled || []),
+    ...(local?.mcpEnabled || []),
+  ];
+  const mergedMcpEnabled =
+    allEnabled.length > 0 ? [...new Set(allEnabled)] : undefined;
+
+  // Disabled: Union across levels (accumulates)
+  const allDisabled = [
+    ...(global?.mcpDisabled || []),
+    ...(project.mcpDisabled || []),
+    ...(local?.mcpDisabled || []),
+  ];
+  const mergedMcpDisabled =
+    allDisabled.length > 0 ? [...new Set(allDisabled)] : undefined;
+
+  // 4. Merge final config
   const merged: MergedConfig = {
     version: project.version,
     tools: project.tools || global?.tools || [],
     extends: deduped as AgentSyncConfig["extends"],
-    mcpServers: local?.mcpServers ?? project.mcpServers ?? global?.mcpServers,
+    mcpServers: mergedMcpServers,
+    mcpEnabled: mergedMcpEnabled,
+    mcpDisabled: mergedMcpDisabled,
     security: project.security || global?.security,
     useSymlinks: project.useSymlinks ?? global?.useSymlinks ?? true,
     _sources: {

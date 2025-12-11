@@ -11,12 +11,8 @@ import picocolors from "picocolors";
 import AuditLogger, { AuditEventType } from "../core/audit.js";
 import { loadConfigHierarchy } from "../core/config/hierarchy.js";
 import { ConfigError, ErrorCategory, ErrorSeverity } from "../core/errors.js";
-import {
-  filterSelectedMCPs,
-  loadProjectConfig as loadProjectMcpConfig,
-} from "../core/mcp/config.js";
+import { getActiveMCPs } from "../core/mcp/config.js";
 import { loadEnv } from "../core/mcp/env.js";
-import { loadGlobalRegistry } from "../core/mcp/registry.js";
 import { substituteAllMCPs, validateTokens } from "../core/mcp/tokens.js";
 import { RegistryOrchestrator } from "../core/registry/registry-orchestrator.js";
 import { runSecurityChecks } from "../security/checks/run.js";
@@ -35,6 +31,41 @@ import {
 } from "../utils/frontmatter.js";
 
 const pc = picocolors;
+
+/**
+ * Helper to format MCP hint messages
+ * Shows which MCPs are available but not synced, and why
+ */
+function formatMCPHints(
+  availableServers: string[],
+  enabledServers: string[],
+  disabledServers: string[],
+): string | null {
+  const activeMCPs = enabledServers.filter((s) => !disabledServers.includes(s));
+  const notSynced = availableServers.filter((s) => !activeMCPs.includes(s));
+
+  if (notSynced.length === 0) {
+    return null; // All available servers are synced
+  }
+
+  const lines: string[] = [];
+  lines.push("");
+  lines.push(pc.blue("ℹ️  Available MCP servers not synced:"));
+
+  for (const server of notSynced) {
+    if (disabledServers.includes(server)) {
+      lines.push(pc.gray(`  - ${server} (in mcpDisabled)`));
+    } else if (!enabledServers.includes(server)) {
+      lines.push(pc.gray(`  - ${server} (not in mcpEnabled)`));
+    }
+  }
+
+  lines.push("");
+  lines.push(pc.gray("To enable: agentsync mcp enable <name>"));
+  lines.push(pc.gray("To view all: agentsync mcp list"));
+
+  return lines.join("\n");
+}
 
 /**
  * Load project-specific rules from .agentsync/rules/ in canonical format
@@ -440,12 +471,18 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
     ) {
       const mcpSpinner = ora("Syncing MCP servers...").start();
       try {
-        // Load, filter, substitute, validate
-        const globalRegistry = await loadGlobalRegistry();
-        const projectConfig = await loadProjectMcpConfig();
-        const selectedMCPs = filterSelectedMCPs(globalRegistry, projectConfig);
+        // Use already-merged config from hierarchy (fixes bug)
+        // Determine active servers based on enabled/disabled logic
+        const registry = config.mcpServers || {};
+        const activeMCPs = getActiveMCPs(
+          registry,
+          config.mcpEnabled,
+          config.mcpDisabled,
+        ) as Record<string, import("../core/mcp/tokens.js").MCP>;
+
+        // Load env and substitute tokens
         const env = await loadEnv();
-        const substituted = substituteAllMCPs(selectedMCPs, env);
+        const substituted = substituteAllMCPs(activeMCPs, env);
         validateTokens(substituted);
 
         // Sync via converters
@@ -453,6 +490,19 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
           await conv.syncMCP(substituted, cwd);
         }
         mcpSpinner.succeed("Synced MCP servers");
+
+        // Show hints for unsynced MCPs
+        const availableServers = Object.keys(registry);
+        const enabledServers = config.mcpEnabled || [];
+        const disabledServers = config.mcpDisabled || [];
+        const hint = formatMCPHints(
+          availableServers,
+          enabledServers,
+          disabledServers,
+        );
+        if (hint) {
+          console.log(hint);
+        }
       } catch (error) {
         mcpSpinner.fail("Failed to sync MCPs");
         throw error;

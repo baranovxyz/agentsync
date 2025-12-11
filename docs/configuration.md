@@ -6,13 +6,25 @@ How to configure AgentSync. For implementation details, see ARCHITECTURE.md.
 
 ### `.agentsync/config.json` (Project-level, committed)
 
-Team-shared settings. Created by `agentsync init`, modified by `agentsync mcp add/remove`.
+Team-shared settings. Created by `agentsync init`, modified by `agentsync mcp enable/disable`.
 
 ```json
 {
   "version": "1.0",
   "tools": ["cursor", "claude", "cline"],
-  "mcpServers": ["github", "postgres"],
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": { "GITHUB_TOKEN": "{GITHUB_TOKEN}" }
+    },
+    "postgres": {
+      "command": "docker",
+      "args": ["exec", "postgres-mcp"],
+      "env": { "POSTGRES_URL": "{POSTGRES_URL}" }
+    }
+  },
+  "mcpEnabled": ["github", "postgres"],
   "extends": [
     { "source": "github:company/standards", "namespace": "company" },
     { "source": "fs:./local-presets", "namespace": "local" }
@@ -169,24 +181,60 @@ Files from each preset are namespaced in tool outputs:
 Personal MCP overrides. Created manually for local development.
 
 ```json
-// Array format (simple selection)
-{ "mcpServers": ["github", "postgres"] }
-
-// Object format (with overrides)
+// Add a local MCP server
 {
   "mcpServers": {
-    "github": true,
-    "postgres": { "env": { "POSTGRES_URL": "custom_value" } }
+    "my-local": {
+      "command": "node",
+      "args": ["./my-mcp.js"],
+      "env": {}
+    }
   }
 }
 
-// Empty config (clears all MCPs)
-{ "mcpServers": [] }
+// Disable a project MCP locally
+{
+  "mcpDisabled": ["postgres"]
+}
+
+// Override server definition
+{
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": { "GITHUB_TOKEN": "{MY_LOCAL_TOKEN}" }
+    }
+  }
+}
 ```
+
+## MCP Configuration
+
+**Registry** (`mcpServers`): Defines available MCP server configurations
+
+- Merges per-key across global → project → local (last wins)
+- Supports both command-based (local process) and URL-based (HTTP remote) formats
+
+**Selection** (`mcpEnabled`/`mcpDisabled`): Controls which servers are active
+
+- `mcpEnabled`: Union across levels (accumulates)
+- `mcpDisabled`: Union across levels (accumulates)
+- Default: Only explicitly enabled servers are active (opt-in model)
+- Active servers = (Enabled servers) - (Disabled servers)
+
+**Example flow**:
+
+Global: Defines `github`, `filesystem`
+Project: Defines `postgres`, enables `["github", "postgres"]`
+Local: Defines `my-local`, enables `["my-local"]`, disables `["postgres"]`
+
+Result: Active servers = `github`, `my-local` (postgres is disabled by local override)
 
 ## Precedence
 
-Local overrides project: `agentsync.local.json` wins over `.agentsync/config.json` for MCP selection.
+- MCP registry: Per-server override (local > project > global)
+- MCP selection: Union of include/exclude arrays across all levels
 
 ## Project Custom Rules & Commands
 
