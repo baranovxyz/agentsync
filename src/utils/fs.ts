@@ -19,6 +19,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { dirname } from "node:path";
+import type { z } from "zod";
 
 /**
  * Check if a path exists
@@ -75,9 +76,25 @@ export async function remove(path: string): Promise<void> {
  * Read and parse a JSON file
  * Replacement for fs-extra's readJson()
  */
-export async function readJson(file: string): Promise<unknown> {
+export async function readJson<T = unknown>(file: string): Promise<T> {
   const content = await readFile(file, "utf-8");
-  return JSON.parse(content);
+  return JSON.parse(content) as T;
+}
+
+/**
+ * Read and parse a JSON file with Zod schema validation
+ * Always prefer this over readJson() for runtime type safety
+ * @param file - Path to JSON file
+ * @param schema - Zod schema to validate against
+ * @returns Validated and typed data
+ * @throws ZodError if validation fails
+ */
+export async function readJsonValidated<T>(
+  file: string,
+  schema: z.ZodSchema<T>,
+): Promise<T> {
+  const content = await readJson(file);
+  return schema.parse(content);
 }
 
 /**

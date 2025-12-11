@@ -32,6 +32,16 @@ export interface ToolCodec {
   ): Promise<void>;
   syncMCP(mcps: Record<string, MCP>, cwd: string): Promise<void>;
 
+  // MCP operations: Direct tool config manipulation (ephemeral mode)
+  addMCP(
+    name: string,
+    config: MCP,
+    cwd: string,
+    force?: boolean,
+  ): Promise<void>;
+  disableMCP(name: string, cwd: string): Promise<void>;
+  removeMCP(name: string, cwd: string): Promise<void>;
+
   // INPUT: Tool format → Canonical
   detect(basePath: string): Promise<ToolDirectoryInfo | null>;
   importRules(toolPath: string): Promise<Map<string, ImportedRule>>;

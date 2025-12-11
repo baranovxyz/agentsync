@@ -7,18 +7,22 @@
 
 > **Stop copying configs between AI coding tools. Sync them all with one command.**
 
-## ⚠️ Alpha Status
+## 🚧 Project Status
 
-**AgentSync is in active alpha development.** This means:
+AgentSync is in **active development** (alpha). Core features are stable and tested, but the API may change as we refine the user experience. We welcome early adopters and contributors!
 
-- 🔄 **Breaking changes are expected** — We prioritize better UX over backward compatibility
-- 📦 **No guaranteed migration paths** — Config formats may change between versions
-- 🎯 **Built for early adopters** — If you want stability, wait for 1.0.0
-- 🚀 **Rapid iteration** — New features and improvements ship frequently
+**What works well:**
 
-We're committed to reaching stability. See [ROADMAP.md](./ROADMAP.md) for our path to 1.0.0.
+- ✅ Core sync functionality across all supported tools
+- ✅ GitHub preset system
+- ✅ MCP server management
+- ✅ Security scanning
 
-**Current version: 0.2.0-alpha.22**
+**Roadmap to 1.0:**
+
+- More preset registry sources
+- Enhanced configuration UI
+- Additional AI tool support
 
 ## 😫 The Problem
 
@@ -209,7 +213,7 @@ agentsync preset add github:org/repo
 
 # Manage MCP servers
 agentsync mcp list          # Show available MCP servers
-agentsync mcp add github    # Add a specific server
+agentsync mcp enable github    # Enable a specific server
 ```
 
 ## 📚 Documentation

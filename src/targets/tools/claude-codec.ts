@@ -7,6 +7,11 @@ import { readFile, stat } from "node:fs/promises";
 import * as path from "node:path";
 import fg from "fast-glob";
 import type { MCP } from "../../core/mcp/tokens.js";
+import {
+  addMCPToToolConfig,
+  disableMCPInToolConfig,
+  removeMCPFromToolConfig,
+} from "../../core/mcp/tool-config.js";
 import type {
   CanonicalCommand,
   CanonicalRule,
@@ -24,13 +29,7 @@ import {
   validateCommandFrontmatter,
   validateRuleFrontmatter,
 } from "../../utils/frontmatter.js";
-import {
-  ensureDir,
-  outputFile,
-  pathExists,
-  remove,
-  symlink,
-} from "../../utils/fs.js";
+import { outputFile, pathExists, remove, symlink } from "../../utils/fs.js";
 import { ClaudeCommandsConverter } from "../commands/claude-commands-converter.js";
 import { ClaudeRulesConverter } from "../rules/claude-rules-converter.js";
 import type { ToolCodec } from "./types.js";
@@ -338,15 +337,53 @@ export class ClaudeCodec implements ToolCodec {
 
   /**
    * Sync MCP configuration to Claude format
+   * @requirement claude code project MCP configuration is in .mcp.json file in project root
+   * @requirement claude code local MCP configuration is in ~/.claude.json in { "<absolute path to project root>": {
+      "mcpServers": {
+
+      }
+    }
+    }
    */
   async syncMCP(mcps: Record<string, MCP>, cwd: string): Promise<void> {
-    const claudeDir = path.join(cwd, ".claude");
-
-    await ensureDir(claudeDir);
-    const mcpFile = path.join(claudeDir, "mcp.json");
+    // Write to .mcp.json in project root (per JSDoc requirement)
+    const mcpFile = path.join(cwd, ".mcp.json");
     const config = { mcpServers: mcps };
     await outputFile(mcpFile, `${JSON.stringify(config, null, 2)}\n`, {
       encoding: "utf-8",
     });
+  }
+
+  // =============================================================================
+  // MCP Operations: Direct tool config manipulation
+  // =============================================================================
+
+  /**
+   * Add or update MCP server in tool config (.mcp.json)
+   */
+  async addMCP(
+    name: string,
+    config: MCP,
+    cwd: string,
+    force?: boolean,
+  ): Promise<void> {
+    const mcpFile = path.join(cwd, ".mcp.json");
+    await addMCPToToolConfig(mcpFile, name, config, force);
+  }
+
+  /**
+   * Disable (remove) MCP server from tool config
+   */
+  async disableMCP(name: string, cwd: string): Promise<void> {
+    const mcpFile = path.join(cwd, ".mcp.json");
+    await disableMCPInToolConfig(mcpFile, name);
+  }
+
+  /**
+   * Remove MCP server from tool config
+   */
+  async removeMCP(name: string, cwd: string): Promise<void> {
+    const mcpFile = path.join(cwd, ".mcp.json");
+    await removeMCPFromToolConfig(mcpFile, name);
   }
 }

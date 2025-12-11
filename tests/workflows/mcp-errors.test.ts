@@ -44,8 +44,15 @@ describe("MCP Error Scenarios (Workflow)", () => {
     await fs.remove(homeDir);
   });
 
-  it("should error when adding non-existent MCP", async () => {
-    const result = await runCli(["mcp", "add", "nonexistent-mcp"], {
+  it("should error when enabling non-existent MCP", async () => {
+    // First need to create config with mcpServers so enable command can check
+    await fs.ensureDir(path.join(projectDir, ".agentsync"));
+    await fs.writeJson(path.join(projectDir, ".agentsync", "config.json"), {
+      version: "1.0",
+      mcpServers: {},
+    });
+
+    const result = await runCli(["mcp", "enable", "nonexistent-mcp"], {
       cwd: projectDir,
       env: { HOME: homeDir },
     });
@@ -54,19 +61,26 @@ describe("MCP Error Scenarios (Workflow)", () => {
   });
 
   it("should sync when tools configured in config (no pre-existing dirs)", async () => {
-    // Add MCP but don't create .cursor or .claude
-    await runCli(["mcp", "add", "github"], {
-      cwd: projectDir,
-      env: { HOME: homeDir },
-    });
-
-    // Provide tools via config and sync
+    // Setup MCP server definition and enable it
     await fs.ensureDir(path.join(projectDir, ".agentsync"));
     await fs.writeJson(path.join(projectDir, ".agentsync", "config.json"), {
       version: "1.0",
       tools: ["cursor", "claude"],
-      mcpServers: ["github"],
+      mcpServers: {
+        github: {
+          command: "npx",
+          args: ["-y", "@modelcontextprotocol/server-github"],
+          env: { GITHUB_TOKEN: "{GITHUB_TOKEN}" },
+        },
+      },
     });
+
+    await runCli(["mcp", "enable", "github"], {
+      cwd: projectDir,
+      env: { HOME: homeDir },
+    });
+
+    // Sync without pre-creating .cursor or .claude
     const result = await runCli(["sync"], {
       cwd: projectDir,
       env: { HOME: homeDir, GITHUB_TOKEN: "test" },
@@ -80,19 +94,25 @@ describe("MCP Error Scenarios (Workflow)", () => {
     const spacedDir = path.join(projectDir, "test dir with spaces");
     await fs.ensureDir(path.join(spacedDir, ".cursor"));
 
-    // Add and sync in spaced directory
-    let result = await runCli(["mcp", "add", "github"], {
-      cwd: spacedDir,
-      env: { HOME: homeDir },
-    });
-    assertSuccess(result);
-
+    // Setup MCP server definition and enable in spaced directory
     await fs.ensureDir(path.join(spacedDir, ".agentsync"));
     await fs.writeJson(path.join(spacedDir, ".agentsync", "config.json"), {
       version: "1.0",
       tools: ["cursor"],
-      mcpServers: ["github"],
+      mcpServers: {
+        github: {
+          command: "npx",
+          args: ["-y", "@modelcontextprotocol/server-github"],
+          env: { GITHUB_TOKEN: "{GITHUB_TOKEN}" },
+        },
+      },
     });
+
+    let result = await runCli(["mcp", "enable", "github"], {
+      cwd: spacedDir,
+      env: { HOME: homeDir },
+    });
+    assertSuccess(result);
     result = await runCli(["sync"], {
       cwd: spacedDir,
       env: { HOME: homeDir, GITHUB_TOKEN: "test" },
@@ -100,9 +120,9 @@ describe("MCP Error Scenarios (Workflow)", () => {
     assertSuccess(result);
 
     // Verify sync worked
-    const cursorMcp = await fs.readJson(
+    const cursorMcp = (await fs.readJson(
       path.join(spacedDir, ".cursor", "mcp.json"),
-    );
+    )) as { mcpServers: Record<string, unknown> };
     expect(cursorMcp.mcpServers.github).toBeDefined();
   });
 
@@ -120,11 +140,11 @@ describe("MCP Error Scenarios (Workflow)", () => {
     );
     expect(configExists).toBe(true);
 
-    // Verify it's empty
-    const config = await fs.readJson(
+    // Verify it has empty/default structure
+    const config = (await fs.readJson(
       path.join(projectDir, ".agentsync", "config.json"),
-    );
-    expect(config.mcpServers).toEqual([]);
+    )) as { mcpEnabled?: string[] };
+    expect(config.mcpEnabled || []).toEqual([]);
   });
 
   it("should error helpfully when global registry is empty", async () => {

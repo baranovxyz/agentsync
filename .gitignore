@@ -99,8 +99,20 @@ desktop.ini
 # NPM pack artifacts
 *.tgz
 
-# Research
+# Internal preparation artifacts
 research/
-
-# Bugs
 bugs/
+scripts/audit-opensource.js
+
+# Ignore all root .md files except essential ones
+/*.md
+# Allow essential documentation files
+!README.md
+!CHANGELOG.md
+!CONTRIBUTING.md
+!CODE_OF_CONDUCT.md
+!SECURITY.md
+!ARCHITECTURE.md
+!REQUIREMENTS.md
+!TESTING.md
+!AGENTS.md

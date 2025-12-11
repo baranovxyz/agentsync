@@ -274,4 +274,29 @@ export class ClineCodec implements ToolCodec {
   async syncMCP(_mcps: Record<string, MCP>, _cwd: string): Promise<void> {
     // Cline doesn't support MCP yet
   }
+
+  // =============================================================================
+  // MCP Operations: Direct tool config manipulation
+  // =============================================================================
+
+  /**
+   * Add MCP server (not supported in Cline)
+   */
+  async addMCP(_name: string, _config: MCP, _cwd: string): Promise<void> {
+    throw new Error("Cline does not support MCP servers");
+  }
+
+  /**
+   * Disable MCP server (not supported in Cline)
+   */
+  async disableMCP(_name: string, _cwd: string): Promise<void> {
+    throw new Error("Cline does not support MCP servers");
+  }
+
+  /**
+   * Remove MCP server (not supported in Cline)
+   */
+  async removeMCP(_name: string, _cwd: string): Promise<void> {
+    throw new Error("Cline does not support MCP servers");
+  }
 }

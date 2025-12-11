@@ -39,7 +39,10 @@ describe("Global Config E2E", () => {
               namespace: "personal",
             },
           ],
-          mcpServers: ["filesystem"],
+          mcpServers: {
+            filesystem: { command: "npx", args: ["-y", "mcp-fs"], env: {} },
+          },
+          mcpEnabled: ["filesystem"],
           useSymlinks: true,
         }),
       );
@@ -58,7 +61,10 @@ describe("Global Config E2E", () => {
               namespace: "company",
             },
           ],
-          mcpServers: ["github"],
+          mcpServers: {
+            github: { command: "npx", args: ["-y", "mcp-github"], env: {} },
+          },
+          mcpEnabled: ["github"],
           useSymlinks: true,
         }),
       );
@@ -68,7 +74,9 @@ describe("Global Config E2E", () => {
       // Verify merging
       expect(merged.tools).toEqual(["cursor", "claude"]); // project wins
       expect(merged.extends).toHaveLength(2); // both presets
-      expect(merged.mcpServers).toEqual(["github"]); // project wins
+      // Project MCP servers win (merged with global)
+      expect(merged.mcpServers).toHaveProperty("github");
+      expect(merged.mcpServers).toHaveProperty("filesystem");
       expect(merged._sources.global).toBeDefined();
       expect(merged._sources.project).toBeDefined();
     });
@@ -88,7 +96,7 @@ describe("Global Config E2E", () => {
               namespace: "company-v1",
             },
           ],
-          mcpServers: [],
+          mcpServers: {},
           useSymlinks: true,
         }),
       );
@@ -107,7 +115,7 @@ describe("Global Config E2E", () => {
               namespace: "company-v2",
             },
           ],
-          mcpServers: [],
+          mcpServers: {},
           useSymlinks: true,
         }),
       );
@@ -138,7 +146,7 @@ describe("Global Config E2E", () => {
               namespace: "standards-global",
             },
           ],
-          mcpServers: [],
+          mcpServers: {},
           useSymlinks: true,
         }),
       );
@@ -157,7 +165,7 @@ describe("Global Config E2E", () => {
               namespace: "standards-local",
             },
           ],
-          mcpServers: [],
+          mcpServers: {},
           useSymlinks: true,
         }),
       );
@@ -183,7 +191,11 @@ describe("Global Config E2E", () => {
           version: "1.0",
           tools: [],
           extends: [],
-          mcpServers: ["github", "postgres"],
+          mcpServers: {
+            github: { command: "npx", args: ["-y", "mcp-github"], env: {} },
+            postgres: { command: "docker", args: ["exec", "pg"], env: {} },
+          },
+          mcpEnabled: ["github", "postgres"],
           useSymlinks: true,
         }),
       );
@@ -192,13 +204,18 @@ describe("Global Config E2E", () => {
       await outputFile(
         path.join(tempDir, "agentsync.local.json"),
         JSON.stringify({
-          mcpServers: ["filesystem"],
+          mcpServers: {
+            filesystem: { command: "npx", args: ["-y", "mcp-fs"], env: {} },
+          },
+          mcpEnabled: ["filesystem"],
         }),
       );
 
       const merged = await loadConfigHierarchy(tempDir);
 
-      expect(merged.mcpServers).toEqual(["filesystem"]); // local wins
+      // Local MCP servers and enabled list should win
+      expect(merged.mcpServers).toHaveProperty("filesystem");
+      expect(merged.mcpEnabled).toContain("filesystem");
     });
 
     it("handles complex extend configurations with include/exclude", async () => {
@@ -218,7 +235,7 @@ describe("Global Config E2E", () => {
               exclude: ["rules/experimental/**"],
             },
           ],
-          mcpServers: [],
+          mcpServers: {},
           useSymlinks: true,
         }),
       );
@@ -238,7 +255,7 @@ describe("Global Config E2E", () => {
               include: ["rules/production/*.md"],
             },
           ],
-          mcpServers: [],
+          mcpServers: {},
           useSymlinks: true,
         }),
       );
@@ -274,7 +291,7 @@ describe("Global Config E2E", () => {
           version: "1.0",
           tools: [],
           extends: [],
-          mcpServers: [],
+          mcpServers: {},
           useSymlinks: false,
         }),
       );
@@ -288,7 +305,7 @@ describe("Global Config E2E", () => {
           version: "1.0",
           tools: [],
           extends: [],
-          mcpServers: [],
+          mcpServers: {},
           useSymlinks: true,
         }),
       );
@@ -308,7 +325,7 @@ describe("Global Config E2E", () => {
           version: "1.0",
           tools: [],
           extends: [],
-          mcpServers: [],
+          mcpServers: {},
           useSymlinks: true,
           security: {
             secretScanning: {
@@ -328,7 +345,7 @@ describe("Global Config E2E", () => {
           version: "1.0",
           tools: [],
           extends: [],
-          mcpServers: [],
+          mcpServers: {},
           useSymlinks: true,
           security: {
             secretScanning: {

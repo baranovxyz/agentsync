@@ -214,21 +214,72 @@ Tool output (Cline):  .clinerules/auth.md
 - Deterministic output (same input = same output)
 - Files are always rewritten on each sync for simplicity (no timestamp comparison or change detection)
 
-### 3. Preset Selection from GitHub
+### 3. Inline MCP Configuration
+
+**Purpose**: Enable MCP servers directly from CLI without agentsync project setup (standalone mode)
+
+**Modes**:
+
+- **Ephemeral** (one-time sync, no config save): `agentsync mcp enable <name> --tool <tool> --json/--transport/--preset`
+- **Persistent** (save to config + sync): `agentsync mcp enable <name> --json/--transport/--preset --scope global/project`
+- **Registry** (lookup in config hierarchy): `agentsync mcp enable <name> --tool <tool>` (existing)
+
+**Inline config sources** (precedence):
+
+1. `--json '<mcp-config-json>'` - Direct JSON MCP definition
+2. `--transport stdio/http/sse` + flags - Parse transport to MCP definition
+3. `--preset github:owner/repo` - Extract from preset's MCP registry
+4. Fallback - Look up in config hierarchy (global→project→local)
+
+**Transport flags**:
+
+- Stdio: `--transport stdio --env KEY=val -- npx command args`
+- HTTP: `--transport http <url> --header "Name: Value"`
+- SSE: `--transport sse <url> --header "Name: Value"`
+
+**Codec operations** (tool-specific):
+
+- `addMCP()` - Add/update MCP in tool config (merge or force overwrite)
+- `disableMCP()` - Remove MCP from tool config
+- `removeMCP()` - Remove MCP from tool config
+
+**Example**:
+
+```bash
+# Ephemeral: Add tracker MCP to Claude Code once
+agentsync mcp enable tracker --tool claude --json '{"command":"npx","args":["-y","@org/tracker"]}'
+
+# Persistent: Save to global config and sync to all tools
+agentsync mcp enable tracker --json '{"command":"npx","args":["-y","@org/tracker"]}' --scope global
+
+# Via transport flags
+agentsync mcp enable tracker --tool claude --transport stdio --env API_KEY=my-key -- npx -y @org/tracker
+
+# From preset
+agentsync mcp enable tracker --tool claude --preset github:company/mcp-servers
+
+# Via registry (existing behavior)
+agentsync mcp enable tracker --tool claude
+```
+
+### 4. Preset Selection from GitHub
 
 **Purpose**: Select which MCP servers to enable from preset-defined options
 
 **Selection levels**:
 
-- **Project level** (`.agentsync/config.json`): Team-shared MCP selection via `mcpServers`
+- **Project level** (`.agentsync/config.json`): Team-shared MCP registry and selection
 - **User level** (`agentsync.local.json`): Personal overrides (widen/narrow selection)
 - Local overrides win over project config
 
 **How it works**:
 
 - Presets provide full MCP server definitions (command, args, env) in their `mcp.json`
-- Project config enables subset via `mcpServers`: `["github", "postgres"]`
-- User can override locally: `"mcpServers": []` (disable all)
+- Project config defines MCP registry via `mcpServers` object: `{"github": {...}, "postgres": {...}}`
+- Project config enables subset via `mcpEnabled` array: `["github", "postgres"]`
+- User can disable specific servers via `mcpDisabled`: `["postgres"]`
+- **Opt-in model**: Servers must be in BOTH `mcpServers` registry AND `mcpEnabled` array to sync
+- Empty or missing `mcpEnabled` = no servers active (explicit enablement required)
 - Multiple presets can define the same MCP server (last-wins merge)
 - Token substitution for environment variables: `{VAR_NAME}` (missing variables trigger warning)
 
@@ -370,7 +421,19 @@ Configuration showing key patterns: organization presets, team-specific rules, n
       "exclude": ["rules/deprecated/**"]
     }
   ],
-  "mcpServers": ["github", "context7"]
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": { "GITHUB_TOKEN": "{GITHUB_TOKEN}" }
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@context7/mcp-server"],
+      "env": { "CONTEXT7_API_KEY": "{CONTEXT7_API_KEY}" }
+    }
+  },
+  "mcpEnabled": ["github", "context7"]
 }
 ```
 
@@ -484,7 +547,14 @@ Tool Format → codec.import() → Canonical Format → codec.sync() → Tool Fo
       "exclude": ["rules/deprecated/**"]
     }
   ],
-  "mcpServers": ["context7"],
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@context7/mcp-server"],
+      "env": { "CONTEXT7_API_KEY": "{CONTEXT7_API_KEY}" }
+    }
+  },
+  "mcpEnabled": ["context7"],
   "security": {
     "secretScanning": { "enabled": true, "blockOnHighSeverity": true },
     "unicodeDetection": { "enabled": true, "blockOnHighRisk": true }
@@ -510,36 +580,56 @@ Defaults only disabled if explicitly set to `false`.
 
 **File**: `agentsync.local.json` (git-ignored, user-specific)
 
-**Purpose**: User-specific MCP server selection overrides
+**Purpose**: User-specific MCP configuration and selection overrides
 
-**Merge strategy (Option A)**: Local `mcpServers` replaces project `mcpServers` entirely
+**Merge strategy**:
 
-- If local config specifies `mcpServers: []` (empty array), all MCPs are disabled
-- If local config doesn't specify `mcpServers`, project config is used
-- Empty array `[]` is the only way to completely disable MCPs
+- `mcpServers`: Simple override by key (last level wins per server)
+- `mcpEnabled`: Union across levels (accumulates selections)
+- `mcpDisabled`: Union across levels (accumulates exclusions)
 
-**Array format (simple selection)**:
+**MCP Configuration Structure**:
+
+Each level (global/project/local) can define:
+
+1. **Registry** (`mcpServers`): Available MCP server definitions
+2. **Selection** (`mcpEnabled`/`mcpDisabled`): Which servers to activate
+
+**Example: Complete Flow**:
+
+Global (`~/.agentsync/config.json`):
+
+```json
+{
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": { "GITHUB_TOKEN": "{GITHUB_TOKEN}" }
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem"],
+      "env": { "ROOT_PATH": "{HOME}" }
+    }
+  }
+}
+```
 
 Project (`.agentsync/config.json`):
 
 ```json
-{ "mcpServers": ["github", "postgres"] }
-```
-
-Local (`agentsync.local.json`):
-
-```json
-{ "mcpServers": ["filesystem"] }
-```
-
-**Result**: Only `filesystem` MCP is enabled (local replaces project entirely)
-
-**Object format (with per-server overrides)**:
-
-Project (`.agentsync/config.json`):
-
-```json
-{ "mcpServers": ["github", "postgres"] }
+{
+  "mcpServers": {
+    "postgres": {
+      "command": "docker",
+      "args": ["exec", "postgres-mcp"],
+      "env": { "POSTGRES_URL": "{POSTGRES_URL}" }
+    }
+  },
+  "mcpEnabled": ["github", "postgres"],
+  "mcpDisabled": ["filesystem"]
+}
 ```
 
 Local (`agentsync.local.json`):
@@ -547,22 +637,62 @@ Local (`agentsync.local.json`):
 ```json
 {
   "mcpServers": {
-    "github": true,
-    "postgres": { "env": { "POSTGRES_URL": "custom_value" } }
-  }
+    "my-custom": {
+      "command": "node",
+      "args": ["./my-mcp.js"],
+      "env": {}
+    }
+  },
+  "mcpDisabled": ["postgres"]
 }
 ```
 
-**Result**: Both MCPs enabled, with postgres using custom environment variable.
+**Result**:
 
-**Format rules**:
+- **Merged Registry**: `{ github, filesystem, postgres, my-custom }` (all defined servers)
+- **Merged Enabled**: `["github", "postgres"]` (from project, opt-in: only explicitly enabled)
+- **Merged Disabled**: `["filesystem", "postgres"]` (union from project + local)
+- **Active Servers**: `github, my-custom`
+  - `github`: from global, enabled by project
+  - `filesystem`: from global, disabled by project (not in enabled list)
+  - `postgres`: from project, disabled by local override
+  - `my-custom`: from local, not in any enabled list (won't be active - opt-in required)
 
-- String array: Simple enable/disable selection
-- Object: Per-server configuration with env overrides
-- Boolean values (`true`/`false`) enable/disable specific servers
-- Object values provide server-specific overrides (env, args, etc.)
+**Server Definition Format** (Cursor-compatible):
 
-**Rationale**: Simple and predictable. Users have full control over their local MCP selection without unexpected inheritance.
+Command-based (local process):
+
+```json
+{
+  "command": "npx",
+  "args": ["-y", "mcp-server"],
+  "env": { "API_KEY": "value" }
+}
+```
+
+URL-based (HTTP remote):
+
+```json
+{
+  "url": "http://localhost:3000/mcp",
+  "headers": { "API_KEY": "value" }
+}
+```
+
+**Merge Rules**:
+
+- Registry merge: `{ ...global, ...project, ...local }` (per-key override)
+- Enabled merge: Union of all enabled arrays across levels
+- Disabled merge: Union of all disabled arrays across levels
+- Default: Only explicitly enabled servers are active (opt-in model)
+- Final active: (Enabled servers) minus (Disabled servers)
+
+**Rationale**:
+
+- Matches Cursor/Claude MCP config format (industry standard)
+- Flexible: Can inherit and extend, or override specific servers
+- Explicit control: Include/exclude patterns familiar from VSCode, Docker Compose
+- No field conflicts: Doesn't use `enabled`/`disabled` which tools may use
 
 ### Interactive Selection (TUI)
 

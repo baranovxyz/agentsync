@@ -121,23 +121,32 @@ export const AgentSyncConfigSchema = z.object({
   // GitHub registry sources (v0.3.0-beta)
   extends: z.array(ExtendsSchema).optional(),
 
-  // MCP servers (moved to main config in v0.3.0-beta)
+  // MCP servers: Registry of available MCP server definitions
+  // Supports both command-based (local process) and URL-based (HTTP remote) formats
   mcpServers: z
-    .union([
-      z.array(z.string()),
-      z.record(
-        z.string(),
-        z.union([
-          z.boolean(),
-          z.object({
-            command: z.string().optional(),
-            args: z.array(z.string()).optional(),
-            env: z.record(z.string(), z.string()).optional(),
-          }),
-        ]),
-      ),
-    ])
+    .record(
+      z.string(),
+      z.union([
+        // Command-based (local process)
+        z.object({
+          command: z.string(),
+          args: z.array(z.string()),
+          env: z.record(z.string(), z.string()).optional(),
+        }),
+        // URL-based (HTTP remote)
+        z.object({
+          url: z.string(),
+          headers: z.record(z.string(), z.string()).optional(),
+        }),
+      ]),
+    )
     .optional(),
+
+  // MCP selection: Which servers to enable (union across levels)
+  mcpEnabled: z.array(z.string()).optional(),
+
+  // MCP exclusion: Which servers to disable (union across levels)
+  mcpDisabled: z.array(z.string()).optional(),
 
   tools: z.array(z.enum(SUPPORTED_TOOLS)).optional(),
   useSymlinks: z.boolean().default(true),

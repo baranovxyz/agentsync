@@ -72,7 +72,8 @@ pnpm cli <command>        # Test CLI commands (after build)
 
 - Project config: `.agentsync/config.json` (committed)
 - Local overrides: `agentsync.local.json` (gitignored)
-- Local `mcpServers` completely replaces project config (no merging)
+- Config hierarchy: global → project → local (per-key merge for `mcpServers` registry)
+- Selection: `mcpEnabled`/`mcpDisabled` arrays union across levels
 
 **Preset System**
 
@@ -89,9 +90,12 @@ pnpm cli <command>        # Test CLI commands (after build)
 
 **MCP Integration**
 
-- Project MCPs in config, local overrides replace entirely
-- Empty array `[]` disables all MCPs
-- Generates tool-specific configs (e.g., `claude_desktop_config.json`)
+- **Registry**: `mcpServers` object with server definitions (command, args, env)
+- **Selection**: `mcpEnabled` array (servers to activate), `mcpDisabled` array (servers to exclude)
+- **Opt-in model**: Servers must be in BOTH `mcpServers` AND `mcpEnabled` to sync
+- **Merge strategy**: Registry per-key merge across levels; enabled/disabled arrays union across levels
+- Empty/missing `mcpEnabled` = no servers active
+- Generates tool-specific configs (e.g., `.mcp.json` for Claude, `.cursor/mcp.json` for Cursor)
 
 ## Implementation Notes
 
@@ -183,6 +187,7 @@ pnpm cli <command>        # Test CLI commands (after build)
 - Biome for formatting/linting
 - Prefer functional patterns
 - Avoid `any`, use `unknown` when needed
+- **Always use `readJsonValidated()` with Zod schemas** - Never use plain `readJson()` or type assertions (`as`). Runtime validation prevents bugs and provides better error messages. This applies to all JSON reading in tests and production code.
 
 ## Debugging
 
