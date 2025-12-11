@@ -102,7 +102,6 @@ desktop.ini
 # Internal preparation artifacts
 research/
 bugs/
-scripts/audit-opensource.js
 
 # Ignore all root .md files except essential ones
 /*.md
