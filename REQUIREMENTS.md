@@ -268,15 +268,18 @@ agentsync mcp enable tracker --tool claude
 
 **Selection levels**:
 
-- **Project level** (`.agentsync/config.json`): Team-shared MCP selection via `mcpServers`
+- **Project level** (`.agentsync/config.json`): Team-shared MCP registry and selection
 - **User level** (`agentsync.local.json`): Personal overrides (widen/narrow selection)
 - Local overrides win over project config
 
 **How it works**:
 
 - Presets provide full MCP server definitions (command, args, env) in their `mcp.json`
-- Project config enables subset via `mcpServers`: `["github", "postgres"]`
-- User can override locally: `"mcpServers": []` (disable all)
+- Project config defines MCP registry via `mcpServers` object: `{"github": {...}, "postgres": {...}}`
+- Project config enables subset via `mcpEnabled` array: `["github", "postgres"]`
+- User can disable specific servers via `mcpDisabled`: `["postgres"]`
+- **Opt-in model**: Servers must be in BOTH `mcpServers` registry AND `mcpEnabled` array to sync
+- Empty or missing `mcpEnabled` = no servers active (explicit enablement required)
 - Multiple presets can define the same MCP server (last-wins merge)
 - Token substitution for environment variables: `{VAR_NAME}` (missing variables trigger warning)
 
@@ -418,7 +421,19 @@ Configuration showing key patterns: organization presets, team-specific rules, n
       "exclude": ["rules/deprecated/**"]
     }
   ],
-  "mcpServers": ["github", "context7"]
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": { "GITHUB_TOKEN": "{GITHUB_TOKEN}" }
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@context7/mcp-server"],
+      "env": { "CONTEXT7_API_KEY": "{CONTEXT7_API_KEY}" }
+    }
+  },
+  "mcpEnabled": ["github", "context7"]
 }
 ```
 
@@ -532,7 +547,14 @@ Tool Format → codec.import() → Canonical Format → codec.sync() → Tool Fo
       "exclude": ["rules/deprecated/**"]
     }
   ],
-  "mcpServers": ["context7"],
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@context7/mcp-server"],
+      "env": { "CONTEXT7_API_KEY": "{CONTEXT7_API_KEY}" }
+    }
+  },
+  "mcpEnabled": ["context7"],
   "security": {
     "secretScanning": { "enabled": true, "blockOnHighSeverity": true },
     "unicodeDetection": { "enabled": true, "blockOnHighRisk": true }

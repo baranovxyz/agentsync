@@ -41,7 +41,8 @@ async function getMCPConfigPaths(): Promise<{
 
 /**
  * Load and merge MCP configuration from project and local files
- * Merge strategy (Option A): Local mcpServers replaces project mcpServers entirely
+ * Merge strategy: Per-key merge across levels (global → project → local)
+ * Note: This function is legacy - new code should use loadConfigHierarchy() instead
  * @param configPath - Optional custom path (defaults to auto-detect with fallback)
  * @returns Merged configuration (empty mcpServers arrays/objects are valid)
  * @throws Error if no config found or config is invalid
@@ -209,6 +210,88 @@ async function loadConfigFileOptional(
 }
 
 /**
+ * Validate server exists in registry
+ */
+function validateServerExists(
+  serverName: string,
+  globalRegistry: Record<string, MCP>,
+): void {
+  if (!globalRegistry[serverName]) {
+    const available = Object.keys(globalRegistry).join(", ");
+    throw new Error(
+      `MCP server '${serverName}' not found in global registry.\n\n` +
+        `Available MCPs: ${available}`,
+    );
+  }
+}
+
+/**
+ * Deep clone MCP config
+ */
+function cloneMCP(mcp: MCP): MCP {
+  return JSON.parse(JSON.stringify(mcp));
+}
+
+/**
+ * Merge MCP config with override
+ */
+function mergeMCPConfig(global: MCP, override: Partial<MCP>): MCP {
+  // Only command-based MCPs can be merged
+  if ("command" in global) {
+    return {
+      command: global.command,
+      args: [...global.args],
+      // Merge env variables (override takes precedence)
+      env: {
+        ...(global.env || {}),
+        ...("env" in override && override.env ? override.env : {}),
+      },
+    };
+  }
+  // URL-based MCP - can't merge, use global as-is
+  return cloneMCP(global);
+}
+
+/**
+ * Process array format: ["github", "postgres"]
+ */
+function processArrayFormat(
+  serverNames: string[],
+  globalRegistry: Record<string, MCP>,
+): Record<string, MCP> {
+  const result: Record<string, MCP> = {};
+  for (const serverName of serverNames) {
+    validateServerExists(serverName, globalRegistry);
+    result[serverName] = cloneMCP(globalRegistry[serverName]);
+  }
+  return result;
+}
+
+/**
+ * Process object format: {github: true, postgres: {...}}
+ */
+function processObjectFormat(
+  mcpServers: Record<string, boolean | Partial<MCP>>,
+  globalRegistry: Record<string, MCP>,
+): Record<string, MCP> {
+  const result: Record<string, MCP> = {};
+  for (const [serverName, value] of Object.entries(mcpServers)) {
+    validateServerExists(serverName, globalRegistry);
+    const global = globalRegistry[serverName];
+
+    // If value is true, use global config as-is
+    if (value === true) {
+      result[serverName] = cloneMCP(global);
+    }
+    // If value is object, merge with global config
+    else if (typeof value === "object" && value !== null) {
+      result[serverName] = mergeMCPConfig(global, value);
+    }
+  }
+  return result;
+}
+
+/**
  * Filter and merge selected MCPs from global registry
  * @param globalRegistry - All available MCPs
  * @param config - Project configuration
@@ -219,66 +302,12 @@ export function filterSelectedMCPs(
   globalRegistry: Record<string, MCP>,
   config: ProjectMCPConfig,
 ): Record<string, MCP> {
-  const result: Record<string, MCP> = {};
-
   // Handle array format: ["github", "postgres"]
   if (Array.isArray(config.mcpServers)) {
-    for (const serverName of config.mcpServers) {
-      if (!globalRegistry[serverName]) {
-        const available = Object.keys(globalRegistry).join(", ");
-        throw new Error(
-          `MCP server '${serverName}' not found in global registry.\n\n` +
-            `Available MCPs: ${available}`,
-        );
-      }
-
-      // Deep clone to avoid mutation
-      result[serverName] = JSON.parse(
-        JSON.stringify(globalRegistry[serverName]),
-      );
-    }
+    return processArrayFormat(config.mcpServers, globalRegistry);
   }
   // Handle object format: {github: true, postgres: {...}}
-  else {
-    for (const [serverName, value] of Object.entries(config.mcpServers)) {
-      if (!globalRegistry[serverName]) {
-        const available = Object.keys(globalRegistry).join(", ");
-        throw new Error(
-          `MCP server '${serverName}' not found in global registry.\n\n` +
-            `Available MCPs: ${available}`,
-        );
-      }
-
-      // If value is true, use global config as-is
-      if (value === true) {
-        result[serverName] = JSON.parse(
-          JSON.stringify(globalRegistry[serverName]),
-        );
-      }
-      // If value is object, merge with global config
-      else if (typeof value === "object" && value !== null) {
-        const global = globalRegistry[serverName];
-
-        // Only command-based MCPs can be merged
-        if ("command" in global) {
-          result[serverName] = {
-            command: global.command,
-            args: [...global.args],
-            // Merge env variables (override takes precedence)
-            env: {
-              ...(global.env || {}),
-              ...("env" in value && value.env ? value.env : {}),
-            },
-          };
-        } else {
-          // URL-based MCP - can't merge, use global as-is
-          result[serverName] = JSON.parse(JSON.stringify(global));
-        }
-      }
-    }
-  }
-
-  return result;
+  return processObjectFormat(config.mcpServers, globalRegistry);
 }
 
 /**
