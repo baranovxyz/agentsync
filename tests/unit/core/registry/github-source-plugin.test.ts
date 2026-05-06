@@ -94,7 +94,7 @@ describe("GitHubSourcePlugin", () => {
   describe("resolve", () => {
     it("delegates resolution to GitHub resolver", async () => {
       const source = "github:company/repo";
-      const expectedPath = "/cache/github-company-repo";
+      const expectedPath = "/tmp/agentsync-github-company-repo-abc";
       (mockResolver.resolve as unknown as MockFunction).mockResolvedValue(
         expectedPath,
       );
@@ -102,20 +102,19 @@ describe("GitHubSourcePlugin", () => {
       const result = await plugin.resolve(source);
 
       expect(result).toBe(expectedPath);
-      expect(mockResolver.resolve).toHaveBeenCalledWith(source, undefined);
+      expect(mockResolver.resolve).toHaveBeenCalledWith(source);
     });
 
-    it("passes options to resolver", async () => {
+    it("always clones fresh regardless of options", async () => {
       const source = "github:company/repo";
-      const options = { pull: true };
-      const expectedPath = "/cache/github-company-repo";
+      const expectedPath = "/tmp/agentsync-github-company-repo-abc";
       (mockResolver.resolve as unknown as MockFunction).mockResolvedValue(
         expectedPath,
       );
 
-      await plugin.resolve(source, options);
+      await plugin.resolve(source, { cwd: "/some/dir" });
 
-      expect(mockResolver.resolve).toHaveBeenCalledWith(source, options);
+      expect(mockResolver.resolve).toHaveBeenCalledWith(source);
     });
   });
 

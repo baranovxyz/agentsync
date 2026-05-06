@@ -6,321 +6,96 @@
 import { z } from "zod";
 import { SUPPORTED_TOOLS } from "../constants.js";
 
-// Command schema for build and test commands
-export const CommandSchema = z.object({
-  description: z.string().min(1),
-  command: z.string().min(1),
-  scope: z.enum(["file", "project"]).default("project"),
-});
-
-// Rule schema for code style and git workflow
-export const RuleSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  content: z.string(),
-  tags: z.array(z.string()).default([]),
-});
-
-// Permission rule schema
-export const PermissionRuleSchema = z.object({
-  action: z.string(),
-  resource: z.string(),
-  allowed: z.boolean(),
-});
-
-// Git rule schema
-export const GitRuleSchema = z.object({
-  type: z.enum(["commit", "branch", "pr", "merge"]),
-  rule: z.string(),
-  description: z.string().optional(),
-});
-
-// MCP Server schema
-export const McpServerSchema = z.object({
-  name: z.string(),
-  command: z.string(),
-  args: z.array(z.string()).optional(),
-  env: z.record(z.string(), z.string()).optional(),
-  description: z.string().optional(),
-});
-
-// File mapping schema for project structure
-export const FileMappingSchema = z.object({
-  pattern: z.string(),
-  description: z.string(),
-  purpose: z.string().optional(),
-});
-
-// Main AGENTS.md schema
-export const AgentsMdSchema = z.object({
-  projectOverview: z.string().min(1),
-  buildCommands: z.array(CommandSchema).default([]),
-  testCommands: z.array(CommandSchema).default([]),
-  codeStyle: z.array(RuleSchema).default([]),
-  projectStructure: z.array(FileMappingSchema).default([]),
-  gitWorkflow: z.array(GitRuleSchema).default([]),
-  permissions: z
-    .object({
-      allowedWithoutPrompt: z.array(z.string()).default([]),
-      requireApproval: z.array(z.string()).default([]),
-      blocked: z.array(z.string()).default([]),
-    })
-    .optional(),
-  mcpServers: z.array(McpServerSchema).optional(),
-  metadata: z.object({
-    filePath: z.string(),
-    lineCount: z.number(),
-    warnings: z.array(z.string()).default([]),
-    lastModified: z.string().optional(),
-    version: z.string().optional(),
-  }),
-});
-
-// Extends schema for config
-export const ExtendsSchema = z.object({
-  source: z
-    .string()
-    .min(1, "Source cannot be empty")
-    .refine(
-      (s) => {
-        // GitHub sources
-        if (s.startsWith("github:")) {
-          return /^github:[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+(@[a-zA-Z0-9_.-]+)?$/.test(
-            s,
-          );
-        }
-
-        // Filesystem sources
-        if (s.startsWith("fs:")) {
-          const path = s.slice(3);
-          return path.length > 0 && !path.includes("://");
-        }
-
-        // Absolute or relative paths (no protocol)
-        return !(
-          s.includes("://") ||
-          s.startsWith("http") ||
-          s.startsWith("git@")
+// Extends entry: flat string with source validation
+// Namespace is auto-derived from source (last segment)
+export const ExtendsEntrySchema = z
+  .string()
+  .min(1, "Source cannot be empty")
+  .refine(
+    (s) => {
+      if (s.startsWith("github:")) {
+        return /^github:[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+(@[a-zA-Z0-9_.-]+)?$/.test(
+          s,
         );
-      },
-      {
-        message:
-          "Source must be github:org/repo[@ref], fs:./path, /absolute/path, or ./relative/path",
-      },
-    ),
-  namespace: z.string(),
-  include: z.array(z.string()).optional(),
-  exclude: z.array(z.string()).optional(),
-});
+      }
+      if (s.startsWith("fs:")) {
+        const path = s.slice(3);
+        return path.length > 0 && !path.includes("://");
+      }
+      return !(
+        s.includes("://") ||
+        s.startsWith("http") ||
+        s.startsWith("git@")
+      );
+    },
+    {
+      message:
+        "Source must be github:org/repo[@ref], fs:./path, /absolute/path, or ./relative/path",
+    },
+  );
 
-// Configuration schema for .agentsync/config.json and agentsync.local.json
-// Both configs use the same schema; local values override project values
-export const AgentSyncConfigSchema = z.object({
-  version: z.string().default("1.0"),
-
-  // GitHub registry sources (v0.3.0-beta)
-  extends: z.array(ExtendsSchema).optional(),
-
-  // MCP servers: Registry of available MCP server definitions
-  // Supports both command-based (local process) and URL-based (HTTP remote) formats
-  mcpServers: z
-    .record(
-      z.string(),
-      z.union([
-        // Command-based (local process)
-        z.object({
-          command: z.string(),
-          args: z.array(z.string()),
-          env: z.record(z.string(), z.string()).optional(),
-        }),
-        // URL-based (HTTP remote)
-        z.object({
-          url: z.string(),
-          headers: z.record(z.string(), z.string()).optional(),
-        }),
-      ]),
-    )
-    .optional(),
-
-  // MCP selection: Which servers to enable (union across levels)
-  mcpEnabled: z.array(z.string()).optional(),
-
-  // MCP exclusion: Which servers to disable (union across levels)
-  mcpDisabled: z.array(z.string()).optional(),
-
-  tools: z.array(z.enum(SUPPORTED_TOOLS)).optional(),
-  useSymlinks: z.boolean().default(true),
-  security: z
-    .object({
-      secretScanning: z
-        .object({
-          enabled: z.boolean().default(true),
-          blockOnHighSeverity: z.boolean().default(true),
-          warnOnMediumSeverity: z.boolean().default(true),
-          customPatterns: z
-            .array(
-              z.object({
-                name: z.string(),
-                pattern: z.string(),
-                severity: z.enum(["high", "medium", "low"]),
-                description: z.string(),
-              }),
-            )
-            .optional(),
-        })
-        .optional(),
-      unicodeDetection: z
-        .object({
-          enabled: z.boolean().default(true),
-          blockOnHighRisk: z.boolean().default(true),
-          autoSanitize: z.boolean().default(false),
-          allowedUnicode: z.array(z.string()).optional(),
-        })
-        .optional(),
-      auditLogging: z
-        .object({
-          enabled: z.boolean().default(true),
-          logPath: z.string().default(".agentsync/logs/audit.jsonl"),
-          maxSizeBytes: z.number().default(10485760),
-          retentionDays: z.number().default(90),
-          compressRotated: z.boolean().default(true),
-        })
-        .optional(),
-    })
-    .optional(),
-});
-
-// Alias for backward compatibility: both configs use same schema
-export const LocalConfigSchema = AgentSyncConfigSchema;
-
-// Translator result schema
-export const TranslateResultSchema = z.object({
-  success: z.boolean(),
-  operations: z.array(
-    z.object({
-      type: z.enum([
-        "create",
-        "write",
-        "modify",
-        "delete",
-        "symlink",
-        "create_dir",
-      ]),
-      path: z.string(),
-      content: z.string().optional(),
-      expectedTarget: z.string().optional(),
-      expectedContent: z.string().optional(),
-    }),
-  ),
-  warnings: z.array(z.string()).optional(),
-});
-
-// Sync result schema
-export const SyncResultSchema = z.object({
-  success: z.boolean(),
-  changes: z.array(
-    z.object({
-      tool: z.string(),
-      operations: z.array(
-        z.object({
-          type: z.string(),
-          path: z.string(),
-          status: z.enum(["success", "failed", "skipped"]),
-          error: z.string().optional(),
-        }),
-      ),
-    }),
-  ),
-  duration: z.number(),
-  timestamp: z.string(),
-});
-
-// Diff result schema
-export const DiffResultSchema = z.object({
-  changes: z.array(
-    z.object({
-      type: z.enum(["create", "modify", "delete"]),
-      path: z.string(),
-      diff: z.string().optional(),
-      oldContent: z.string().optional(),
-      newContent: z.string().optional(),
-    }),
-  ),
-  summary: z.object({
-    created: z.number(),
-    modified: z.number(),
-    deleted: z.number(),
-    total: z.number(),
+// MCP server config: command-based (stdio) or URL-based (http)
+export const McpServerConfigSchema = z.union([
+  z.object({
+    command: z.string(),
+    args: z.array(z.string()).optional(),
+    env: z.record(z.string(), z.string()).optional(),
   }),
+  z.object({
+    url: z.string(),
+    headers: z.record(z.string(), z.string()).optional(),
+  }),
+]);
+
+export type McpServerConfig = z.infer<typeof McpServerConfigSchema>;
+
+// Profile config schema: filter semantics for CI/enterprise
+export const ProfileConfigSchema = z
+  .object({
+    tools: z.array(z.string()).optional(), // Replaces base tools
+    mcp: z.array(z.string()).optional(), // Filters to only these MCPs
+    extends: z.array(ExtendsEntrySchema).optional(), // Replaces base presets
+    skills: z.array(z.string()).optional(), // Filters to only these skills
+    paths: z.array(z.string()).optional(), // Auto-activate on CWD match
+    env: z.string().optional(), // Auto-activate on env var
+  })
+  .passthrough();
+
+export type ProfileConfig = z.infer<typeof ProfileConfigSchema>;
+
+// Main configuration schema — v1.0 simplified format
+// tools = flat list, mcp = defined means enabled, extends = flat strings
+export const AgentSyncConfigSchema = z.object({
+  // Flat tool list (no [agents.*] blocks)
+  tools: z.array(z.enum(SUPPORTED_TOOLS)).optional(),
+
+  // MCP servers: defined = enabled. No separate enable list.
+  mcp: z.record(z.string(), McpServerConfigSchema).optional(),
+
+  // Presets: flat string array. Namespace auto-derived from source.
+  extends: z.array(ExtendsEntrySchema).optional(),
+
+  // Active profile name
+  profile: z.string().optional(),
+
+  // Named profile overrides (filter semantics)
+  profiles: z.record(z.string(), ProfileConfigSchema).optional(),
 });
 
-// Validation result schema
-export const ValidationResultSchema = z.object({
-  valid: z.boolean(),
-  errors: z.array(
-    z.object({
-      type: z.string(),
-      message: z.string(),
-      line: z.number().optional(),
-      column: z.number().optional(),
-      severity: z.enum(["error", "warning", "info"]),
-    }),
-  ),
-  warnings: z.array(
-    z.object({
-      type: z.string(),
-      message: z.string(),
-      line: z.number().optional(),
-      column: z.number().optional(),
-    }),
-  ),
-  securityIssues: z.array(
-    z.object({
-      type: z.enum(["secret", "unicode"]),
-      severity: z.enum(["high", "medium", "low"]),
-      description: z.string(),
-      location: z.string(),
-    }),
-  ),
+// Local config: MCP overrides + disable list
+export const LocalConfigSchema = z.object({
+  mcp: z.record(z.string(), McpServerConfigSchema).optional(),
+  mcp_disabled: z.array(z.string()).optional(),
 });
+
+/** Schema for third-party tool config files that we merge MCP into */
+export const ToolSettingsSchema = z.record(z.string(), z.unknown());
+export type ToolSettings = z.infer<typeof ToolSettingsSchema>;
 
 // Type exports for TypeScript usage
-export type AgentsMd = z.infer<typeof AgentsMdSchema>;
-export type Command = z.infer<typeof CommandSchema>;
-export type Rule = z.infer<typeof RuleSchema>;
-export type GitRule = z.infer<typeof GitRuleSchema>;
-export type McpServer = z.infer<typeof McpServerSchema>;
-export type FileMapping = z.infer<typeof FileMappingSchema>;
-export type Extends = z.infer<typeof ExtendsSchema>;
-export type ExtendsEntry = z.infer<typeof ExtendsSchema>;
+export type ExtendsEntry = z.infer<typeof ExtendsEntrySchema>;
 export type AgentSyncConfig = z.infer<typeof AgentSyncConfigSchema>;
 export type LocalConfig = z.infer<typeof LocalConfigSchema>;
-export type TranslateResult = z.infer<typeof TranslateResultSchema>;
-export type SyncResult = z.infer<typeof SyncResultSchema>;
-export type DiffResult = z.infer<typeof DiffResultSchema>;
-export type ValidationResult = z.infer<typeof ValidationResultSchema>;
-
-/**
- * Selection configuration for filtering preset content
- */
-export interface SelectionConfig {
-  rules?: {
-    include?: string[];
-    exclude?: string[];
-  };
-  commands?: {
-    include?: string[];
-    exclude?: string[];
-  };
-  mcps?: string[];
-}
-
-/**
- * Validate AGENTS.md content against schema
- */
-export function validateAgentsMd(data: unknown): AgentsMd {
-  return AgentsMdSchema.parse(data);
-}
 
 /**
  * Validate local configuration file
@@ -356,8 +131,83 @@ export function validateNamespace(namespace: string): void {
 }
 
 /**
- * Normalize extends entries to a consistent format
- * Requires explicit namespace for all presets to prevent naming conflicts
+ * Derive namespace from extends source string using hybrid algorithm.
+ * Uses owner-repo for GitHub sources to reduce collision risk.
+ *
+ * "github:company/standards" → "company-standards"
+ * "github:acme-corp/tools" → "acme-corp-tools"
+ * "github:acme/mono/packages/presets" → "acme-mono-presets"
+ * "github:company/standards@v2" → "company-standards"
+ * "fs:./local-presets" → "local-presets"
+ * "fs:~/.cursor" → "cursor"
+ * "/absolute/path" → "path"
+ * "fs:C:\\Users\\me\\.cursor" → "cursor"
+ * "./relative/path" → "path"
+ */
+export function deriveNamespace(source: string): string {
+  let cleaned = source;
+
+  if (cleaned.startsWith("github:")) {
+    // GitHub: use owner-repo (or owner-repo-leaf for subpaths)
+    cleaned = cleaned.slice(7);
+    // Strip @ref suffix
+    cleaned = cleaned.replace(/@[a-zA-Z0-9_.-]+$/, "");
+    const segments = cleaned.split("/").filter(Boolean);
+    if (segments.length >= 3) {
+      // Subpath: owner-repo-leaf
+      const ns = `${segments[0]}-${segments[1]}-${segments[segments.length - 1]}`;
+      return normalizeNamespaceString(ns);
+    }
+    if (segments.length === 2) {
+      // Standard: owner-repo
+      return normalizeNamespaceString(`${segments[0]}-${segments[1]}`);
+    }
+    return normalizeNamespaceString(segments[0] || "preset");
+  }
+
+  // fs: or bare paths — use basename
+  if (cleaned.startsWith("fs:")) cleaned = cleaned.slice(3);
+  // Strip @ref suffix
+  cleaned = cleaned.replace(/@[a-zA-Z0-9_.-]+$/, "");
+  // Get last path segment
+  const segments = cleaned.split(/[\\/]+/).filter(Boolean);
+  const last = segments[segments.length - 1] || "preset";
+  return normalizeNamespaceString(last);
+}
+
+/**
+ * Normalize a namespace string: lowercase, strip leading dots,
+ * replace invalid chars with hyphens, collapse consecutive hyphens,
+ * trim leading/trailing hyphens.
+ */
+function normalizeNamespaceString(raw: string): string {
+  return (
+    raw
+      .toLowerCase()
+      .replace(/^\.+/, "")
+      .replace(/[^a-z0-9-]/g, "-")
+      .replace(/-{2,}/g, "-")
+      .replace(/^-|-$/g, "") || "preset"
+  );
+}
+
+// Legacy object format for extends entries (allocated once at module level)
+const LegacyEntrySchema = z.object({
+  source: z.string().min(1, "Source is required in extends entry"),
+  namespace: z.string().optional(),
+  include: z.array(z.string()).optional(),
+  exclude: z.array(z.string()).optional(),
+});
+
+/**
+ * Normalize extends entries to a consistent format with derived namespaces.
+ * V1 format: flat string array → auto-derive namespace from source.
+ * Legacy format: object with source/namespace → use as-is.
+ *
+ * Deduplicates by source URI: if the same source appears multiple times
+ * (e.g., root and workspace configs both extend the same preset),
+ * keeps the last occurrence. This preserves last-wins semantics for
+ * MCP servers while ensuring each preset is resolved exactly once.
  */
 export function normalizeExtends(
   extends_: (string | Record<string, unknown>)[] | undefined,
@@ -371,33 +221,18 @@ export function normalizeExtends(
     return [];
   }
 
-  return extends_.map((entry) => {
+  const normalized = extends_.map((entry) => {
+    // V1 flat string format: derive namespace from source
     if (typeof entry === "string") {
-      throw new Error(
-        `String format for extends is deprecated. Use object format with explicit namespace:\n` +
-          `Example: { "source": "${entry}", "namespace": "your-namespace" }\n` +
-          `See https://github.com/agentsync/agentsync/docs/configuration.md for details.`,
-      );
+      const namespace = deriveNamespace(entry);
+      validateNamespace(namespace);
+      return { source: entry, namespace };
     }
 
-    // Handle object entries
-    const obj = entry as Record<string, unknown>;
-    const source = obj.source as string;
+    // Legacy object format: validate with Zod schema
+    const parsed = LegacyEntrySchema.parse(entry);
 
-    if (!source) {
-      throw new Error("Source is required in extends entry");
-    }
-
-    const namespace = obj.namespace as string | undefined;
-
-    if (!namespace) {
-      throw new Error(
-        `Namespace is required for preset "${source}" to prevent naming conflicts.\n` +
-          `Add explicit namespace: { "source": "${source}", "namespace": "your-namespace" }\n` +
-          `Example namespaces: "company", "team", "org-backend", etc.`,
-      );
-    }
-
+    const namespace = parsed.namespace || deriveNamespace(parsed.source);
     validateNamespace(namespace);
 
     const result: {
@@ -405,115 +240,36 @@ export function normalizeExtends(
       namespace: string;
       include?: string[];
       exclude?: string[];
-    } = {
-      source,
-      namespace,
-    };
+    } = { source: parsed.source, namespace };
 
-    if (obj.include) {
-      result.include = obj.include as string[];
-    }
-    if (obj.exclude) {
-      result.exclude = obj.exclude as string[];
-    }
-
+    if (parsed.include) result.include = parsed.include;
+    if (parsed.exclude) result.exclude = parsed.exclude;
     return result;
+  });
+
+  // Deduplicate by source URI, keeping last occurrence
+  const seen = new Map<string, number>();
+  for (let i = 0; i < normalized.length; i++) {
+    seen.set(normalized[i].source, i);
+  }
+  return normalized.filter((_, i) => {
+    const entry = normalized[i];
+    return seen.get(entry.source) === i;
   });
 }
 
-/**
- * Validate configuration file
- */
+// Test utility — not used in production code. Callers should use the Zod schema directly.
 export function validateConfig(data: unknown): AgentSyncConfig {
   return AgentSyncConfigSchema.parse(data);
 }
 
-/**
- * Safe parse local config with error details
- */
+// Test utility — not used in production code. Callers should use the Zod schema directly.
 export function safeParseLocalConfig(
   data: unknown,
 ):
   | { success: true; data: LocalConfig }
   | { success: false; error: z.ZodError } {
   const result = LocalConfigSchema.safeParse(data);
-  if (result.success) {
-    return { success: true, data: result.data };
-  } else {
-    return { success: false, error: result.error };
-  }
-}
-
-/**
- * Safe parse with error details
- */
-export function safeParseAgentsMd(
-  data: unknown,
-): { success: true; data: AgentsMd } | { success: false; error: z.ZodError } {
-  const result = AgentsMdSchema.safeParse(data);
-  if (result.success) {
-    return { success: true, data: result.data };
-  } else {
-    return { success: false, error: result.error };
-  }
-}
-
-// User Preset Entry Schema (Simplified)
-export const UserPresetEntrySchema = z.object({
-  source: z.string().min(1, "Source cannot be empty"),
-  type: z.enum(["github", "filesystem"]),
-  addedAt: z.string().datetime(),
-  description: z.string().optional(),
-});
-
-// User Config Schema for ~/.agentsync/config.json
-export const UserConfigSchema = z.object({
-  version: z.string().default("1.0"),
-  presets: z.record(z.string(), UserPresetEntrySchema),
-  tools: z.array(z.enum(SUPPORTED_TOOLS)).optional(),
-});
-
-// Type exports for user config
-export type UserPresetEntry = z.infer<typeof UserPresetEntrySchema>;
-export type UserConfig = z.infer<typeof UserConfigSchema>;
-
-/**
- * Validate user preset entry
- */
-export function validateUserPresetEntry(data: unknown): UserPresetEntry {
-  return UserPresetEntrySchema.parse(data);
-}
-
-/**
- * Validate user config
- */
-export function validateUserConfig(data: unknown): UserConfig {
-  return UserConfigSchema.parse(data);
-}
-
-/**
- * Safe parse user preset entry with error details
- */
-export function safeParseUserPresetEntry(
-  data: unknown,
-):
-  | { success: true; data: UserPresetEntry }
-  | { success: false; error: z.ZodError } {
-  const result = UserPresetEntrySchema.safeParse(data);
-  if (result.success) {
-    return { success: true, data: result.data };
-  } else {
-    return { success: false, error: result.error };
-  }
-}
-
-/**
- * Safe parse user config with error details
- */
-export function safeParseUserConfig(
-  data: unknown,
-): { success: true; data: UserConfig } | { success: false; error: z.ZodError } {
-  const result = UserConfigSchema.safeParse(data);
   if (result.success) {
     return { success: true, data: result.data };
   } else {

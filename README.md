@@ -1,255 +1,227 @@
-# AgentSync
-
-[![npm version](https://badge.fury.io/js/agentsync.svg)](https://www.npmjs.com/package/agentsync)
-[![Tests](https://github.com/baranovxyz/agentsync/actions/workflows/test-with-bats.yml/badge.svg)](https://github.com/baranovxyz/agentsync/actions/workflows/test-with-bats.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Node.js Version](https://img.shields.io/node/v/agentsync)](https://nodejs.org)
-
-> **Stop copying configs between AI coding tools. Sync them all with one command.**
-
-## 🚧 Project Status
-
-AgentSync is in **active development** (alpha). Core features are stable and tested, but the API may change as we refine the user experience. We welcome early adopters and contributors!
-
-**What works well:**
-
-- ✅ Core sync functionality across all supported tools
-- ✅ GitHub preset system
-- ✅ MCP server management
-- ✅ Security scanning
-
-**Roadmap to 1.0:**
-
-- More preset registry sources
-- Enhanced configuration UI
-- Additional AI tool support
-
-## 😫 The Problem
-
-Are you tired of:
-
-- Copying `.cursor/rules` to `.claude/` every time you update coding standards?
-- Maintaining separate configs for Cursor, Claude, Cline, and Roocode?
-- Team members using outdated AI agent configurations?
-- No way to share MCP servers across different tools?
-
-**You're losing 30+ minutes per week on manual config management.**
-
-## ✨ The Solution
-
-AgentSync is the infrastructure layer that keeps all your AI coding tools in perfect sync.
-
-```bash
-# Before: Manual chaos 😰
-cp ~/.cursor/rules/* ~/.claude/rules/
-cp ~/.cursor/rules/* ./.clinerules/
-# Oops, forgot Roocode... and wait, .mdc needs to be .md...
-
-# After: One command, everything synced ✅
-agentsync sync
-✓ Synced to Cursor, Claude, Cline, Roocode
-```
-
-## 🚀 What You Get
-
-### For Individual Developers
-
-- **Never copy config files again** — One source of truth for all AI tools
-- **Tool flexibility** — Switch between Cursor, Claude, Cline seamlessly
-- **Smart format conversion** — Automatically handles .mdc ↔ .md conversions
-- **MCP server management** — Share context servers across all tools
-
-### For Teams
-
-- **Instant standardization** — Push coding standards to entire team at once
-- **GitHub-based presets** — Share rules via `github:company/standards`
-- **No more drift** — Everyone uses the same prompts and commands
-- **Security by default** — Built-in secret scanning prevents API key leaks
-
-### For Organizations
-
-- **Compliance ready** — Audit logs for all configuration changes
-- **Preset composition** — Layer company, team, and project standards
-- **Tool agnostic** — Works with whatever AI tools your teams prefer
-- **Progressive adoption** — Teams can migrate at their own pace
-
-## 📊 Before vs After
-
-| Task                        | Before AgentSync                  | With AgentSync                        |
-| --------------------------- | --------------------------------- | ------------------------------------- |
-| Update coding standards     | Edit 4+ config files manually ❌  | Edit once, run `agentsync sync` ✅    |
-| Share team prompts          | Copy/paste in Slack ❌            | `extends: ["github:team/prompts"]` ✅ |
-| New team member setup       | 20 minutes of copying files ❌    | `agentsync init` - 30 seconds ✅      |
-| Add MCP server to all tools | Configure each tool separately ❌ | Add to `mcpServers`, sync once ✅     |
-| Switch between AI tools     | Recreate all configurations ❌    | Already synced automatically ✅       |
-
-## ⚡ Quick Start
-
-### Install (30 seconds)
-
-```bash
-npm install -g agentsync
-# or
-pnpm add -g agentsync
-```
-
-### Set Up (2 minutes)
-
-```bash
-# Initialize in your project
-agentsync init
-
-# Import existing configs (optional)
-agentsync import ~/.cursor    # Import from Cursor
-agentsync import .            # Auto-detect and import
-
-# Sync everything
-agentsync sync
-```
-
-**That's it!** Your AI tools are now synchronized.
-
-## 🎯 Real-World Example
-
-Your team uses Cursor, but you prefer Claude. Another developer uses Roocode. Here's how AgentSync helps:
-
-**.agentsync/config.json** (shared via git):
-
-```json
-{
-  "extends": [
-    {
-      "source": "github:acme/coding-standards",
-      "namespace": "company"
-    }
-  ],
-  "tools": ["cursor", "claude", "roocode"],
-  "mcpServers": ["github", "postgres"]
-}
-```
-
-Now everyone has:
-
-- ✅ Same coding standards across all tools
-- ✅ Same slash commands (`/test`, `/review`, `/commit`)
-- ✅ Same MCP servers for enhanced context
-- ✅ Tool-specific format compatibility (.mdc for Cursor, .md for others)
-
-## 🛠️ Core Features
-
-### 1. Universal Sync Engine
-
-- **One source, multiple targets** — Define once in `.agentsync/`
-- **Format intelligence** — Handles .mdc, .md, nested/flat structures
-- **Bidirectional codecs** — Import from any tool, export to any tool
-
-### 2. GitHub Preset System
-
-Share and compose configurations across teams:
-
-```json
-{
-  "extends": [
-    { "source": "github:company/standards", "namespace": "company" },
-    { "source": "github:team/frontend", "namespace": "frontend" },
-    { "source": "fs:./local-overrides", "namespace": "local" }
-  ]
-}
-```
-
-### 3. MCP Server Management
-
-Configure Model Context Protocol servers once, use everywhere:
-
-```json
-{
-  "mcpServers": ["github", "postgres", "filesystem"]
-}
-```
-
-### 4. Smart Migration
-
-- **Reference mode** — Try AgentSync without moving files
-- **Import mode** — Full migration with automatic backups
-- **Tool detection** — Automatically finds existing configs
-
-### 5. Security First
-
-- **Secret scanning** — Prevents accidental API key commits (enabled by default)
-- **Unicode detection** — Blocks hidden character attacks
-- **Audit logging** — Track all configuration changes
-- **Local-first** — Your data never leaves your machine
-
-## 📦 Supported Tools
-
-| Tool        | Rules                    | Commands                   | MCP Servers | AGENTS.md |
-| ----------- | ------------------------ | -------------------------- | ----------- | --------- |
-| **Cursor**  | ✅ `.cursor/rules/*.mdc` | ✅ `.cursor/commands/*.md` | ✅          | ✅        |
-| **Claude**  | ✅ `.claude/rules/*.md`  | ✅ `.claude/commands/*.md` | ✅          | ✅        |
-| **Cline**   | ✅ `.clinerules/*.md`    | ❌ Not supported           | ✅          | ✅        |
-| **Roocode** | ✅ `.roo/rules/*.md`     | ✅ `.roo/commands/*.md`    | ✅          | ✅        |
-
-## 🎮 Commands
-
-```bash
-# Initialize AgentSync
-agentsync init
-
-# Check configuration status
-agentsync status
-
-# Import existing configs
-agentsync import ~/.cursor    # From global Cursor config
-agentsync import .            # Auto-detect project configs
-
-# Sync configurations
-agentsync sync               # Sync everything
-agentsync sync --pull        # Update presets first
-
-# Manage presets
-agentsync preset list        # Show available presets
-agentsync preset select      # Interactive preset selection
-agentsync preset add github:org/repo
-
-# Manage MCP servers
-agentsync mcp list          # Show available MCP servers
-agentsync mcp enable github    # Enable a specific server
-```
-
-## 📚 Documentation
-
-- **Getting Started**: See Quick Start above
-- **FAQ & Troubleshooting**: [docs/faq.md](./docs/faq.md)
-- **Requirements & Design**: [REQUIREMENTS.md](./REQUIREMENTS.md)
-- **Configuration Guide**: [docs/configuration.md](./docs/configuration.md)
-- **Preset System**: [docs/presets.md](./docs/presets.md)
-- **CLI Reference**: [docs/cli.md](./docs/cli.md)
-- **Testing**: [TESTING.md](./TESTING.md)
-- **Architecture**: [ARCHITECTURE.md](./ARCHITECTURE.md)
-
-## 🤝 Contributing
-
-We welcome contributions! See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
-
-## 🔒 Security
-
-- **Local-first**: Your configurations never leave your machine
-- **Secret scanning**: Built-in detection for API keys and tokens
-- **Audit trail**: Complete history of all configuration changes
-- **No telemetry**: We don't track usage or collect data
-
-See [SECURITY.md](./SECURITY.md) for details.
-
-## 📝 License
-
-MIT — Use it freely in personal and commercial projects.
+<p align="center">
+  <h1 align="center">AgentSync</h1>
+  <p align="center">
+    Sync AI coding agent configuration across tools from a single source of truth.
+    <br />
+    Define once. Sync to maintainer-validated CLIs, with optional adapters for more tools.
+  </p>
+</p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/agentsync"><img src="https://img.shields.io/npm/v/agentsync.svg?style=flat-square" alt="npm version" /></a>
+  <a href="https://github.com/baranovxyz/agentsync/actions"><img src="https://img.shields.io/github/actions/workflow/status/baranovxyz/agentsync/ci.yml?branch=main&style=flat-square&label=tests" alt="CI" /></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="License: MIT" /></a>
+  <a href="https://www.npmjs.com/package/agentsync"><img src="https://img.shields.io/node/v/agentsync?style=flat-square" alt="Node version" /></a>
+</p>
+
+> Beta release: `1.0.0-beta.0` is a prerelease for validating the v1 CLI,
+> `.agents/` config format, and maintainer-validated adapters before the stable
+> 1.0 release. Optional adapters remain available when explicitly configured.
+> Install with `npm install -g agentsync@beta`.
 
 ---
 
-**Ready to save 30+ minutes per week?**
+## The Problem
 
-```bash
-npm install -g agentsync && agentsync init
+AI coding CLIs each store configuration differently. Claude Code uses `.claude/commands/` and `.mcp.json`. OpenCode reads `.agents/` directly and uses `opencode.json`. Codex reads `.agents/` directly and writes MCP servers to `.codex/config.toml`. Optional adapters such as Cursor, Copilot, RooCode, and Cline have their own file formats too.
+
+When you use multiple tools — or your team does — you end up maintaining the same rules, commands, and MCP server configs in 3-5 different places. Add a new MCP server? Edit 4 config files. Update a coding standard? Copy-paste across directories. Onboard a new tool? Manually recreate everything.
+
+In monorepos it's worse. Each service needs its own tool configs, but shares org-wide standards. Without a sync layer, config drift is inevitable — your frontend team's Cursor rules diverge from the backend's Claude rules within weeks.
+
+## The Solution
+
+AgentSync is a CLI that reads one config (`.agents/agentsync.toml`) and writes to every tool's native format. Skills, commands, and MCP servers defined once, synced everywhere. Non-interactive, deterministic, CI/CD friendly.
+
+```
+┌─────────────────────┐
+│  .agents/           │
+│  ├── agentsync.toml │──── agentsync sync ────┬──► .claude/skills/*.md
+│  ├── skills/*.md    │                        ├──► .claude/commands/*.md
+│  ├── commands/*.md  │                        ├──► .mcp.json (Claude)
+│  └── agents/*.md    │                        ├──► opencode.json
+│                     │                        ├──► .codex/config.toml
+│  Presets:           │                        └──► more CLI adapters
+│  github:company/std │
+└─────────────────────┘
 ```
 
-_Stop managing configs. Start shipping code._ 🚀
+Tools that read `.agents/` natively (OpenCode, Codex, Gemini, Amp, Goose, and others) need zero file copies -- AgentSync just ensures the source directory is correct. Tools that need native files get generated outputs in their tool directories.
+
+## Install
+
+```bash
+npm install -g agentsync@beta
+```
+
+## Quick Start
+
+```bash
+# Initialize in your project (non-interactive by default)
+agentsync init
+
+# Sync to all enabled tools
+agentsync sync
+
+# Preview changes without writing
+agentsync sync --dry-run
+
+# Diagnostics
+agentsync doctor
+
+# Remove all synced files
+agentsync clean
+```
+
+This creates `.agents/agentsync.toml`:
+
+```toml
+tools = ["claude", "opencode", "codex"]
+
+extends = ["github:company/standards"]
+
+[mcp.github]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-github"]
+```
+
+<details>
+<summary>MCP server management</summary>
+
+```bash
+# Add an MCP server to config
+agentsync config add mcp github --mcp-config '{"command":"npx","args":["-y","@modelcontextprotocol/server-github"]}'
+
+# Remove an MCP server
+agentsync config rm mcp github
+
+# List configured MCPs
+agentsync config ls mcp
+
+# Dump resolved config
+agentsync config show
+```
+
+MCP servers defined in `[mcp.*]` are enabled by default -- defining a server is enabling it. No separate `mcp_enabled` list needed.
+
+</details>
+
+<details>
+<summary>Preset system (shared configs)</summary>
+
+Pull skills, commands, and MCP configs from GitHub repos or local directories:
+
+```toml
+extends = [
+  "github:company/standards",
+  "fs:./local-presets",
+]
+```
+
+Presets are namespaced to prevent conflicts (`company--typescript.md` in tool outputs). GitHub presets are fetched fresh during sync; there is no persistent preset cache or `--pull` flag in the v1 beta CLI.
+
+</details>
+
+<details>
+<summary>Monorepo support</summary>
+
+AgentSync walks from CWD to git root, merging every `.agents/agentsync.toml` it finds:
+
+```
+my-monorepo/
+├── .agents/agentsync.toml          # Org-wide: tools, shared MCPs
+├── frontend/.agents/agentsync.toml # Frontend overrides
+└── backend/.agents/agentsync.toml  # Backend overrides
+```
+
+Running from `frontend/` merges both configs. Tools lists replace (deepest wins), MCP servers merge per-key (deepest wins).
+
+</details>
+
+<details>
+<summary>Role-based profiles</summary>
+
+Define multiple configurations in one file, selected at sync time:
+
+```toml
+[profiles.frontend]
+tools = ["claude", "opencode"]
+mcp = ["storybook", "figma"]
+
+[profiles.backend]
+tools = ["claude", "codex"]
+mcp = ["postgres"]
+
+[profiles.ci]
+tools = ["codex", "claude"]
+env = "CI"
+```
+
+Profile fields like `mcp`, `skills`, and `extends` use filter semantics -- they restrict the base config to the listed items, rather than accumulating.
+
+```bash
+agentsync sync --profile frontend
+# or
+AGENTSYNC_PROFILE=ci agentsync sync
+```
+
+</details>
+
+## Tool Tiers
+
+Validated beta support means the adapter is part of the maintainer release-validation set.
+
+| Validated CLI | Skills | Commands | MCP | Method |
+|---------------|--------|----------|-----|--------|
+| Claude Code | yes | yes | yes | File copies (`.claude/`) |
+| OpenCode | yes | yes | yes | Reads `.agents/` directly |
+| Codex | yes | no | yes | Reads `.agents/` directly |
+| Gemini | yes | no | yes | Reads `.agents/` directly |
+| Amp | yes | yes | yes | Reads `.agents/` directly |
+| Goose | yes | no | yes | Reads `.agents/` directly |
+| Aider | yes | no | no | AGENTS.md only |
+| Amazon Q | yes | no | yes | Reads `.agents/` directly |
+| Augment | yes | yes | yes | Reads `.agents/` directly |
+| Kiro | yes | no | yes | Reads `.agents/` directly |
+| OpenHands | yes | no | yes | Reads `.agents/` directly |
+| Junie | yes | no | yes | Reads `.agents/` directly |
+| Crush | no | no | yes | MCP only |
+| Kilocode | yes | no | yes | Reads `.agents/` directly |
+| Qwen | yes | no | yes | Reads `.agents/` directly |
+
+Optional adapters are still supported by the config schema and sync engine, but they are not part of the default validated beta target set.
+
+| Optional Adapter | Skills | Commands | MCP | Method |
+|------------------|--------|----------|-----|--------|
+| Cursor | yes | yes | yes | File copies (`.cursor/`) |
+| Copilot | yes | no | yes | File copies (`.github/`) |
+| RooCode | yes | yes | yes | File copies (`.roo/`) |
+| Cline | yes | no | no | File copies (`.clinerules/`) |
+
+<details>
+<summary>Development</summary>
+
+```bash
+git clone https://github.com/baranovxyz/agentsync.git
+cd agentsync
+pnpm install
+pnpm build
+pnpm test
+```
+
+See [CONTRIBUTING.md](https://github.com/baranovxyz/agentsync/blob/main/docs/contributing.md) for contribution guidelines.
+
+</details>
+
+## Links
+
+- [npm package](https://www.npmjs.com/package/agentsync)
+- [GitHub repository](https://github.com/baranovxyz/agentsync)
+- [Configuration guide](https://github.com/baranovxyz/agentsync/blob/main/docs/configuration.md)
+- [CLI reference](https://github.com/baranovxyz/agentsync/blob/main/docs/cli.md)
+- [Architecture](https://github.com/baranovxyz/agentsync/blob/main/docs/architecture.md)
+- [Changelog](CHANGELOG.md)
+
+## License
+
+[MIT](LICENSE)

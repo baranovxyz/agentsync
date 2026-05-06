@@ -5,11 +5,10 @@
 
 import {
   ErrorCategory,
-  ErrorHandler,
   SourceResolutionError,
   ValidationError,
+  wrapError,
 } from "../errors.js";
-import { CacheManager } from "./cache-manager.js";
 import { FilesystemSourcePlugin } from "./filesystem-source-plugin.js";
 import { GitHubResolver } from "./github-resolver.js";
 import { GitHubSourcePlugin } from "./github-source-plugin.js";
@@ -27,12 +26,11 @@ export type SourceResolveOptions = ResolveOptions;
 export class SourceResolver {
   private registry: SourcePluginRegistry;
 
-  constructor(cacheManager?: CacheManager) {
+  constructor() {
     this.registry = new SourcePluginRegistry();
 
     // Register built-in plugins
-    const cache = cacheManager || new CacheManager();
-    this.registry.register(new GitHubSourcePlugin(new GitHubResolver(cache)));
+    this.registry.register(new GitHubSourcePlugin(new GitHubResolver()));
     this.registry.register(new FilesystemSourcePlugin());
   }
 
@@ -47,7 +45,7 @@ export class SourceResolver {
     options?: SourceResolveOptions,
   ): Promise<string> {
     try {
-      // Validate source format first
+      // Intentional: validateSource checks format, then getPlugin resolves — separate concerns
       this.validateSource(source);
 
       const plugin = this.registry.getPlugin(source);
@@ -71,7 +69,7 @@ export class SourceResolver {
         throw error;
       }
 
-      throw ErrorHandler.wrap(
+      throw wrapError(
         error,
         `Failed to resolve source: ${source}`,
         ErrorCategory.NETWORK,
@@ -115,25 +113,5 @@ export class SourceResolver {
   getSourceType(source: string): SourceType | "unknown" {
     const plugin = this.registry.getPlugin(source);
     return plugin ? plugin.getType() : "unknown";
-  }
-
-  /**
-   * Check if a source string is a GitHub repository
-   * @param source - Source string
-   * @returns True if GitHub source
-   * @deprecated Use getSourceType() instead
-   */
-  isGitHubSource(source: string): boolean {
-    return this.getSourceType(source) === "github";
-  }
-
-  /**
-   * Check if a source string is a filesystem path
-   * @param source - Source string
-   * @returns True if filesystem source
-   * @deprecated Use getSourceType() instead
-   */
-  isFilesystemSource(source: string): boolean {
-    return this.getSourceType(source) === "filesystem";
   }
 }

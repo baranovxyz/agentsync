@@ -1,48 +1,24 @@
 /**
  * Global Config Utilities
- * Manages user-level configuration at ~/.agentsync/config.json
+ * Manages user-level configuration at ~/.agents/config.toml
  */
 
 import { readFile } from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { AgentSyncConfig, ToolName } from "../types/index.js";
-import { validateConfig } from "../types/schemas.js";
-import { ensureDir, outputFile, pathExists } from "./fs.js";
+import {
+  parseTomlConfig,
+  tomlToInternalConfig,
+} from "../config/toml-loader.js";
+import { getErrorMessage } from "../core/errors.js";
+import type { AgentSyncConfig } from "../types/index.js";
+import { pathExists } from "./fs.js";
 
 /**
  * Get path to global config file
  */
 export function getGlobalConfigPath(): string {
-  return path.join(os.homedir(), ".agentsync", "config.json");
-}
-
-/**
- * Get path to global rules directory
- */
-export function getGlobalRulesPath(): string {
-  return path.join(os.homedir(), ".agentsync", "rules");
-}
-
-/**
- * Get path to global commands directory
- */
-export function getGlobalCommandsPath(): string {
-  return path.join(os.homedir(), ".agentsync", "commands");
-}
-
-/**
- * Get path to global backups directory
- */
-export function getGlobalBackupsPath(): string {
-  return path.join(os.homedir(), ".agentsync", "backups");
-}
-
-/**
- * Check if global config file exists
- */
-export async function globalConfigExists(): Promise<boolean> {
-  return await pathExists(getGlobalConfigPath());
+  return path.join(os.homedir(), ".agents", "config.toml");
 }
 
 /**
@@ -56,48 +32,18 @@ export async function loadGlobalConfig(): Promise<AgentSyncConfig | null> {
 
   try {
     const content = await readFile(configPath, "utf-8");
-    const config = JSON.parse(content);
-    return validateConfig(config);
+    const toml = parseTomlConfig(content, configPath);
+    return tomlToInternalConfig(toml);
   } catch (error) {
     throw new Error(
-      `Failed to load global config at ${configPath}: ${(error as Error).message}`,
+      `Failed to load global config at ${configPath}: ${getErrorMessage(error)}`,
     );
   }
-}
-
-/**
- * Create default global config structure
- */
-export async function ensureGlobalConfig(tools?: ToolName[]): Promise<void> {
-  const configPath = getGlobalConfigPath();
-  const configDir = path.dirname(configPath);
-
-  // Ensure directory structure
-  await ensureDir(configDir);
-  await ensureDir(path.join(configDir, "rules"));
-  await ensureDir(path.join(configDir, "commands"));
-  await ensureDir(path.join(configDir, "backups"));
-
-  // Check if config already exists
-  if (await pathExists(configPath)) {
-    return;
-  }
-
-  // Create default config
-  const defaultConfig: AgentSyncConfig = {
-    version: "1.0",
-    tools: tools || [],
-    extends: [],
-    mcpServers: {},
-    useSymlinks: true,
-  };
-
-  await outputFile(configPath, JSON.stringify(defaultConfig, null, 2));
 }
 
 /**
  * Get global config directory path
  */
 export function getGlobalConfigDir(): string {
-  return path.join(os.homedir(), ".agentsync");
+  return path.join(os.homedir(), ".agents");
 }

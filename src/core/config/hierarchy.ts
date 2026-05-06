@@ -1,21 +1,26 @@
 /**
  * Config Hierarchy Merging
- * Merges global, project, and local configs with deduplication
+ * Merges global, project (N-layer monorepo chain), and local configs with deduplication
  */
 
 import { readFile } from "node:fs/promises";
 import * as path from "node:path";
-import picocolors from "picocolors";
+import { parse } from "smol-toml";
+import {
+  parseTomlConfig,
+  tomlToInternalConfig,
+} from "../../config/toml-loader.js";
 import type { AgentSyncConfig } from "../../types/index.js";
-import { validateConfig } from "../../types/schemas.js";
+import type { LocalConfig } from "../../types/schemas.js";
+import { validateLocalConfig } from "../../types/schemas.js";
 import { pathExists } from "../../utils/fs.js";
 import {
   getGlobalConfigPath,
   loadGlobalConfig,
 } from "../../utils/global-config.js";
-import { ConfigError } from "../errors.js";
-
-const pc = picocolors;
+import { AgentSyncError, ConfigError, getErrorMessage } from "../errors.js";
+import { discoverConfigChain } from "./discovery.js";
+import { mergeConfigChain } from "./merge.js";
 
 /**
  * Merged config with source tracking for debugging
@@ -23,7 +28,8 @@ const pc = picocolors;
 export interface MergedConfig extends AgentSyncConfig {
   _sources: {
     global?: string;
-    project: string;
+    project: string; // most-specific project config (backward compat)
+    chain: string[]; // all discovered config paths, most-specific first
     local?: string;
   };
   _deduplicationLog: Array<{
@@ -34,177 +40,151 @@ export interface MergedConfig extends AgentSyncConfig {
 }
 
 /**
- * Extract source URL from extends entry (handles both string and object forms)
+ * Parse a single TOML config file into AgentSyncConfig.
+ * Only TOML is supported — no JSON fallback.
  */
-function getSourceUrl(
-  ext:
-    | string
-    | {
-        source: string;
-        namespace: string;
-        include?: string[];
-        exclude?: string[];
-      },
-): string {
-  return typeof ext === "string" ? ext : ext.source;
+async function parseConfigFile(configPath: string): Promise<AgentSyncConfig> {
+  const content = await readFile(configPath, "utf-8");
+
+  try {
+    const toml = parseTomlConfig(content, configPath);
+    return tomlToInternalConfig(toml);
+  } catch (error) {
+    if (error instanceof AgentSyncError) {
+      throw error;
+    }
+    throw new ConfigError(
+      `Invalid config in ${configPath}: ${getErrorMessage(error)}`,
+      configPath,
+      "Check your agentsync.toml for syntax errors",
+    );
+  }
 }
 
 /**
- * Load and merge config hierarchy: global → project → local
- * Returns merged config with deduplication applied
+ * Load and parse the local overrides config at CWD level.
  */
-export async function loadConfigHierarchy(cwd: string): Promise<MergedConfig> {
-  // 1. Load configs
-  const global = await loadGlobalConfig();
-  const projectPath = path.join(cwd, ".agentsync", "config.json");
-
-  if (!(await pathExists(projectPath))) {
-    throw new ConfigError(
-      "Project config not found",
-      projectPath,
-      'Run "agentsync init" to initialize',
-    );
+async function loadLocalConfig(
+  cwd: string,
+): Promise<{ local: LocalConfig | null; localPath: string }> {
+  const localPath = path.join(cwd, "agentsync.local.toml");
+  if (!(await pathExists(localPath))) {
+    return { local: null, localPath };
   }
-
-  let project: AgentSyncConfig;
   try {
-    const projectContent = await readFile(projectPath, "utf-8");
-    project = validateConfig(JSON.parse(projectContent));
+    const localContent = await readFile(localPath, "utf-8");
+    const parsed = parse(localContent);
+    return { local: validateLocalConfig(parsed), localPath };
   } catch (error) {
     throw new ConfigError(
-      `Invalid project config: ${(error as Error).message}`,
-      projectPath,
-      "Check your .agentsync/config.json for syntax errors",
+      `Invalid local config: ${getErrorMessage(error)}`,
+      localPath,
+      "Check your agentsync.local.toml for syntax errors",
     );
   }
+}
 
-  const localPath = path.join(cwd, "agentsync.local.json");
-  let local: Partial<AgentSyncConfig> | null = null;
-  if (await pathExists(localPath)) {
-    try {
-      const localContent = await readFile(localPath, "utf-8");
-      local = JSON.parse(localContent);
-    } catch (error) {
-      throw new ConfigError(
-        `Invalid local config: ${(error as Error).message}`,
-        localPath,
-        "Check your agentsync.local.json for syntax errors",
-      );
-    }
-  }
+/**
+ * Deduplicate extends from global and project configs.
+ * Last occurrence wins; logs duplicates found across layers.
+ */
+function deduplicateExtends(
+  globalExtends: string[],
+  projectExtends: string[],
+): {
+  deduped: string[];
+  log: MergedConfig["_deduplicationLog"];
+} {
+  const log: MergedConfig["_deduplicationLog"] = [];
+  const globalSet = new Set(globalExtends);
+  const projectSet = new Set(projectExtends);
 
-  // 2. Deduplicate extends by source URL
-  const allExtends: Array<
-    | string
-    | {
-        source: string;
-        namespace: string;
-        include?: string[];
-        exclude?: string[];
-      }
-  > = [...(global?.extends || []), ...(project.extends || [])];
-
-  // Group by source URL
-  const bySource = new Map<
-    string,
-    Array<
-      | string
-      | {
-          source: string;
-          namespace: string;
-          include?: string[];
-          exclude?: string[];
-        }
-    >
-  >();
-  for (const ext of allExtends) {
-    const source = getSourceUrl(ext);
-    if (!bySource.has(source)) {
-      bySource.set(source, []);
-    }
-    bySource.get(source)!.push(ext);
-  }
-
-  // Deduplicate: project wins (last occurrence)
-  const deduped: Array<
-    | string
-    | {
-        source: string;
-        namespace: string;
-        include?: string[];
-        exclude?: string[];
-      }
-  > = [];
-  const deduplicationLog: Array<{
-    source: string;
-    kept: "global" | "project";
-    message: string;
-  }> = [];
-
-  for (const [source, defs] of bySource) {
-    if (defs.length > 1) {
-      // Found in both - use project version (last in array)
-      const kept = defs[defs.length - 1];
-      deduped.push(kept);
-
-      console.log(
-        pc.gray(`ℹ️  Preset '${source}' defined in both global and project. `) +
-          pc.cyan("Using project version."),
-      );
-
-      deduplicationLog.push({
+  for (const source of globalSet) {
+    if (projectSet.has(source)) {
+      log.push({
         source,
         kept: "project",
         message: `Preset '${source}' appeared in both global and project configs, project version used`,
       });
-    } else {
-      deduped.push(defs[0]);
     }
   }
 
-  // 3. Merge MCP configuration
-  // Registry: Simple override by key (last level wins)
-  const mergedMcpServers = {
-    ...(global?.mcpServers || {}),
-    ...(project.mcpServers || {}),
-    ...(local?.mcpServers || {}),
+  const allExtends = [...globalExtends, ...projectExtends];
+  const deduped: string[] = [];
+  const added = new Set<string>();
+  for (let i = allExtends.length - 1; i >= 0; i--) {
+    if (!added.has(allExtends[i])) {
+      added.add(allExtends[i]);
+      deduped.unshift(allExtends[i]);
+    }
+  }
+
+  return { deduped, log };
+}
+
+/**
+ * Merge MCP configs across layers and apply local disabling.
+ */
+function mergeMcpConfigs(
+  global: AgentSyncConfig | null,
+  project: AgentSyncConfig,
+  local: LocalConfig | null,
+): Record<string, NonNullable<AgentSyncConfig["mcp"]>[string]> | undefined {
+  const merged = {
+    ...(global?.mcp || {}),
+    ...(project.mcp || {}),
+    ...(local?.mcp || {}),
   };
+  if (local?.mcp_disabled) {
+    for (const name of local.mcp_disabled) {
+      delete merged[name];
+    }
+  }
+  return Object.keys(merged).length > 0 ? merged : undefined;
+}
 
-  // Enabled: Union across levels (accumulates)
-  const allEnabled = [
-    ...(global?.mcpEnabled || []),
-    ...(project.mcpEnabled || []),
-    ...(local?.mcpEnabled || []),
-  ];
-  const mergedMcpEnabled =
-    allEnabled.length > 0 ? [...new Set(allEnabled)] : undefined;
+/**
+ * Load and merge config hierarchy: global → project chain → local
+ * Returns merged config with deduplication applied
+ */
+export async function loadConfigHierarchy(cwd: string): Promise<MergedConfig> {
+  const global = await loadGlobalConfig();
+  const chain = await discoverConfigChain(cwd);
 
-  // Disabled: Union across levels (accumulates)
-  const allDisabled = [
-    ...(global?.mcpDisabled || []),
-    ...(project.mcpDisabled || []),
-    ...(local?.mcpDisabled || []),
-  ];
-  const mergedMcpDisabled =
-    allDisabled.length > 0 ? [...new Set(allDisabled)] : undefined;
+  if (chain.length === 0) {
+    const tomlPath = path.join(cwd, ".agents", "agentsync.toml");
+    throw new ConfigError(
+      "Project config not found",
+      tomlPath,
+      'Run "agentsync init" to initialize',
+    );
+  }
 
-  // 4. Merge final config
-  const merged: MergedConfig = {
-    version: project.version,
+  const parsedConfigs = await Promise.all(
+    chain.map((configPath) => parseConfigFile(configPath)),
+  );
+  const project = mergeConfigChain(parsedConfigs);
+  const projectPath = chain[0];
+
+  const { local, localPath } = await loadLocalConfig(cwd);
+
+  const { deduped, log } = deduplicateExtends(
+    global?.extends || [],
+    project.extends || [],
+  );
+
+  return {
     tools: project.tools || global?.tools || [],
-    extends: deduped as AgentSyncConfig["extends"],
-    mcpServers: mergedMcpServers,
-    mcpEnabled: mergedMcpEnabled,
-    mcpDisabled: mergedMcpDisabled,
-    security: project.security || global?.security,
-    useSymlinks: project.useSymlinks ?? global?.useSymlinks ?? true,
+    extends: deduped,
+    mcp: mergeMcpConfigs(global, project, local),
+    ...(project.profile ? { profile: project.profile } : {}),
+    ...(project.profiles ? { profiles: project.profiles } : {}),
     _sources: {
       ...(global ? { global: getGlobalConfigPath() } : {}),
       project: projectPath,
+      chain,
       ...(local ? { local: localPath } : {}),
     },
-    _deduplicationLog: deduplicationLog,
+    _deduplicationLog: log,
   };
-
-  return merged;
 }

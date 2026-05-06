@@ -4,6 +4,7 @@
  * Replaces execa/spawn pattern with direct function invocation
  */
 
+import { mkdtemp } from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { createProgram } from "../../src/cli.js";
@@ -47,9 +48,9 @@ export async function runCli(
     if (env) {
       for (const [k, v] of Object.entries(env)) {
         if (v === undefined) {
-          delete (process.env as any)[k];
+          delete process.env[k];
         } else {
-          (process.env as any)[k] = v;
+          process.env[k] = v;
         }
       }
     }
@@ -60,9 +61,15 @@ export async function runCli(
     // Capture output if requested
     if (capture) {
       program.configureOutput({
-        writeOut: (s) => (stdout += s),
-        writeErr: (s) => (stderr += s),
-        outputError: (s) => (stderr += s),
+        writeOut: (s) => {
+          stdout += s;
+        },
+        writeErr: (s) => {
+          stderr += s;
+        },
+        outputError: (s) => {
+          stderr += s;
+        },
       });
     }
 
@@ -97,7 +104,7 @@ export async function runCli(
     process.chdir(originalCwd);
     Object.keys(process.env).forEach((key) => {
       if (!(key in savedEnv)) {
-        delete (process.env as any)[key];
+        delete process.env[key];
       }
     });
     Object.assign(process.env, savedEnv);
@@ -112,10 +119,10 @@ export async function runCli(
 export async function withTempProject<T>(
   fn: (ctx: { projectDir: string; homeDir: string }) => Promise<T>,
 ): Promise<T> {
-  const projectDir = await fs.mkdtemp(
+  const projectDir = await mkdtemp(
     path.join(os.tmpdir(), "agentsync-project-"),
   );
-  const homeDir = await fs.mkdtemp(path.join(os.tmpdir(), "agentsync-home-"));
+  const homeDir = await mkdtemp(path.join(os.tmpdir(), "agentsync-home-"));
 
   try {
     return await fn({ projectDir, homeDir });

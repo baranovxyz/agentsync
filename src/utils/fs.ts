@@ -6,13 +6,10 @@
 import { constants } from "node:fs";
 import {
   access,
-  appendFile,
   cp,
   mkdir,
-  mkdtemp,
   readdir,
   readFile,
-  rename,
   rm,
   stat,
   symlink,
@@ -76,7 +73,7 @@ export async function remove(path: string): Promise<void> {
  * Read and parse a JSON file
  * Replacement for fs-extra's readJson()
  */
-export async function readJson<T = unknown>(file: string): Promise<T> {
+async function readJson<T = unknown>(file: string): Promise<T> {
   const content = await readFile(file, "utf-8");
   return JSON.parse(content) as T;
 }
@@ -113,18 +110,11 @@ export async function writeJson(
   await writeFile(file, content, { encoding: options?.encoding || "utf-8" });
 }
 
-// Re-export native APIs that don't need wrappers
-// Note: We explicitly list each export to ensure they're included in the bundle
-export {
-  access,
-  appendFile,
-  mkdtemp,
-  readFile,
-  readdir,
-  rename,
-  stat,
-  symlink,
-  writeFile,
-};
+// Re-export native APIs that don't need wrappers.
+// NOTE: appendFile, mkdtemp, and rename are intentionally excluded — they are
+// not used in src/ and Vite/Rollup tree-shakes their imports while keeping
+// re-export references, causing ReferenceErrors in the bundle. Tests that need
+// them should import directly from "node:fs/promises".
+export { access, readFile, readdir, stat, symlink, writeFile };
 export { constants } from "node:fs";
 export { cp };

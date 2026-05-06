@@ -118,7 +118,7 @@ setup:
       .cursor/.placeholder: ""
   home:
     files:
-      .agentsync/mcp.json: |
+      .agents/mcp.json: |
         {
           "github": {
             "command": "npx",
@@ -127,7 +127,7 @@ setup:
           }
         }
   env:
-    GITHUB_TOKEN: ghp_test
+    GITHUB_TOKEN: github_test_test
 steps:
   - run: ["mcp", "add", "github"]
     expect:
@@ -233,12 +233,12 @@ afterEach(async () => {
 import * as fs from "../../src/utils/fs.js";
 
 it("creates config", async () => {
-  await fs.writeJson(path.join(projectDir, ".agentsync/config.json"), {
+  await fs.writeJson(path.join(projectDir, ".agents/config.json"), {
     mcpServers: ["github"],
   });
 
   const config = await fs.readJson(
-    path.join(projectDir, ".agentsync/config.json")
+    path.join(projectDir, ".agents/config.json")
   );
   expect(config.mcpServers).toContain("github");
 });
@@ -378,8 +378,6 @@ pnpm test -- --coverage
 - **Requirements**: `agentsync-docs/10-requirements/core-requirements.md`
 - **Harness**: `tests/utils/workflow-harness.ts`
 - **Scenarios**: `tests/utils/scenario-runner.ts`
-- **Full Guide**: `TESTING.md`
-
 ## Contributing
 
 When adding tests:
@@ -390,7 +388,7 @@ When adding tests:
 4. Verify test passes locally
 5. Check coverage hasn't dropped
 
-Questions? Check `TESTING.md` or see example tests in:
+See example tests in:
 
 - `tests/unit/commands/mcp/sync.test.ts`
 - `tests/workflows/mcp-basic.test.ts`

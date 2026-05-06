@@ -8,12 +8,27 @@ AgentSync supports multiple AI coding tools, each with different capabilities fo
 
 ## Nested Directory Support
 
-| Tool        | Rules | Commands | Notes                                        |
-| ----------- | ----- | -------- | -------------------------------------------- |
-| Cursor      | ✅    | ✅       | Subdirectories create namespaced commands    |
-| Claude Code | ✅    | ✅       | Supports nested with namespace labeling      |
-| RooCode     | ✅    | ✅       | Recursive reading (max depth: 5)             |
-| Cline       | ❌    | ❌       | Flat structure only, no subdirectory support |
+| Tool        | Rules | Commands | Notes                                                   |
+| ----------- | ----- | -------- | ------------------------------------------------------- |
+| Cursor      | ✅    | ✅       | Subdirectories create namespaced commands               |
+| Claude Code | ✅    | ✅       | Supports nested with namespace labeling                 |
+| RooCode     | ✅    | ✅       | Recursive reading (max depth: 5)                        |
+| Cline       | ✅    | ❌       | Flat `.clinerules/`, supports `paths` frontmatter       |
+| OpenCode    | ✅    | ✅       | Reads `.agents/` natively                               |
+| Codex       | ✅    | ❌       | Reads `.agents/skills/` natively                        |
+| Gemini      | ✅    | ❌       | Reads `.agents/skills/` natively                        |
+| Copilot     | ✅    | ❌       | `.github/skills/`, `.github/agents/`                    |
+| Amp         | ✅    | ✅       | Reads `.agents/` natively (same convention)             |
+| Goose       | ✅    | ❌       | Reads `.agents/skills/` natively                        |
+| Aider       | ❌    | ❌       | AGENTS.md only, no file structure                       |
+| Amazon Q    | ✅    | ❌       | Reads `.agents/skills/` natively                        |
+| Augment     | ✅    | ✅       | Reads `.agents/` natively, rules in `.augment/rules/`   |
+| Kiro        | ✅    | ❌       | Reads `.agents/` natively, steering in `.kiro/steering/`|
+| OpenHands   | ✅    | ❌       | Reads `.agents/skills/` natively                        |
+| Junie       | ✅    | ❌       | Reads `.agents/` natively, skills in `.junie/skills/`   |
+| Crush       | ❌    | ❌       | MCP only, no file structure                             |
+| Kilocode    | ✅    | ❌       | Reads `.agents/` natively, rules in `.kilocode/rules/`  |
+| Qwen        | ✅    | ❌       | Reads `.agents/` natively                               |
 
 ## File Extension Requirements
 
@@ -149,20 +164,36 @@ Due to cross-platform compatibility issues with colons (`:`) in filenames, Agent
 
 **Special Features**:
 
-- AGENTS.md support via symlink (`.clinerules/AGENTS.md` → `../AGENTS.md`)
-- No command file support (agentic/action-based, not command-driven)
-- Modular markdown files (rules, memory, directory-structure)
+- AGENTS.md read natively (no symlink needed)
+- Workflows in `.clinerules/workflows/` (not AgentSync commands)
+- YAML frontmatter with `paths` field for conditional rules
+- MCP is global-only (`~/.cline/data/settings/cline_mcp_settings.json`)
 
 ## MCP Configuration
 
-All tools use the standard `mcpServers` format in their respective config files:
+MCP configuration varies by tool:
 
-| Tool        | Location                  | Format                          |
-| ----------- | ------------------------- | ------------------------------- |
-| Cursor      | `.cursor/mcp.json`        | `{ "mcpServers": {} }`          |
-| Claude Code | `.claude/mcp.json`        | Standard MCP format             |
-| RooCode     | `.roo/mcp.json`           | Enhanced with env interpolation |
-| Cline       | `cline_mcp_settings.json` | VSCode global storage           |
+| Tool        | Location                  | Format                                                  |
+| ----------- | ------------------------- | ------------------------------------------------------- |
+| Cursor      | `.cursor/mcp.json`        | JSON `{ "mcpServers": {} }`                             |
+| Claude Code | `.mcp.json`               | JSON `{ "mcpServers": {} }`                             |
+| RooCode     | `.roo/mcp.json`           | JSON, enhanced with env interpolation                   |
+| Cline       | N/A (global only)         | Global: `~/.cline/data/settings/cline_mcp_settings.json`|
+| OpenCode    | `opencode.json`           | JSON `{ "mcp": {} }` (custom format)                    |
+| Codex       | `.codex/config.toml`      | TOML `[mcp_servers]`                                    |
+| Gemini      | `.gemini/settings.json`   | JSON `{ "mcpServers": {} }` (merged)                    |
+| Copilot     | `.vscode/mcp.json`        | JSON `{ "servers": {} }` (VS Code format)               |
+| Amp         | `.amp/settings.json`      | JSON `{ "mcpServers": {} }` (merged)                    |
+| Goose       | `.goose/config.yaml`      | YAML `extensions:` (stdio/sse types)                    |
+| Aider       | N/A                       | No MCP support                                          |
+| Amazon Q    | `.amazonq/mcp.json`       | JSON `{ "mcpServers": {} }`                             |
+| Augment     | `.augment/settings.json`  | JSON `{ "mcpServers": {} }` (merged)                    |
+| Kiro        | `.kiro/settings/mcp.json` | JSON `{ "mcpServers": {} }`                             |
+| OpenHands   | `.openhands/mcp.json`     | JSON split-array (`stdio_servers` / `sse_servers`)      |
+| Junie       | `.junie/mcp/mcp.json`     | JSON `{ "mcpServers": {} }`                             |
+| Crush       | `crush.json`              | JSON `{ "mcp": {} }` (non-standard key)                 |
+| Kilocode    | `.kilocode/mcp.json`      | JSON `{ "mcpServers": {} }`                             |
+| Qwen        | `.qwen/.mcp.json`         | JSON `{ "mcpServers": {} }`                             |
 
 **Common Features**:
 
@@ -174,7 +205,8 @@ All tools use the standard `mcpServers` format in their respective config files:
 
 - **Cursor**: SSE transport for remote servers, `${workspaceFolder}` substitution
 - **RooCode**: Runtime version managers (mise, asdf), `${env:VAR}` interpolation
-- **Cline**: Auto-approve per tool, timeout settings
+- **Cline**: Global-only MCP (no project-level config)
+- **Goose**: YAML config with `type: stdio` / `type: sse`, field mapping (`cmd`, `envs`, `uri`)
 
 ## Frontmatter Support
 
@@ -185,7 +217,7 @@ All tools use the standard `mcpServers` format in their respective config files:
 | Cursor      | ✅ YAML     | description, globs, alwaysApply, tags, priority, version |
 | Claude Code | ❌          | Plain markdown only                                      |
 | RooCode     | ❌          | Plain markdown only                                      |
-| Cline       | ❌          | Plain markdown only                                      |
+| Cline       | ✅ YAML     | paths (glob patterns for conditional activation)         |
 
 ### Command Files
 
@@ -198,16 +230,14 @@ All tools use the standard `mcpServers` format in their respective config files:
 
 ## References
 
-For detailed information about each tool's configuration:
-
-- **Cursor**: [research/cursor.md](../research/cursor.md)
-- **Claude Code**: [research/claude-code.md](../research/claude-code.md)
-- **RooCode**: [research/roo-code.md](../research/roo-code.md)
-- **Cline**: [research/cline.md](../research/cline.md)
-
 Official documentation:
 
 - [Cursor Rules](https://cursor.com/docs/context/rules)
 - [Claude Code Settings](https://docs.claude.com/en/docs/claude-code/settings)
 - [RooCode Custom Instructions](https://docs.roocode.com/features/custom-instructions)
-- [Cline Rules](https://cline.ghost.io/cline-rules/) (rules only, no command support)
+- [Cline Rules](https://cline.ghost.io/cline-rules/)
+- [Codex MCP](https://developers.openai.com/codex/mcp)
+- [Amp Manual](https://ampcode.com/manual)
+- [Goose](https://github.com/block/goose)
+- [Aider](https://aider.chat)
+- [Amazon Q CLI](https://docs.aws.amazon.com/amazonq/latest/qdeveloper-ug/command-line.html)

@@ -4,7 +4,7 @@
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-github"],
       "env": {
-        "GITHUB_TOKEN": "ghp_test_token_123456789"
+        "GITHUB_TOKEN": "github_test_test_token_123456789"
       }
     },
     "postgres": {

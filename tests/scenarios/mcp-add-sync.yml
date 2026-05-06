@@ -5,7 +5,7 @@ setup:
       .cursor/.placeholder: ""
   home:
     files:
-      .agentsync/mcp.json: |
+      .agents/mcp.json: |
         {
           "github": {
             "command": "npx",
@@ -23,7 +23,7 @@ setup:
           }
         }
   env:
-    GITHUB_TOKEN: ghp_test_token_123
+    GITHUB_TOKEN: github_test_test_token_123
     DATABASE_URL: postgresql://localhost/testdb
 steps:
   - run: ["mcp", "add", "github"]

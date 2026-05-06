@@ -45,6 +45,7 @@ lerna-debug.log*
 .agentsync/backups/
 *.backup
 agentsync.local.json
+agentsync.local.toml
 
 # Tool outputs (regenerated on sync)
 .cursor/rules/
@@ -53,7 +54,6 @@ agentsync.local.json
 .claude/rules/
 .claude/commands/
 .claude/mcp.json
-CLAUDE.md
 .clinerules/*.md
 .clinerules/AGENTS.md
 cline_mcp_settings.json
@@ -74,6 +74,7 @@ cline_mcp_settings.json
 # Test artifacts
 tests/fixtures/output/
 tests/e2e/tmp/
+.temp-*/
 
 # OS Files
 Thumbs.db
@@ -102,6 +103,8 @@ desktop.ini
 # Internal preparation artifacts
 research/
 bugs/
+docs/research/
+docs/superpowers/
 
 # Ignore all root .md files except essential ones
 /*.md
@@ -112,6 +115,6 @@ bugs/
 !CODE_OF_CONDUCT.md
 !SECURITY.md
 !ARCHITECTURE.md
-!REQUIREMENTS.md
+!CLAUDE.md
 !TESTING.md
 !AGENTS.md

@@ -5,15 +5,7 @@
 
 import type { z } from "zod";
 
-// Error severity levels
-export enum ErrorSeverity {
-  LOW = "low",
-  MEDIUM = "medium",
-  HIGH = "high",
-  CRITICAL = "critical",
-}
-
-// Error categories for better classification
+// Actively used — imported by source-resolver.ts and used in error constructors
 export enum ErrorCategory {
   SECURITY = "security",
   VALIDATION = "validation",
@@ -26,90 +18,37 @@ export enum ErrorCategory {
   UNKNOWN = "unknown",
 }
 
-// Base error metadata interface
-export interface ErrorMetadata {
-  timestamp: Date;
-  category: ErrorCategory;
-  severity: ErrorSeverity;
-  context?: Record<string, unknown>;
-  stackTrace?: string;
-  suggestion?: string;
-  code?: string;
-}
-
 /**
  * Base AgentSync Error Class
  */
 export class AgentSyncError extends Error {
-  public readonly metadata: ErrorMetadata;
+  public readonly category: ErrorCategory;
+  public code?: string;
+  public suggestion?: string;
   public readonly originalError?: Error;
+  public context?: Record<string, unknown>;
 
   constructor(
     message: string,
     category: ErrorCategory = ErrorCategory.UNKNOWN,
-    severity: ErrorSeverity = ErrorSeverity.MEDIUM,
-    originalError?: Error,
-    context?: Record<string, unknown>,
+    options?: {
+      code?: string;
+      suggestion?: string;
+      originalError?: Error;
+      context?: Record<string, unknown>;
+    },
   ) {
     super(message);
     this.name = this.constructor.name;
-    this.originalError = originalError;
+    this.category = category;
+    this.code = options?.code;
+    this.suggestion = options?.suggestion;
+    this.originalError = options?.originalError;
+    this.context = options?.context;
 
-    this.metadata = {
-      timestamp: new Date(),
-      category,
-      severity,
-      context,
-      stackTrace: this.stack,
-    };
-
-    // Capture stack trace
     if (Error.captureStackTrace) {
       Error.captureStackTrace(this, this.constructor);
     }
-  }
-
-  /**
-   * Get a user-friendly error message
-   */
-  getUserMessage(): string {
-    if (this.metadata.suggestion) {
-      return `${this.message}\n💡 Suggestion: ${this.metadata.suggestion}`;
-    }
-    return this.message;
-  }
-
-  /**
-   * Get detailed error information for logging
-   */
-  getDetails(): Record<string, unknown> {
-    return {
-      name: this.name,
-      message: this.message,
-      ...this.metadata,
-      originalError: this.originalError?.message,
-    };
-  }
-
-  /**
-   * Check if error is recoverable
-   */
-  isRecoverable(): boolean {
-    return this.metadata.severity !== ErrorSeverity.CRITICAL;
-  }
-}
-
-/**
- * Security-related errors
- */
-export class SecurityError extends AgentSyncError {
-  constructor(
-    message: string,
-    severity: ErrorSeverity = ErrorSeverity.HIGH,
-    context?: Record<string, unknown>,
-  ) {
-    super(message, ErrorCategory.SECURITY, severity, undefined, context);
-    this.metadata.code = "SECURITY_VIOLATION";
   }
 }
 
@@ -124,19 +63,14 @@ export class ValidationError extends AgentSyncError {
     validationErrors?: z.ZodError,
     context?: Record<string, unknown>,
   ) {
-    super(
-      message,
-      ErrorCategory.VALIDATION,
-      ErrorSeverity.MEDIUM,
-      undefined,
+    super(message, ErrorCategory.VALIDATION, {
+      code: "VALIDATION_FAILED",
       context,
-    );
+    });
     this.validationErrors = validationErrors;
-    this.metadata.code = "VALIDATION_FAILED";
-
     if (validationErrors) {
-      this.metadata.context = {
-        ...this.metadata.context,
+      this.context = {
+        ...this.context,
         validationIssues: validationErrors.issues,
       };
     }
@@ -159,15 +93,22 @@ export class ValidationError extends AgentSyncError {
  * File system errors
  */
 export class FileSystemError extends AgentSyncError {
-  constructor(message: string, filePath?: string, originalError?: Error) {
-    super(
-      message,
-      ErrorCategory.FILE_SYSTEM,
-      ErrorSeverity.MEDIUM,
+  constructor(
+    message: string,
+    filePath?: string,
+    originalError?: Error,
+    suggestion?: string,
+  ) {
+    super(message, ErrorCategory.FILE_SYSTEM, {
+      code: "FS_ERROR",
       originalError,
-      filePath ? { filePath } : undefined,
-    );
-    this.metadata.code = "FS_ERROR";
+      suggestion:
+        suggestion ??
+        (filePath
+          ? `Check that "${filePath}" exists and is readable`
+          : undefined),
+      context: filePath ? { filePath } : undefined,
+    });
   }
 }
 
@@ -176,15 +117,11 @@ export class FileSystemError extends AgentSyncError {
  */
 export class ConfigError extends AgentSyncError {
   constructor(message: string, configPath?: string, suggestion?: string) {
-    super(
-      message,
-      ErrorCategory.CONFIG,
-      ErrorSeverity.MEDIUM,
-      undefined,
-      configPath ? { configPath } : undefined,
-    );
-    this.metadata.code = "CONFIG_ERROR";
-    this.metadata.suggestion = suggestion;
+    super(message, ErrorCategory.CONFIG, {
+      code: "CONFIG_ERROR",
+      suggestion,
+      context: configPath ? { configPath } : undefined,
+    });
   }
 }
 
@@ -198,99 +135,40 @@ export class ParseError extends AgentSyncError {
     line?: number,
     column?: number,
     originalError?: Error,
+    suggestion?: string,
   ) {
-    super(message, ErrorCategory.PARSE, ErrorSeverity.MEDIUM, originalError, {
-      filePath,
-      line,
-      column,
+    super(message, ErrorCategory.PARSE, {
+      code: "PARSE_ERROR",
+      originalError,
+      suggestion:
+        suggestion ??
+        (filePath
+          ? `Check the syntax of "${filePath}"${line ? ` at line ${line}` : ""}`
+          : undefined),
+      context: { filePath, line, column },
     });
-    this.metadata.code = "PARSE_ERROR";
-  }
-}
-
-/**
- * Permission errors
- */
-export class PermissionError extends AgentSyncError {
-  constructor(message: string, resource?: string, requiredPermission?: string) {
-    super(message, ErrorCategory.PERMISSION, ErrorSeverity.HIGH, undefined, {
-      resource,
-      requiredPermission,
-    });
-    this.metadata.code = "PERMISSION_DENIED";
   }
 }
 
 /**
  * Network/Sync errors
  */
+// Never instantiated directly — used only in instanceof checks for exit code classification
 export class SyncError extends AgentSyncError {
   constructor(
     message: string,
     endpoint?: string,
     statusCode?: number,
     originalError?: Error,
+    suggestion?: string,
   ) {
-    super(message, ErrorCategory.SYNC, ErrorSeverity.MEDIUM, originalError, {
-      endpoint,
-      statusCode,
-    });
-    this.metadata.code = "SYNC_FAILED";
-  }
-}
-
-/**
- * Interactive Selection errors
- */
-export class InteractiveSelectionError extends AgentSyncError {
-  constructor(
-    message: string,
-    severity: ErrorSeverity = ErrorSeverity.MEDIUM,
-    context?: Record<string, unknown>,
-  ) {
-    super(message, ErrorCategory.CONFIG, severity, undefined, context);
-    this.metadata.code = "INTERACTIVE_SELECTION_ERROR";
-    this.metadata.suggestion =
-      "Check your interactive selection configuration and try again";
-  }
-}
-
-/**
- * Selection validation errors
- */
-export class SelectionValidationError extends InteractiveSelectionError {
-  public readonly validationErrors?: Array<{ path: string[]; message: string }>;
-
-  constructor(
-    message: string,
-    validationErrors?: Array<{ path: string[]; message: string }>,
-    context?: Record<string, unknown>,
-  ) {
-    super(message, ErrorSeverity.MEDIUM, context);
-    this.metadata.category = ErrorCategory.VALIDATION;
-    this.metadata.code = "SELECTION_VALIDATION_FAILED";
-    this.validationErrors = validationErrors;
-
-    if (validationErrors) {
-      this.metadata.context = {
-        ...this.metadata.context,
-        validationIssues: validationErrors,
-      };
-    }
-
-    this.metadata.suggestion =
-      "Review your selection patterns and ensure they match available files";
-  }
-
-  /**
-   * Get formatted validation errors
-   */
-  getFormattedErrors(): string[] {
-    if (!this.validationErrors) return [];
-
-    return this.validationErrors.map((issue) => {
-      const path = issue.path.join(".");
-      return `${path}: ${issue.message}`;
+    super(message, ErrorCategory.SYNC, {
+      code: "SYNC_FAILED",
+      originalError,
+      suggestion:
+        suggestion ??
+        "Check network connectivity and retry with: agentsync sync",
+      context: { endpoint, statusCode },
     });
   }
 }
@@ -298,75 +176,31 @@ export class SelectionValidationError extends InteractiveSelectionError {
 /**
  * Source resolution errors
  */
-export class SourceResolutionError extends InteractiveSelectionError {
-  constructor(message: string, source?: string, originalError?: Error) {
-    super(message, ErrorSeverity.MEDIUM, {
-      source,
-      originalError: originalError?.message,
+export class SourceResolutionError extends AgentSyncError {
+  constructor(
+    message: string,
+    source?: string,
+    originalError?: Error,
+    suggestion?: string,
+  ) {
+    super(message, ErrorCategory.NETWORK, {
+      code: "SOURCE_RESOLUTION_FAILED",
+      originalError,
+      suggestion:
+        suggestion ??
+        (source
+          ? `Check network connectivity, or remove with: agentsync config rm preset ${source}`
+          : "Verify the source URL and your network connection"),
+      context: { source, originalError: originalError?.message },
     });
-    this.metadata.category = ErrorCategory.NETWORK;
-    this.metadata.code = "SOURCE_RESOLUTION_FAILED";
-
-    // Set originalError through the parent constructor by recreating the error
-    if (originalError) {
-      Object.defineProperty(this, "originalError", {
-        value: originalError,
-        writable: false,
-        enumerable: false,
-        configurable: false,
-      });
-    }
-
-    this.metadata.suggestion =
-      "Verify the source URL and your network connection";
   }
 }
 
-/**
- * User preset registry errors
- */
-export class UserPresetRegistryError extends InteractiveSelectionError {
-  constructor(message: string, operation?: string, presetName?: string) {
-    super(message, ErrorSeverity.MEDIUM, {
-      operation,
-      presetName,
-    });
-    this.metadata.category = ErrorCategory.FILE_SYSTEM;
-    this.metadata.code = "USER_PRESET_REGISTRY_ERROR";
-
-    if (operation === "add") {
-      this.metadata.suggestion =
-        "Check if the preset name already exists and ensure valid preset data";
-    } else if (operation === "get" || operation === "remove") {
-      this.metadata.suggestion =
-        "Verify the preset name exists in your registry";
-    } else {
-      this.metadata.suggestion =
-        "Check your user preset registry file permissions and format";
-    }
-  }
+/** Extract a human-readable message from an unknown caught value. */
+export function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
-/**
- * Selective loading errors
- */
-export class SelectiveLoadingError extends InteractiveSelectionError {
-  constructor(message: string, presetSource?: string, selectionType?: string) {
-    super(message, ErrorSeverity.MEDIUM, {
-      presetSource,
-      selectionType,
-    });
-    this.metadata.category = ErrorCategory.PARSE;
-    this.metadata.code = "SELECTIVE_LOADING_FAILED";
-
-    this.metadata.suggestion =
-      "Verify your selection patterns match available content in the preset";
-  }
-}
-
-/**
- * Error handler utility class
- */
 /**
  * Error handler utility - wrap error with additional context
  */
@@ -377,22 +211,24 @@ export function wrapError(
   context?: Record<string, unknown>,
 ): AgentSyncError {
   if (error instanceof AgentSyncError) {
-    // Add additional context to existing error
-    error.metadata.context = {
-      ...error.metadata.context,
-      ...context,
-      wrappedMessage: message,
-    };
-    return error;
+    const wrapped = new AgentSyncError(message, error.category, {
+      originalError: error,
+      context: {
+        ...(error.context || {}),
+        ...context,
+        wrappedMessage: message,
+      },
+    });
+    wrapped.code = error.code;
+    wrapped.suggestion = error.suggestion;
+    return wrapped;
   }
 
   if (error instanceof Error) {
     return new AgentSyncError(
       `${message}: ${error.message}`,
       category || ErrorCategory.UNKNOWN,
-      ErrorSeverity.MEDIUM,
-      error,
-      context,
+      { originalError: error, context },
     );
   }
 
@@ -400,183 +236,78 @@ export function wrapError(
   return new AgentSyncError(
     `${message}: ${String(error)}`,
     category || ErrorCategory.UNKNOWN,
-    ErrorSeverity.MEDIUM,
-    undefined,
-    { ...context, originalValue: error },
+    { context: { ...context, originalValue: error } },
   );
 }
 
 /**
- * Check if an error is a specific type
+ * Agent-optimized exit codes (0-4).
+ * Agents read $? as fast path, then parse JSON for details.
+ *
+ * 0 = success, 1 = partial (some work done), 2 = user error (bad input),
+ * 3 = system error (filesystem, internal), 4 = transient (network, retry safe)
  */
-export function isErrorType<T extends AgentSyncError>(
-  error: unknown,
-  errorClass: new (...args: unknown[]) => T,
-): error is T {
-  return error instanceof errorClass;
-}
-
-const MAX_STACK_DEPTH = 10;
+export const ExitCode = {
+  SUCCESS: 0,
+  PARTIAL: 1,
+  USER_ERROR: 2,
+  SYSTEM_ERROR: 3,
+  TRANSIENT_ERROR: 4,
+} as const;
 
 /**
- * Get root cause of an error chain
+ * Map a status + optional error to an exit code.
+ * Used by the CLI error boundary to set process.exitCode.
  */
-export function getRootCause(error: AgentSyncError): Error {
-  let current: Error | undefined = error;
-  let depth = 0;
+export function statusToExitCode(
+  status: "success" | "partial" | "error",
+  error?: unknown,
+): number {
+  if (status === "success") return ExitCode.SUCCESS;
+  if (status === "partial") return ExitCode.PARTIAL;
+  // status === "error" — classify by error type
+  if (error instanceof ConfigError) return ExitCode.USER_ERROR;
+  if (error instanceof ValidationError) return ExitCode.USER_ERROR;
+  if (error instanceof ParseError) return ExitCode.USER_ERROR;
+  if (error instanceof SyncError) return ExitCode.TRANSIENT_ERROR;
+  if (error instanceof SourceResolutionError) return ExitCode.TRANSIENT_ERROR;
+  return ExitCode.SYSTEM_ERROR;
+}
 
-  while (
-    current instanceof AgentSyncError &&
-    current.originalError &&
-    depth < MAX_STACK_DEPTH
-  ) {
-    current = current.originalError;
-    depth++;
+/**
+ * Format an error for the process safety net handlers (uncaughtException,
+ * unhandledRejection). Uses CliResult envelope in JSON mode.
+ */
+export function formatSafetyNetError(error: unknown, isJson: boolean): string {
+  if (isJson) {
+    const errorObj = {
+      version: "1.0" as const,
+      status: "error" as const,
+      command: "unknown",
+      data: {},
+      errors: [
+        {
+          code:
+            error instanceof AgentSyncError
+              ? error.code || "UNKNOWN_ERROR"
+              : "UNKNOWN_ERROR",
+          message: error instanceof Error ? error.message : String(error),
+          suggestion:
+            error instanceof AgentSyncError ? error.suggestion : undefined,
+          retryable:
+            error instanceof SyncError ||
+            error instanceof SourceResolutionError,
+        },
+      ],
+    };
+    return JSON.stringify(errorObj);
   }
 
-  return current || error;
-}
-
-/**
- * Format error for console output
- */
-export function formatError(
-  error: AgentSyncError,
-  verbose: boolean = false,
-): string {
-  const lines: string[] = [];
-
-  // Main error message
-  lines.push(`❌ ${error.getUserMessage()}`);
-
-  // Add category and severity
-  if (verbose) {
-    lines.push(`   Category: ${error.metadata.category}`);
-    lines.push(`   Severity: ${error.metadata.severity}`);
-
-    // Add context if available
-    if (error.metadata.context) {
-      lines.push("   Context:");
-      Object.entries(error.metadata.context).forEach(([key, value]) => {
-        lines.push(`     ${key}: ${JSON.stringify(value)}`);
-      });
-    }
-
-    // Add validation errors if present
-    if (error instanceof ValidationError && error.validationErrors) {
-      lines.push("   Validation Errors:");
-      error.getFormattedErrors().forEach((err) => {
-        lines.push(`     - ${err}`);
-      });
-    }
-
-    // Add stack trace
-    if (error.stack) {
-      lines.push("   Stack Trace:");
-      lines.push(
-        error.stack
-          .split("\n")
-          .map((line) => `     ${line}`)
-          .join("\n"),
-      );
-    }
+  if (error instanceof AgentSyncError && error.suggestion) {
+    return `\n${error.message}\nSuggestion: ${error.suggestion}\n`;
   }
-
-  return lines.join("\n");
-}
-
-/**
- * Create a safe error object for serialization
- */
-export function serializeError(error: AgentSyncError): Record<string, unknown> {
-  return {
-    name: error.name,
-    message: error.message,
-    metadata: {
-      ...error.metadata,
-      timestamp: error.metadata.timestamp.toISOString(),
-      stackTrace: undefined, // Don't include stack in serialization
-    },
-    originalError: error.originalError
-      ? {
-          name: error.originalError.name,
-          message: error.originalError.message,
-        }
-      : undefined,
-  };
-}
-
-/**
- * Error handler namespace (backwards compatibility)
- */
-export const ErrorHandler = {
-  wrap: wrapError,
-  isErrorType: isErrorType,
-  getRootCause: getRootCause,
-  format: formatError,
-  serialize: serializeError,
-};
-
-/**
- * Error recovery strategies
- */
-export interface RecoveryStrategy {
-  canRecover(error: AgentSyncError): boolean;
-  recover(error: AgentSyncError): Promise<void>;
-  description: string;
-}
-
-/**
- * Retry strategy for recoverable errors
- */
-export class RetryStrategy implements RecoveryStrategy {
-  constructor(
-    private maxRetries: number = 3,
-    private delayMs: number = 1000,
-    private backoffMultiplier: number = 2,
-  ) {}
-
-  canRecover(error: AgentSyncError): boolean {
-    return (
-      error.isRecoverable() &&
-      [
-        ErrorCategory.NETWORK,
-        ErrorCategory.SYNC,
-        ErrorCategory.FILE_SYSTEM,
-      ].includes(error.metadata.category)
-    );
+  if (error instanceof Error) {
+    return `\nFatal: ${error.message}\n`;
   }
-
-  async recover(_error: AgentSyncError): Promise<void> {
-    let delay = this.delayMs;
-
-    for (let i = 0; i < this.maxRetries; i++) {
-      await new Promise((resolve) => setTimeout(resolve, delay));
-      delay *= this.backoffMultiplier;
-    }
-  }
-
-  get description(): string {
-    return `Retry up to ${this.maxRetries} times with exponential backoff`;
-  }
+  return `\nFatal: ${String(error)}\n`;
 }
-
-export default {
-  AgentSyncError,
-  SecurityError,
-  ValidationError,
-  FileSystemError,
-  ConfigError,
-  ParseError,
-  PermissionError,
-  SyncError,
-  InteractiveSelectionError,
-  SelectionValidationError,
-  SourceResolutionError,
-  UserPresetRegistryError,
-  SelectiveLoadingError,
-  ErrorHandler,
-  ErrorSeverity,
-  ErrorCategory,
-  RetryStrategy,
-};

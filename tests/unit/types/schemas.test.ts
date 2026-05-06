@@ -10,18 +10,25 @@ import {
   type ExtendsEntry,
   normalizeExtends,
   safeParseLocalConfig,
-  safeParseUserConfig,
-  UserConfigSchema,
   validateConfig,
   validateLocalConfig,
   validateNamespace,
-  validateUserConfig,
-  validateUserPresetEntry,
 } from "../../../src/types/schemas.js";
 
 describe("ExtendsEntry type", () => {
   describe("normalizeExtends function", () => {
-    it("requires explicit namespace in object format", () => {
+    it("accepts string format and derives namespace", () => {
+      const extends_ = ["github:company/standards"];
+      const result = normalizeExtends(extends_);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toEqual({
+        source: "github:company/standards",
+        namespace: "company-standards",
+      });
+    });
+
+    it("accepts legacy object format with explicit namespace", () => {
       const extends_ = [
         {
           source: "github:company/standards",
@@ -67,25 +74,32 @@ describe("ExtendsEntry type", () => {
       expect(result).toHaveLength(0);
     });
 
-    it("throws error when namespace is missing", () => {
+    it("derives namespace from object format when namespace is missing", () => {
       const extends_ = [
         {
           source: "github:acme-corp/backend-rules",
-          include: ["**/*.ts"],
         },
       ];
 
-      expect(() => normalizeExtends(extends_)).toThrow(
-        /Namespace is required for preset/,
-      );
+      const result = normalizeExtends(extends_);
+      expect(result).toHaveLength(1);
+      expect(result[0].namespace).toBe("acme-corp-backend-rules");
     });
 
-    it("throws error when string format is used", () => {
-      const extends_ = ["github:company/standards"];
+    it("derives namespace from various string formats", () => {
+      const testCases = [
+        { input: "github:company/standards", expected: "company-standards" },
+        { input: "github:company/standards@v2", expected: "company-standards" },
+        { input: "fs:./local-presets", expected: "local-presets" },
+        { input: "fs:C:\\Users\\me\\.cursor", expected: "cursor" },
+        { input: "/absolute/path", expected: "path" },
+        { input: "./relative/path", expected: "path" },
+      ];
 
-      expect(() => normalizeExtends(extends_)).toThrow(
-        /String format for extends is deprecated/,
-      );
+      for (const { input, expected } of testCases) {
+        const result = normalizeExtends([input]);
+        expect(result[0].namespace).toBe(expected);
+      }
     });
 
     it("throws error when source is missing", () => {
@@ -96,9 +110,7 @@ describe("ExtendsEntry type", () => {
       ];
 
       // biome-ignore lint/suspicious/noExplicitAny: Testing runtime error for invalid input
-      expect(() => normalizeExtends(extends_ as any)).toThrow(
-        "Source is required in extends entry",
-      );
+      expect(() => normalizeExtends(extends_ as any)).toThrow();
     });
   });
 
@@ -141,324 +153,72 @@ describe("ExtendsEntry type", () => {
   });
 
   describe("AgentSyncConfig schema validation", () => {
-    it("validates config with include/exclude fields", () => {
+    it("validates config with flat string extends", () => {
       const config = {
-        version: "1.0",
-        extends: [
-          {
-            source: "github:company/standards",
-            namespace: "company",
-            include: ["**/*.ts"],
-            exclude: ["**/*.test.ts"],
-          },
-        ],
+        extends: ["github:company/standards"],
         tools: ["cursor"],
       };
 
       const result = validateConfig(config);
 
       expect(result.extends).toHaveLength(1);
-      expect(result.extends?.[0]).toEqual({
-        source: "github:company/standards",
-        namespace: "company",
-        include: ["**/*.ts"],
-        exclude: ["**/*.test.ts"],
-      });
+      expect(result.extends?.[0]).toBe("github:company/standards");
     });
 
-    it("requires explicit namespace for all extends entries", () => {
+    it("validates config with multiple flat string extends", () => {
       const config = {
-        version: "1.0",
-        extends: [
-          {
-            source: "github:company/base-standards",
-            namespace: "company",
-          },
-          {
-            source: "github:team/backend",
-            namespace: "backend-team",
-            include: ["**/*.ts"],
-          },
-        ],
+        extends: ["github:company/base-standards", "fs:./local-rules"],
         tools: ["cursor"],
       };
 
       const result = validateConfig(config);
 
       expect(result.extends).toHaveLength(2);
-      expect(result.extends?.[0]).toEqual({
-        source: "github:company/base-standards",
-        namespace: "company",
-      });
-      expect(result.extends?.[1]).toEqual({
-        source: "github:team/backend",
-        namespace: "backend-team",
-        include: ["**/*.ts"],
-      });
+      expect(result.extends?.[0]).toBe("github:company/base-standards");
+      expect(result.extends?.[1]).toBe("fs:./local-rules");
     });
 
-    it("validates config with include only", () => {
+    it("validates config with empty extends", () => {
       const config = {
-        version: "1.0",
-        extends: [
-          {
-            source: "github:company/standards",
-            namespace: "company",
-            include: ["**/*.ts"],
-          },
-        ],
+        extends: [],
         tools: ["cursor"],
       };
 
       const result = validateConfig(config);
-
-      expect(result.extends).toHaveLength(1);
-      expect(result.extends?.[0]).toEqual({
-        source: "github:company/standards",
-        namespace: "company",
-        include: ["**/*.ts"],
-      });
+      expect(result.extends).toEqual([]);
     });
 
-    it("validates config with exclude only", () => {
+    it("validates config without extends", () => {
       const config = {
-        version: "1.0",
-        extends: [
-          {
-            source: "github:company/standards",
-            namespace: "company",
-            exclude: ["**/*.test.ts"],
-          },
-        ],
         tools: ["cursor"],
       };
 
       const result = validateConfig(config);
-
-      expect(result.extends).toHaveLength(1);
-      expect(result.extends?.[0]).toEqual({
-        source: "github:company/standards",
-        namespace: "company",
-        exclude: ["**/*.test.ts"],
-      });
+      expect(result.extends).toBeUndefined();
     });
   });
 
   describe("ExtendsEntry type compatibility", () => {
-    it("supports source, namespace, include, and exclude fields", () => {
-      const entry: ExtendsEntry = {
-        source: "github:company/standards",
-        namespace: "company",
-        include: ["**/*.ts"],
-        exclude: ["**/*.test.ts"],
-      };
-
-      expect(entry.source).toBe("github:company/standards");
-      expect(entry.namespace).toBe("company");
-      expect(entry.include).toEqual(["**/*.ts"]);
-      expect(entry.exclude).toEqual(["**/*.test.ts"]);
-    });
-
-    it("allows optional include and exclude", () => {
-      const entry: ExtendsEntry = {
-        source: "github:company/standards",
-        namespace: "company",
-      };
-
-      expect(entry.source).toBe("github:company/standards");
-      expect(entry.namespace).toBe("company");
-      expect(entry.include).toBeUndefined();
-      expect(entry.exclude).toBeUndefined();
-    });
-
-    it("supports include only", () => {
-      const entry: ExtendsEntry = {
-        source: "github:company/standards",
-        namespace: "company",
-        include: ["**/*.ts"],
-      };
-
-      expect(entry.source).toBe("github:company/standards");
-      expect(entry.namespace).toBe("company");
-      expect(entry.include).toEqual(["**/*.ts"]);
-      expect(entry.exclude).toBeUndefined();
-    });
-
-    describe("UserConfig schema validation", () => {
-      it("validates user config with presets", () => {
-        const config = {
-          version: "1.0",
-          presets: {
-            "company-standards": {
-              source: "github:company/standards",
-              type: "github",
-              addedAt: "2023-10-22T06:53:00.000Z",
-              description: "Company coding standards",
-            },
-            "local-rules": {
-              source: "/path/to/local/rules",
-              type: "filesystem",
-              addedAt: "2023-10-22T06:53:00.000Z",
-            },
-          },
-          tools: ["cursor", "claude"],
-        };
-
-        const result = validateUserConfig(config);
-
-        expect(result.version).toBe("1.0");
-        expect(result.presets).toHaveProperty("company-standards");
-        expect(result.presets).toHaveProperty("local-rules");
-        expect(result.presets["company-standards"]).toEqual({
-          source: "github:company/standards",
-          type: "github",
-          addedAt: "2023-10-22T06:53:00.000Z",
-          description: "Company coding standards",
-        });
-        expect(result.tools).toEqual(["cursor", "claude"]);
-      });
-
-      it("validates user config with minimal data", () => {
-        const config = {
-          presets: {
-            "my-preset": {
-              source: "github:user/repo",
-              type: "github",
-              addedAt: "2023-10-22T06:53:00.000Z",
-            },
-          },
-        };
-
-        const result = validateUserConfig(config);
-
-        expect(result.version).toBe("1.0"); // default value
-        expect(result.presets).toHaveProperty("my-preset");
-        expect(result.tools).toBeUndefined();
-      });
-
-      it("validates user preset entry", () => {
-        const entry = {
-          source: "github:company/standards",
-          type: "github" as const,
-          addedAt: "2023-10-22T06:53:00.000Z",
-          description: "Company standards",
-        };
-
-        const result = validateUserPresetEntry(entry);
-
-        expect(result.source).toBe("github:company/standards");
-        expect(result.type).toBe("github");
-        expect(result.addedAt).toBe("2023-10-22T06:53:00.000Z");
-        expect(result.description).toBe("Company standards");
-      });
-
-      it("validates filesystem preset entry", () => {
-        const entry = {
-          source: "/path/to/local/preset",
-          type: "filesystem" as const,
-          addedAt: "2023-10-22T06:53:00.000Z",
-        };
-
-        const result = validateUserPresetEntry(entry);
-
-        expect(result.source).toBe("/path/to/local/preset");
-        expect(result.type).toBe("filesystem");
-        expect(result.addedAt).toBe("2023-10-22T06:53:00.000Z");
-        expect(result.description).toBeUndefined();
-      });
-
-      it("rejects invalid preset entry type", () => {
-        const entry = {
-          source: "github:company/standards",
-          type: "invalid",
-          addedAt: "2023-10-22T06:53:00.000Z",
-        };
-
-        expect(() => validateUserPresetEntry(entry)).toThrow();
-      });
-
-      it("rejects empty source", () => {
-        const entry = {
-          source: "",
-          type: "github" as const,
-          addedAt: "2023-10-22T06:53:00.000Z",
-        };
-
-        expect(() => validateUserPresetEntry(entry)).toThrow(
-          "Source cannot be empty",
-        );
-      });
-
-      it("safe parse user config with valid data", () => {
-        const config = {
-          presets: {
-            "test-preset": {
-              source: "github:test/repo",
-              type: "github" as const,
-              addedAt: "2023-10-22T06:53:00.000Z",
-            },
-          },
-        };
-
-        const result = safeParseUserConfig(config);
-
-        expect(result.success).toBe(true);
-        if (result.success) {
-          expect(result.data.presets).toHaveProperty("test-preset");
-        }
-      });
-
-      it("safe parse user config with invalid data", () => {
-        const config = {
-          presets: {
-            "test-preset": {
-              source: "github:test/repo",
-              type: "invalid",
-              addedAt: "2023-10-22T06:53:00.000Z",
-            },
-          },
-        };
-
-        const result = safeParseUserConfig(config);
-
-        expect(result.success).toBe(false);
-        if (!result.success) {
-          expect(result.error).toBeInstanceOf(Error);
-        }
-      });
+    it("ExtendsEntry is a string type (flat format)", () => {
+      const entry: ExtendsEntry = "github:company/standards";
+      expect(typeof entry).toBe("string");
     });
   });
 
   describe("LocalConfig schema validation", () => {
-    it("validates local config with extends", () => {
+    it("validates local config with mcp and mcp_disabled", () => {
       const config = {
-        version: "1.0",
-        extends: [
-          {
-            source: "github:company/standards",
-            namespace: "company",
-          },
-          {
-            source: "github:team/backend",
-            namespace: "backend-team",
-            include: ["**/*.ts"],
-          },
-        ],
+        mcp: {
+          github: { command: "npx", args: ["-y", "mcp-github"] },
+        },
+        mcp_disabled: ["postgres"],
       };
 
       const result = validateLocalConfig(config);
 
-      expect(result.version).toBe("1.0");
-      expect(result.extends).toHaveLength(2);
-      expect(result.extends?.[0]).toEqual({
-        source: "github:company/standards",
-        namespace: "company",
-      });
-      expect(result.extends?.[1]).toEqual({
-        source: "github:team/backend",
-        namespace: "backend-team",
-        include: ["**/*.ts"],
-      });
+      expect(result.mcp).toBeDefined();
+      expect(result.mcp?.github).toBeDefined();
+      expect(result.mcp_disabled).toEqual(["postgres"]);
     });
 
     it("validates local config with minimal data", () => {
@@ -466,107 +226,89 @@ describe("ExtendsEntry type", () => {
 
       const result = validateLocalConfig(config);
 
-      expect(result.version).toBe("1.0"); // default value
-      expect(result.extends).toBeUndefined();
+      expect(result.mcp).toBeUndefined();
+      expect(result.mcp_disabled).toBeUndefined();
     });
 
-    it("validates local config with object extends only", () => {
+    it("validates local config with mcp only", () => {
       const config = {
-        extends: [
-          {
-            source: "github:company/standards",
-            namespace: "company",
-            include: ["**/*.ts"],
-          },
-          {
-            source: "github:team/backend",
-            namespace: "backend",
-            exclude: ["**/*.test.ts"],
-          },
-        ],
+        mcp: {
+          "my-local": { command: "node", args: ["./my-mcp.js"] },
+        },
       };
 
       const result = validateLocalConfig(config);
 
-      expect(result.extends).toHaveLength(2);
-      expect(result.extends?.[0]).toEqual({
-        source: "github:company/standards",
-        namespace: "company",
-        include: ["**/*.ts"],
-      });
-      expect(result.extends?.[1]).toEqual({
-        source: "github:team/backend",
-        namespace: "backend",
-        exclude: ["**/*.test.ts"],
-      });
+      expect(result.mcp).toBeDefined();
+      expect(result.mcp_disabled).toBeUndefined();
     });
 
-    it("validates local config with empty extends array", () => {
+    it("validates local config with empty mcp_disabled", () => {
       const config = {
-        extends: [],
+        mcp_disabled: [],
       };
 
       const result = validateLocalConfig(config);
 
-      expect(result.extends).toEqual([]);
+      expect(result.mcp_disabled).toEqual([]);
     });
 
     it("safe parse local config with valid data", () => {
       const config = {
-        extends: [
-          {
-            source: "github:company/standards",
-            namespace: "company",
-          },
-        ],
+        mcp: {
+          github: { command: "npx", args: ["-y", "mcp-github"] },
+        },
       };
 
       const result = safeParseLocalConfig(config);
 
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.extends).toEqual([
-          {
-            source: "github:company/standards",
-            namespace: "company",
-          },
-        ]);
+        expect(result.data.mcp?.github).toBeDefined();
       }
     });
 
-    it("safe parse local config with include/exclude", () => {
+    it("safe parse local config with mcp_disabled", () => {
       const config = {
-        extends: [
-          {
-            source: "github:company/standards",
-            namespace: "company",
-            include: ["rules/**/*.md"],
-            exclude: ["rules/deprecated/*"],
-          },
-        ],
+        mcp_disabled: ["postgres"],
       };
 
       const result = safeParseLocalConfig(config);
 
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.extends?.[0]).toEqual({
-          source: "github:company/standards",
-          namespace: "company",
-          include: ["rules/**/*.md"],
-          exclude: ["rules/deprecated/*"],
-        });
+        expect(result.data.mcp_disabled).toEqual(["postgres"]);
       }
     });
   });
 
   describe("Supported tools single source of truth", () => {
-    it("has exactly 4 supported tools", () => {
-      expect(SUPPORTED_TOOLS).toHaveLength(4);
+    it("has exactly 19 supported tools", () => {
+      expect(SUPPORTED_TOOLS).toHaveLength(19);
     });
 
-    it("includes cursor, claude, cline, and roocode", () => {
-      expect(SUPPORTED_TOOLS).toEqual(["cursor", "claude", "cline", "roocode"]);
+    it("includes all supported tools", () => {
+      expect(SUPPORTED_TOOLS).toEqual([
+        "claude",
+        "opencode",
+        "cursor",
+        "roocode",
+        "codex",
+        "copilot",
+        "cline",
+        "gemini",
+        "amp",
+        "goose",
+        "aider",
+        "amazonq",
+        "augment",
+        "kiro",
+        "openhands",
+        "junie",
+        "crush",
+        "kilocode",
+        "qwen",
+      ]);
     });
 
     it("TypeScript type matches the constant", () => {
@@ -578,7 +320,6 @@ describe("ExtendsEntry type", () => {
     it("AgentSyncConfigSchema accepts all supported tools", () => {
       for (const tool of SUPPORTED_TOOLS) {
         const config = {
-          version: "1.0",
           tools: [tool],
         };
         const result = AgentSyncConfigSchema.safeParse(config);
@@ -586,24 +327,11 @@ describe("ExtendsEntry type", () => {
       }
     });
 
-    it("UserConfigSchema accepts all supported tools", () => {
-      for (const tool of SUPPORTED_TOOLS) {
-        const config = {
-          version: "1.0",
-          presets: {},
-          tools: [tool],
-        };
-        const result = UserConfigSchema.safeParse(config);
-        expect(result.success).toBe(true);
-      }
-    });
-
     it("schemas reject unsupported tools", () => {
-      const invalidTools = ["windsurf", "copilot", "invalid"];
+      const invalidTools = ["windsurf", "invalid"];
 
       for (const invalidTool of invalidTools) {
         const config = {
-          version: "1.0",
           tools: [invalidTool],
         };
         const result = AgentSyncConfigSchema.safeParse(config);

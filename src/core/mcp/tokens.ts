@@ -22,7 +22,7 @@ export type MCP =
  * Token pattern: {UPPERCASE_WITH_UNDERSCORES}
  * Matches: {GITHUB_TOKEN}, {API_KEY}, {DATABASE_URL_123}
  */
-const TOKEN_PATTERN = /\{([A-Z_][A-Z0-9_]*)\}/g;
+export const TOKEN_PATTERN = /\{([A-Z_][A-Z0-9_]*)\}/g;
 
 /**
  * Substitute tokens in a single MCP configuration
@@ -31,65 +31,46 @@ const TOKEN_PATTERN = /\{([A-Z_][A-Z0-9_]*)\}/g;
  * @returns New MCP with tokens substituted
  * @throws Error if required environment variable is missing
  */
-export function substituteTokens(mcp: MCP, env: Record<string, string>): MCP {
-  // Handle URL-based MCP
-  if ("url" in mcp) {
-    const result: MCP = {
-      url: mcp.url.replace(TOKEN_PATTERN, (_match, varName) => {
-        if (!env[varName]) {
-          throw new Error(`Missing environment variable: ${varName}`);
-        }
-        return env[varName];
-      }),
-    };
-
-    // Handle headers if present
-    if (mcp.headers) {
-      result.headers = {};
-      for (const [key, value] of Object.entries(mcp.headers)) {
-        if (typeof value === "string") {
-          result.headers[key] = value.replace(
-            TOKEN_PATTERN,
-            (_match, varName) => {
-              if (!env[varName]) {
-                throw new Error(`Missing environment variable: ${varName}`);
-              }
-              return env[varName];
-            },
-          );
-        } else {
-          result.headers[key] = value;
-        }
-      }
+/**
+ * Replace token placeholders in a string with values from env.
+ * @throws Error if a referenced variable is missing from env
+ */
+function replaceTokens(str: string, env: Record<string, string>): string {
+  return str.replace(TOKEN_PATTERN, (_match, varName) => {
+    if (!(varName in env)) {
+      throw new Error(`Missing environment variable: ${varName}`);
     }
+    return env[varName];
+  });
+}
 
+/**
+ * Substitute tokens in all string values of a Record.
+ */
+function substituteRecord(
+  record: Record<string, string>,
+  env: Record<string, string>,
+): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const [key, value] of Object.entries(record)) {
+    result[key] = replaceTokens(value, env);
+  }
+  return result;
+}
+
+export function substituteTokens(mcp: MCP, env: Record<string, string>): MCP {
+  if ("url" in mcp) {
+    const result: MCP = { url: replaceTokens(mcp.url, env) };
+    if (mcp.headers) {
+      result.headers = substituteRecord(mcp.headers, env);
+    }
     return result;
   }
 
-  // Handle command-based MCP
-  const result: MCP = {
-    command: mcp.command,
-    args: [...mcp.args],
-  };
-
-  // Handle env section if present
+  const result: MCP = { command: mcp.command, args: [...mcp.args] };
   if (mcp.env) {
-    result.env = {};
-
-    for (const [key, value] of Object.entries(mcp.env)) {
-      if (typeof value === "string") {
-        result.env[key] = value.replace(TOKEN_PATTERN, (_match, varName) => {
-          if (!env[varName]) {
-            throw new Error(`Missing environment variable: ${varName}`);
-          }
-          return env[varName];
-        });
-      } else {
-        result.env[key] = value;
-      }
-    }
+    result.env = substituteRecord(mcp.env, env);
   }
-
   return result;
 }
 
@@ -117,55 +98,44 @@ export function substituteAllMCPs(
  * @param mcps - Record of MCP configurations
  * @throws Error if any tokens remain unsubstituted
  */
+/**
+ * Collect unsubstituted tokens from a Record of string values.
+ */
+function collectTokensFromRecord(
+  record: Record<string, string>,
+  serverName: string,
+  out: Array<{ token: string; server: string }>,
+): void {
+  for (const value of Object.values(record)) {
+    for (const match of value.matchAll(TOKEN_PATTERN)) {
+      out.push({ token: match[1], server: serverName });
+    }
+  }
+}
+
 export function validateTokens(mcps: Record<string, MCP>): void {
   const missingTokens: Array<{ token: string; server: string }> = [];
 
   for (const [serverName, mcp] of Object.entries(mcps)) {
-    // Check command-based MCP env
     if ("command" in mcp && mcp.env) {
-      for (const value of Object.values(mcp.env)) {
-        if (typeof value === "string") {
-          const matches = value.matchAll(TOKEN_PATTERN);
-          for (const match of matches) {
-            missingTokens.push({
-              token: match[1],
-              server: serverName,
-            });
-          }
-        }
-      }
+      collectTokensFromRecord(mcp.env, serverName, missingTokens);
     }
-
-    // Check URL-based MCP headers
     if ("url" in mcp && mcp.headers) {
-      for (const value of Object.values(mcp.headers)) {
-        if (typeof value === "string") {
-          const matches = value.matchAll(TOKEN_PATTERN);
-          for (const match of matches) {
-            missingTokens.push({
-              token: match[1],
-              server: serverName,
-            });
-          }
-        }
-      }
+      collectTokensFromRecord(mcp.headers, serverName, missingTokens);
     }
   }
 
   if (missingTokens.length > 0) {
-    const uniqueTokens = Array.from(new Set(missingTokens.map((m) => m.token)));
-    const serverMap = missingTokens.reduce(
-      (acc, { token, server }) => {
-        if (!acc[token]) acc[token] = [];
-        acc[token].push(server);
-        return acc;
-      },
-      {} as Record<string, string[]>,
-    );
+    const serverMap: Record<string, string[]> = {};
+    for (const { token, server } of missingTokens) {
+      if (!serverMap[token]) serverMap[token] = [];
+      serverMap[token].push(server);
+    }
 
-    const details = uniqueTokens
+    const details = Object.entries(serverMap)
       .map(
-        (token) => `  - ${token} (required by: ${serverMap[token].join(", ")})`,
+        ([token, servers]) =>
+          `  - ${token} (required by: ${servers.join(", ")})`,
       )
       .join("\n");
 

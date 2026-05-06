@@ -28,8 +28,11 @@ export interface Preset {
   /** MCP servers from mcp.json */
   mcps: Record<string, MCP>;
 
-  /** Optional metadata from .agentsync/preset.json */
+  /** Optional metadata from .agents/preset.json */
   metadata?: PresetMetadata;
+
+  /** Warnings accumulated during loading (sanitization, missing frontmatter, etc.) */
+  warnings: string[];
 }
 
 /**

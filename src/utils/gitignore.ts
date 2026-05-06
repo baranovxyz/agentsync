@@ -1,22 +1,28 @@
 import type { ToolName } from "../types/index.js";
 
 /**
- * .gitignore patterns per tool (outputs only)
+ * .gitignore patterns per tool (MCP configs only — tool output dirs are committed)
  */
 export const TOOL_GITIGNORE_PATTERNS: Record<ToolName, string[]> = {
-  cursor: [".cursor/rules/", ".cursor/commands/", ".cursor/mcp.json"],
-  claude: [
-    ".claude/rules/",
-    ".claude/commands/",
-    ".claude/mcp.json",
-    "CLAUDE.md",
-  ],
-  cline: [
-    ".clinerules/*.md",
-    ".clinerules/AGENTS.md",
-    "cline_mcp_settings.json",
-  ],
+  claude: [".mcp.json", "CLAUDE.md"],
+  opencode: ["opencode.json"],
+  cursor: [".cursor/mcp.json"],
   roocode: [".roo/mcp.json"],
+  codex: [".codex/config.toml"],
+  copilot: [".vscode/mcp.json"],
+  cline: [], // MCP is global-only (VS Code storage), no project files to ignore
+  gemini: [".gemini/settings.json", "GEMINI.md"],
+  amp: [".amp/settings.json"],
+  goose: [".goose/config.yaml"],
+  aider: [],
+  amazonq: [".amazonq/mcp.json"],
+  augment: [".augment/settings.json"],
+  kiro: [".kiro/settings/mcp.json"],
+  openhands: [".openhands/mcp.json"],
+  junie: [".junie/mcp/mcp.json"],
+  crush: ["crush.json"],
+  kilocode: [".kilocode/mcp.json"],
+  qwen: [".qwen/.mcp.json"],
 };
 
 /**
@@ -25,19 +31,8 @@ export const TOOL_GITIGNORE_PATTERNS: Record<ToolName, string[]> = {
 export const BASE_GITIGNORE_PATTERNS = [
   "",
   "# AgentSync",
-  ".agentsync/backups/",
-  "*.backup",
-  "agentsync.local.json",
-];
-
-/**
- * Patterns to preserve
- */
-export const PRESERVE_PATTERNS = [
-  "",
-  "# Keep project custom rules",
-  "!.agentsync/rules/",
-  "!.agentsync/commands/",
+  ".agents/backups/",
+  "agentsync.local.toml",
 ];
 
 /**
@@ -48,7 +43,7 @@ export function generateGitignoreContent(tools: ToolName[]): string {
 
   if (tools.length > 0) {
     lines.push("");
-    lines.push("# Tool outputs (regenerated on sync)");
+    lines.push("# Tool MCP configs (regenerated on sync)");
 
     for (const tool of tools) {
       const patterns = TOOL_GITIGNORE_PATTERNS[tool];
@@ -57,8 +52,6 @@ export function generateGitignoreContent(tools: ToolName[]): string {
       }
     }
   }
-
-  lines.push(...PRESERVE_PATTERNS);
 
   return `${lines.join("\n")}\n`;
 }
@@ -71,7 +64,8 @@ export function hasAgentSyncSection(content: string): boolean {
 }
 
 /**
- * Find the end of AgentSync section in gitignore
+ * Find the end of AgentSync section in gitignore.
+ * Section ends at next comment line or EOF — fragile but sufficient for our controlled output.
  */
 function findAgentSyncSectionEnd(
   lines: string[],
@@ -81,18 +75,15 @@ function findAgentSyncSectionEnd(
   for (let i = startLineIdx + 1; i < lines.length; i++) {
     const line = lines[i].trim();
 
-    // Empty lines between sections are OK
     if (!line) {
       continue;
     }
 
-    // Another comment section starts (new section)
     if (line.startsWith("# ") && !line.startsWith("# AgentSync")) {
       endLineIdx = i;
       break;
     }
 
-    // Non-pattern content (assume end of gitignore patterns)
     if (
       !(
         line.startsWith("#") ||
@@ -118,15 +109,8 @@ export function updateAgentSyncSection(
 ): string {
   const agentSyncContent = generateGitignoreContent(tools);
 
-  const agentSyncStart = existingContent.indexOf("# AgentSync");
-
-  if (agentSyncStart === -1) {
-    return `${existingContent}\n${agentSyncContent}`;
-  }
-
-  // Find which line the "# AgentSync" comment is on
   const lines = existingContent.split("\n");
-  let startLineIdx = 0;
+  let startLineIdx = -1;
 
   for (let i = 0; i < lines.length; i++) {
     if (lines[i].includes("# AgentSync")) {
@@ -135,14 +119,15 @@ export function updateAgentSyncSection(
     }
   }
 
-  // Find end of AgentSync section
+  if (startLineIdx === -1) {
+    return `${existingContent}\n${agentSyncContent}`;
+  }
+
   const endLineIdx = findAgentSyncSectionEnd(lines, startLineIdx);
 
-  // Reconstruct: before AgentSync + new content + after AgentSync
   const beforeLines = lines.slice(0, startLineIdx);
   const afterLines = lines.slice(endLineIdx);
 
-  // Join, ensuring proper newlines
   let result = beforeLines.join("\n");
   if (beforeLines.length > 0) {
     result += "\n";

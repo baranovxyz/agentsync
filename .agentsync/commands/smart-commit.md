@@ -158,19 +158,11 @@ When grouping changes for AgentSync, consider these module boundaries:
    - MCP system (`src/core/mcp/*.ts`)
    - Registry system (`src/core/registry/*.ts`)
    - Error handling (`src/core/errors.ts`)
-   - Audit logging (`src/core/audit.ts`)
 
-3. **Tool Converters**
-   - Rule converters (`src/targets/rules/*.ts`)
-   - Command converters (`src/targets/commands/*.ts`)
-   - Tool converters (`src/targets/tools/*.ts`)
+3. **Tool Codecs**
+   - Tool codecs (`src/targets/tools/*.ts`)
 
-4. **Security System**
-   - Secret scanner (`src/security/scanner.ts`)
-   - Unicode detector (`src/security/unicode-detector.ts`)
-   - Security checks (`src/security/checks/*.ts`)
-
-5. **Testing**
+4. **Testing**
    - Unit tests (`tests/unit/**/*.test.ts`)
    - E2E tests (`tests/e2e/*.test.ts`)
    - Shell tests (`tests/shell/*.bats`)
@@ -180,14 +172,13 @@ When grouping changes for AgentSync, consider these module boundaries:
 6. **Documentation**
    - Development guide (`AGENTS.md`)
    - User documentation (`README.md`)
-   - Requirements (`REQUIREMENTS.md`)
-   - Architecture (`ARCHITECTURE.md`)
+   - Architecture (`docs/architecture.md`)
    - Testing guide (`TESTING.md`)
    - Security guide (`SECURITY.md`)
    - Contributing guide (`CONTRIBUTING.md`)
    - CLI reference (`docs/cli.md`)
    - Configuration docs (`docs/configuration.md`)
-   - Preset docs (`docs/presets.md`)
+   - Tool capabilities (`docs/tool-capabilities.md`)
 
 7. **Templates & Build**
    - AGENTS.md templates (`templates/*.md`)

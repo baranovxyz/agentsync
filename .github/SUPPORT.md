@@ -9,8 +9,7 @@ We're here to help! Here are the best ways to get support:
 - **Getting Started**: See the [README.md](../README.md) Quick Start section
 - **Configuration Guide**: [docs/configuration.md](../docs/configuration.md)
 - **CLI Reference**: [docs/cli.md](../docs/cli.md)
-- **Preset System**: [docs/presets.md](../docs/presets.md)
-- **Architecture**: [ARCHITECTURE.md](../ARCHITECTURE.md)
+- **Architecture**: [docs/architecture.md](../docs/architecture.md)
 
 ### 🐛 Bug Reports
 
@@ -38,7 +37,7 @@ Have an idea for a new feature? Open an issue using the [feature request templat
 
 Report security issues privately via [GitHub Security Advisories](https://github.com/baranovxyz/agentsync/security/advisories/new).
 
-See [SECURITY.md](../SECURITY.md) for more information.
+See [docs/security.md](../docs/security.md) for more information.
 
 ## Response Times
 
@@ -51,12 +50,12 @@ We aim to respond to:
 
 ## Contributing
 
-Want to help improve AgentSync? See [CONTRIBUTING.md](../CONTRIBUTING.md) for guidelines.
+Want to help improve AgentSync? See [docs/contributing.md](../docs/contributing.md) for guidelines.
 
 ## Community
 
 - **Code of Conduct**: Please read our [Code of Conduct](../CODE_OF_CONDUCT.md)
-- **Contributing**: See [CONTRIBUTING.md](../CONTRIBUTING.md) for how to contribute
+- **Contributing**: See [docs/contributing.md](../docs/contributing.md) for how to contribute
 
 ---
 

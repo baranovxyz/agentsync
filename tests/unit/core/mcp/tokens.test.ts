@@ -20,11 +20,11 @@ describe("substituteTokens", () => {
         GITHUB_TOKEN: "{GITHUB_TOKEN}",
       },
     };
-    const env = { GITHUB_TOKEN: "ghp_test123" };
+    const env = { GITHUB_TOKEN: "github_test_test123" };
 
     const result = substituteTokens(mcp, env);
 
-    expect(result.env?.GITHUB_TOKEN).toBe("ghp_test123");
+    expect(result.env?.GITHUB_TOKEN).toBe("github_test_test123");
   });
 
   it("replaces multiple tokens in same MCP", () => {
@@ -73,7 +73,7 @@ describe("substituteTokens", () => {
         LITERAL_VALUE: "GITHUB_TOKEN", // No braces
       },
     };
-    const env = { GITHUB_TOKEN: "ghp_test123" };
+    const env = { GITHUB_TOKEN: "github_test_test123" };
 
     const result = substituteTokens(mcp, env);
 
@@ -101,12 +101,12 @@ describe("substituteTokens", () => {
         GITHUB_TOKEN: "{GITHUB_TOKEN}",
       },
     };
-    const env = { GITHUB_TOKEN: "ghp_test123" };
+    const env = { GITHUB_TOKEN: "github_test_test123" };
 
     const result = substituteTokens(mcp, env);
 
     expect(mcp.env?.GITHUB_TOKEN).toBe("{GITHUB_TOKEN}"); // Original unchanged
-    expect(result.env?.GITHUB_TOKEN).toBe("ghp_test123"); // Result has substitution
+    expect(result.env?.GITHUB_TOKEN).toBe("github_test_test123"); // Result has substitution
   });
 
   it("replaces tokens in nested string values", () => {
@@ -157,7 +157,7 @@ describe("validateTokens", () => {
         command: "npx",
         args: [],
         env: {
-          GITHUB_TOKEN: "ghp_test123",
+          GITHUB_TOKEN: "github_test_test123",
         },
       },
       postgres: {
@@ -228,7 +228,7 @@ describe("validateTokens", () => {
         command: "npx",
         args: [],
         env: {
-          GITHUB_TOKEN: "ghp_actual_token",
+          GITHUB_TOKEN: "github_test_actual_token",
         },
       },
     };
@@ -256,13 +256,13 @@ describe("substituteAllMCPs", () => {
       },
     };
     const env = {
-      GITHUB_TOKEN: "ghp_test123",
+      GITHUB_TOKEN: "github_test_test123",
       DATABASE_URL: "postgresql://localhost/db",
     };
 
     const result = substituteAllMCPs(mcps, env);
 
-    expect(result.github.env?.GITHUB_TOKEN).toBe("ghp_test123");
+    expect(result.github.env?.GITHUB_TOKEN).toBe("github_test_test123");
     expect(result.postgres.env?.POSTGRES_URL).toBe("postgresql://localhost/db");
   });
 
@@ -276,11 +276,11 @@ describe("substituteAllMCPs", () => {
         },
       },
     };
-    const env = { GITHUB_TOKEN: "ghp_test123" };
+    const env = { GITHUB_TOKEN: "github_test_test123" };
 
     const result = substituteAllMCPs(mcps, env);
 
     expect(mcps.github.env?.GITHUB_TOKEN).toBe("{GITHUB_TOKEN}"); // Original unchanged
-    expect(result.github.env?.GITHUB_TOKEN).toBe("ghp_test123"); // Result has substitution
+    expect(result.github.env?.GITHUB_TOKEN).toBe("github_test_test123"); // Result has substitution
   });
 });

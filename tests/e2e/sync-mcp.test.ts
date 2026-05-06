@@ -2,10 +2,10 @@
  * E2E MCP Sync Tests
  *
  * Tests the full sync flow with MCP servers:
- * - Project config with mcpServers and mcpEnabled
+ * - Project config with mcp (defined = enabled)
  * - Sync command creates tool-specific configs
  * - Token substitution works correctly
- * - Disabled servers are excluded
+ * - Disabled servers are excluded via local config mcp_disabled
  */
 
 import { mkdtemp } from "node:fs/promises";
@@ -66,7 +66,7 @@ describe("MCP Sync E2E", () => {
       },
     };
 
-    const agentsyncDir = path.join(tempHomeDir, ".agentsync");
+    const agentsyncDir = path.join(tempHomeDir, ".agents");
     await fs.ensureDir(agentsyncDir);
     await writeJson(path.join(agentsyncDir, "mcp.json"), globalRegistry);
   });
@@ -84,20 +84,20 @@ describe("MCP Sync E2E", () => {
   });
 
   it("should sync MCPs to Cursor and Claude configs", async () => {
-    // Setup project config with MCP servers
-    await fs.ensureDir(path.join(".agentsync"));
-    await writeJson(path.join(".agentsync", "config.json"), {
-      version: "1.0",
-      mcpServers: {
-        github: {
-          command: "npx",
-          args: ["-y", "@modelcontextprotocol/server-github"],
-          env: { GITHUB_TOKEN: "test-token-123" },
-        },
-      },
-      mcpEnabled: ["github"],
-      tools: ["cursor", "claude"],
-    });
+    // Setup project config with MCP servers (defined = enabled)
+    await fs.ensureDir(path.join(".agents"));
+    await fs.outputFile(
+      path.join(".agents", "agentsync.toml"),
+      `tools = ["cursor", "claude"]
+
+[mcp_servers.github]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-github"]
+
+[mcp_servers.github.env]
+GITHUB_TOKEN = "test-token-123"
+`,
+    );
 
     // Run sync
     await mainSync(tempDir, {
@@ -141,20 +141,20 @@ describe("MCP Sync E2E", () => {
     // Set environment variable
     process.env.GITHUB_TOKEN = "env-token-456";
 
-    // Setup project config with token
-    await fs.ensureDir(path.join(".agentsync"));
-    await writeJson(path.join(".agentsync", "config.json"), {
-      version: "1.0",
-      mcpServers: {
-        github: {
-          command: "npx",
-          args: ["-y", "@modelcontextprotocol/server-github"],
-          env: { GITHUB_TOKEN: "{GITHUB_TOKEN}" },
-        },
-      },
-      mcpEnabled: ["github"],
-      tools: ["cursor"],
-    });
+    // Setup project config with token (defined = enabled)
+    await fs.ensureDir(path.join(".agents"));
+    await fs.outputFile(
+      path.join(".agents", "agentsync.toml"),
+      `tools = ["cursor"]
+
+[mcp_servers.github]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-github"]
+
+[mcp_servers.github.env]
+GITHUB_TOKEN = "{GITHUB_TOKEN}"
+`,
+    );
 
     // Run sync
     await mainSync(tempDir, {
@@ -177,24 +177,18 @@ describe("MCP Sync E2E", () => {
     process.env.GITHUB_TOKEN = undefined;
   });
 
-  it("should only sync enabled MCPs, not all registry servers", async () => {
-    // Setup project config with multiple servers but only one enabled
-    await fs.ensureDir(path.join(".agentsync"));
-    await writeJson(path.join(".agentsync", "config.json"), {
-      version: "1.0",
-      mcpServers: {
-        github: {
-          command: "npx",
-          args: ["-y", "@modelcontextprotocol/server-github"],
-        },
-        postgres: {
-          command: "npx",
-          args: ["-y", "@modelcontextprotocol/server-postgres"],
-        },
-      },
-      mcpEnabled: ["github"], // Only github enabled
-      tools: ["cursor"],
-    });
+  it("should only sync defined MCPs (defined = enabled)", async () => {
+    // Setup project config with only the MCPs we want active
+    await fs.ensureDir(path.join(".agents"));
+    await fs.outputFile(
+      path.join(".agents", "agentsync.toml"),
+      `tools = ["cursor"]
+
+[mcp_servers.github]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-github"]
+`,
+    );
 
     // Run sync
     await mainSync(tempDir, {
@@ -212,25 +206,28 @@ describe("MCP Sync E2E", () => {
     expect(Object.keys(content.mcpServers)).toHaveLength(1);
   });
 
-  it("should exclude disabled MCPs even if they're in enabled list", async () => {
-    // Setup project config with enabled and disabled
-    await fs.ensureDir(path.join(".agentsync"));
-    await writeJson(path.join(".agentsync", "config.json"), {
-      version: "1.0",
-      mcpServers: {
-        github: {
-          command: "npx",
-          args: ["-y", "@modelcontextprotocol/server-github"],
-        },
-        postgres: {
-          command: "npx",
-          args: ["-y", "@modelcontextprotocol/server-postgres"],
-        },
-      },
-      mcpEnabled: ["github", "postgres"],
-      mcpDisabled: ["postgres"], // Disabled wins
-      tools: ["cursor"],
-    });
+  it("should exclude disabled MCPs via local config mcp_disabled", async () => {
+    // Setup project config with both servers defined (= enabled)
+    await fs.ensureDir(path.join(".agents"));
+    await fs.outputFile(
+      path.join(".agents", "agentsync.toml"),
+      `tools = ["cursor"]
+
+[mcp_servers.github]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-github"]
+
+[mcp_servers.postgres]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-postgres"]
+`,
+    );
+
+    // Local config disables postgres
+    await fs.outputFile(
+      path.join(tempDir, "agentsync.local.toml"),
+      'mcp_disabled = ["postgres"]\n',
+    );
 
     // Run sync
     await mainSync(tempDir, {
@@ -248,20 +245,13 @@ describe("MCP Sync E2E", () => {
     expect(Object.keys(content.mcpServers)).toHaveLength(1);
   });
 
-  it("should sync empty config when no MCPs are enabled", async () => {
-    // Setup project config with servers but none enabled
-    await fs.ensureDir(path.join(".agentsync"));
-    await writeJson(path.join(".agentsync", "config.json"), {
-      version: "1.0",
-      mcpServers: {
-        github: {
-          command: "npx",
-          args: ["-y", "@modelcontextprotocol/server-github"],
-        },
-      },
-      mcpEnabled: [], // Empty - no servers enabled
-      tools: ["cursor"],
-    });
+  it("should sync empty config when no MCPs are defined", async () => {
+    // Setup project config with empty mcp (no servers defined = none active)
+    await fs.ensureDir(path.join(".agents"));
+    await fs.outputFile(
+      path.join(".agents", "agentsync.toml"),
+      'tools = ["cursor"]\n',
+    );
 
     // Run sync
     await mainSync(tempDir, {
@@ -270,30 +260,36 @@ describe("MCP Sync E2E", () => {
       confirm: false,
     });
 
-    // Verify empty config is written
+    // Verify either no MCP file is written, or it has empty mcpServers
     const cursorMcpFile = path.join(tempDir, ".cursor", "mcp.json");
-    const content = await fs.readJsonValidated(cursorMcpFile, mcpConfigSchema);
-
-    expect(content.mcpServers).toEqual({});
-    expect(Object.keys(content.mcpServers)).toHaveLength(0);
+    const exists = await fs.pathExists(cursorMcpFile);
+    if (exists) {
+      const content = await fs.readJsonValidated(
+        cursorMcpFile,
+        mcpConfigSchema,
+      );
+      expect(content.mcpServers).toEqual({});
+      expect(Object.keys(content.mcpServers)).toHaveLength(0);
+    } else {
+      // No MCP file created when no MCPs are defined — expected behavior
+      expect(exists).toBe(false);
+    }
   });
 
   it("should sync URL-based MCP servers", async () => {
-    // Setup project config with URL-based server
-    await fs.ensureDir(path.join(".agentsync"));
-    await writeJson(path.join(".agentsync", "config.json"), {
-      version: "1.0",
-      mcpServers: {
-        "remote-api": {
-          url: "https://api.example.com/mcp",
-          headers: {
-            Authorization: "Bearer secret-token",
-          },
-        },
-      },
-      mcpEnabled: ["remote-api"],
-      tools: ["cursor"],
-    });
+    // Setup project config with URL-based server (defined = enabled)
+    await fs.ensureDir(path.join(".agents"));
+    await fs.outputFile(
+      path.join(".agents", "agentsync.toml"),
+      `tools = ["cursor"]
+
+[mcp_servers.remote-api]
+url = "https://api.example.com/mcp"
+
+[mcp_servers.remote-api.headers]
+Authorization = "Bearer secret-token"
+`,
+    );
 
     // Run sync
     await mainSync(tempDir, {
