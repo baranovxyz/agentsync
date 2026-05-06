@@ -38,8 +38,8 @@ export class GitHubSourcePlugin implements SourcePlugin {
     this.parser.parse(source);
   }
 
-  async resolve(source: string, options?: ResolveOptions): Promise<string> {
-    return this.githubResolver.resolve(source, options);
+  async resolve(source: string, _options?: ResolveOptions): Promise<string> {
+    return this.githubResolver.resolve(source);
   }
 
   getCacheKey(source: string): string {

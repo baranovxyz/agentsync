@@ -10,33 +10,46 @@ describe("gitignore utilities", () => {
     it("should generate base patterns for empty tool list", () => {
       const content = generateGitignoreContent([]);
       expect(content).toContain("# AgentSync");
-      expect(content).toContain(".agentsync/backups/");
-      expect(content).toContain("agentsync.local.json");
-      expect(content).toContain("# Keep project custom rules");
-      expect(content).toContain("!.agentsync/rules/");
-      expect(content).toContain("!.agentsync/commands/");
+      expect(content).toContain(".agents/backups/");
+      expect(content).toContain("agentsync.local.toml");
     });
 
-    it("should include tool-specific patterns for selected tools", () => {
+    it("should not gitignore old .agentsync/ patterns", () => {
+      const content = generateGitignoreContent([]);
+      expect(content).not.toContain(".agentsync/backups/");
+      expect(content).not.toContain("agentsync.local.json");
+      expect(content).not.toContain("*.backup");
+    });
+
+    it("should include tool MCP config patterns for selected tools", () => {
       const content = generateGitignoreContent(["cursor", "claude"]);
-      expect(content).toContain(".cursor/rules/");
-      expect(content).toContain(".cursor/commands/");
       expect(content).toContain(".cursor/mcp.json");
-      expect(content).toContain(".claude/commands/");
-      expect(content).toContain(".claude/mcp.json");
+      expect(content).toContain(".mcp.json");
       expect(content).toContain("CLAUDE.md");
-      expect(content).not.toContain(".clinerules/");
       expect(content).not.toContain(".roo/");
     });
 
-    it("should include all tool patterns for cline", () => {
-      const content = generateGitignoreContent(["cline"]);
-      expect(content).toContain(".clinerules/*.md");
-      expect(content).toContain(".clinerules/AGENTS.md");
-      expect(content).toContain("cline_mcp_settings.json");
+    it("should not gitignore tool output directories (skills, commands, agents)", () => {
+      const content = generateGitignoreContent([
+        "cursor",
+        "claude",
+        "roocode",
+        "copilot",
+        "gemini",
+      ]);
+      expect(content).not.toContain(".cursor/skills/");
+      expect(content).not.toContain(".claude/skills/");
+      expect(content).not.toContain(".claude/commands/");
+      expect(content).not.toContain(".claude/agents/");
+      expect(content).not.toContain(".roo/skills/");
+      expect(content).not.toContain(".roo/commands/");
+      expect(content).not.toContain(".github/skills/");
+      expect(content).not.toContain(".github/agents/");
+      expect(content).not.toContain(".gemini/skills/");
+      expect(content).not.toContain(".opencode/skills/");
     });
 
-    it("should include roocode patterns", () => {
+    it("should include roocode MCP pattern", () => {
       const content = generateGitignoreContent(["roocode"]);
       expect(content).toContain(".roo/mcp.json");
     });
@@ -70,7 +83,7 @@ describe("gitignore utilities", () => {
       expect(updated).toContain("# Other");
       expect(updated).toContain("file.txt");
       expect(updated).toContain("# AgentSync");
-      expect(updated).toContain(".cursor/rules/");
+      expect(updated).toContain(".cursor/mcp.json");
     });
 
     it("should replace existing AgentSync section", () => {
@@ -79,7 +92,7 @@ describe("gitignore utilities", () => {
       const updated = updateAgentSyncSection(existing, ["cursor"]);
       expect(updated).toContain("# Other");
       expect(updated).toContain("file.txt");
-      expect(updated).toContain(".cursor/rules/");
+      expect(updated).toContain(".cursor/mcp.json");
       expect(updated).toContain("# More");
       expect(updated).toContain("other.txt");
       expect(updated).not.toContain(".old/");
@@ -87,27 +100,18 @@ describe("gitignore utilities", () => {
 
     it("should update section with different tools", () => {
       const existing =
-        "# Other\n# AgentSync\n.cursor/rules/\n.cursor/commands/\n\n# Keep project";
+        "# Other\n# AgentSync\n.cursor/mcp.json\n\n# Keep project";
       const updated = updateAgentSyncSection(existing, ["claude"]);
-      expect(updated).toContain(".claude/commands/");
-      expect(updated).toContain(".claude/mcp.json");
+      expect(updated).toContain(".mcp.json");
       expect(updated).toContain("CLAUDE.md");
-      expect(updated).not.toContain(".cursor/rules/");
-    });
-
-    it("should preserve preserve patterns", () => {
-      const existing = "# Other\n# AgentSync\n.old/";
-      const updated = updateAgentSyncSection(existing, ["cursor"]);
-      expect(updated).toContain("!.agentsync/rules/");
-      expect(updated).toContain("!.agentsync/commands/");
+      expect(updated).not.toContain(".cursor/mcp.json");
     });
 
     it("should handle empty tool list", () => {
-      const existing = "# Other\n# AgentSync\n.cursor/";
+      const existing = "# Other\n# AgentSync\n.cursor/mcp.json";
       const updated = updateAgentSyncSection(existing, []);
       expect(updated).toContain("# AgentSync");
       expect(updated).not.toContain(".cursor/");
-      expect(updated).toContain("!.agentsync/rules/");
     });
   });
 });

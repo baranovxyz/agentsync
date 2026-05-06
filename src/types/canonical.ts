@@ -28,26 +28,3 @@ export interface CanonicalCommand {
   frontmatter: CommandFrontmatter;
   markdown: string;
 }
-
-// Import result types (includes metadata from source)
-export interface ImportedRule extends CanonicalRule {
-  sourcePath: string; // Original file path
-  modifiedTime?: Date;
-}
-
-export interface ImportedCommand extends CanonicalCommand {
-  sourcePath: string;
-  modifiedTime?: Date;
-}
-
-// Tool directory detection result
-export interface ToolDirectoryInfo {
-  toolName: "cursor" | "claude" | "cline" | "roocode";
-  path: string;
-  scope: "global" | "project";
-  hasRules: boolean;
-  hasCommands: boolean;
-  hasMCP: boolean;
-  ruleCount?: number;
-  commandCount?: number;
-}

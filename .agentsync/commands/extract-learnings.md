@@ -28,7 +28,6 @@ I'll categorize findings into:
 
 - **CLI Development Patterns**: Commander.js patterns, command structure, option handling
 - **MCP Context Optimization**: Registry management, token substitution, target syncing (Cursor, Claude Code)
-- **Security Patterns**: Secret scanning, unicode detection (CVE-2021-42574), audit logging
 - **Tooling & Configuration**: pnpm workflows, TypeScript patterns, Vitest testing (>80% coverage)
 - **Workflow Preferences**: Git practices (conventional commits), documentation style, code organization
 - **Phase-Specific Decisions**: Phase 1 (MCP - complete) vs Phase 2 (AGENTS.md - in progress) architecture
@@ -68,10 +67,7 @@ Confirm changes? (yes/no)
   - Technical patterns and anti-patterns (Phase 1 vs Phase 2 architecture)
   - Workflow and tooling preferences (Vitest, Commander.js, Zod schemas)
 - **Project-specific docs**: When appropriate
-  - Testing strategy in [TESTING.md](../../../TESTING.md)
-  - Testing implementation in [docs/testing/](../../../docs/testing/)
   - Version history in [CHANGELOG.md](../../../CHANGELOG.md)
-  - Subagent patterns in [docs/SUBAGENT_USAGE.md](../../../docs/SUBAGENT_USAGE.md)
 
 ### 5. Validation Phase
 
@@ -182,4 +178,4 @@ Apply these changes? Reply 'yes' to confirm or 'no' to cancel.
   - New CLI patterns discovered (Commander.js options, error handling strategies)
   - Configuration troubleshooting (registry loading, target detection, env var handling)
   - Testing strategy refinements (adding shell tests, improving coverage, manual test scenarios)
-  - Security implementation decisions (secret patterns, unicode detection, audit logging)
+  - Architecture and implementation decisions

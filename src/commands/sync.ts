@@ -1,548 +1,366 @@
 /**
  * Main Sync Command
- * Orchestrates syncing of presets (rules, commands, MCPs) from GitHub to tools
+ * Thin orchestrator: builds a plan, executes it, formats output.
  */
 
-import { readFile } from "node:fs/promises";
 import * as path from "node:path";
 import fg from "fast-glob";
 import ora from "ora";
 import picocolors from "picocolors";
-import AuditLogger, { AuditEventType } from "../core/audit.js";
-import { loadConfigHierarchy } from "../core/config/hierarchy.js";
-import { ConfigError, ErrorCategory, ErrorSeverity } from "../core/errors.js";
-import { getActiveMCPs } from "../core/mcp/config.js";
-import { loadEnv } from "../core/mcp/env.js";
-import { substituteAllMCPs, validateTokens } from "../core/mcp/tokens.js";
-import { RegistryOrchestrator } from "../core/registry/registry-orchestrator.js";
-import { runSecurityChecks } from "../security/checks/run.js";
-import { getConvertersForTools } from "../targets/tools/index.js";
-import type {
-  CanonicalCommand,
-  CanonicalRule,
-  ToolName,
-} from "../types/index.js";
+import { ConfigError, statusToExitCode } from "../core/errors.js";
+import { executeSyncPlan, type SyncResult } from "../sync/execute.js";
+import { buildSyncPlan, type SyncPlanOptions } from "../sync/plan.js";
 import {
-  generateCommandFrontmatter,
-  generateRuleFrontmatter,
-  parseFrontmatter,
-  validateCommandFrontmatter,
-  validateRuleFrontmatter,
-} from "../utils/frontmatter.js";
+  type CliError,
+  cliError,
+  cliResult,
+  jsonStringify,
+  projectFields,
+  type SyncData,
+  type SyncToolDetail,
+} from "../types/output.js";
 
+// Short alias used throughout this file
 const pc = picocolors;
 
 /**
- * Helper to format MCP hint messages
- * Shows which MCPs are available but not synced, and why
+ * Main sync command options
  */
-function formatMCPHints(
-  availableServers: string[],
-  enabledServers: string[],
-  disabledServers: string[],
-): string | null {
-  const activeMCPs = enabledServers.filter((s) => !disabledServers.includes(s));
-  const notSynced = availableServers.filter((s) => !activeMCPs.includes(s));
-
-  if (notSynced.length === 0) {
-    return null; // All available servers are synced
-  }
-
-  const lines: string[] = [];
-  lines.push("");
-  lines.push(pc.blue("ℹ️  Available MCP servers not synced:"));
-
-  for (const server of notSynced) {
-    if (disabledServers.includes(server)) {
-      lines.push(pc.gray(`  - ${server} (in mcpDisabled)`));
-    } else if (!enabledServers.includes(server)) {
-      lines.push(pc.gray(`  - ${server} (not in mcpEnabled)`));
-    }
-  }
-
-  lines.push("");
-  lines.push(pc.gray("To enable: agentsync mcp enable <name>"));
-  lines.push(pc.gray("To view all: agentsync mcp list"));
-
-  return lines.join("\n");
+export interface MainSyncOptions extends SyncPlanOptions {
+  json?: boolean;
+  pretty?: boolean;
+  fields?: string;
+  ci?: boolean;
 }
 
-/**
- * Load project-specific rules from .agentsync/rules/ in canonical format
- */
-async function loadProjectRules(cwd: string): Promise<{
-  rules: Map<string, CanonicalRule>;
-  warnings: string[];
-}> {
-  const rulesDir = path.join(cwd, ".agentsync", "rules");
-
-  const { pathExists } = await import("../utils/fs.js");
-  if (!(await pathExists(rulesDir))) {
-    return { rules: new Map(), warnings: [] };
-  }
-
-  const files = await fg("**/*.md", { cwd: rulesDir, absolute: false });
-  const rules = new Map<string, CanonicalRule>();
-  const warnings: string[] = [];
-
-  for (const file of files) {
-    const filePath = path.join(rulesDir, file);
-    const content = await readFile(filePath, "utf-8");
-
-    // Parse into canonical format
-    const { frontmatter, markdown } = parseFrontmatter(content);
-
-    // Validate or auto-generate frontmatter
-    if (validateRuleFrontmatter(frontmatter)) {
-      rules.set(file, { frontmatter, markdown });
-    } else {
-      warnings.push(`${file}: Missing or invalid frontmatter, auto-generating`);
-      const generatedFrontmatter = generateRuleFrontmatter(file);
-      rules.set(file, { frontmatter: generatedFrontmatter, markdown });
-    }
-  }
-
-  return { rules, warnings };
-}
-
-/**
- * Load project-specific commands from .agentsync/commands/ in canonical format
- */
-async function loadProjectCommands(cwd: string): Promise<{
-  commands: Map<string, CanonicalCommand>;
-  warnings: string[];
-}> {
-  const commandsDir = path.join(cwd, ".agentsync", "commands");
-
-  const { pathExists } = await import("../utils/fs.js");
-  if (!(await pathExists(commandsDir))) {
-    return { commands: new Map(), warnings: [] };
-  }
-
-  const files = await fg("**/*.md", { cwd: commandsDir, absolute: false });
-  const commands = new Map<string, CanonicalCommand>();
-  const warnings: string[] = [];
-
-  for (const file of files) {
-    const filePath = path.join(commandsDir, file);
-    const content = await readFile(filePath, "utf-8");
-
-    // Parse into canonical format
-    const { frontmatter, markdown } = parseFrontmatter(content);
-
-    // Validate or auto-generate frontmatter
-    if (validateCommandFrontmatter(frontmatter)) {
-      commands.set(file, { frontmatter, markdown });
-    } else {
-      warnings.push(`${file}: Missing or invalid frontmatter, auto-generating`);
-      const generatedFrontmatter = generateCommandFrontmatter(file);
-      commands.set(file, { frontmatter: generatedFrontmatter, markdown });
-    }
-  }
-
-  return { commands, warnings };
-}
-
-/**
- * Main sync command options (v0.3.0-beta)
- */
-export interface MainSyncOptions {
-  /** Working directory (defaults to process.cwd()) */
-  cwd?: string;
-  /** Pull latest presets from sources (re-clone repositories) */
-  pull?: boolean;
-  /** Dry run mode (preview without writing files) */
-  dryRun?: boolean;
-  /** Sync only to specific tool */
-  tool?: string;
-  /** Disable automatic tool directory detection (for debugging) */
-  noToolDetection?: boolean;
-}
+const SYNC_VALID_FIELDS = [
+  "tools",
+  "skills",
+  "commands",
+  "agents",
+  "mcpServers",
+  "details",
+] as const;
 
 /**
  * Main sync command
- * Loads config, resolves presets, merges content, syncs to tools
  */
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: orchestrates complex multi-step sync workflow
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: thin orchestrator with three code paths
 export async function sync(options: MainSyncOptions = {}): Promise<void> {
   const cwd = options.cwd || process.cwd();
-  const audit = AuditLogger.getInstance();
-
-  // Log sync start
-  await audit.log({
-    type: AuditEventType.SYNC_START,
-    severity: "info",
-    category: "sync",
-    message: "Starting sync workflow",
-    metadata: { options } as Record<string, unknown>,
-  });
+  const isJson = options.json || options.ci;
 
   try {
-    // 1. Load and validate config hierarchy (global → project → local)
-    const spinner = ora("Loading configuration...").start();
+    // 1. Build the sync plan (config, profile, presets, MCP resolution)
+    const spinner = isJson ? null : ora("Loading configuration...").start();
 
-    // biome-ignore lint/suspicious/noImplicitAnyLet: configuration type is complex
-    let config;
+    // biome-ignore lint/suspicious/noImplicitAnyLet: plan type is inferred from buildSyncPlan
+    let plan;
     try {
-      config = await loadConfigHierarchy(cwd);
+      plan = await buildSyncPlan(options);
+    } catch (error) {
+      spinner?.fail("Failed to load configuration");
+      if (isJson) {
+        return emitJsonError("sync", error, options);
+      }
+      throw error;
+    }
 
-      // Log sources if present
-      if (config._sources.global) {
+    spinner?.succeed("Configuration loaded");
+
+    // Show global config source in human mode
+    if (!isJson && plan.config._sources.global) {
+      console.log(
+        pc.gray(`  Using global config: ${plan.config._sources.global}`),
+      );
+    }
+
+    // Show active profile in human mode
+    if (!isJson && plan.config.profiles) {
+      const profileName =
+        options.profile ?? process.env.AGENTSYNC_PROFILE ?? plan.config.profile;
+      if (profileName && plan.config.profiles[profileName]) {
+        console.log(pc.gray(`  Using profile: ${profileName}`));
+      }
+    }
+
+    // Show plan warnings in human mode
+    if (!isJson) {
+      for (const w of plan.warnings) {
+        console.warn(pc.yellow(`  Warning: ${w}`));
+      }
+      for (const e of plan.presetErrors) {
+        console.warn(pc.yellow(`  Warning: ${e.message}`));
+      }
+    }
+
+    if (!isJson) {
+      if (options.dryRun) {
         console.log(
-          pc.gray(`  Using global config: ${config._sources.global}`),
+          pc.yellow("\n📋 Dry run mode - no files will be written\n"),
         );
       }
-    } catch (error) {
-      spinner.fail("Failed to load configuration");
-      throw error;
-    }
-
-    spinner.succeed("Configuration loaded");
-
-    // Early security checks on AGENTS.md (non-intrusive; may block on high severity per config)
-    await runSecurityChecks(cwd, config, process.env as Record<string, string>);
-
-    // Check for AGENTS.md (optional supplement)
-    const { pathExists } = await import("../utils/fs.js");
-    const agentsMdPath = path.join(cwd, "AGENTS.md");
-    if (!(await pathExists(agentsMdPath))) {
       console.log(
-        pc.yellow("\n⚠ AGENTS.md not found.\n") +
-          pc.gray("  Create with: ") +
-          pc.cyan("agentsync init") +
-          "\n" +
-          pc.gray("  (Rules/commands/MCPs will still sync)\n"),
+        pc.gray("Tools: ") +
+          (plan.tools.length > 0 ? plan.tools.join(", ") : pc.gray("(none)")),
       );
     }
 
-    // Determine which tools to sync to
-    const targetTools: ToolName[] = options.tool
-      ? [options.tool as ToolName]
-      : config.tools || [];
-
-    // Validate tool if specified
-    if (options.tool) {
-      const validTools: ToolName[] = ["cursor", "claude", "cline", "roocode"];
-      if (!validTools.includes(options.tool as ToolName)) {
-        throw new ConfigError(
-          `Unknown tool: ${options.tool}`,
-          "",
-          `Valid tools: ${validTools.join(", ")}`,
-        );
-      }
-    }
-
-    // Auto-update .gitignore if it has AgentSync section
-    const gitignorePath = path.join(cwd, ".gitignore");
-    if (await pathExists(gitignorePath)) {
-      try {
-        const gitignoreContent = await readFile(gitignorePath, "utf-8");
-        const { hasAgentSyncSection, updateAgentSyncSection } = await import(
-          "../utils/gitignore.js"
-        );
-
-        if (hasAgentSyncSection(gitignoreContent)) {
-          const updated = updateAgentSyncSection(gitignoreContent, targetTools);
-          if (updated !== gitignoreContent) {
-            const { outputFile } = await import("../utils/fs.js");
-            await outputFile(gitignorePath, updated);
-            console.log(pc.gray("  ℹ Updated .gitignore for current tools\n"));
-          }
-        }
-      } catch {
-        // Ignore errors in .gitignore update
-      }
-    }
-
-    // Show what we'll do
-    if (options.dryRun) {
-      console.log(pc.yellow("\n📋 Dry run mode - no files will be written\n"));
-    }
-
-    console.log(
-      pc.gray("Tools to sync: ") +
-        (targetTools.length > 0 ? targetTools.join(", ") : pc.gray("(none)")),
-    );
-    console.log(pc.gray("Libraries: ") + pc.gray(config.extends?.length || 0));
-    console.log(
-      pc.gray("MCP servers: ") +
-        pc.gray(
-          Array.isArray(config.mcpServers)
-            ? config.mcpServers.length
-            : Object.keys(config.mcpServers || {}).length,
-        ),
-    );
-    console.log();
-
-    // 2. Load and merge GitHub presets (if any)
-    const orchestrator = new RegistryOrchestrator();
-    // biome-ignore lint/suspicious/noImplicitAnyLet: spinner type from ora library
-    let presetSpinner;
-
-    if (config.extends && config.extends.length > 0) {
-      presetSpinner = ora("Loading GitHub libraries...").start();
-    }
-
-    // biome-ignore lint/suspicious/noImplicitAnyLet: merged preset type is complex
-    let merged;
-    try {
-      // Check if any extends entries have selection criteria
-      const hasSelections = config.extends?.some(
-        (entry) =>
-          typeof entry !== "string" && (entry.include || entry.exclude),
-      );
-
-      if (hasSelections) {
-        // Use selective loading when selections are present in config
-        merged = await orchestrator.loadAndMergeSelective(
-          cwd,
-          {},
-          {
-            pull: options.pull,
-            noToolDetection: options.noToolDetection,
-          },
-        );
-
-        if (presetSpinner) {
-          const selectionCount =
-            config.extends?.filter(
-              (entry) =>
-                typeof entry !== "string" && (entry.include || entry.exclude),
-            ).length || 0;
-          presetSpinner.succeed(
-            `Loaded ${config.extends?.length || 0} ${config.extends?.length === 1 ? "library" : "libraries"} with ${selectionCount} filter${selectionCount === 1 ? "" : "s"}`,
-          );
-        }
-      } else {
-        // Use regular loading for backward compatibility
-        merged = await orchestrator.loadAndMerge(cwd, {
-          pull: options.pull,
-          noToolDetection: options.noToolDetection,
-        });
-
-        if (presetSpinner) {
-          presetSpinner.succeed(
-            `Loaded ${config.extends?.length || 0} ${config.extends?.length === 1 ? "library" : "libraries"}`,
-          );
-        }
-      }
-    } catch (error) {
-      if (presetSpinner) {
-        presetSpinner.fail("Failed to load libraries");
-      }
-      throw error;
-    }
-
-    // Show what we found
-    if (merged.rules.size > 0 || merged.commands.size > 0) {
-      console.log(pc.gray(`  Rules: ${merged.rules.size}`));
-      console.log(pc.gray(`  Commands: ${merged.commands.size}`));
-      console.log();
-    }
-
-    // 2.5. Load and merge project custom rules/commands
-    const { rules: projectRules, warnings: rulesWarnings } =
-      await loadProjectRules(cwd);
-    const { commands: projectCommands, warnings: commandsWarnings } =
-      await loadProjectCommands(cwd);
-
-    // Display frontmatter validation warnings
-    if (rulesWarnings.length > 0) {
-      console.log(pc.yellow("\n⚠ Rule file warnings:"));
-      for (const warning of rulesWarnings) {
-        console.log(pc.gray(`  ${warning}`));
-      }
-      console.log();
-    }
-    if (commandsWarnings.length > 0) {
-      console.log(pc.yellow("\n⚠ Command file warnings:"));
-      for (const warning of commandsWarnings) {
-        console.log(pc.gray(`  ${warning}`));
-      }
-      console.log();
-    }
-
-    // Merge: project custom overrides presets
-    // Presets come namespaced (company_typescript.md), project custom do not (test.md)
-    const finalRules = new Map([...merged.rules, ...projectRules]);
-    const finalCommands = new Map([...merged.commands, ...projectCommands]);
-
-    // Update display
-    if (finalRules.size > 0 || finalCommands.size > 0) {
-      console.log(
-        pc.gray(`  Rules: ${finalRules.size}`) +
-          (projectRules.size > 0
-            ? pc.cyan(` (${projectRules.size} custom)`)
-            : ""),
-      );
-      console.log(
-        pc.gray(`  Commands: ${finalCommands.size}`) +
-          (projectCommands.size > 0
-            ? pc.cyan(` (${projectCommands.size} custom)`)
-            : ""),
-      );
-      console.log();
-    }
-
-    // 3-5. Sync via unified per-tool converters
-    const converters = getConvertersForTools(targetTools);
-
-    // Data is already in canonical format, sync directly
-    // Rules
-    if (!options.dryRun && converters.length > 0 && finalRules.size > 0) {
-      const rulesSpinner = ora("Syncing rules...").start();
-      try {
-        for (const conv of converters) {
-          await conv.syncRules(finalRules, cwd);
-        }
-        rulesSpinner.succeed(`Synced ${finalRules.size} rules`);
-      } catch (error) {
-        rulesSpinner.fail("Failed to sync rules");
-        throw error;
-      }
-    } else if (options.dryRun && finalRules.size > 0) {
-      console.log(pc.gray(`Would sync ${finalRules.size} rules`));
-    }
-
-    // Commands
-    if (!options.dryRun && converters.length > 0 && finalCommands.size > 0) {
-      const commandsSpinner = ora("Syncing commands...").start();
-      try {
-        for (const conv of converters) {
-          await conv.syncCommands(finalCommands, cwd);
-        }
-        commandsSpinner.succeed(`Synced ${finalCommands.size} commands`);
-      } catch (error) {
-        commandsSpinner.fail("Failed to sync commands");
-        throw error;
-      }
-    } else if (options.dryRun && finalCommands.size > 0) {
-      console.log(pc.gray(`Would sync ${finalCommands.size} commands`));
-    }
-
-    // AGENTS.md symlinks (minimal intervention)
-    if (!options.dryRun && converters.length > 0) {
-      for (const conv of converters) {
-        try {
-          await conv.syncAgentsMd(cwd);
-        } catch (error) {
-          console.log(
-            pc.yellow(
-              `  ⚠ Could not create AGENTS.md symlink for ${conv.name}: ${(error as Error).message}`,
-            ),
-          );
-        }
-      }
-    }
-
-    // 6. Sync MCPs to tools (only if MCP config exists with non-empty servers)
-    // Check if we have actual MCP servers to sync
-    let hasMcpServers = false;
-    if (config.mcpServers) {
-      if (Array.isArray(config.mcpServers)) {
-        hasMcpServers = config.mcpServers.length > 0;
-      } else {
-        hasMcpServers = Object.keys(config.mcpServers).length > 0;
-      }
-    }
-
-    // Also check for local MCP config file (personal overrides)
-    const localMcpPath = path.join(cwd, "agentsync.local.json");
-
-    let hasLocalMcpConfig = false;
-    try {
-      const content = await readFile(localMcpPath, "utf-8");
-      const localConfig = JSON.parse(content);
-      if (localConfig.mcpServers) {
-        if (Array.isArray(localConfig.mcpServers)) {
-          hasLocalMcpConfig = localConfig.mcpServers.length > 0;
-        } else {
-          hasLocalMcpConfig = Object.keys(localConfig.mcpServers).length > 0;
-        }
-      }
-    } catch {
-      // File doesn't exist or invalid
-    }
-
-    if (
-      !options.dryRun &&
-      (hasMcpServers || hasLocalMcpConfig) &&
-      targetTools.length > 0
-    ) {
-      const mcpSpinner = ora("Syncing MCP servers...").start();
-      try {
-        // Use already-merged config from hierarchy (fixes bug)
-        // Determine active servers based on enabled/disabled logic
-        const registry = config.mcpServers || {};
-        const activeMCPs = getActiveMCPs(
-          registry,
-          config.mcpEnabled,
-          config.mcpDisabled,
-        ) as Record<string, import("../core/mcp/tokens.js").MCP>;
-
-        // Load env and substitute tokens
-        const env = await loadEnv();
-        const substituted = substituteAllMCPs(activeMCPs, env);
-        validateTokens(substituted);
-
-        // Sync via converters
-        for (const conv of converters) {
-          await conv.syncMCP(substituted, cwd);
-        }
-        mcpSpinner.succeed("Synced MCP servers");
-
-        // Show hints for unsynced MCPs
-        const availableServers = Object.keys(registry);
-        const enabledServers = config.mcpEnabled || [];
-        const disabledServers = config.mcpDisabled || [];
-        const hint = formatMCPHints(
-          availableServers,
-          enabledServers,
-          disabledServers,
-        );
-        if (hint) {
-          console.log(hint);
-        }
-      } catch (error) {
-        mcpSpinner.fail("Failed to sync MCPs");
-        throw error;
-      }
-    } else if (options.dryRun && hasMcpServers) {
-      const mcpCount = Array.isArray(config.mcpServers)
-        ? config.mcpServers.length
-        : Object.keys(config.mcpServers || {}).length;
-      console.log(pc.gray(`Would sync ${mcpCount} MCP servers`));
-    }
-
-    // Success!
-    if (!options.dryRun) {
-      console.log(pc.green("\n✅ Sync complete!\n"));
+    // 2. Execute, dry-run, or no-tools
+    if (!options.dryRun && plan.providers.length > 0) {
+      await executeAndDisplay(plan, options, cwd, isJson);
+    } else if (options.dryRun) {
+      await dryRunDisplay(plan, options, cwd, isJson);
     } else {
-      console.log(pc.gray("\n✓ Dry run complete - no files were written\n"));
+      // No tools configured and not dry-run
+      emitNoTools(options, plan.warnings, isJson);
     }
-
-    // Log success
-    await audit.log({
-      type: AuditEventType.SYNC_SUCCESS,
-      severity: "info",
-      category: "sync",
-      message: "Sync workflow completed successfully",
-      metadata: {
-        ...options,
-        rulesCount: finalRules.size,
-        commandsCount: finalCommands.size,
-        tools: targetTools,
-      },
-    });
   } catch (error) {
-    // Log error
-    await audit.logError(
-      error as Error,
-      ErrorCategory.SYNC,
-      ErrorSeverity.HIGH,
-      { command: "sync", options },
-    );
-
+    if (isJson) {
+      return emitJsonError("sync", error, options);
+    }
     throw error;
   }
+}
+
+// ── Execute Path ──────────────────────────────────────────────
+
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: display logic with JSON/human branches
+async function executeAndDisplay(
+  plan: Awaited<ReturnType<typeof buildSyncPlan>>,
+  options: MainSyncOptions,
+  cwd: string,
+  isJson: boolean | undefined,
+): Promise<void> {
+  const syncSpinner = isJson ? null : ora("Syncing...").start();
+
+  let result: SyncResult;
+  try {
+    result = await executeSyncPlan(plan, { link: options.link, cwd });
+  } catch (error) {
+    syncSpinner?.fail("Sync failed");
+    throw error;
+  }
+
+  syncSpinner?.succeed("Synced all items");
+
+  // Merge warnings from plan and execution
+  const allWarnings = [...plan.warnings, ...result.warnings];
+
+  if (!isJson) {
+    // Print per-step summaries
+    if (result.totalSkills > 0) {
+      console.log(pc.green(`  ✔ Synced ${result.totalSkills} skills`));
+    }
+    if (result.totalCommands > 0) {
+      console.log(pc.green(`  ✔ Synced ${result.totalCommands} commands`));
+    }
+    if (result.totalAgents > 0) {
+      console.log(pc.green(`  ✔ Synced ${result.totalAgents} agents`));
+    }
+    if (result.mcpServerCount > 0) {
+      console.log(pc.green(`  ✔ Synced ${result.mcpServerCount} MCP servers`));
+    }
+
+    if (allWarnings.length > 0) {
+      console.log(
+        pc.yellow(
+          `\n⚠ ${allWarnings.length} warning${allWarnings.length === 1 ? "" : "s"} during sync:`,
+        ),
+      );
+      for (const w of allWarnings) {
+        console.log(pc.yellow(`  - ${w}`));
+      }
+      console.log();
+    }
+    console.log(pc.green("✅ Sync complete!\n"));
+  } else {
+    const data: SyncData = {
+      tools: plan.tools,
+      skills: result.totalSkills,
+      commands: result.totalCommands,
+      agents: result.totalAgents,
+      mcpServers: result.mcpServerCount,
+      details: result.details,
+    };
+    const projected = projectFields(data, options.fields, SYNC_VALID_FIELDS);
+    const status =
+      plan.presetErrors.length > 0
+        ? ("partial" as const)
+        : ("success" as const);
+    const output = cliResult("sync", projected, {
+      status,
+      errors: plan.presetErrors.length > 0 ? plan.presetErrors : undefined,
+      warnings: allWarnings.length > 0 ? allWarnings : undefined,
+    });
+    console.log(jsonStringify(output, options.pretty));
+    if (status === "partial") process.exitCode = statusToExitCode("partial");
+  }
+}
+
+// ── Dry-Run Path ─────────────────────────────────────────────
+
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: dry-run file enumeration with preset traversal
+async function dryRunDisplay(
+  plan: Awaited<ReturnType<typeof buildSyncPlan>>,
+  options: MainSyncOptions,
+  cwd: string,
+  isJson: boolean | undefined,
+): Promise<void> {
+  const { pathExists: exists } = await import("../utils/fs.js");
+  const projectSkillsDir = path.join(cwd, ".agents", "skills");
+  const projectCommandsDir = path.join(cwd, ".agents", "commands");
+  const projectAgentsDir = path.join(cwd, ".agents", "agents");
+
+  const plannedSkills = (await exists(projectSkillsDir))
+    ? (await fg("*/SKILL.md", { cwd: projectSkillsDir })).map((f) =>
+        path.dirname(f),
+      )
+    : [];
+  const plannedCommands = (await exists(projectCommandsDir))
+    ? await fg("**/*.md", { cwd: projectCommandsDir })
+    : [];
+  const plannedAgents = (await exists(projectAgentsDir))
+    ? await fg("**/*.md", { cwd: projectAgentsDir })
+    : [];
+
+  // Add global user content sources (lowest priority — listed first)
+  for (const dir of plan.hierarchySkillDirs) {
+    if (await exists(dir)) {
+      const files = await fg("*/SKILL.md", { cwd: dir });
+      plannedSkills.unshift(...files.map((f) => path.dirname(f)));
+    }
+  }
+  for (const dir of plan.hierarchyCommandDirs) {
+    if (await exists(dir)) {
+      const files = await fg("**/*.md", { cwd: dir });
+      plannedCommands.unshift(...files);
+    }
+  }
+  for (const dir of plan.hierarchyAgentDirs) {
+    if (await exists(dir)) {
+      const files = await fg("**/*.md", { cwd: dir });
+      plannedAgents.unshift(...files);
+    }
+  }
+
+  // Add preset sources
+  if (plan.presetSkills) {
+    for (const [ns, dirs] of plan.presetSkills) {
+      for (const dir of dirs) {
+        if (await exists(dir)) {
+          const files = await fg("*/SKILL.md", { cwd: dir });
+          plannedSkills.push(...files.map((f) => `${ns}--${path.dirname(f)}`));
+        }
+      }
+    }
+  }
+  if (plan.presetCommands) {
+    for (const [ns, dirs] of plan.presetCommands) {
+      for (const dir of dirs) {
+        if (await exists(dir)) {
+          const files = await fg("**/*.md", { cwd: dir });
+          plannedCommands.push(...files.map((f) => path.join(ns, f)));
+        }
+      }
+    }
+  }
+  if (plan.presetAgents) {
+    for (const [ns, dirs] of plan.presetAgents) {
+      for (const dir of dirs) {
+        if (await exists(dir)) {
+          const files = await fg("**/*.md", { cwd: dir });
+          plannedAgents.push(...files.map((f) => path.join(ns, f)));
+        }
+      }
+    }
+  }
+
+  const mcpServerNames = Object.keys(plan.mcpServers);
+
+  // Native tools (readsAgentsDir=true) read .agents/ directly — no files
+  // will be written to them, so show empty arrays in dry-run details.
+  const nativeTools = new Set(
+    plan.providers.filter((p) => p.readsAgentsDir).map((p) => p.name),
+  );
+  const details: SyncToolDetail[] = plan.tools.map((tool) => ({
+    tool,
+    skills: nativeTools.has(tool) ? [] : plannedSkills,
+    commands: nativeTools.has(tool) ? [] : plannedCommands,
+    agents: nativeTools.has(tool) ? [] : plannedAgents,
+    mcp: mcpServerNames,
+  }));
+
+  if (!isJson) {
+    console.log(
+      pc.gray(
+        `\n✓ Dry run complete - would sync ${plannedSkills.length} skills, ` +
+          `${plannedCommands.length} commands, ${plannedAgents.length} agents, ` +
+          `${mcpServerNames.length} MCP servers\n`,
+      ),
+    );
+  } else {
+    const data: SyncData = {
+      tools: plan.tools,
+      skills: plannedSkills.length,
+      commands: plannedCommands.length,
+      agents: plannedAgents.length,
+      mcpServers: mcpServerNames.length,
+      details,
+    };
+    const projected = projectFields(data, options.fields, SYNC_VALID_FIELDS);
+    const output = cliResult("sync", projected, {
+      warnings: plan.warnings.length > 0 ? plan.warnings : undefined,
+    });
+    console.log(jsonStringify(output, options.pretty));
+  }
+}
+
+// ── No-Tools Path ─────────────────────────────────────────────
+
+function emitNoTools(
+  options: MainSyncOptions,
+  warnings: string[],
+  isJson: boolean | undefined,
+): void {
+  if (isJson) {
+    const data: SyncData = {
+      tools: [],
+      skills: 0,
+      commands: 0,
+      agents: 0,
+      mcpServers: 0,
+      details: [],
+    };
+    const output = cliResult("sync", data, {
+      warnings: warnings.length > 0 ? warnings : undefined,
+    });
+    console.log(jsonStringify(output, options.pretty));
+  } else {
+    console.log(pc.gray("\nNo tools configured. Nothing to sync.\n"));
+  }
+}
+
+// ── JSON Error Helper ─────────────────────────────────────────
+
+function emitJsonError(
+  command: string,
+  error: unknown,
+  options: MainSyncOptions,
+): void {
+  const data: SyncData = {
+    tools: [],
+    skills: 0,
+    commands: 0,
+    agents: 0,
+    mcpServers: 0,
+    details: [],
+  };
+  const errObj: CliError = {
+    code: error instanceof ConfigError ? "CONFIG_ERROR" : "SYNC_ERROR",
+    message: error instanceof Error ? error.message : String(error),
+  };
+  const output = cliError(command, data, errObj);
+  console.log(jsonStringify(output, options.pretty));
+  process.exitCode = statusToExitCode("error", error);
 }

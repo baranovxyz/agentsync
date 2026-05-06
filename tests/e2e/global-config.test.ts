@@ -21,52 +21,42 @@ describe("Global Config E2E", () => {
 
     // Mock home directory
     vi.stubEnv("HOME", tempHome);
+    vi.stubEnv("USERPROFILE", tempHome);
   });
 
   describe("hierarchy loading", () => {
     it("merges global and project presets correctly", async () => {
       // Setup global config with personal preset
-      const globalDir = path.join(tempHome, ".agentsync");
+      const globalDir = path.join(tempHome, ".agents");
       await ensureDir(globalDir);
       await outputFile(
-        path.join(globalDir, "config.json"),
-        JSON.stringify({
-          version: "1.0",
-          tools: ["cursor"],
-          extends: [
-            {
-              source: "github:personal/dotfiles",
-              namespace: "personal",
-            },
-          ],
-          mcpServers: {
-            filesystem: { command: "npx", args: ["-y", "mcp-fs"], env: {} },
-          },
-          mcpEnabled: ["filesystem"],
-          useSymlinks: true,
-        }),
+        path.join(globalDir, "config.toml"),
+        `tools = ["cursor"]
+extends = ["github:personal/dotfiles"]
+
+[mcp.filesystem]
+command = "npx"
+args = ["-y", "mcp-fs"]
+`,
       );
 
-      // Setup project config with company preset
-      const projectDir = path.join(tempDir, ".agentsync");
-      await ensureDir(projectDir);
+      // Setup project config as TOML
+      await ensureDir(path.join(tempDir, ".agents"));
       await outputFile(
-        path.join(projectDir, "config.json"),
-        JSON.stringify({
-          version: "1.0",
-          tools: ["cursor", "claude"],
-          extends: [
-            {
-              source: "github:company/standards",
-              namespace: "company",
-            },
-          ],
-          mcpServers: {
-            github: { command: "npx", args: ["-y", "mcp-github"], env: {} },
-          },
-          mcpEnabled: ["github"],
-          useSymlinks: true,
-        }),
+        path.join(tempDir, ".agents", "agentsync.toml"),
+        `tools = ["cursor", "claude"]
+
+[agentsync]
+version = "1.0"
+
+[[agentsync.presets]]
+source = "github:company/standards"
+namespace = "company"
+
+[mcp_servers.github]
+command = "npx"
+args = ["-y", "mcp-github"]
+`,
       );
 
       const merged = await loadConfigHierarchy(tempDir);
@@ -75,290 +65,143 @@ describe("Global Config E2E", () => {
       expect(merged.tools).toEqual(["cursor", "claude"]); // project wins
       expect(merged.extends).toHaveLength(2); // both presets
       // Project MCP servers win (merged with global)
-      expect(merged.mcpServers).toHaveProperty("github");
-      expect(merged.mcpServers).toHaveProperty("filesystem");
+      expect(merged.mcp).toHaveProperty("github");
+      expect(merged.mcp).toHaveProperty("filesystem");
       expect(merged._sources.global).toBeDefined();
       expect(merged._sources.project).toBeDefined();
     });
 
     it("deduplicates overlapping presets during hierarchy merge", async () => {
       // Setup global config
-      const globalDir = path.join(tempHome, ".agentsync");
+      const globalDir = path.join(tempHome, ".agents");
       await ensureDir(globalDir);
       await outputFile(
-        path.join(globalDir, "config.json"),
-        JSON.stringify({
-          version: "1.0",
-          tools: [],
-          extends: [
-            {
-              source: "github:company/standards",
-              namespace: "company-v1",
-            },
-          ],
-          mcpServers: {},
-          useSymlinks: true,
-        }),
+        path.join(globalDir, "config.toml"),
+        'tools = []\nextends = ["github:company/standards"]\n',
       );
 
       // Setup project config with same preset
-      const projectDir = path.join(tempDir, ".agentsync");
-      await ensureDir(projectDir);
+      await ensureDir(path.join(tempDir, ".agents"));
       await outputFile(
-        path.join(projectDir, "config.json"),
-        JSON.stringify({
-          version: "1.0",
-          tools: [],
-          extends: [
-            {
-              source: "github:company/standards",
-              namespace: "company-v2",
-            },
-          ],
-          mcpServers: {},
-          useSymlinks: true,
-        }),
+        path.join(tempDir, ".agents", "agentsync.toml"),
+        `tools = []
+
+[agentsync]
+version = "1.0"
+
+[[agentsync.presets]]
+source = "github:company/standards"
+namespace = "company"
+`,
       );
 
       const merged = await loadConfigHierarchy(tempDir);
 
-      // Should deduplicate - project version wins
+      // Should deduplicate - project version wins (same string)
       expect(merged.extends).toHaveLength(1);
-      const ext = merged.extends![0] as { source: string; namespace: string };
-      expect(ext.source).toBe("github:company/standards");
-      expect(ext.namespace).toBe("company-v2"); // project version
+      expect(merged.extends![0]).toBe("github:company/standards");
       expect(merged._deduplicationLog).toHaveLength(1);
       expect(merged._deduplicationLog[0].kept).toBe("project");
     });
 
-    it("allows same preset with different namespaces to coexist", async () => {
+    it("deduplicates same preset string from global and project", async () => {
       // Setup global config
-      const globalDir = path.join(tempHome, ".agentsync");
+      const globalDir = path.join(tempHome, ".agents");
       await ensureDir(globalDir);
       await outputFile(
-        path.join(globalDir, "config.json"),
-        JSON.stringify({
-          version: "1.0",
-          tools: [],
-          extends: [
-            {
-              source: "github:company/standards",
-              namespace: "standards-global",
-            },
-          ],
-          mcpServers: {},
-          useSymlinks: true,
-        }),
+        path.join(globalDir, "config.toml"),
+        'tools = []\nextends = ["github:company/standards"]\n',
       );
 
-      // Setup project config with same source but intentionally different namespace
-      const projectDir = path.join(tempDir, ".agentsync");
-      await ensureDir(projectDir);
+      // Setup project config with same source string
+      await ensureDir(path.join(tempDir, ".agents"));
       await outputFile(
-        path.join(projectDir, "config.json"),
-        JSON.stringify({
-          version: "1.0",
-          tools: [],
-          extends: [
-            {
-              source: "github:company/standards",
-              namespace: "standards-local",
-            },
-          ],
-          mcpServers: {},
-          useSymlinks: true,
-        }),
+        path.join(tempDir, ".agents", "agentsync.toml"),
+        `tools = []
+
+[agentsync]
+version = "1.0"
+
+[[agentsync.presets]]
+source = "github:company/standards"
+namespace = "company"
+`,
       );
 
       const merged = await loadConfigHierarchy(tempDir);
 
-      // Will still deduplicate by source, but user can use different namespaces
-      // to keep both - deduplication happens, project wins
+      // Same string in both levels → deduplicated to one
       expect(merged.extends).toHaveLength(1);
       expect(merged._deduplicationLog).toHaveLength(1);
-      expect((merged.extends![0] as { namespace: string }).namespace).toBe(
-        "standards-local",
-      );
+      expect(merged.extends![0]).toBe("github:company/standards");
     });
 
     it("applies local MCP overrides over project config", async () => {
-      // Setup project config
-      const projectDir = path.join(tempDir, ".agentsync");
-      await ensureDir(projectDir);
+      // Setup project config (defined = enabled)
+      await ensureDir(path.join(tempDir, ".agents"));
       await outputFile(
-        path.join(projectDir, "config.json"),
-        JSON.stringify({
-          version: "1.0",
-          tools: [],
-          extends: [],
-          mcpServers: {
-            github: { command: "npx", args: ["-y", "mcp-github"], env: {} },
-            postgres: { command: "docker", args: ["exec", "pg"], env: {} },
-          },
-          mcpEnabled: ["github", "postgres"],
-          useSymlinks: true,
-        }),
+        path.join(tempDir, ".agents", "agentsync.toml"),
+        `tools = []
+
+[mcp_servers.github]
+command = "npx"
+args = ["-y", "mcp-github"]
+
+[mcp_servers.postgres]
+command = "docker"
+args = ["exec", "pg"]
+`,
       );
 
-      // Setup local override
+      // Setup local override: adds filesystem, disables postgres
       await outputFile(
-        path.join(tempDir, "agentsync.local.json"),
-        JSON.stringify({
-          mcpServers: {
-            filesystem: { command: "npx", args: ["-y", "mcp-fs"], env: {} },
-          },
-          mcpEnabled: ["filesystem"],
-        }),
+        path.join(tempDir, "agentsync.local.toml"),
+        `mcp_disabled = ["postgres"]
+
+[mcp.filesystem]
+command = "npx"
+args = ["-y", "mcp-fs"]
+`,
       );
 
       const merged = await loadConfigHierarchy(tempDir);
 
-      // Local MCP servers and enabled list should win
-      expect(merged.mcpServers).toHaveProperty("filesystem");
-      expect(merged.mcpEnabled).toContain("filesystem");
+      // Local MCP servers should be merged in, postgres should be removed
+      expect(merged.mcp).toHaveProperty("filesystem");
+      expect(merged.mcp).toHaveProperty("github");
+      expect(merged.mcp).not.toHaveProperty("postgres");
     });
 
-    it("handles complex extend configurations with include/exclude", async () => {
-      // Setup global config with selective loading
-      const globalDir = path.join(tempHome, ".agentsync");
+    it("merges different extends from global and project", async () => {
+      // Setup global config with personal preset
+      const globalDir = path.join(tempHome, ".agents");
       await ensureDir(globalDir);
       await outputFile(
-        path.join(globalDir, "config.json"),
-        JSON.stringify({
-          version: "1.0",
-          tools: [],
-          extends: [
-            {
-              source: "github:personal/rules",
-              namespace: "personal",
-              include: ["rules/*.md"],
-              exclude: ["rules/experimental/**"],
-            },
-          ],
-          mcpServers: {},
-          useSymlinks: true,
-        }),
+        path.join(globalDir, "config.toml"),
+        'tools = []\nextends = ["github:personal/rules"]\n',
       );
 
-      // Setup project config
-      const projectDir = path.join(tempDir, ".agentsync");
-      await ensureDir(projectDir);
+      // Setup project config with company preset
+      await ensureDir(path.join(tempDir, ".agents"));
       await outputFile(
-        path.join(projectDir, "config.json"),
-        JSON.stringify({
-          version: "1.0",
-          tools: [],
-          extends: [
-            {
-              source: "github:company/rules",
-              namespace: "company",
-              include: ["rules/production/*.md"],
-            },
-          ],
-          mcpServers: {},
-          useSymlinks: true,
-        }),
+        path.join(tempDir, ".agents", "agentsync.toml"),
+        `tools = []
+
+[agentsync]
+version = "1.0"
+
+[[agentsync.presets]]
+source = "github:company/rules"
+namespace = "company"
+`,
       );
 
       const merged = await loadConfigHierarchy(tempDir);
 
-      // Both should be present with their filter settings
+      // Both should be present (different sources, no deduplication)
       expect(merged.extends).toHaveLength(2);
-      const personal = merged.extends?.find(
-        (e) => typeof e !== "string" && e.source === "github:personal/rules",
-      );
-      const company = merged.extends?.find(
-        (e) => typeof e !== "string" && e.source === "github:company/rules",
-      );
-
-      expect(personal).toBeDefined();
-      expect(company).toBeDefined();
-      expect((personal as { include?: string[] }).include).toEqual([
-        "rules/*.md",
-      ]);
-      expect((company as { include?: string[] }).include).toEqual([
-        "rules/production/*.md",
-      ]);
-    });
-
-    it("prefers project useSymlinks setting over global", async () => {
-      // Setup global config
-      const globalDir = path.join(tempHome, ".agentsync");
-      await ensureDir(globalDir);
-      await outputFile(
-        path.join(globalDir, "config.json"),
-        JSON.stringify({
-          version: "1.0",
-          tools: [],
-          extends: [],
-          mcpServers: {},
-          useSymlinks: false,
-        }),
-      );
-
-      // Setup project config
-      const projectDir = path.join(tempDir, ".agentsync");
-      await ensureDir(projectDir);
-      await outputFile(
-        path.join(projectDir, "config.json"),
-        JSON.stringify({
-          version: "1.0",
-          tools: [],
-          extends: [],
-          mcpServers: {},
-          useSymlinks: true,
-        }),
-      );
-
-      const merged = await loadConfigHierarchy(tempDir);
-
-      expect(merged.useSymlinks).toBe(true); // project wins
-    });
-
-    it("applies security settings hierarchy", async () => {
-      // Setup global config with security settings
-      const globalDir = path.join(tempHome, ".agentsync");
-      await ensureDir(globalDir);
-      await outputFile(
-        path.join(globalDir, "config.json"),
-        JSON.stringify({
-          version: "1.0",
-          tools: [],
-          extends: [],
-          mcpServers: {},
-          useSymlinks: true,
-          security: {
-            secretScanning: {
-              enabled: true,
-              blockOnHighSeverity: true,
-            },
-          },
-        }),
-      );
-
-      // Setup project config that overrides
-      const projectDir = path.join(tempDir, ".agentsync");
-      await ensureDir(projectDir);
-      await outputFile(
-        path.join(projectDir, "config.json"),
-        JSON.stringify({
-          version: "1.0",
-          tools: [],
-          extends: [],
-          mcpServers: {},
-          useSymlinks: true,
-          security: {
-            secretScanning: {
-              enabled: false,
-            },
-          },
-        }),
-      );
-
-      const merged = await loadConfigHierarchy(tempDir);
-
-      expect(merged.security).toBeDefined();
-      expect(merged.security?.secretScanning?.enabled).toBe(false); // project wins
+      expect(merged.extends).toContain("github:personal/rules");
+      expect(merged.extends).toContain("github:company/rules");
     });
   });
 });

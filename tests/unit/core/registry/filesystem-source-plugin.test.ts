@@ -217,14 +217,16 @@ describe("FilesystemSourcePlugin", () => {
       await plugin.resolve(source);
 
       expect(consoleWarnSpy).toHaveBeenCalledWith(
-        expect.stringContaining("has no rules/, commands/, or mcp.json"),
+        expect.stringContaining(
+          "has no skills/, commands/, agents/, or mcp.json",
+        ),
       );
 
       consoleWarnSpy.mockRestore();
     });
 
-    it("does not warn when rules/ exists", async () => {
-      const source = "./preset-with-rules";
+    it("does not warn when skills/ exists", async () => {
+      const source = "./preset-with-skills";
       const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation();
 
       vi.mocked(fs.access).mockResolvedValue(undefined);
@@ -232,7 +234,7 @@ describe("FilesystemSourcePlugin", () => {
         isDirectory: () => true,
       } as MockStats);
       vi.mocked(fsUtils.pathExists).mockImplementation(async (p: string) => {
-        return p.endsWith("rules");
+        return p.endsWith("skills");
       });
 
       await plugin.resolve(source);
@@ -281,80 +283,109 @@ describe("FilesystemSourcePlugin", () => {
     });
   });
 
-  describe("tool detection", () => {
-    it("returns tool: marker for tool directories", async () => {
-      const plugin = new FilesystemSourcePlugin();
-      const source = "fs:./cursor";
-      const resolvedPath = path.resolve(process.cwd(), "./cursor");
-
-      // Mock path validation
-      vi.mocked(fs.access).mockResolvedValue(undefined);
-      vi.mocked(fs.stat).mockResolvedValue({
-        isDirectory: () => true,
-      } as MockStats);
-
-      // Mock codec registry to detect tool
-      vi.doMock("../../../../src/targets/codec-registry.js", () => ({
-        getCodecRegistry: vi.fn(() => ({
-          detect: vi.fn().mockResolvedValue({
-            toolName: "cursor",
-            codec: { name: "cursor" },
-          }),
-        })),
-      }));
-
-      const result = await plugin.resolve(source);
-
-      expect(result).toMatch(/^tool:cursor:/);
-      expect(result).toContain(resolvedPath);
-    });
-
-    it("returns standard preset path if not a tool directory", async () => {
-      const plugin = new FilesystemSourcePlugin();
-      const source = "./standard-preset";
-      const expectedPath = path.resolve(process.cwd(), source);
+  describe("validatePresetStructure", () => {
+    it("does not warn when skills/ directory exists", async () => {
+      const source = "./preset-with-skills";
+      const consoleWarnSpy = vi
+        .spyOn(console, "warn")
+        .mockImplementation(() => {});
 
       vi.mocked(fs.access).mockResolvedValue(undefined);
       vi.mocked(fs.stat).mockResolvedValue({
         isDirectory: () => true,
       } as MockStats);
       vi.mocked(fsUtils.pathExists).mockImplementation(async (p: string) => {
-        return p.endsWith("rules");
+        return p.endsWith("skills");
       });
 
-      // Mock codec registry to return null (not a tool)
-      vi.doMock("../../../../src/targets/codec-registry.js", () => ({
-        getCodecRegistry: vi.fn(() => ({
-          detect: vi.fn().mockResolvedValue(null),
-        })),
-      }));
+      await plugin.resolve(source);
 
-      const result = await plugin.resolve(source);
-
-      expect(result).not.toMatch(/^tool:/);
-      expect(result).toBe(expectedPath);
+      expect(consoleWarnSpy).not.toHaveBeenCalled();
+      consoleWarnSpy.mockRestore();
     });
 
-    it("respects --no-tool-detection flag", async () => {
-      const plugin = new FilesystemSourcePlugin();
-      const source = "fs:./cursor";
-      const expectedPath = path.resolve(process.cwd(), "./cursor");
+    it("does not warn when commands/ directory exists", async () => {
+      const source = "./preset-with-commands";
+      const consoleWarnSpy = vi
+        .spyOn(console, "warn")
+        .mockImplementation(() => {});
 
       vi.mocked(fs.access).mockResolvedValue(undefined);
       vi.mocked(fs.stat).mockResolvedValue({
         isDirectory: () => true,
       } as MockStats);
       vi.mocked(fsUtils.pathExists).mockImplementation(async (p: string) => {
-        return p.endsWith("rules");
+        return p.endsWith("commands");
       });
 
-      const result = await plugin.resolve(source, { noToolDetection: true });
+      await plugin.resolve(source);
 
-      expect(result).not.toMatch(/^tool:/);
-      expect(result).toBe(expectedPath);
+      expect(consoleWarnSpy).not.toHaveBeenCalled();
+      consoleWarnSpy.mockRestore();
     });
 
-    it("passes cwd to codec detection", async () => {
+    it("does not warn when agents/ directory exists", async () => {
+      const source = "./preset-with-agents";
+      const consoleWarnSpy = vi
+        .spyOn(console, "warn")
+        .mockImplementation(() => {});
+
+      vi.mocked(fs.access).mockResolvedValue(undefined);
+      vi.mocked(fs.stat).mockResolvedValue({
+        isDirectory: () => true,
+      } as MockStats);
+      vi.mocked(fsUtils.pathExists).mockImplementation(async (p: string) => {
+        return p.endsWith("agents");
+      });
+
+      await plugin.resolve(source);
+
+      expect(consoleWarnSpy).not.toHaveBeenCalled();
+      consoleWarnSpy.mockRestore();
+    });
+
+    it("warns when preset has no recognized directories", async () => {
+      const source = "./empty-preset";
+      const consoleWarnSpy = vi
+        .spyOn(console, "warn")
+        .mockImplementation(() => {});
+
+      vi.mocked(fs.access).mockResolvedValue(undefined);
+      vi.mocked(fs.stat).mockResolvedValue({
+        isDirectory: () => true,
+      } as MockStats);
+      vi.mocked(fsUtils.pathExists).mockResolvedValue(false);
+
+      await plugin.resolve(source);
+
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining(
+          "has no skills/, commands/, agents/, or mcp.json",
+        ),
+      );
+      consoleWarnSpy.mockRestore();
+    });
+  });
+
+  describe("tool detection removed", () => {
+    it("never returns tool: marker (codec detection removed)", async () => {
+      const plugin = new FilesystemSourcePlugin();
+      const source = "fs:./cursor";
+
+      vi.mocked(fs.access).mockResolvedValue(undefined);
+      vi.mocked(fs.stat).mockResolvedValue({
+        isDirectory: () => true,
+      } as MockStats);
+      vi.mocked(fsUtils.pathExists).mockImplementation(async (p: string) => {
+        return p.endsWith("skills");
+      });
+
+      const result = await plugin.resolve(source);
+
+      expect(result).not.toMatch(/^tool:/);
+    });
+
+    it("resolves with custom cwd", async () => {
       const plugin = new FilesystemSourcePlugin();
       const source = "fs:./.cursor";
       const customCwd = "/custom/project";
@@ -366,31 +397,11 @@ describe("FilesystemSourcePlugin", () => {
       } as MockStats);
       vi.mocked(fsUtils.pathExists).mockResolvedValue(false);
 
-      // This test verifies that tool detection respects custom cwd
       const result = await plugin.resolve(source, {
         cwd: customCwd,
-        noToolDetection: true,
       });
 
       expect(result).toBe(expectedPath);
-    });
-
-    it("handles tool detection errors gracefully", async () => {
-      const plugin = new FilesystemSourcePlugin();
-      const source = "fs:./cursor";
-
-      vi.mocked(fs.access).mockResolvedValue(undefined);
-      vi.mocked(fs.stat).mockResolvedValue({
-        isDirectory: () => true,
-      } as MockStats);
-      vi.mocked(fsUtils.pathExists).mockImplementation(async (p: string) => {
-        return p.endsWith("rules");
-      });
-
-      // Even if detection throws, should fall back to standard preset
-      const result = await plugin.resolve(source, { noToolDetection: true });
-
-      expect(result).not.toMatch(/^tool:/);
     });
   });
 });

@@ -51,6 +51,9 @@ describe("Version Command E2E (Real-World Distribution)", () => {
 
       // Should be executable (readable for all, executable for owner)
       expect(stats.isFile()).toBe(true);
+      if (process.platform === "win32") {
+        return;
+      }
       expect(stats.mode & 0o111).toBe(0o111); // executable by all
     });
 

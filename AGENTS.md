@@ -2,226 +2,108 @@
 
 ## Project Overview
 
-AgentSync is the infrastructure layer for AI coding agent configuration. It syncs rules, commands, and MCP servers across different AI tools (Claude, Cursor, Cline, RooCode).
+AgentSync syncs AI coding agent configuration (commands, skills, MCP servers) across 19 tools (Cursor, Claude, Cline, RooCode, OpenCode, Codex, Gemini, Copilot, Amp, Goose, Aider, Amazon Q, Augment, Kiro, OpenHands, Junie, Crush, Kilocode, Qwen). TypeScript, Node.js 18+, pnpm, Vitest, Commander.js.
 
-**Note**: Cline does not support slash commands (only rules and MCP servers).
+**Stable (v1.0)**: Semver commitment. Config schema is frozen. Global content (`~/.agents/`) accumulates with project content.
 
-**Tech Stack**: TypeScript, Node.js 18+, pnpm, Vitest, Commander.js
+**Agent-first**: The primary users of AgentSync are AI coding agents (Claude Code, Cursor, Copilot, etc.), not humans at a terminal. Agents create configs, manage presets, run sync, and interpret `--json` output. Human CLI usage is the secondary path. Design decisions should optimize for agent workflows: structured output, actionable errors, no interactive prompts, deterministic behavior.
 
-## Design Philosophy
+## Docs
 
-**Alpha Software**: This tool is in active development. Breaking changes are expected and encouraged to improve UX. No migration paths needed - we break compatibility freely for better design.
+Read these before making changes in the relevant area:
 
-**CLI-First Design**:
-
-- Non-interactive by default (scriptable, CI/CD friendly)
-- Use `--confirm` flag for interactive confirmations when needed
-- Commands should work without user input
-- Designed for automation first, human interaction second
-- Preview/dry-run modes are opt-in, not default
-
-**Ergonomics**:
-
-- Sensible defaults that "just work"
-- Minimal required arguments
-- Verbose output opt-in via `--verbose`
-- Fast operations (status, discovery separate concerns)
-- Clear, actionable error messages
-
-## Critical Guardrails
-
-- **NEVER push to `main`** - Always: branch → commit → PR → merge on GitHub
-- **Preserve history** - Use `git mv` for renames, never plain `mv`
-- **Branch format** - `{type}/{brief-description}` (e.g., `fix/init-local-config`)
-- **After PR merge** - Checkout `main`, pull latest, verify clean tree
-- **Commit format** - Use conventional commits (feat:, fix:, chore:, docs:, test:)
-
-See: ./CONTRIBUTING.md for full Git workflow
-
-## Development Commands
-
-```bash
-pnpm install              # Install dependencies
-pnpm dev                  # Development with hot reload
-pnpm build                # Build CLI to dist/
-pnpm test                 # Run all tests
-pnpm test:unit            # Unit tests only
-pnpm test:e2e             # E2E tests only
-pnpm test:shell           # Shell tests via Vitest
-pnpm test:bats            # BATS CLI tests (requires bats-core)
-pnpm cli <command>        # Test CLI commands (after build)
-```
+- @docs/architecture.md — system diagrams, data flow, key entry points
+- @docs/configuration.md — config format (TOML), MCP setup, preset sources, frontmatter format
+- @docs/cli.md — CLI command reference
+- @docs/tool-capabilities.md — tool-specific features and format differences
+- @docs/contributing.md — contribution guidelines, CI/CD workflows, PR checklist
+- @docs/security.md — security considerations, threat model
 
 ## Project Structure
 
-- `src/cli.ts` - CLI entry point
-- `src/commands/` - Command implementations (init, sync, gitignore, mcp/_, preset/_)
-- `src/core/` - Business logic (config, mcp, registry systems)
-- `src/security/` - Secret scanning, Unicode detection
-- `src/targets/` - Tool-specific converters (rules, commands, tools)
-- `src/types/` - TypeScript definitions
-- `tests/unit/` - Unit tests (mirror src/ structure)
-- `tests/e2e/` - End-to-end tests
-- `tests/shell/` - BATS CLI tests
-- `templates/` - AGENTS.md templates for projects
-- `docs/` - Detailed documentation
+```
+src/
+├── cli.ts                  # CLI entry point (Commander.js)
+├── commands/               # Command implementations — ALL new commands register here
+│   └── config/             # Config subcommands (add, rm, ls, show)
+├── config/                 # Config file loaders (TOML/JSON)
+├── core/                   # Business logic — no CLI concerns here
+│   ├── config/             # Config hierarchy and interactive selection
+│   │   ├── discovery.ts    # N-layer monorepo config discovery (loadConfigHierarchy)
+│   │   ├── merge.ts        # Config merge logic across hierarchy levels
+│   │   └── profiles.ts     # Role-based profiles ([profiles.*], --profile flag)
+│   ├── mcp/                # MCP config merging, registry, tokens, transport
+│   ├── monorepo.ts         # Monorepo subtree discovery (findAgentsSubtrees, filterChangedSubtrees)
+│   └── registry/           # Preset loading, GitHub source, merger
+├── sync/                   # Sync engine — ALL sync modules here (agents, commands, docs, mcp, skills)
+├── tools/                  # Tool definitions and detection (19 tools including cline)
+├── types/                  # TypeScript definitions, Zod schemas
+└── utils/                  # Shared utilities (frontmatter, fs, gitignore, paths)
+tests/
+├── unit/                   # Unit tests (mirror src/ structure)
+├── integration/            # Integration tests per tool
+├── workflows/              # Realistic CLI workflow tests
+├── scenarios/              # Scenario-based tests
+├── e2e/                    # E2E packaging validation
+└── shell/                  # BATS CLI tests
+```
 
-## Key Concepts
+## Commands
 
-**Configuration**
+```bash
+pnpm install              # Install dependencies
+pnpm build                # Build CLI to dist/
+pnpm test                 # Run all tests
+pnpm test:e2e             # E2E tests only
+pnpm test:bats            # BATS CLI tests (requires bats-core)
+pnpm lint                 # TypeScript type-check + Biome lint
+pnpm lint:fix             # Auto-fix lint issues
+pnpm cli <command>        # Test CLI commands (requires pnpm build first)
+pnpm cli sync --profile <name>  # Sync using a named role-based profile
+pnpm cli doctor           # Run diagnostics (config, tools, MCP, presets)
+pnpm cli doctor --json    # Structured JSON diagnostics
+pnpm cli clean            # Remove all synced files
+pnpm cli config ls        # List tools, MCP servers, presets
+pnpm cli config show      # Dump resolved config as JSON
+pnpm cli config add mcp github --mcp-config '{"command":"npx","args":["-y","@modelcontextprotocol/server-github"]}'
+pnpm cli config rm mcp github
+```
 
-- Project config: `.agentsync/config.json` (committed)
-- Local overrides: `agentsync.local.json` (gitignored)
-- Config hierarchy: global → project → local (per-key merge for `mcpServers` registry)
-- Selection: `mcpEnabled`/`mcpDisabled` arrays union across levels
+### Verification (run before any commit)
 
-**Preset System**
+```bash
+pnpm lint && pnpm test
+```
 
-- GitHub-based: `github:owner/repo` format
-- Cached locally, use `--pull` to refresh
-- Selective loading via `include`/`exclude` patterns
-- Internal namespacing uses underscore (`preset_name`)
+## Conventions
 
-**Tool Output**
+- **CLI-first**: Non-interactive by default (scriptable, CI/CD friendly). Use `--tools` flag for init.
+- **Config format**: TOML (`.agents/agentsync.toml`). No JSON fallback.
+- **Always use `readJsonValidated()` with Zod schemas** — never plain `readJson()` or type assertions (`as`).
+- **Conventional commits**: `type(scope): summary` — types: feat|fix|docs|chore|test|refactor. Use `pnpm cz` for guided messages.
+- **Branch format**: `{type}/{brief-description}` (e.g., `fix/init-local-config`)
+- **Handle CommanderError**: Check for `commander.version` and `commander.helpDisplayed`, exit 0.
+- **Frontmatter**: Commands and skills require `description` field. Missing frontmatter triggers warnings, not errors.
+- **Config hierarchy**: N-layer monorepo discovery (org > team > service), walking up from CWD to git root. Profiles (`[profiles.*]`, `--profile` flag, `AGENTSYNC_PROFILE` env var) overlay role-specific overrides with filter semantics. Per-key merge for `[mcp.*]` servers. Defined MCP servers are enabled (no separate `mcp_enabled`).
+- **TOML keys**: Use snake_case (`tools`, `mcp`) per TOML convention.
+- **Config format (v1)**: `tools = [...]` flat list, `[mcp.*]` defined=enabled, `extends = [...]` flat strings. No `version` or `source_dir` fields.
+- **Namespace separator**: Use `--` (flat) not `/` (nested) in tool outputs.
+- **`@AGENTS.md` directive**: Used by CLAUDE.md, GEMINI.md instead of symlinks.
 
-- Cursor/Claude/RooCode: Nested directories (`preset/name/`)
-- Cline: Flat structure (`preset_name_`) - rules only, no command support
-- Each tool has specific converter in `src/targets/`
+## Rules
 
-**MCP Integration**
+- **Data validation**: Always use `readJsonValidated()` with a Zod schema — never plain `readJson()`, `JSON.parse()` with type assertions, or `as` casts. Surface Zod error messages to the user. Use `unknown` instead of `any`.
+- **Testing**: Favor natural workflows over manual setup. Test user journeys in E2E tests, business logic in unit tests. One behavior per test, clear arrange/act/assert. Use `readJsonValidated()` with Zod in tests too.
 
-- **Registry**: `mcpServers` object with server definitions (command, args, env)
-- **Selection**: `mcpEnabled` array (servers to activate), `mcpDisabled` array (servers to exclude)
-- **Opt-in model**: Servers must be in BOTH `mcpServers` AND `mcpEnabled` to sync
-- **Merge strategy**: Registry per-key merge across levels; enabled/disabled arrays union across levels
-- Empty/missing `mcpEnabled` = no servers active
-- Generates tool-specific configs (e.g., `.mcp.json` for Claude, `.cursor/mcp.json` for Cursor)
+## Boundaries
 
-## Implementation Notes
-
-**Error Handling**
-
-- Use typed errors with recovery guidance
-- Handle CommanderError: check for `commander.version` and `commander.helpDisplayed`, exit 0
-- Provide clear error messages with actionable fixes
-
-**Module Detection**
-
-- Prefer `import.meta.main` for main module detection
-- Fallback to `es-main` for older Node versions
-
-**Frontmatter**
-
-- Commands and rules require `description` field
-- Missing frontmatter triggers warnings, not errors
-
-**Testing Philosophy**
-
-- Favor natural workflows - don't bypass with manual setup
-- Test user journeys in E2E tests
-- Unit test business logic in isolation
-- Always run tests before committing
-
-**Security**
-
-- Auto-scan for secrets in AGENTS.md files
-- Detect malicious Unicode characters
-- Checks run during sync operations
-
-## Common Development Tasks
-
-**Adding a New Command**
-
-1. Create command file in `src/commands/`
-2. Register in `src/cli.ts`
-3. Add unit tests in `tests/unit/commands/`
-4. Add E2E test for workflow
-5. Update CLI documentation
-
-**Adding Tool Support**
-
-1. Create converter in `src/targets/tools/`
-2. Add rule converter in `src/targets/rules/`
-3. Add command converter in `src/targets/commands/`
-4. Register in tool index
-5. Add tests for converters
-
-**Modifying Preset System**
-
-1. Core logic in `src/core/registry/`
-2. GitHub resolver handles fetching
-3. Merger combines presets
-4. Cache manager handles storage
-5. Test with fixtures in `tests/fixtures/`
-
-**Updating MCP Logic**
-
-1. Config merging in `src/core/mcp/config.ts`
-2. Registry in `src/core/mcp/registry.ts`
-3. Token replacement in `src/core/mcp/tokens.ts`
-4. Test merging behavior thoroughly
-
-## Testing Requirements
-
-- Run `pnpm test` before any commit
-- Add tests for new features
-- Update fixtures when changing file formats
-- E2E tests for user-facing changes
-- Unit tests for logic changes
-- Keep tests focused and atomic
-
-## Build & Release
-
-- Build with `pnpm build` before testing CLI
-- Use `pnpm dev` for hot reload during development
-- Version bumps follow semver
-- Release process documented in `docs/releasing.md`
-
-## Code Style
-
-- TypeScript strict mode
-- 2 spaces indentation
-- Single quotes for strings
-- Semicolons required
-- Max line length: 100 characters
-- Biome for formatting/linting
-- Prefer functional patterns
-- Avoid `any`, use `unknown` when needed
-- **Always use `readJsonValidated()` with Zod schemas** - Never use plain `readJson()` or type assertions (`as`). Runtime validation prevents bugs and provides better error messages. This applies to all JSON reading in tests and production code.
-
-## Debugging
-
-- Use `DEBUG=agentsync:*` for verbose logging
-- Check `docs/debugging.md` for troubleshooting
-- VSCode launch configs available
-- Source maps enabled in development
-
-## Architecture Decisions
-
-- Modular design with clear separation of concerns
-- Tool-agnostic core with tool-specific adapters
-- Local config overrides for flexibility
-- GitHub as preset source for sharing
-- Security scanning built-in
-
-## Documentation
-
-**Core Docs**
-
-- REQUIREMENTS.md - Feature specs and design (source of truth)
-- ARCHITECTURE.md - System design
-- TESTING.md - Testing strategy
-- SECURITY.md - Security considerations
-- CONTRIBUTING.md - Contribution guide
-
-**Reference**
-
-- docs/cli.md - CLI command reference
-- docs/configuration.md - Config format
-- docs/presets.md - Preset system details
-- docs/debugging.md - Debug techniques
-- docs/tool-capabilities.md - Tool-specific features
-
----
-
-_For AI agents developing AgentSync. See README.md for user documentation._
+- ✅ **Always:** Run `pnpm lint && pnpm test` before committing
+- ✅ **Always:** Add tests for new features and bug fixes
+- ✅ **Always:** Update AGENTS.md and relevant docs when changing project structure or commands
+- ✅ **Always:** Use typed errors with recovery guidance (see `src/core/errors.ts`)
+- ✅ **Always:** Document architectural decisions in the agentsync-docs repo
+- ⚠️ **Ask first:** Before changing config schema or merge strategy
+- ⚠️ **Ask first:** Before adding new tool support (requires codec + converters + tests)
+- 🚫 **Never:** Push directly to `main` — always branch > commit > PR > merge
+- 🚫 **Never:** Use plain `readJson()` or `as` type assertions for JSON — use `readJsonValidated()` with Zod
+- 🚫 **Never:** Include secrets in code, tests, or documentation

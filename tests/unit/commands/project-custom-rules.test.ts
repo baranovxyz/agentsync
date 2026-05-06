@@ -21,25 +21,22 @@ describe("Project Custom Rules and Commands", () => {
     }
   });
 
-  it("should load project custom rules from .agentsync/rules/", async () => {
+  it("should load project custom rules from .agents/skills/", async () => {
     // Setup: Create config and custom rules
-    await ensureDir(path.join(testDir, ".agentsync"));
+    await ensureDir(path.join(testDir, ".agents"));
     await fs.writeFile(
-      path.join(testDir, ".agentsync", "config.json"),
-      JSON.stringify({
-        version: "1.0",
-        tools: [],
-      }),
+      path.join(testDir, ".agents", "agentsync.toml"),
+      "tools = []\n",
     );
 
-    // Create custom rules directory with test files
-    await ensureDir(path.join(testDir, ".agentsync", "rules"));
+    // Create custom skills directory with test files
+    await ensureDir(path.join(testDir, ".agents", "skills"));
     await fs.writeFile(
-      path.join(testDir, ".agentsync", "rules", "custom.md"),
+      path.join(testDir, ".agents", "skills", "custom.md"),
       "# Custom Rule",
     );
     await fs.writeFile(
-      path.join(testDir, ".agentsync", "rules", "auth.md"),
+      path.join(testDir, ".agents", "skills", "auth.md"),
       "# Auth Rule",
     );
 
@@ -58,25 +55,22 @@ describe("Project Custom Rules and Commands", () => {
     expect(true).toBe(true);
   });
 
-  it("should load project custom commands from .agentsync/commands/", async () => {
+  it("should load project custom commands from .agents/commands/", async () => {
     // Setup: Create config and custom commands
-    await ensureDir(path.join(testDir, ".agentsync"));
+    await ensureDir(path.join(testDir, ".agents"));
     await fs.writeFile(
-      path.join(testDir, ".agentsync", "config.json"),
-      JSON.stringify({
-        version: "1.0",
-        tools: [],
-      }),
+      path.join(testDir, ".agents", "agentsync.toml"),
+      "tools = []\n",
     );
 
     // Create custom commands directory
-    await ensureDir(path.join(testDir, ".agentsync", "commands"));
+    await ensureDir(path.join(testDir, ".agents", "commands"));
     await fs.writeFile(
-      path.join(testDir, ".agentsync", "commands", "commit.md"),
+      path.join(testDir, ".agents", "commands", "commit.md"),
       "# Commit Command",
     );
     await fs.writeFile(
-      path.join(testDir, ".agentsync", "commands", "deploy.md"),
+      path.join(testDir, ".agents", "commands", "deploy.md"),
       "# Deploy Command",
     );
 
@@ -95,13 +89,10 @@ describe("Project Custom Rules and Commands", () => {
 
   it("should handle missing project custom directories gracefully", async () => {
     // Setup: Config without custom rules/commands directories
-    await ensureDir(path.join(testDir, ".agentsync"));
+    await ensureDir(path.join(testDir, ".agents"));
     await fs.writeFile(
-      path.join(testDir, ".agentsync", "config.json"),
-      JSON.stringify({
-        version: "1.0",
-        tools: [],
-      }),
+      path.join(testDir, ".agents", "agentsync.toml"),
+      "tools = []\n",
     );
 
     // Create AGENTS.md
@@ -118,20 +109,16 @@ describe("Project Custom Rules and Commands", () => {
 
   it("should merge project custom rules with presets (if any)", async () => {
     // Setup: Config that could load presets (but won't since we don't set up presets)
-    await ensureDir(path.join(testDir, ".agentsync"));
+    await ensureDir(path.join(testDir, ".agents"));
     await fs.writeFile(
-      path.join(testDir, ".agentsync", "config.json"),
-      JSON.stringify({
-        version: "1.0",
-        tools: [],
-        extends: [], // No presets configured
-      }),
+      path.join(testDir, ".agents", "agentsync.toml"),
+      "tools = []\nextends = []\n",
     );
 
-    // Add custom rules that would override presets if they existed
-    await ensureDir(path.join(testDir, ".agentsync", "rules"));
+    // Add custom skills that would override presets if they existed
+    await ensureDir(path.join(testDir, ".agents", "skills"));
     await fs.writeFile(
-      path.join(testDir, ".agentsync", "rules", "shared-name.md"),
+      path.join(testDir, ".agents", "skills", "shared-name.md"),
       "# Project Override",
     );
 
@@ -147,28 +134,25 @@ describe("Project Custom Rules and Commands", () => {
     expect(true).toBe(true);
   });
 
-  it("should handle nested rules and commands", async () => {
+  it("should handle nested skills and commands", async () => {
     // Setup: Config with nested custom files
-    await ensureDir(path.join(testDir, ".agentsync"));
+    await ensureDir(path.join(testDir, ".agents"));
     await fs.writeFile(
-      path.join(testDir, ".agentsync", "config.json"),
-      JSON.stringify({
-        version: "1.0",
-        tools: [],
-      }),
+      path.join(testDir, ".agents", "agentsync.toml"),
+      "tools = []\n",
     );
 
-    // Create nested rule structure
-    await ensureDir(path.join(testDir, ".agentsync", "rules", "frontend"));
+    // Create nested skill structure
+    await ensureDir(path.join(testDir, ".agents", "skills", "frontend"));
     await fs.writeFile(
-      path.join(testDir, ".agentsync", "rules", "frontend", "react.md"),
+      path.join(testDir, ".agents", "skills", "frontend", "react.md"),
       "# React Rules",
     );
 
     // Create nested command structure
-    await ensureDir(path.join(testDir, ".agentsync", "commands", "deploy"));
+    await ensureDir(path.join(testDir, ".agents", "commands", "deploy"));
     await fs.writeFile(
-      path.join(testDir, ".agentsync", "commands", "deploy", "production.md"),
+      path.join(testDir, ".agents", "commands", "deploy", "production.md"),
       "# Production Deploy",
     );
 
@@ -185,25 +169,21 @@ describe("Project Custom Rules and Commands", () => {
   });
 
   it("should sync both namespaced and non-namespaced custom commands", async () => {
-    // Setup: Config with cursor tool
-    await ensureDir(path.join(testDir, ".agentsync"));
+    // Setup: Config with claude tool (which supports commands)
+    await ensureDir(path.join(testDir, ".agents"));
     await fs.writeFile(
-      path.join(testDir, ".agentsync", "config.json"),
-      JSON.stringify({
-        version: "1.0",
-        tools: ["cursor"],
-      }),
+      path.join(testDir, ".agents", "agentsync.toml"),
+      'tools = ["claude"]\n',
     );
 
     // Create commands directory with project custom (non-namespaced) files
-    // Project custom files should NEVER be namespaced per REQUIREMENTS.md
-    await ensureDir(path.join(testDir, ".agentsync", "commands"));
+    await ensureDir(path.join(testDir, ".agents", "commands"));
     await fs.writeFile(
-      path.join(testDir, ".agentsync", "commands", "test.md"),
+      path.join(testDir, ".agents", "commands", "test.md"),
       "# Test Command",
     );
     await fs.writeFile(
-      path.join(testDir, ".agentsync", "commands", "deploy.md"),
+      path.join(testDir, ".agents", "commands", "deploy.md"),
       "# Deploy Command",
     );
 
@@ -216,29 +196,26 @@ describe("Project Custom Rules and Commands", () => {
       dryRun: false,
     });
 
-    // Verify non-namespaced files are synced without namespace prefix
+    // Verify non-namespaced files are synced to Claude commands dir
     const testCommandPath = path.join(
       testDir,
-      ".cursor",
+      ".claude",
       "commands",
       "test.md",
     );
     expect(await pathExists(testCommandPath)).toBe(true);
     const testContent = await fs.readFile(testCommandPath, "utf-8");
-    // Frontmatter is auto-generated for files without it
     expect(testContent).toContain("# Test Command");
-    expect(testContent).toContain("---"); // Has frontmatter
 
     // Verify second non-namespaced file
     const deployCommandPath = path.join(
       testDir,
-      ".cursor",
+      ".claude",
       "commands",
       "deploy.md",
     );
     expect(await pathExists(deployCommandPath)).toBe(true);
     const deployContent = await fs.readFile(deployCommandPath, "utf-8");
     expect(deployContent).toContain("# Deploy Command");
-    expect(deployContent).toContain("---"); // Has frontmatter
   });
 });

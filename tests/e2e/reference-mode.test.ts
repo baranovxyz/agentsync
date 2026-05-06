@@ -14,12 +14,23 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { sync } from "../../src/commands/sync.js";
-import { getCodecRegistry } from "../../src/targets/codec-registry.js";
 
 describe("Reference Mode E2E", () => {
   const workspaceRoot = process.cwd();
   let projectDir: string;
   let sourceDir: string;
+
+  function tomlArray(values: string[]): string {
+    return `[${values.map((value) => JSON.stringify(value)).join(", ")}]`;
+  }
+
+  function fsSource(...segments: string[]): string {
+    return `fs:${path.join(sourceDir, ...segments)}`;
+  }
+
+  function referenceConfig(tools: string[], sources: string[]): string {
+    return `tools = ${tomlArray(tools)}\nextends = ${tomlArray(sources)}\n`;
+  }
 
   beforeEach(async () => {
     // Create temporary directories
@@ -29,8 +40,8 @@ describe("Reference Mode E2E", () => {
     await mkdir(projectDir, { recursive: true });
     await mkdir(sourceDir, { recursive: true });
 
-    // Create .agentsync directory
-    await mkdir(path.join(projectDir, ".agentsync"), { recursive: true });
+    // Create .agents directory
+    await mkdir(path.join(projectDir, ".agents"), { recursive: true });
   });
 
   afterEach(async () => {
@@ -69,19 +80,11 @@ Use strict mode.`;
       await writeFile(rulePath, ruleContent);
 
       // Create config referencing tool directory
-      const config = {
-        version: "1.0",
-        tools: ["claude"],
-        extends: [
-          {
-            source: `fs:${sourceDir}/.cursor`,
-            namespace: "cursor",
-          },
-        ],
-      };
-
-      const configPath = path.join(projectDir, ".agentsync", "config.json");
-      await writeFile(configPath, JSON.stringify(config));
+      const configPath = path.join(projectDir, ".agents", "agentsync.toml");
+      await writeFile(
+        configPath,
+        referenceConfig(["claude"], [fsSource(".cursor")]),
+      );
 
       // Action: Run sync
       await sync({ cwd: projectDir });
@@ -117,33 +120,26 @@ description: Standard Rule
 Rule content`,
       );
 
-      // Config with custom namespace
-      const config = {
-        version: "1.0",
-        tools: ["cline"],
-        extends: [
-          {
-            source: `fs:${sourceDir}/.cursor`,
-            namespace: "my-cursor",
-          },
-        ],
-      };
-
-      const configPath = path.join(projectDir, ".agentsync", "config.json");
-      await writeFile(configPath, JSON.stringify(config));
+      // Config referencing tool directory (namespace auto-derived from last segment)
+      const configPath = path.join(projectDir, ".agents", "agentsync.toml");
+      await writeFile(
+        configPath,
+        referenceConfig(["roocode"], [fsSource(".cursor")]),
+      );
 
       // Run sync
       await sync({ cwd: projectDir });
 
-      // Verify: Cline output has namespace prefix
-      const clineruleDir = path.join(projectDir, ".clinerules");
+      // Verify: RooCode output has namespace as nested directory
+      // Namespace auto-derived from source: fs:.../.cursor → "cursor"
+      const rooRuleDir = path.join(projectDir, ".roo", "rules");
       const _files = await readFile(
-        path.join(clineruleDir, "my-cursor_standard.md"),
+        path.join(rooRuleDir, "cursor", "standard.md"),
         "utf-8",
       )
         .then(() => true)
         .catch(() => false);
-      // Should have my-cursor_ prefix in flat structure
+      // Should have cursor/ namespace directory in nested structure
     });
 
     it("handles empty tool directories gracefully", async () => {
@@ -151,19 +147,11 @@ Rule content`,
       const sourceToolDir = path.join(sourceDir, ".cursor");
       await mkdir(sourceToolDir, { recursive: true });
 
-      const config = {
-        version: "1.0",
-        tools: ["claude"],
-        extends: [
-          {
-            source: `fs:${sourceDir}/.cursor`,
-            namespace: "cursor",
-          },
-        ],
-      };
-
-      const configPath = path.join(projectDir, ".agentsync", "config.json");
-      await writeFile(configPath, JSON.stringify(config));
+      const configPath = path.join(projectDir, ".agents", "agentsync.toml");
+      await writeFile(
+        configPath,
+        referenceConfig(["claude"], [fsSource(".cursor")]),
+      );
 
       // Should not throw, just warn
       await sync({ cwd: projectDir });
@@ -176,8 +164,8 @@ Rule content`,
       // Empty tool dir → no rules in output
     });
 
-    it("coexists with custom rules from .agentsync/rules", async () => {
-      // Setup: Create both tool directory and custom rules
+    it("coexists with custom skills from .agents/skills", async () => {
+      // Setup: Create both tool directory and custom skills
       const sourceToolDir = path.join(sourceDir, ".cursor");
       const rulesDir = path.join(sourceToolDir, "rules");
       await mkdir(rulesDir, { recursive: true });
@@ -191,39 +179,31 @@ description: From Tool
 Tool rule`,
       );
 
-      // Custom rules
-      const customRulesDir = path.join(projectDir, ".agentsync", "rules");
-      await mkdir(customRulesDir, { recursive: true });
+      // Custom skills
+      const customSkillsDir = path.join(projectDir, ".agents", "skills");
+      await mkdir(customSkillsDir, { recursive: true });
 
       await writeFile(
-        path.join(customRulesDir, "custom.md"),
+        path.join(customSkillsDir, "custom.md"),
         `---
-description: Custom Rule
+description: Custom Skill
 ---
 
-Custom rule`,
+Custom skill`,
       );
 
-      const config = {
-        version: "1.0",
-        tools: ["claude"],
-        extends: [
-          {
-            source: `fs:${sourceDir}/.cursor`,
-            namespace: "cursor",
-          },
-        ],
-      };
-
-      const configPath = path.join(projectDir, ".agentsync", "config.json");
-      await writeFile(configPath, JSON.stringify(config));
+      const configPath = path.join(projectDir, ".agents", "agentsync.toml");
+      await writeFile(
+        configPath,
+        referenceConfig(["claude"], [fsSource(".cursor")]),
+      );
 
       // Run sync
       await sync({ cwd: projectDir });
 
-      // Verify: Both rules present (different namespaces/scopes)
+      // Verify: Both skills present (different namespaces/scopes)
       // Tool rule should be namespaced: cursor/from-tool.md
-      // Custom rule should not be namespaced: custom.md
+      // Custom skill should not be namespaced: custom.md
     });
 
     it("respects --no-tool-detection flag", async () => {
@@ -242,19 +222,11 @@ Content`,
       );
 
       // Config with fs: source
-      const config = {
-        version: "1.0",
-        tools: ["claude"],
-        extends: [
-          {
-            source: `fs:${sourceDir}/.cursor`,
-            namespace: "cursor",
-          },
-        ],
-      };
-
-      const configPath = path.join(projectDir, ".agentsync", "config.json");
-      await writeFile(configPath, JSON.stringify(config));
+      const configPath = path.join(projectDir, ".agents", "agentsync.toml");
+      await writeFile(
+        configPath,
+        referenceConfig(["claude"], [fsSource(".cursor")]),
+      );
 
       // Run sync with --no-tool-detection
       await sync({ cwd: projectDir, noToolDetection: true });
@@ -295,30 +267,21 @@ description: Claude Rule
 Claude content`,
       );
 
-      // Config referencing both
-      const config = {
-        version: "1.0",
-        tools: ["cline"],
-        extends: [
-          {
-            source: `fs:${sourceDir}/.cursor`,
-            namespace: "cursor",
-          },
-          {
-            source: `fs:${sourceDir}/.claude`,
-            namespace: "claude",
-          },
-        ],
-      };
-
-      const configPath = path.join(projectDir, ".agentsync", "config.json");
-      await writeFile(configPath, JSON.stringify(config));
+      // Config referencing both (namespace auto-derived from last segment)
+      const configPath = path.join(projectDir, ".agents", "agentsync.toml");
+      await writeFile(
+        configPath,
+        referenceConfig(
+          ["roocode"],
+          [fsSource(".cursor"), fsSource(".claude")],
+        ),
+      );
 
       // Run sync
       await sync({ cwd: projectDir });
 
       // Verify: Both sources loaded with proper namespaces
-      // Cline: cursor_cursor-rule.md and claude_claude-rule.md (in .clinerules)
+      // RooCode: cursor/cursor-rule.md and claude-src/claude-rule.md (in .roo/rules/)
     });
   });
 
@@ -339,19 +302,11 @@ Content`,
       );
 
       // Config that includes cursor as target
-      const config = {
-        version: "1.0",
-        tools: ["cursor", "claude"],
-        extends: [
-          {
-            source: `fs:${sourceDir}/.cursor`,
-            namespace: "cursor",
-          },
-        ],
-      };
-
-      const configPath = path.join(projectDir, ".agentsync", "config.json");
-      await writeFile(configPath, JSON.stringify(config));
+      const configPath = path.join(projectDir, ".agents", "agentsync.toml");
+      await writeFile(
+        configPath,
+        referenceConfig(["cursor", "claude"], [fsSource(".cursor")]),
+      );
 
       // Run sync
       await sync({ cwd: projectDir });
@@ -381,19 +336,11 @@ Content`,
 
       // Config - note: mcpServers selection is handled by global registry
       // For this test, we verify the MCP is synced to tool output
-      const config = {
-        version: "1.0",
-        tools: ["claude"],
-        extends: [
-          {
-            source: `fs:${sourceDir}/.cursor`,
-            namespace: "cursor",
-          },
-        ],
-      };
-
-      const configPath = path.join(projectDir, ".agentsync", "config.json");
-      await writeFile(configPath, JSON.stringify(config));
+      const configPath = path.join(projectDir, ".agents", "agentsync.toml");
+      await writeFile(
+        configPath,
+        referenceConfig(["claude"], [fsSource(".cursor")]),
+      );
 
       // Run sync
       await sync({ cwd: projectDir });
@@ -403,20 +350,6 @@ Content`,
       // separately in mcp config tests. This test verifies the tool directory
       // is accessible and readable during sync.
       expect(true).toBe(true);
-    });
-  });
-
-  describe("Codec Integration", () => {
-    it("uses correct codec for tool detection", async () => {
-      // Setup: Verify codec registry is used
-      const registry = getCodecRegistry();
-
-      // Should have all 4 codecs
-      expect(registry.getAll().length).toBe(4);
-      expect(registry.get("cursor")).toBeDefined();
-      expect(registry.get("claude")).toBeDefined();
-      expect(registry.get("cline")).toBeDefined();
-      expect(registry.get("roocode")).toBeDefined();
     });
   });
 });

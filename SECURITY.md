@@ -2,23 +2,31 @@
 
 ## Supported Versions
 
-We support the latest published version on npm and the `main` branch. Security fixes are backported on a best-effort basis.
+| Version | Supported |
+|---------|-----------|
+| 1.0.x   | Yes       |
+| < 1.0   | No        |
 
 ## Reporting a Vulnerability
 
-- Please report suspected vulnerabilities privately via GitHub Security Advisories.
-- Do not create public issues for security reports.
-- We aim to acknowledge within 48 hours.
+Please report suspected vulnerabilities privately via [GitHub Security Advisories](https://github.com/baranovxyz/agentsync/security/advisories/new).
+
+**Do not open public issues for security reports.**
+
+We aim to acknowledge reports within 48 hours and provide a fix timeline within 7 days.
 
 ## Secret Handling
 
-- Never commit secrets. Local configs like `agentsync.local.json` and `.env` are gitignored and excluded from packages.
-- Release workflows use OIDC for npm provenance; no long-lived tokens are required.
+- Never commit secrets. Local configs (`agentsync.local.toml`, `.env`) are gitignored.
+- Release workflows use OIDC for npm provenance — no long-lived tokens.
+- MCP server configs support `{ENV_VAR}` token substitution to avoid hardcoding secrets.
 
 ## Supply Chain
 
-- We use pinned tooling in CI and validate tarball contents in release.
-- Automated checks: typecheck, tests, Semgrep, and audit in CI.
+- Pinned tooling in CI
+- Tarball content validation in release workflow
+- Automated dependency auditing via `pnpm audit`
+- npm publish with `--provenance` (OIDC-signed, verifiable origin)
 
 ## Responsible Disclosure
 

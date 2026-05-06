@@ -248,7 +248,7 @@ describe("Init Command Interactive Prompts", () => {
   describe("Full Interactive Flow Simulation", () => {
     it("should complete full workflow with default selections", async () => {
       // Simulate full init flow with all defaults
-      const results: any = {};
+      const results: Record<string, unknown> = {};
 
       // Step 1: Template selection (default)
       const templatePrompt = await render(select, {
@@ -301,7 +301,7 @@ describe("Init Command Interactive Prompts", () => {
     });
 
     it("should complete full workflow with custom selections", async () => {
-      const results: any = {};
+      const results: Record<string, unknown> = {};
 
       // Step 1: Select TypeScript React template
       const templatePrompt = await render(select, {

@@ -13,8 +13,6 @@ export type SourceType = "github" | "filesystem";
  * Options for resolving a source
  */
 export interface ResolveOptions {
-  /** Force update for remote sources (e.g., git pull) */
-  pull?: boolean;
   /** Working directory for resolving relative paths */
   cwd?: string;
   /** Disable automatic tool directory detection (for debugging) */

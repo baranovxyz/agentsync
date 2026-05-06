@@ -8,6 +8,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
+    exclude: ["node_modules/**"],
 
     // Hierarchical timeouts with CI adjustment
     testTimeout: 5000 * CI_MULTIPLIER, // Unit tests: 5s local, 10s CI

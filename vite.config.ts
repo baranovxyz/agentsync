@@ -1,4 +1,4 @@
-import { resolve } from "node:path";
+import { isAbsolute, resolve, win32 } from "node:path";
 import { defineConfig } from "vite";
 
 export default defineConfig({
@@ -9,6 +9,12 @@ export default defineConfig({
       fileName: "cli",
     },
     rollupOptions: {
+      // Avoid code-splitting: Vite/Rollup drops re-exported node:fs/promises
+      // bindings from chunk imports while still emitting the re-export statements,
+      // causing ReferenceErrors at runtime.
+      output: {
+        inlineDynamicImports: true,
+      },
       external: (id) => {
         // Externalize all node built-ins (with or without node: prefix, including subpaths)
         if (id.startsWith("node:")) {
@@ -48,11 +54,16 @@ export default defineConfig({
         if (id === "fs-extra" || id.startsWith("fs-extra/")) {
           return true;
         }
-        // Externalize all other node_modules
-        return !(id.startsWith(".") || id.startsWith("/"));
+        // Externalize bare node_modules imports, but keep entry/internal files bundled.
+        return !(
+          id.startsWith(".") ||
+          id.startsWith("/") ||
+          isAbsolute(id) ||
+          win32.isAbsolute(id)
+        );
       },
     },
-    target: "node18",
+    target: "node20",
     minify: false,
     sourcemap: true,
   },

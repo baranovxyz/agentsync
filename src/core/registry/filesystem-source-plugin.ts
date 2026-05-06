@@ -1,7 +1,6 @@
 /**
  * Filesystem source plugin
  * Handles local directory paths as preset sources
- * Supports both standard presets and tool directories (via codecs)
  */
 
 import { access, stat } from "node:fs/promises";
@@ -64,14 +63,20 @@ export class FilesystemSourcePlugin implements SourcePlugin {
 
     // Prevent path traversal attacks (except in relative paths starting with ../)
     if (cleanPath.includes("..") && !cleanPath.startsWith("../")) {
-      throw new ValidationError(
+      const err = new ValidationError(
         `Path traversal not allowed except in relative paths: ${source}`,
       );
+      err.suggestion =
+        'Use "../" at the start of the path for relative references, or use an absolute path';
+      throw err;
     }
 
     // Ensure path is not empty after cleaning
     if (!cleanPath || cleanPath.trim() === "") {
-      throw new ValidationError(`Empty path after cleaning: ${source}`);
+      const err = new ValidationError(`Empty path after cleaning: ${source}`);
+      err.suggestion =
+        "Provide a valid filesystem path, e.g. fs:./my-presets or /absolute/path";
+      throw err;
     }
   }
 
@@ -87,19 +92,8 @@ export class FilesystemSourcePlugin implements SourcePlugin {
     // Validate path exists and is accessible
     await this.validatePath(resolvedPath);
 
-    // Try tool detection (unless disabled)
-    if (!options?.noToolDetection) {
-      const { getCodecRegistry } = await import(
-        "../../targets/codec-registry.js"
-      );
-      const codecRegistry = getCodecRegistry();
-      const detected = await codecRegistry.detect(resolvedPath);
-
-      if (detected) {
-        // Return special marker that includes tool info
-        return `tool:${detected.toolName}:${resolvedPath}`;
-      }
-    }
+    // Tool directory detection removed (codecs deleted).
+    // Tool directories are now handled as standard preset directories.
 
     // Standard preset directory - validate structure
     await this.validatePresetStructure(resolvedPath);
@@ -138,22 +132,25 @@ export class FilesystemSourcePlugin implements SourcePlugin {
       throw new FileSystemError(
         `Filesystem source not accessible: ${resolvedPath}`,
         resolvedPath,
-        error as Error,
+        error instanceof Error ? error : new Error(String(error)),
       );
     }
   }
 
   /**
-   * Validate preset structure (warn if no rules/, commands/, or mcp.json)
+   * Validate preset structure (warn if no skills/, commands/, agents/, or mcp.json)
    */
   private async validatePresetStructure(resolvedPath: string): Promise<void> {
-    const hasRules = await pathExists(path.join(resolvedPath, "rules"));
-    const hasCommands = await pathExists(path.join(resolvedPath, "commands"));
-    const hasMcp = await pathExists(path.join(resolvedPath, "mcp.json"));
+    const [hasSkills, hasCommands, hasAgents, hasMcp] = await Promise.all([
+      pathExists(path.join(resolvedPath, "skills")),
+      pathExists(path.join(resolvedPath, "commands")),
+      pathExists(path.join(resolvedPath, "agents")),
+      pathExists(path.join(resolvedPath, "mcp.json")),
+    ]);
 
-    if (!(hasRules || hasCommands || hasMcp)) {
+    if (!(hasSkills || hasCommands || hasAgents || hasMcp)) {
       console.warn(
-        `Warning: Filesystem preset at ${resolvedPath} has no rules/, commands/, or mcp.json`,
+        `Warning: Filesystem preset at ${resolvedPath} has no skills/, commands/, agents/, or mcp.json`,
       );
     }
   }
