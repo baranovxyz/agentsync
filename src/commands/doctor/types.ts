@@ -23,6 +23,12 @@ export interface DoctorResult {
     file: string;
     status: "ok" | "modified" | "missing";
   }>;
+  workerHints: Array<{
+    tool: string;
+    severity: "warning";
+    message: string;
+    fix: string;
+  }>;
 }
 
 /** Intermediate result from config check, carrying parsed fields for downstream checks. */

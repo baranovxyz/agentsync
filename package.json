@@ -3,7 +3,6 @@
   "version": "1.0.0-beta.0",
   "description": "The missing infrastructure layer for AI coding agent configuration management",
   "type": "module",
-  "packageManager": "pnpm@10.22.0",
   "bin": {
     "agentsync": "dist/cli.js"
   },
@@ -29,10 +28,10 @@
     "format": "biome format --write .",
     "format:check": "biome format .",
     "security:audit": "pnpm audit --audit-level moderate",
+    "prepublishOnly": "pnpm test && pnpm build",
     "cz": "cz",
     "commitlint": "commitlint --from=origin/main --to=HEAD",
-    "prepare": "husky",
-    "prepublishOnly": "pnpm test && pnpm build"
+    "prepare": "husky"
   },
   "keywords": [
     "ai",
@@ -84,21 +83,22 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.2.6",
-    "@commitlint/cli": "19.6.0",
-    "@commitlint/config-conventional": "19.6.0",
     "@inquirer/testing": "2.1.51",
     "@types/js-yaml": "4.0.9",
     "@types/micromatch": "4.0.10",
     "@types/node": "24.8.0",
     "@vitest/coverage-v8": "3.2.4",
-    "commitizen": "4.3.1",
-    "cz-conventional-changelog": "3.3.0",
-    "husky": "9.1.7",
     "tsx": "4.20.6",
     "typescript": "5.9.3",
     "vite": "7.3.2",
-    "vitest": "3.2.4"
+    "vitest": "3.2.4",
+    "@commitlint/cli": "19.6.0",
+    "@commitlint/config-conventional": "19.6.0",
+    "commitizen": "4.3.1",
+    "cz-conventional-changelog": "3.3.0",
+    "husky": "9.1.7"
   },
+  "packageManager": "pnpm@10.22.0",
   "config": {
     "commitizen": {
       "path": "cz-conventional-changelog"

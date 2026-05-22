@@ -38,6 +38,7 @@ export async function doctor(
       "presets",
       "drift",
       "contentDrift",
+      "workerHints",
     ] as const;
     const projected = projectFields(result, options.fields, validFields);
     const status = failed ? ("error" as const) : ("success" as const);

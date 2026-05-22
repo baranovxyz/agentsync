@@ -171,6 +171,20 @@ function renderContentDriftSection(
 }
 
 /**
+ * Render worker-mode hints (non-failing, operator-actionable).
+ */
+function renderWorkerHintsSection(
+  workerHints: DoctorResult["workerHints"],
+): void {
+  if (workerHints.length === 0) return;
+  console.log(pc.bold("\nWorker Hints"));
+  for (const hint of workerHints) {
+    console.log(pc.yellow(`  ⚠ ${hint.tool}: ${hint.message}`));
+    console.log(pc.gray(`    Fix: ${hint.fix}`));
+  }
+}
+
+/**
  * Display the doctor report to the console with formatted output.
  */
 export function displayDoctorReport(result: DoctorResult): void {
@@ -186,6 +200,7 @@ export function displayDoctorReport(result: DoctorResult): void {
   renderPresetsSection(result.presets);
   renderDriftSection(result.drift);
   renderContentDriftSection(result.contentDrift);
+  renderWorkerHintsSection(result.workerHints);
 
   console.log();
 }

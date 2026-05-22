@@ -420,6 +420,109 @@ namespace = "local"
     });
   });
 
+  describe("Worker hints check", () => {
+    const HARNESS_VAR = "AGENTSYNC_HARNESS_TEST_GATE";
+
+    async function withHarnessEnv<T>(fn: () => Promise<T>): Promise<T> {
+      const orig = process.env[HARNESS_VAR];
+      process.env[HARNESS_VAR] = "1";
+      try {
+        return await fn();
+      } finally {
+        if (orig === undefined) {
+          Reflect.deleteProperty(process.env, HARNESS_VAR);
+        } else {
+          process.env[HARNESS_VAR] = orig;
+        }
+      }
+    }
+
+    function stripHarnessEnv(): Array<[string, string]> {
+      const saved: Array<[string, string]> = [];
+      for (const k of Object.keys(process.env)) {
+        if (k.startsWith("AGENTSYNC_HARNESS_")) {
+          saved.push([k, process.env[k] as string]);
+          Reflect.deleteProperty(process.env, k);
+        }
+      }
+      return saved;
+    }
+
+    function restoreHarnessEnv(saved: Array<[string, string]>): void {
+      for (const [k, v] of saved) {
+        process.env[k] = v;
+      }
+    }
+
+    it("does not fire when no AGENTSYNC_HARNESS_* env var is set", async () => {
+      const saved = stripHarnessEnv();
+      try {
+        await writeTomlConfig(`tools = ["opencode"]\n`);
+        await outputFile(
+          path.join(tmpDir, "opencode.json"),
+          JSON.stringify({ mcp: {} }),
+        );
+
+        const result = await runDiagnostics(tmpDir);
+        expect(result.workerHints).toHaveLength(0);
+      } finally {
+        restoreHarnessEnv(saved);
+      }
+    });
+
+    it("fires for opencode when permission is missing under harness env", async () => {
+      await withHarnessEnv(async () => {
+        await writeTomlConfig(`tools = ["opencode"]\n`);
+        await outputFile(
+          path.join(tmpDir, "opencode.json"),
+          JSON.stringify({ mcp: { "task-mcp": { type: "local" } } }),
+        );
+
+        const result = await runDiagnostics(tmpDir);
+        expect(result.workerHints).toHaveLength(1);
+        expect(result.workerHints[0]?.tool).toBe("opencode");
+        expect(result.workerHints[0]?.severity).toBe("warning");
+        expect(result.workerHints[0]?.message).toContain('permission: "allow"');
+        expect(result.workerHints[0]?.fix).toContain("jq");
+      });
+    });
+
+    it('does not fire when permission is already "allow"', async () => {
+      await withHarnessEnv(async () => {
+        await writeTomlConfig(`tools = ["opencode"]\n`);
+        await outputFile(
+          path.join(tmpDir, "opencode.json"),
+          JSON.stringify({ permission: "allow", mcp: {} }),
+        );
+
+        const result = await runDiagnostics(tmpDir);
+        expect(result.workerHints).toHaveLength(0);
+      });
+    });
+
+    it("does not fire when opencode is not in tools", async () => {
+      await withHarnessEnv(async () => {
+        await writeTomlConfig(`tools = ["claude"]\n`);
+        await outputFile(
+          path.join(tmpDir, "opencode.json"),
+          JSON.stringify({ mcp: {} }),
+        );
+
+        const result = await runDiagnostics(tmpDir);
+        expect(result.workerHints).toHaveLength(0);
+      });
+    });
+
+    it("does not fire when opencode.json does not exist", async () => {
+      await withHarnessEnv(async () => {
+        await writeTomlConfig(`tools = ["opencode"]\n`);
+
+        const result = await runDiagnostics(tmpDir);
+        expect(result.workerHints).toHaveLength(0);
+      });
+    });
+  });
+
   describe("Full diagnostic flow", () => {
     it("returns complete result for a fully configured project", async () => {
       // Set up env

@@ -19,7 +19,7 @@ describe("CLI JSON mode", () => {
     expect(subcommands).toContain("show");
   });
 
-  it("all 9 commands are registered", () => {
+  it("all 5 commands are registered", () => {
     const program = createProgram({ exitOverride: true });
     const topLevel = program.commands.map((c) => c.name());
     expect(topLevel).toContain("init");
