@@ -43,7 +43,7 @@ graph LR
     GP[GitHub Presets] --> M
     FS[Filesystem Presets] --> M
     PC[Project Custom<br>.agents/] --> M
-    LC[Local Overrides<br>agentsync.local.toml] --> M
+    LO[Local Overrides<br>agentsync.local.toml] --> M
     PR[Profile Overlay<br>--profile / AGENTSYNC_PROFILE] --> M
     M --> CF[Canonical Format<br>frontmatter + markdown]
     CF --> Hold[Generated Outputs<br>claude, cursor, copilot]
