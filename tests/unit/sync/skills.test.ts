@@ -101,4 +101,41 @@ describe("Skills Sync", () => {
     // Codex points to .agents/skills which is the shared dir
     expect(results).toHaveLength(1);
   });
+
+  it("warns when flat .md files exist at the top level of .agents/skills/", async () => {
+    // Users sometimes drop flat .md files in .agents/skills/ thinking
+    // they're project-custom skills. Sync globs `*/SKILL.md` and
+    // silently ignores them — the warning surfaces that no-op so the
+    // user can move the file into a <name>/SKILL.md layout.
+    const skillsDir = path.join(tmpDir, ".agents", "skills");
+    await ensureDir(skillsDir);
+    await outputFile(path.join(skillsDir, "stray-flat.md"), "# wrong layout");
+    await outputFile(
+      path.join(skillsDir, "valid", "SKILL.md"),
+      "---\ndescription: valid skill\n---\n# valid",
+    );
+
+    const providers = [getToolProvider("claude")];
+    const results = await syncSkills(providers, tmpDir);
+
+    expect(results).toHaveLength(1);
+    expect(results[0].skills).toEqual(["valid"]);
+    const flatWarning = results[0].warnings.find((w) =>
+      w.includes("stray-flat.md"),
+    );
+    expect(flatWarning).toBeDefined();
+    expect(flatWarning).toMatch(/<name>\/SKILL\.md|directory layout/i);
+  });
+
+  it("does not warn when no flat .md files exist", async () => {
+    await outputFile(
+      path.join(tmpDir, ".agents", "skills", "valid", "SKILL.md"),
+      "---\ndescription: valid\n---\n# valid",
+    );
+
+    const providers = [getToolProvider("claude")];
+    const results = await syncSkills(providers, tmpDir);
+
+    expect(results[0].warnings.find((w) => w.includes("flat"))).toBeUndefined();
+  });
 });

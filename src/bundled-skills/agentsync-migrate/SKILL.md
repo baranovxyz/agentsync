@@ -5,7 +5,8 @@ description: Help users migrate existing AI tool configurations to AgentSync
 
 # AgentSync Migration Assistant
 
-You are helping a user migrate their existing AI tool configurations to AgentSync's centralized format.
+You are helping a user migrate their existing AI tool configurations to AgentSync's centralized
+format.
 
 ## What to look for
 
@@ -20,9 +21,14 @@ Check these directories for existing configurations:
 
 ## Migration steps
 
-1. **Initialize**: Run `agentsync init --tools claude,opencode,codex` to create the `.agents/` directory. Add optional adapters such as Cursor only when the user asks to keep syncing those tool directories.
-2. **Copy content**: Manually copy skills from existing tool directories into `.agents/skills/` and `.agents/commands/`
-3. **Configure MCP**: Run `agentsync config add mcp <name> --mcp-config '{"command":"...","args":[...]}'` for each MCP server
+1. **Initialize**: Run `agentsync init --tools claude,opencode,codex` to create the `.agents/`
+   directory. Add optional adapters such as Cursor only when the user asks to keep syncing those
+   tool directories.
+2. **Copy content**: Manually copy skills from existing tool directories into `.agents/skills/` and
+   `.agents/commands/`
+3. **Configure MCP**: Run
+   `agentsync config add mcp <name> --mcp-config '{"command":"...","args":[...]}'` for each MCP
+   server
 4. **Sync**: Run `agentsync sync` to generate configs for all tools
 5. **Verify**: Check that each tool directory has the expected files
 
@@ -46,6 +52,7 @@ args = ["-y", "@modelcontextprotocol/server-github"]
 
 ## Edge cases
 
-- If a user has both `.cursor/rules/` and `.claude/rules/` with similar content, suggest deduplication
+- If a user has both `.cursor/rules/` and `.claude/rules/` with similar content, suggest
+  deduplication
 - Warn about files that may contain secrets (API keys in MCP configs)
 - If `CLAUDE.md` exists but not `AGENTS.md`, suggest renaming via `git mv CLAUDE.md AGENTS.md`

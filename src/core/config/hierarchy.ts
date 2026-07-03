@@ -143,6 +143,36 @@ function mergeMcpConfigs(
   return Object.keys(merged).length > 0 ? merged : undefined;
 }
 
+const EXTENSION_FIELDS = [
+  "hooks",
+  "permissions",
+  "statusline",
+  "output_style",
+] as const;
+
+type ExtensionField = (typeof EXTENSION_FIELDS)[number];
+type ExtensionSlice = Partial<Pick<MergedConfig, ExtensionField>>;
+
+/**
+ * Pick extension surfaces from local first, then project. A defined
+ * local value replaces project entirely; an undefined field is omitted
+ * from the output object so MergedConfig's optional-fields shape is
+ * preserved.
+ */
+function pickExtensions(
+  project: AgentSyncConfig,
+  local: LocalConfig | null,
+): ExtensionSlice {
+  const out: ExtensionSlice = {};
+  for (const field of EXTENSION_FIELDS) {
+    const value = local?.[field] ?? project[field];
+    if (value !== undefined) {
+      (out as Record<string, unknown>)[field] = value;
+    }
+  }
+  return out;
+}
+
 /**
  * Load and merge config hierarchy: global → project chain → local
  * Returns merged config with deduplication applied
@@ -173,12 +203,18 @@ export async function loadConfigHierarchy(cwd: string): Promise<MergedConfig> {
     project.extends || [],
   );
 
+  // Extension surfaces (hooks/permissions/statusline/output_style):
+  // local replaces project entirely if defined (deeper-wins; matches
+  // AGENTS.md "All other fields" merge rule).
+  const extensions = pickExtensions(project, local);
+
   return {
     tools: project.tools || global?.tools || [],
     extends: deduped,
     mcp: mergeMcpConfigs(global, project, local),
     ...(project.profile ? { profile: project.profile } : {}),
     ...(project.profiles ? { profiles: project.profiles } : {}),
+    ...extensions,
     _sources: {
       ...(global ? { global: getGlobalConfigPath() } : {}),
       project: projectPath,

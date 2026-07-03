@@ -2,8 +2,9 @@
  * Doctor Command — Diagnostic Check Functions
  */
 
-import { readdir, readFile, stat } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import * as path from "node:path";
+import fg from "fast-glob";
 import {
   parseTomlConfig,
   tomlToInternalConfig,
@@ -49,12 +50,23 @@ function extractEnvVarRefs(server: Record<string, unknown>): string[] {
 }
 
 /**
- * Count markdown files in a directory (non-recursive).
+ * Count skills the sync engine will actually consume.
+ *
+ * Must match the glob in `src/sync/skills.ts` (`syncSkillsToTool`):
+ * skills are `<name>/SKILL.md` directories, not flat `<name>.md`
+ * files. Doctor previously counted top-level `.md` files which led
+ * to a misleading "skills.count: N, synced: false" when the user
+ * had laid skills out flat — doctor saw them but sync silently
+ * dropped them.
  */
-async function countMdFiles(dir: string): Promise<number> {
+async function countSkillDirs(dir: string): Promise<number> {
   try {
-    const entries = await readdir(dir);
-    return entries.filter((e) => e.endsWith(".md")).length;
+    const matches = await fg("*/SKILL.md", {
+      cwd: dir,
+      absolute: false,
+      onlyFiles: true,
+    });
+    return matches.length;
   } catch {
     return 0;
   }
@@ -127,7 +139,7 @@ async function checkSkills(
   tools: ToolName[],
 ): Promise<DoctorResult["skills"]> {
   const skillsDir = path.join(cwd, ".agents", "skills");
-  const count = await countMdFiles(skillsDir);
+  const count = await countSkillDirs(skillsDir);
 
   let synced = false;
   for (const tool of tools) {

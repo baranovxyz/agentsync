@@ -4,14 +4,13 @@
  * Uses provider.agentFileExtension for tool-specific file naming
  */
 
-import { readFile } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 import * as path from "node:path";
 import fg from "fast-glob";
 import type { ToolProvider } from "../tools/types.js";
 import { outputFile, pathExists } from "../utils/fs.js";
 import { validateSyncNamespace } from "../utils/path-normalization.js";
 import { sanitizeContent } from "../utils/sanitize.js";
-import { prependHeader } from "./header.js";
 import type { SyncOptions } from "./skills.js";
 import { writeFileByMode } from "./write-file.js";
 
@@ -73,9 +72,15 @@ async function syncAgentsToTool(
         continue;
       }
 
-      // Namespaced (preset) content needs sanitization — always copy
-      // Extension rename also requires copy (can't symlink with different name)
-      if (namespace || provider.agentFileExtension !== ".md") {
+      // A content transform (e.g. OpenCode frontmatter translation) rewrites
+      // the file the tool reads, so the dest diverges from source — that forces
+      // a real copy too (a symlink would point back at the untranslated source).
+      const transform = provider.agentContentTransform;
+
+      // Namespaced (preset) content needs sanitization — always copy.
+      // Extension rename also requires copy (can't symlink with different name).
+      // A content transform likewise requires a real copy.
+      if (namespace || provider.agentFileExtension !== ".md" || transform) {
         let content = await readFile(sourcePath, "utf-8");
         if (namespace) {
           const sanitized = sanitizeContent(content, {
@@ -84,12 +89,19 @@ async function syncAgentsToTool(
           content = sanitized.content;
           warnings.push(...sanitized.warnings);
         }
-        const label = namespace
-          ? `preset:${namespace}/${relPath}`
-          : path.relative(cwd, sourcePath);
-        if (destPath.endsWith(".md") || destPath.endsWith(".agent.md")) {
-          content = prependHeader(content, label);
+        if (transform) {
+          const result = transform.transform(
+            content,
+            path.basename(relPath, path.extname(relPath)),
+          );
+          content = result.content;
+          warnings.push(...result.warnings);
         }
+        // Drop any stale entry first: outputFile uses writeFile, which would
+        // follow a symlink left by a prior `--link` sync and clobber the
+        // canonical source. rm removes the link itself; force ignores a
+        // missing dest.
+        await rm(destPath, { force: true });
         await outputFile(destPath, content, { encoding: "utf-8" });
       } else {
         const sourceLabel = path.relative(cwd, sourcePath);
@@ -111,6 +123,7 @@ async function syncAgentsToTool(
  * Sync agents to all configured tools
  * Source: .agents/agents/
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: sequential global+preset+project+postHook orchestration
 export async function syncAgents(
   providers: ToolProvider[],
   cwd: string,
@@ -177,6 +190,20 @@ export async function syncAgents(
 
     totalAgents += projectResult.agentCount;
     allAgents.push(...projectResult.agents);
+    allWarnings.push(...projectResult.warnings);
+
+    // Tool-specific post-processing (e.g., Codex writes .toml role wrappers
+    // and merges [agents.<n>] into .codex/config.toml). Runs against the
+    // canonical source dirs — postSync owns its destination layout.
+    if (provider.agentsPostHook && totalAgents > 0) {
+      const sources: string[] = [];
+      if (options?.globalDirs) sources.push(...options.globalDirs);
+      if (presetAgents) {
+        for (const [, dirs] of presetAgents) sources.push(...dirs);
+      }
+      sources.push(projectAgentsDir);
+      await provider.agentsPostHook.postSync(sources, cwd);
+    }
 
     results.push({
       tool: provider.name,

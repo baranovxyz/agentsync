@@ -101,7 +101,24 @@ tools = ["opencode"]
   });
 
   describe("Skills check", () => {
-    it("counts skills in .agents/skills/ correctly", async () => {
+    it("counts <name>/SKILL.md directories (the layout sync actually consumes)", async () => {
+      await writeTomlConfig(`
+tools = ["cursor"]
+`);
+
+      for (const name of ["typescript", "testing", "security"]) {
+        await outputFile(
+          path.join(tmpDir, ".agents", "skills", name, "SKILL.md"),
+          `---\ndescription: ${name} rules\n---\n# ${name}`,
+        );
+      }
+
+      const result = await runDiagnostics(tmpDir);
+
+      expect(result.skills.count).toBe(3);
+    });
+
+    it("does NOT count flat .md files at the top level of .agents/skills/ (sync ignores them)", async () => {
       await writeTomlConfig(`
 tools = ["cursor"]
 `);
@@ -109,20 +126,20 @@ tools = ["cursor"]
       await ensureDir(path.join(tmpDir, ".agents", "skills"));
       await outputFile(
         path.join(tmpDir, ".agents", "skills", "typescript.md"),
-        "# TypeScript skill",
+        "# flat skill — wrong layout",
       );
       await outputFile(
-        path.join(tmpDir, ".agents", "skills", "testing.md"),
-        "# Testing skill",
-      );
-      await outputFile(
-        path.join(tmpDir, ".agents", "skills", "security.md"),
-        "# Security skill",
+        path.join(tmpDir, ".agents", "skills", "README.md"),
+        "# stray readme",
       );
 
       const result = await runDiagnostics(tmpDir);
 
-      expect(result.skills.count).toBe(3);
+      // Flat files are not consumed by `agentsync sync` (it globs
+      // `*/SKILL.md`). Doctor must not over-count them — otherwise
+      // users see "count: N, synced: false" and assume sync is broken
+      // when the real issue is the source layout.
+      expect(result.skills.count).toBe(0);
     });
 
     it("returns zero count when no skills directory exists", async () => {
@@ -545,11 +562,11 @@ command = "npx"
 args = ["-y", "@modelcontextprotocol/server-filesystem", "."]
 `);
 
-        // Create skills
-        await ensureDir(path.join(tmpDir, ".agents", "skills"));
+        // Create skills — `<name>/SKILL.md` directory layout (the
+        // layout sync actually consumes; flat .md files are ignored).
         await outputFile(
-          path.join(tmpDir, ".agents", "skills", "typescript.md"),
-          "# TS",
+          path.join(tmpDir, ".agents", "skills", "typescript", "SKILL.md"),
+          "---\ndescription: TS rules\n---\n# TS",
         );
 
         // Create holdout tool output dirs (for drift check)

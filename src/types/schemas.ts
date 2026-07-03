@@ -34,6 +34,102 @@ export const ExtendsEntrySchema = z
     },
   );
 
+// Hook spec: a single hook entry under [[hooks.<Event>]]
+// Canonical shape across CLIs that support hooks (cc + cx today).
+export const HookSpecSchema = z.object({
+  id: z.string().min(1),
+  matcher: z.string().optional(), // glob/pipe-delim tool pattern; ignored for non-tool events
+  command: z.string().min(1),
+  timeout: z.number().int().positive().optional(), // milliseconds
+  description: z.string().optional(),
+});
+
+export type HookSpec = z.infer<typeof HookSpecSchema>;
+
+// Canonical event vocabulary — cc/cx-overlapping subset.
+// cc-only events (TaskCompleted, InstructionsLoaded, …) are accepted but emit
+// a warning when used with non-cc providers.
+export const HOOK_EVENTS = [
+  "PreToolUse",
+  "PostToolUse",
+  "UserPromptSubmit",
+  "SessionStart",
+  "Stop",
+  "SubagentStart",
+  "SubagentStop",
+  "PreCompact",
+  "PostCompact",
+  "PermissionRequest",
+  "Notification",
+] as const;
+
+export const HooksConfigSchema = z
+  .record(z.string(), z.array(HookSpecSchema))
+  .optional();
+
+// Permission rule: tool-pattern → decision
+export const PermissionRuleSchema = z.object({
+  id: z.string().min(1),
+  tool: z.string().min(1),
+  pattern: z.string().optional(), // "*" if omitted
+  decision: z.enum(["allow", "ask", "deny"]),
+});
+
+export type PermissionRule = z.infer<typeof PermissionRuleSchema>;
+
+export const PermissionsConfigSchema = z
+  .object({
+    default: z.enum(["allow", "ask", "deny"]).optional(),
+    rules: z.array(PermissionRuleSchema).optional(),
+  })
+  .optional();
+
+// Statusline canonical
+export const STATUSLINE_ITEMS = [
+  "model",
+  "cwd",
+  "branch",
+  "tokens",
+  "cost",
+  "agent",
+  "session",
+  "time",
+] as const;
+
+export const StatuslineCustomItemSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().optional(),
+  command: z.string().min(1),
+});
+
+export const StatuslineConfigSchema = z
+  .object({
+    items: z.array(z.enum(STATUSLINE_ITEMS)).optional(),
+    custom_items: z.array(StatuslineCustomItemSchema).optional(),
+  })
+  .optional();
+
+// Output style canonical
+export const OUTPUT_TONES = [
+  "terse",
+  "pragmatic",
+  "explanatory",
+  "friendly",
+  "none",
+] as const;
+
+export const OutputStyleCustomSchema = z.object({
+  name: z.string().min(1),
+  file: z.string().min(1),
+});
+
+export const OutputStyleConfigSchema = z
+  .object({
+    tone: z.enum(OUTPUT_TONES).optional(),
+    custom: z.array(OutputStyleCustomSchema).optional(),
+  })
+  .optional();
+
 // MCP server config: command-based (stdio) or URL-based (http)
 export const McpServerConfigSchema = z.union([
   z.object({
@@ -80,12 +176,33 @@ export const AgentSyncConfigSchema = z.object({
 
   // Named profile overrides (filter semantics)
   profiles: z.record(z.string(), ProfileConfigSchema).optional(),
+
+  // Hooks: [[hooks.<Event>]] arrays in agentsync.toml
+  hooks: HooksConfigSchema,
+
+  // Permissions: [permissions] block
+  permissions: PermissionsConfigSchema,
+
+  // Statusline canonical: [statusline]
+  statusline: StatuslineConfigSchema,
+
+  // Output style canonical: [output_style]
+  output_style: OutputStyleConfigSchema,
 });
 
-// Local config: MCP overrides + disable list
+// Local config: MCP overrides + disable list + extension overrides
+//
+// Extension surfaces (hooks/permissions/statusline/output_style) use
+// "deeper-wins" replace semantics — if local defines any of these, it
+// replaces the project value entirely (matching the AGENTS.md rule
+// "All other fields: deeper config wins"). MCP keeps per-key merge.
 export const LocalConfigSchema = z.object({
   mcp: z.record(z.string(), McpServerConfigSchema).optional(),
   mcp_disabled: z.array(z.string()).optional(),
+  hooks: HooksConfigSchema,
+  permissions: PermissionsConfigSchema,
+  statusline: StatuslineConfigSchema,
+  output_style: OutputStyleConfigSchema,
 });
 
 /** Schema for third-party tool config files that we merge MCP into */

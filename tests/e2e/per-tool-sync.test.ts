@@ -178,7 +178,7 @@ describe("Per-Tool Sync E2E", () => {
   });
 
   describe("Codex CLI", () => {
-    it("syncs skills to .agents/ shared dir and MCP sidecar", async () => {
+    it("syncs skills to .agents/ shared dir, MCP sidecar, and subagents (md + toml + config merge)", async () => {
       await syncAllForTool("codex");
 
       // Skills go to .agents/skills/ (shared cross-tool dir)
@@ -188,12 +188,24 @@ describe("Per-Tool Sync E2E", () => {
         ),
       ).toBe(true);
 
-      // MCP sidecar
+      // MCP sidecar + agents in same config.toml
       expect(await pathExists(path.join(tmpDir, ".codex", "config.toml"))).toBe(
         true,
       );
 
-      // No commands or agents
+      // Subagent md body copied
+      expect(
+        await pathExists(path.join(tmpDir, ".codex", "agents", "reviewer.md")),
+      ).toBe(true);
+
+      // Subagent role-config TOML wrapper
+      expect(
+        await pathExists(
+          path.join(tmpDir, ".codex", "agents", "reviewer.toml"),
+        ),
+      ).toBe(true);
+
+      // No commands (cx uses skills for those)
       expect(await pathExists(path.join(tmpDir, ".codex", "commands"))).toBe(
         false,
       );

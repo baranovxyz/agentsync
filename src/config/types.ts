@@ -31,6 +31,38 @@ export interface AgentSyncExtension {
   }>;
 }
 
+/** Hook spec under [[hooks.<Event>]] */
+export interface TomlHookSpec {
+  id: string;
+  matcher?: string;
+  command: string;
+  timeout?: number;
+  description?: string;
+}
+
+/** [permissions] block */
+export interface TomlPermissions {
+  default?: "allow" | "ask" | "deny";
+  rules?: Array<{
+    id: string;
+    tool: string;
+    pattern?: string;
+    decision: "allow" | "ask" | "deny";
+  }>;
+}
+
+/** [statusline] block */
+export interface TomlStatusline {
+  items?: string[];
+  custom_items?: Array<{ id: string; label?: string; command: string }>;
+}
+
+/** [output_style] block */
+export interface TomlOutputStyle {
+  tone?: "terse" | "pragmatic" | "explanatory" | "friendly" | "none";
+  custom?: Array<{ name: string; file: string }>;
+}
+
 /** Full TOML config structure with AgentSync extensions */
 export interface AgentSyncTomlConfig {
   /** v1 format: flat tool list */
@@ -43,4 +75,12 @@ export interface AgentSyncTomlConfig {
   mcp_servers?: Record<string, McpServerConfig>;
   agentsync?: AgentSyncExtension;
   profiles?: Record<string, TomlProfileConfig>;
+  /** [[hooks.<Event>]] — keyed by canonical event name */
+  hooks?: Record<string, TomlHookSpec[]>;
+  /** [permissions] */
+  permissions?: TomlPermissions;
+  /** [statusline] */
+  statusline?: TomlStatusline;
+  /** [output_style] */
+  output_style?: TomlOutputStyle;
 }

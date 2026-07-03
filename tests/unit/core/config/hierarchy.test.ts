@@ -207,4 +207,155 @@ args = ["-y", "mcp-fs"]
     expect(merged._sources.project).toBe(projectConfigPath);
     expect(merged._sources.local).toBe(localPath);
   });
+
+  // Regression: when the hooks / permissions / statusline / output_style
+  // extension keys were added to AgentSyncConfigSchema + mergeConfigChain,
+  // loadConfigHierarchy's return statement only spread a hand-picked subset
+  // of fields, silently dropping the new ones. Every codec test passed
+  // (they called syncExtensions directly), but real `agentsync sync` wrote
+  // zero extension files. These tests pin every passthrough so the next
+  // field addition can't repeat the mistake.
+  describe("extension passthrough", () => {
+    it("passes [[hooks.<Event>]] through to MergedConfig", async () => {
+      const configPath = path.join(tempDir, ".agents", "agentsync.toml");
+      await ensureDir(path.dirname(configPath));
+      await outputFile(
+        configPath,
+        `tools = ["claude"]
+
+[[hooks.PreToolUse]]
+id = "log-bash"
+matcher = "Bash"
+command = ".agents/hooks/scripts/log-bash.sh"
+`,
+      );
+
+      const merged = await loadConfigHierarchy(tempDir);
+
+      expect(merged.hooks).toBeDefined();
+      expect(merged.hooks?.PreToolUse).toHaveLength(1);
+      expect(merged.hooks?.PreToolUse?.[0].id).toBe("log-bash");
+    });
+
+    it("passes [permissions] through to MergedConfig", async () => {
+      const configPath = path.join(tempDir, ".agents", "agentsync.toml");
+      await ensureDir(path.dirname(configPath));
+      await outputFile(
+        configPath,
+        `tools = ["claude"]
+
+[permissions]
+default = "ask"
+
+[[permissions.rules]]
+id = "no-curl"
+tool = "Bash"
+pattern = "curl *"
+decision = "deny"
+`,
+      );
+
+      const merged = await loadConfigHierarchy(tempDir);
+
+      expect(merged.permissions?.default).toBe("ask");
+      expect(merged.permissions?.rules).toHaveLength(1);
+    });
+
+    it("passes [statusline] through to MergedConfig", async () => {
+      const configPath = path.join(tempDir, ".agents", "agentsync.toml");
+      await ensureDir(path.dirname(configPath));
+      await outputFile(
+        configPath,
+        `tools = ["claude"]
+
+[statusline]
+items = ["model", "branch"]
+`,
+      );
+
+      const merged = await loadConfigHierarchy(tempDir);
+
+      expect(merged.statusline?.items).toEqual(["model", "branch"]);
+    });
+
+    it("passes [output_style] through to MergedConfig", async () => {
+      const configPath = path.join(tempDir, ".agents", "agentsync.toml");
+      await ensureDir(path.dirname(configPath));
+      await outputFile(
+        configPath,
+        `tools = ["claude"]
+
+[output_style]
+tone = "pragmatic"
+`,
+      );
+
+      const merged = await loadConfigHierarchy(tempDir);
+
+      expect(merged.output_style?.tone).toBe("pragmatic");
+    });
+
+    it("local.toml extension overrides replace the project value (deeper-wins)", async () => {
+      const configPath = path.join(tempDir, ".agents", "agentsync.toml");
+      await ensureDir(path.dirname(configPath));
+      await outputFile(
+        configPath,
+        `tools = ["claude"]
+
+[output_style]
+tone = "terse"
+
+[permissions]
+default = "ask"
+`,
+      );
+      const localPath = path.join(tempDir, "agentsync.local.toml");
+      await outputFile(
+        localPath,
+        `[output_style]
+tone = "explanatory"
+
+[permissions]
+default = "deny"
+`,
+      );
+
+      const merged = await loadConfigHierarchy(tempDir);
+
+      expect(merged.output_style?.tone).toBe("explanatory");
+      expect(merged.permissions?.default).toBe("deny");
+    });
+
+    it("local.toml extension override falls back to project when not defined", async () => {
+      const configPath = path.join(tempDir, ".agents", "agentsync.toml");
+      await ensureDir(path.dirname(configPath));
+      await outputFile(
+        configPath,
+        `tools = ["claude"]
+
+[output_style]
+tone = "terse"
+`,
+      );
+      const localPath = path.join(tempDir, "agentsync.local.toml");
+      await outputFile(localPath, "");
+
+      const merged = await loadConfigHierarchy(tempDir);
+
+      expect(merged.output_style?.tone).toBe("terse");
+    });
+
+    it("omits extension fields when the project config does not define them", async () => {
+      const configPath = path.join(tempDir, ".agents", "agentsync.toml");
+      await ensureDir(path.dirname(configPath));
+      await outputFile(configPath, 'tools = ["claude"]\n');
+
+      const merged = await loadConfigHierarchy(tempDir);
+
+      expect(merged.hooks).toBeUndefined();
+      expect(merged.permissions).toBeUndefined();
+      expect(merged.statusline).toBeUndefined();
+      expect(merged.output_style).toBeUndefined();
+    });
+  });
 });
