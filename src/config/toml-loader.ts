@@ -27,6 +27,10 @@ const TomlConfigSchema = z
     mcp_servers: z.record(z.string(), z.object({}).passthrough()).optional(),
     agentsync: z.object({}).passthrough().optional(),
     profiles: z.record(z.string(), z.object({}).passthrough()).optional(),
+    hooks: z.record(z.string(), z.array(z.object({}).passthrough())).optional(),
+    permissions: z.object({}).passthrough().optional(),
+    statusline: z.object({}).passthrough().optional(),
+    output_style: z.object({}).passthrough().optional(),
   })
   .passthrough();
 
@@ -154,5 +158,9 @@ export function tomlToInternalConfig(
     profile: ext?.profile,
     profiles: mapProfiles(toml),
     extends: extends_,
+    hooks: toml.hooks as AgentSyncConfig["hooks"],
+    permissions: toml.permissions as AgentSyncConfig["permissions"],
+    statusline: toml.statusline as AgentSyncConfig["statusline"],
+    output_style: toml.output_style as AgentSyncConfig["output_style"],
   };
 }

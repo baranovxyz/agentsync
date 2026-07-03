@@ -143,15 +143,15 @@ describe("Concurrent Tool Sync", () => {
     expect(noCommandTools).toHaveLength(14);
   });
 
-  it("agents only written to claude, opencode, copilot, and amazonq", async () => {
+  it("agents written to claude, codex, opencode, copilot, and amazonq", async () => {
     await setupFullProject();
     const providers = getToolProviders(ALL_TOOLS);
     const results = await syncAgents(providers, tmpDir);
 
     const agentTools = results.filter((r) => r.agentCount > 0);
-    expect(agentTools).toHaveLength(4);
+    expect(agentTools).toHaveLength(5);
     expect(agentTools.map((r) => r.tool).sort()).toEqual(
-      ["amazonq", "claude", "copilot", "opencode"].sort(),
+      ["amazonq", "claude", "codex", "copilot", "opencode"].sort(),
     );
   });
 

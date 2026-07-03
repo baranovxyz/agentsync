@@ -4,14 +4,13 @@
  * Tools with readsAgentsDir=true already read .agents/ directly (no copy needed)
  */
 
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import * as path from "node:path";
 import fg from "fast-glob";
 import type { ToolProvider } from "../tools/types.js";
 import { ensureDir, outputFile, pathExists } from "../utils/fs.js";
 import { validateSyncNamespace } from "../utils/path-normalization.js";
 import { sanitizeContent } from "../utils/sanitize.js";
-import { prependHeader } from "./header.js";
 import { writeFileByMode } from "./write-file.js";
 
 /** Result of syncing skills to a single tool */
@@ -80,12 +79,9 @@ async function syncSingleSkill(
     content = sanitized.content;
     warnings.push(...sanitized.warnings);
     const rewritten = rewriteSkillName(content, destName);
-    const presetLabel = `preset:${namespace}/${relPath}`;
-    await outputFile(
-      path.join(destDir, "SKILL.md"),
-      prependHeader(rewritten, presetLabel),
-      { encoding: "utf-8" },
-    );
+    await outputFile(path.join(destDir, "SKILL.md"), rewritten, {
+      encoding: "utf-8",
+    });
   } else {
     const sourceLabel = path.relative(cwd, sourcePath);
     await writeFileByMode(
@@ -158,6 +154,22 @@ async function syncSkillsToTool(
         cwd,
       );
       skills.push(destName);
+    }
+
+    // Surface flat `<name>.md` files at the top level — they look
+    // like skills but are silently dropped because the sync glob
+    // requires `<name>/SKILL.md`. Without this warning the user
+    // sees "sync success, skills: 0" and assumes everything worked.
+    const entries = await readdir(skillDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!(entry.isFile() && entry.name.toLowerCase().endsWith(".md"))) {
+        continue;
+      }
+      const flatSource = path.relative(cwd, path.join(skillDir, entry.name));
+      const suggested = entry.name.replace(/\.md$/i, "");
+      warnings.push(
+        `Skipped flat file ${flatSource} — skills use the <name>/SKILL.md directory layout. Move to ${path.dirname(flatSource)}/${suggested}/SKILL.md to have it synced.`,
+      );
     }
   }
 
@@ -237,6 +249,7 @@ export async function syncSkills(
 
     totalSkills += projectResult.skillCount;
     allSkills.push(...projectResult.skills);
+    allWarnings.push(...projectResult.warnings);
 
     results.push({
       tool: provider.name,

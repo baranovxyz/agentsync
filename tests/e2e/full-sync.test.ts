@@ -160,13 +160,20 @@ describe("Full Sync E2E", () => {
     const providers = getToolProviders(tools);
     const results = await syncAgents(providers, tmpDir);
 
-    // Claude, OpenCode, Copilot support agents
+    // Claude, OpenCode, Codex, Copilot support agents
     const withAgents = results.filter((r) => r.agentCount > 0);
-    expect(withAgents.length).toBe(3);
+    expect(withAgents.length).toBe(4);
 
     // Verify agent file
     const claudeAgent = path.join(tmpDir, ".claude", "agents", "reviewer.md");
     expect(await pathExists(claudeAgent)).toBe(true);
+    // Codex emits md body + role-config TOML wrapper
+    expect(
+      await pathExists(path.join(tmpDir, ".codex", "agents", "reviewer.md")),
+    ).toBe(true);
+    expect(
+      await pathExists(path.join(tmpDir, ".codex", "agents", "reviewer.toml")),
+    ).toBe(true);
   });
 
   it("generates docs directive files for claude and gemini", async () => {

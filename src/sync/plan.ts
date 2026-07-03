@@ -37,6 +37,8 @@ export interface SyncPlan {
   presetCommands: Map<string, string[]> | undefined;
   presetAgents: Map<string, string[]> | undefined;
   mcpServers: Record<string, MCP>;
+  /** Canonical hooks / permissions / statusline / output_style from merged config */
+  extensions: import("./extensions.js").ExtensionsInput;
   warnings: string[];
   presetErrors: CliError[];
   config: MergedConfig;
@@ -300,6 +302,14 @@ export async function buildSyncPlan(
     presetCommands,
     presetAgents,
     mcpServers,
+    extensions: {
+      hooks: config.hooks as
+        | Record<string, import("../types/schemas.js").HookSpec[]>
+        | undefined,
+      permissions: config.permissions ?? undefined,
+      statusline: config.statusline ?? undefined,
+      outputStyle: config.output_style ?? undefined,
+    },
     warnings,
     presetErrors,
     config,

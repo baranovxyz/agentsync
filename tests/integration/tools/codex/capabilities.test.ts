@@ -4,10 +4,10 @@ import { getToolProvider } from "../../../../src/tools/index.js";
 describe("Codex CLI — Capabilities", () => {
   const p = getToolProvider("codex");
 
-  it("supports skills only (no commands, no agents)", () => {
+  it("supports skills and agents (commands routed through skills)", () => {
     expect(p.capabilities.skills).toBe(true);
     expect(p.capabilities.commands).toBe(false);
-    expect(p.capabilities.agents).toBe(false);
+    expect(p.capabilities.agents).toBe(true);
   });
 
   it("supports stdio and HTTP MCP", () => {
@@ -30,8 +30,13 @@ describe("Codex CLI — Capabilities", () => {
 
   it("has correct paths", () => {
     expect(p.paths.commandsDir).toBeNull();
-    expect(p.paths.agentsDir).toBeNull();
+    expect(p.paths.agentsDir).toBe(".codex/agents");
     expect(p.paths.mcpConfigPath).toBe(".codex/config.toml");
     expect(p.paths.docsFile).toBe("AGENTS.md");
+  });
+
+  it("declares agentsPostHook for cx-specific role TOML emit", () => {
+    expect(p.agentsPostHook).toBeDefined();
+    expect(typeof p.agentsPostHook?.postSync).toBe("function");
   });
 });

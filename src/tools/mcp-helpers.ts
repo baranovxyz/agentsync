@@ -26,17 +26,18 @@ export async function writeMcpJson(
 }
 
 /**
- * Merge MCP servers into an existing settings JSON file.
- * Preserves non-MCP keys already present in the file.
- * Used by gemini, amp, augment, crush, opencode.
+ * Merge MCP servers (or any other top-level config value) into an existing
+ * settings JSON file. Preserves keys already present in the file.
+ * Used by gemini, amp, augment, crush, opencode for MCP; and by claude for
+ * hooks/permissions/statusline/outputStyle.
  *
  * @param settingsPath - Absolute path to the settings JSON file
- * @param mcps         - MCP server definitions
- * @param key          - Key under which to store MCPs (default: "mcpServers")
+ * @param value        - Value to write at `key` (object, string, array, …)
+ * @param key          - Top-level key under which to store the value (default: "mcpServers")
  */
 export async function mergeIntoSettings(
   settingsPath: string,
-  mcps: McpServers,
+  value: unknown,
   key = "mcpServers",
 ): Promise<void> {
   let existing: Record<string, unknown> = {};
@@ -48,6 +49,6 @@ export async function mergeIntoSettings(
       // Start fresh if existing file is invalid
     }
   }
-  existing[key] = mcps;
+  existing[key] = value;
   await outputFile(settingsPath, `${JSON.stringify(existing, null, 2)}\n`);
 }

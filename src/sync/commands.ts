@@ -10,7 +10,6 @@ import type { ToolProvider } from "../tools/types.js";
 import { outputFile, pathExists } from "../utils/fs.js";
 import { validateSyncNamespace } from "../utils/path-normalization.js";
 import { sanitizeContent } from "../utils/sanitize.js";
-import { prependHeader } from "./header.js";
 import type { SyncOptions } from "./skills.js";
 import { writeFileByMode } from "./write-file.js";
 
@@ -69,8 +68,6 @@ async function syncCommandsToTool(
         });
         content = sanitized.content;
         warnings.push(...sanitized.warnings);
-        const presetLabel = `preset:${namespace}/${relPath}`;
-        content = prependHeader(content, presetLabel);
         await outputFile(destPath, content, { encoding: "utf-8" });
       } else {
         const sourceLabel = path.relative(cwd, sourcePath);

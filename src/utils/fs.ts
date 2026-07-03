@@ -110,11 +110,10 @@ export async function writeJson(
   await writeFile(file, content, { encoding: options?.encoding || "utf-8" });
 }
 
+export { constants } from "node:fs";
 // Re-export native APIs that don't need wrappers.
 // NOTE: appendFile, mkdtemp, and rename are intentionally excluded — they are
 // not used in src/ and Vite/Rollup tree-shakes their imports while keeping
 // re-export references, causing ReferenceErrors in the bundle. Tests that need
 // them should import directly from "node:fs/promises".
-export { access, readFile, readdir, stat, symlink, writeFile };
-export { constants } from "node:fs";
-export { cp };
+export { access, cp, readdir, readFile, stat, symlink, writeFile };

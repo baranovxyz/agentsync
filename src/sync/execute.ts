@@ -11,6 +11,7 @@ import {
   syncAgents,
   syncCommands,
   syncDocs,
+  syncExtensions,
   syncMCP,
   syncSkills,
 } from "./index.js";
@@ -103,6 +104,28 @@ export async function executeSyncPlan(
   );
 
   await syncDocs(plan.providers, options.cwd);
+
+  // Sync extensions (hooks, permissions, statusline, output_style)
+  if (
+    plan.extensions.hooks ||
+    plan.extensions.permissions ||
+    plan.extensions.statusline ||
+    plan.extensions.outputStyle
+  ) {
+    const extResults = await syncExtensions(
+      plan.providers,
+      plan.extensions,
+      options.cwd,
+    );
+    for (const r of extResults) {
+      warnings.push(...r.warnings);
+      for (const drop of r.droppedHooks) {
+        warnings.push(
+          `[${r.tool}] hook ${drop.id} for ${drop.event} dropped: ${drop.reason}`,
+        );
+      }
+    }
+  }
 
   let mcpServerCount = 0;
   if (Object.keys(plan.mcpServers).length > 0) {

@@ -7,6 +7,11 @@ export { type AgentSyncResult, syncAgents } from "./agents.js";
 export { type CommandSyncResult, syncCommands } from "./commands.js";
 export { type DocsSyncResult, syncDocs } from "./docs.js";
 export { executeSyncPlan, type SyncResult } from "./execute.js";
+export {
+  type ExtensionsInput,
+  type ExtensionsSyncResult,
+  syncExtensions,
+} from "./extensions.js";
 export { generateHeader, prependHeader } from "./header.js";
 export {
   getManifestPath,
