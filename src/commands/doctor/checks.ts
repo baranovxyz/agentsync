@@ -302,53 +302,6 @@ async function checkPresets(
 }
 
 /**
- * Detect worker-mode misconfigurations that don't fail sync but will make
- * harness-driven sessions silently no-op.
- *
- * Today this only fires for opencode: the TUI worker requires top-level
- * `permission: "allow"` in opencode.json, and unlike claude-code/codex
- * there is no equivalent CLI flag (see opencode issue #16367 — agent
- * hangs indefinitely when `permission` is "ask" under headless serve).
- * The fix is operator-side, so this is informational, not a failure.
- *
- * Gated on at least one AGENTSYNC_HARNESS_* env var being set, so the
- * hint only surfaces for users who actually run the harness — normal
- * opencode users on a laptop don't get nagged.
- */
-async function checkWorkerHints(
-  cwd: string,
-  tools: ToolName[],
-): Promise<DoctorResult["workerHints"]> {
-  const hints: DoctorResult["workerHints"] = [];
-  const harnessConfigured = Object.keys(process.env).some((k) =>
-    k.startsWith("AGENTSYNC_HARNESS_"),
-  );
-  if (!harnessConfigured) return hints;
-
-  if (tools.includes("opencode" as ToolName)) {
-    const opencodeJsonPath = path.join(cwd, "opencode.json");
-    if (await pathExists(opencodeJsonPath)) {
-      try {
-        const parsed = JSON.parse(await readFile(opencodeJsonPath, "utf-8"));
-        if (parsed?.permission !== "allow") {
-          hints.push({
-            tool: "opencode",
-            severity: "warning",
-            message:
-              'opencode.json lacks top-level `permission: "allow"` — tmux-driven workers will silently no-op on writes',
-            fix: `jq '. + {permission: "allow"}' ${opencodeJsonPath} > ${opencodeJsonPath}.tmp && mv ${opencodeJsonPath}.tmp ${opencodeJsonPath}`,
-          });
-        }
-      } catch {
-        // Malformed JSON — opencode itself will surface that. Skip the hint.
-      }
-    }
-  }
-
-  return hints;
-}
-
-/**
  * Run all diagnostic checks and return a structured result.
  * Separated from display logic for testability.
  */
@@ -369,15 +322,12 @@ export async function runDiagnostics(cwd: string): Promise<DoctorResult> {
     };
   }
 
-  const [skills, presets, drift, contentDrift, workerHints] = await Promise.all(
-    [
-      checkSkills(cwd, tools),
-      checkPresets(cwd, extendsSources),
-      configPath ? checkDrift(cwd, tools, configPath) : Promise.resolve([]),
-      checkContentDrift(cwd),
-      checkWorkerHints(cwd, tools),
-    ],
-  );
+  const [skills, presets, drift, contentDrift] = await Promise.all([
+    checkSkills(cwd, tools),
+    checkPresets(cwd, extendsSources),
+    configPath ? checkDrift(cwd, tools, configPath) : Promise.resolve([]),
+    checkContentDrift(cwd),
+  ]);
   return {
     config,
     tools: checkTools(tools),
@@ -386,7 +336,7 @@ export async function runDiagnostics(cwd: string): Promise<DoctorResult> {
     presets,
     drift,
     contentDrift,
-    workerHints,
+    workerHints: [],
   };
 }
 

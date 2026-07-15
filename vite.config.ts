@@ -65,7 +65,10 @@ export default defineConfig({
     },
     target: "node20",
     minify: false,
-    sourcemap: true,
+    // The npm package ships a single executable file. Keeping source maps out
+    // of dist avoids publishing source comments and prevents a dangling map
+    // reference when the package allowlist includes only dist/cli.js.
+    sourcemap: false,
   },
   resolve: {
     alias: {

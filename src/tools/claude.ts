@@ -13,6 +13,7 @@ import type {
   StatuslineConfigSchema,
 } from "../types/schemas.js";
 import { outputFile } from "../utils/fs.js";
+import { toPosixPath } from "../utils/path-normalization.js";
 import { mergeIntoSettings, writeMcpJson } from "./mcp-helpers.js";
 import type { ToolProvider } from "./types.js";
 
@@ -50,7 +51,7 @@ async function copyScriptToClaude(
     // surfaces the misconfiguration at runtime rather than silently dropping.
     return command;
   }
-  return path.relative(cwd, dest);
+  return toPosixPath(path.relative(cwd, dest));
 }
 
 async function writeClaudeHooks(
@@ -175,7 +176,7 @@ async function writeClaudeStatusline(
       await copyFile(source, dest);
       await chmod(dest, 0o755);
       lines.push(
-        `parts+=("$(${path.relative(cwd, dest)} 2>/dev/null || echo)")`,
+        `parts+=("$(${toPosixPath(path.relative(cwd, dest))} 2>/dev/null || echo)")`,
       );
     } catch {
       warnings.push(
@@ -198,7 +199,10 @@ async function writeClaudeStatusline(
   await chmod(scriptPath, 0o755);
   await mergeIntoSettings(
     path.join(cwd, ".claude", "settings.json"),
-    { type: "command", command: path.relative(cwd, scriptPath) },
+    {
+      type: "command",
+      command: toPosixPath(path.relative(cwd, scriptPath)),
+    },
     "statusLine",
   );
   return { warnings };

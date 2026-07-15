@@ -44,7 +44,7 @@ function isBooleanRecord(value: unknown): boolean {
  *  - bare `model` alias (no provider prefix) → dropped + warned. OpenCode
  *    resolves `provider/model` ids; an unqualified alias fails at runtime, so
  *    we fall back to the session's configured default. Qualified ids are kept.
- *  - `capability` / `skill_tags` (agentsync-internal) → dropped (meaningless to
+ *  - `capability` / `skill_tags` (AgentSync-only) → dropped (meaningless to
  *    OpenCode; would otherwise land in `options`).
  *  - `mode` → defaulted to `subagent` when absent (OpenCode's canonical shape
  *    for a non-default role); an explicit mode is preserved.
@@ -73,7 +73,7 @@ function translateOpenCodeAgentContent(
   // Rebuild the frontmatter in one pass, omitting keys OpenCode can't accept.
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(fm)) {
-    // agentsync-internal keys — no meaning to OpenCode.
+    // AgentSync-only keys — no meaning to OpenCode.
     if (key === "capability" || key === "skill_tags") continue;
 
     // The agentsync `tools` allowlist (scalar/array) — drop unless it is

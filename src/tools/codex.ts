@@ -19,8 +19,6 @@
  * Skills live in .agents/skills/ (shared cross-tool directory).
  * Ref: https://developers.openai.com/codex/mcp
  * Ref: https://developers.openai.com/codex/skills/
- * Background: docs/troubleshooting-harness.md "Codex MCP scope:
- * project-scoped `.codex/config.toml` is ignored".
  */
 
 import { homedir } from "node:os";
@@ -36,6 +34,7 @@ import type {
   StatuslineConfigSchema,
 } from "../types/schemas.js";
 import { outputFile, pathExists, readFile } from "../utils/fs.js";
+import { toPosixPath } from "../utils/path-normalization.js";
 import type { ToolProvider } from "./types.js";
 
 type PermissionsConfig = z.infer<typeof PermissionsConfigSchema>;
@@ -188,7 +187,7 @@ async function codexAgentsPostSync(
       // to the `.codex/` directory in project-local config, so we emit
       // paths without the `.codex/` prefix (otherwise it looks for
       // `.codex/.codex/agents/<n>.toml` and errors).
-      const mdRel = path.join("agents", relPath);
+      const mdRel = path.posix.join("agents", toPosixPath(relPath));
       const tomlPath = path.join(codexAgentsDir, `${name}.toml`);
       await outputFile(tomlPath, buildAgentToml(mdRel, codexFm), {
         encoding: "utf-8",
@@ -196,7 +195,7 @@ async function codexAgentsPostSync(
 
       // Lift cx-only metadata into the [agents.<n>] table for config.toml
       const entry: Record<string, unknown> = {
-        config_file: path.join("agents", `${name}.toml`),
+        config_file: path.posix.join("agents", `${name}.toml`),
       };
       if (description) entry.description = description;
       if (codexFm.nickname_candidates)

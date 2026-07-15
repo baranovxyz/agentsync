@@ -128,7 +128,7 @@ describe("OpenCode agent frontmatter translation", () => {
 
   // A canonical agentsync agent file (matches .agents/agents/*.md authored shape):
   // `tools` is a YAML scalar (comma list), `model` is a bare alias, plus the
-  // agentsync-internal `capability`/`skill_tags`. OpenCode fatal-boots on the
+  // AgentSync-only `capability`/`skill_tags`. OpenCode fatal-boots on the
   // bad-typed `tools` field; the rest is opencode-meaningless noise.
   const CANONICAL_AGENT = [
     "---",
@@ -197,7 +197,7 @@ describe("OpenCode agent frontmatter translation", () => {
     expect(fm.model).toBe("anthropic/claude-sonnet-4-20250514");
   });
 
-  it("drops agentsync-internal `capability` and `skill_tags`", async () => {
+  it("drops AgentSync-only `capability` and `skill_tags`", async () => {
     const { fm } = await syncOne(CANONICAL_AGENT);
 
     expect(fm).not.toHaveProperty("capability");
