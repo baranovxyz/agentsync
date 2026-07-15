@@ -140,15 +140,8 @@ assert:
     .cursor/mcp.json: json
 ```
 
-**Running scenarios**:
-
-```typescript
-import { loadScenario, runScenario } from "../utils/scenario-runner.js";
-
-const scenario = await loadScenario("tests/scenarios/mcp-add-sync.yml");
-const result = await runScenario(scenario);
-expect(result.passed).toBe(true);
-```
+The YAML is a reference fixture. Executable user journeys live in `tests/workflows/` and use
+`tests/utils/workflow-harness.ts`.
 
 ## Adding Tests
 
@@ -374,10 +367,8 @@ pnpm test -- --coverage
 
 ## References
 
-- **Architecture**: `agentsync-docs/55-plans/test-architecture-and-workflow-plan-0.2x-to-0.4.0.md`
-- **Requirements**: `agentsync-docs/10-requirements/core-requirements.md`
-- **Harness**: `tests/utils/workflow-harness.ts`
-- **Scenarios**: `tests/utils/scenario-runner.ts`
+- **Workflow utilities**: `tests/utils/workflow-harness.ts`
+
 ## Contributing
 
 When adding tests:

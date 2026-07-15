@@ -99,13 +99,18 @@ AGENTSYNC_PROFILE=ci agentsync sync
 When using `--json`, the output structure is:
 ```json
 {
-  "success": true,
-  "tools": ["claude", "opencode", "codex"],
-  "skills": 5,
-  "commands": 3,
-  "agents": 1,
-  "mcpServers": 2
+  "version": "1.0",
+  "status": "success",
+  "command": "sync",
+  "data": {
+    "tools": ["claude", "opencode", "codex"],
+    "skills": 5,
+    "commands": 3,
+    "agents": 1,
+    "mcpServers": 2,
+    "details": []
+  }
 }
 ```
 
-On error, `success` is `false` and `errors` array contains messages.
+On error, `status` is `"error"` and the top-level `errors` array contains structured error objects.
