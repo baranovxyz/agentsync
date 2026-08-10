@@ -74,11 +74,11 @@
     "es-main": "1.4.0",
     "execa": "9.6.1",
     "fast-glob": "3.3.3",
-    "js-yaml": "4.3.0",
+    "js-yaml": "4.3.1",
     "micromatch": "4.0.8",
     "ora": "9.4.1",
     "picocolors": "1.1.1",
-    "smol-toml": "1.7.0",
+    "smol-toml": "1.7.1",
     "zod": "4.4.3"
   },
   "devDependencies": {
