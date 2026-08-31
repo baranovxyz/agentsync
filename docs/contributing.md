@@ -47,6 +47,19 @@ The project runs CI workflows:
 
 All workflows must pass before a PR can be merged.
 
+### npm Releases
+
+Maintainers release manually from public `main` with the **Publish to npm** workflow. The version
+must already be committed; the workflow never bumps or pushes it. Its prepare job builds, tests,
+packs one tarball, and verifies the packed `dist/` against the mirror-reviewed
+`dist-manifest.json`. Only the protected `npm` environment's publish job receives OIDC authority,
+and that job publishes the exact uploaded tarball without checking out repository code.
+
+The npm trusted publisher is bound to `baranovxyz/agentsync`, workflow `publish.yml`, and GitHub
+environment `npm`. No npm token secret is required. Use `dry-run` only for unpublished versions;
+use `finalize-only` to repair a tag or GitHub release after the existing registry artifact passes
+exact integrity and provenance verification.
+
 ## Security
 
 - Do not include secrets in issues, PRs, code, or tests.
