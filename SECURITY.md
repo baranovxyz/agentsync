@@ -18,15 +18,16 @@ We aim to acknowledge reports within 48 hours and provide a fix timeline within 
 ## Secret Handling
 
 - Never commit secrets. Local configs (`agentsync.local.toml`, `.env`) are gitignored.
-- Release workflows use OIDC for npm provenance — no long-lived tokens.
+- The isolated publish job uses OIDC for npm provenance — no long-lived npm tokens.
 - MCP server configs support `{ENV_VAR}` token substitution to avoid hardcoding secrets.
 
 ## Supply Chain
 
-- Pinned tooling in CI
-- Tarball content validation in release workflow
+- Release actions and the npm CLI are pinned to immutable versions
+- The packed tarball is checked against the mirror-reviewed `dist-manifest.json`
+- Only the minimal publish job receives npm authority; it checks out no source
 - Automated dependency auditing via `pnpm audit`
-- npm publish with `--provenance` (OIDC-signed, verifiable origin)
+- Registry integrity and SLSA provenance are verified before tagging
 
 ## Responsible Disclosure
 

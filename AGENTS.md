@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-AgentSync syncs AI coding agent configuration (commands, skills, MCP servers) across 19 tools (Cursor, Claude, Cline, RooCode, OpenCode, Codex, Gemini, Copilot, Amp, Goose, Aider, Amazon Q, Augment, Kiro, OpenHands, Junie, Crush, Kilocode, Qwen). TypeScript, Node.js 18+, pnpm, Vitest, Commander.js.
+AgentSync syncs AI coding agent configuration (commands, skills, rules, MCP servers) across 22 tools (Cursor, Claude, Cline, RooCode, OpenCode, Codex, Gemini, Copilot, Amp, Goose, Aider, Amazon Q, Augment, Kiro, OpenHands, Junie, Crush, Kilocode, Qwen, Droid, Pi, Vibe). TypeScript, Node.js 20+, pnpm, Vitest, Commander.js.
 
 **Stable (v1.0)**: Semver commitment. Config schema is frozen. Global content (`~/.agents/`) accumulates with project content.
 
@@ -36,7 +36,7 @@ src/
 │   ├── monorepo.ts         # Monorepo subtree discovery (findAgentsSubtrees, filterChangedSubtrees)
 │   └── registry/           # Preset loading, GitHub source, merger
 ├── sync/                   # Sync engine — ALL sync modules here (agents, commands, docs, mcp, skills)
-├── tools/                  # Tool definitions and detection (19 tools including cline)
+├── tools/                  # Tool definitions and detection (22 tools including cline)
 ├── types/                  # TypeScript definitions, Zod schemas
 └── utils/                  # Shared utilities (frontmatter, fs, gitignore, paths)
 tests/

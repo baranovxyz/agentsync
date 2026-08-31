@@ -102,6 +102,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Verify publish workflow isolation
+        run: node .github/scripts/test-publish-workflow.mjs
+
       - name: Run security audit
         run: pnpm security:audit
         continue-on-error: true
