@@ -67,7 +67,7 @@ args = ["-y", "@mcp/github"]
 `);
       const internal = tomlToInternalConfig(toml);
       expect(internal.mcp?.github).toBeDefined();
-      expect((internal.mcp?.github as { command: string }).command).toBe("npx");
+      expect(internal.mcp?.github).toMatchObject({ command: "npx" });
     });
 
     it("maps agentsync.presets to extends (source strings)", () => {
