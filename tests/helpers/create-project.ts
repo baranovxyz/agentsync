@@ -34,7 +34,7 @@ export async function createTestProject(
   await ensureDir(path.join(agentsDir, "skills"));
   await ensureDir(path.join(agentsDir, "commands"));
   await ensureDir(path.join(agentsDir, "agents"));
-  await ensureDir(path.join(agentsDir, "backups"));
+  await ensureDir(path.join(agentsDir, "rules"));
 
   // Write default TOML config
   const toolsList = tools || ["claude", "cursor"];
@@ -71,7 +71,7 @@ export async function createTestProject(
     },
     async addDocs(content) {
       await outputFile(
-        path.join(agentsDir, "AGENTS.md"),
+        path.join(dir, "AGENTS.md"),
         content || "# Project\n\nProject documentation.\n",
       );
     },

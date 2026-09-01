@@ -10,7 +10,11 @@ import {
   parseTomlConfig,
   tomlToInternalConfig,
 } from "../config/toml-loader.js";
-import { getErrorMessage } from "../core/errors.js";
+import {
+  AgentSyncError,
+  ConfigError,
+  getErrorMessage,
+} from "../core/errors.js";
 import type { AgentSyncConfig } from "../types/index.js";
 import { pathExists } from "./fs.js";
 
@@ -35,8 +39,11 @@ export async function loadGlobalConfig(): Promise<AgentSyncConfig | null> {
     const toml = parseTomlConfig(content, configPath);
     return tomlToInternalConfig(toml);
   } catch (error) {
-    throw new Error(
+    if (error instanceof AgentSyncError) throw error;
+    throw new ConfigError(
       `Failed to load global config at ${configPath}: ${getErrorMessage(error)}`,
+      configPath,
+      "Check that ~/.agents/config.toml is readable and uses the current AgentSync format",
     );
   }
 }

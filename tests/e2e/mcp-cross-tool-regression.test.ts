@@ -10,9 +10,10 @@ import { parse as parseToml } from "smol-toml";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SUPPORTED_TOOLS } from "../../src/constants.js";
 import type { MCP } from "../../src/core/mcp/tokens.js";
-import { syncMCP } from "../../src/sync/mcp.js";
+import { syncManagedMCP } from "../../src/sync/mcp.js";
 import { getToolProvider, getToolProviders } from "../../src/tools/index.js";
 import { pathExists } from "../../src/utils/fs.js";
+import { writeProjectMcp } from "../helpers/mcp.js";
 
 describe("Cross-Tool MCP Regression", () => {
   let tmpDir: string;
@@ -47,7 +48,7 @@ describe("Cross-Tool MCP Regression", () => {
 
   it("all tools produce parseable config files", async () => {
     const providers = getToolProviders([...SUPPORTED_TOOLS]);
-    await syncMCP(providers, standardMCPs, tmpDir);
+    await syncManagedMCP(providers, standardMCPs, tmpDir);
 
     for (const tool of SUPPORTED_TOOLS) {
       const provider = getToolProvider(tool);
@@ -69,7 +70,7 @@ describe("Cross-Tool MCP Regression", () => {
 
   describe("Claude Code → .mcp.json", () => {
     it("exact structure: { mcpServers: { ... } }", async () => {
-      await getToolProvider("claude").mcpFormat!.writeMCP(standardMCPs, tmpDir);
+      await writeProjectMcp(getToolProvider("claude"), standardMCPs, tmpDir);
 
       const content = JSON.parse(
         await readFile(path.join(tmpDir, ".mcp.json"), "utf-8"),
@@ -101,10 +102,7 @@ describe("Cross-Tool MCP Regression", () => {
 
   describe("OpenCode → opencode.json", () => {
     it("exact structure: { mcp: { type, command[], environment } }", async () => {
-      await getToolProvider("opencode").mcpFormat!.writeMCP(
-        standardMCPs,
-        tmpDir,
-      );
+      await writeProjectMcp(getToolProvider("opencode"), standardMCPs, tmpDir);
 
       const content = JSON.parse(
         await readFile(path.join(tmpDir, "opencode.json"), "utf-8"),
@@ -140,7 +138,7 @@ describe("Cross-Tool MCP Regression", () => {
 
   describe("Cursor → .cursor/mcp.json", () => {
     it("exact structure: { mcpServers: { ... } }", async () => {
-      await getToolProvider("cursor").mcpFormat!.writeMCP(standardMCPs, tmpDir);
+      await writeProjectMcp(getToolProvider("cursor"), standardMCPs, tmpDir);
 
       const content = JSON.parse(
         await readFile(path.join(tmpDir, ".cursor", "mcp.json"), "utf-8"),
@@ -155,10 +153,7 @@ describe("Cross-Tool MCP Regression", () => {
 
   describe("RooCode → .roo/mcp.json", () => {
     it("standard mcpServers format", async () => {
-      await getToolProvider("roocode").mcpFormat!.writeMCP(
-        standardMCPs,
-        tmpDir,
-      );
+      await writeProjectMcp(getToolProvider("roocode"), standardMCPs, tmpDir);
 
       const content = JSON.parse(
         await readFile(path.join(tmpDir, ".roo", "mcp.json"), "utf-8"),
@@ -171,7 +166,7 @@ describe("Cross-Tool MCP Regression", () => {
 
   describe("Codex → .codex/config.toml", () => {
     it("TOML format with mcp_servers table", async () => {
-      await getToolProvider("codex").mcpFormat!.writeMCP(standardMCPs, tmpDir);
+      await writeProjectMcp(getToolProvider("codex"), standardMCPs, tmpDir);
 
       const raw = await readFile(
         path.join(tmpDir, ".codex", "config.toml"),
@@ -189,10 +184,7 @@ describe("Cross-Tool MCP Regression", () => {
 
   describe("Copilot → .vscode/mcp.json (VS Code native format)", () => {
     it("uses 'servers' key (not mcpServers)", async () => {
-      await getToolProvider("copilot").mcpFormat!.writeMCP(
-        standardMCPs,
-        tmpDir,
-      );
+      await writeProjectMcp(getToolProvider("copilot"), standardMCPs, tmpDir);
 
       const content = JSON.parse(
         await readFile(path.join(tmpDir, ".vscode", "mcp.json"), "utf-8"),
@@ -207,7 +199,7 @@ describe("Cross-Tool MCP Regression", () => {
 
   describe("Gemini → .gemini/settings.json", () => {
     it("mcpServers merged into settings", async () => {
-      await getToolProvider("gemini").mcpFormat!.writeMCP(standardMCPs, tmpDir);
+      await writeProjectMcp(getToolProvider("gemini"), standardMCPs, tmpDir);
 
       const content = JSON.parse(
         await readFile(path.join(tmpDir, ".gemini", "settings.json"), "utf-8"),
@@ -225,7 +217,7 @@ describe("Cross-Tool MCP Regression", () => {
     it("running sync twice produces identical output", async () => {
       const providers = getToolProviders([...SUPPORTED_TOOLS]);
 
-      await syncMCP(providers, standardMCPs, tmpDir);
+      const first = await syncManagedMCP(providers, standardMCPs, tmpDir);
       const firstRun: Record<string, string> = {};
       for (const tool of SUPPORTED_TOOLS) {
         const p = getToolProvider(tool);
@@ -236,7 +228,9 @@ describe("Cross-Tool MCP Regression", () => {
         );
       }
 
-      await syncMCP(providers, standardMCPs, tmpDir);
+      await syncManagedMCP(providers, standardMCPs, tmpDir, {
+        previousOwners: first.owners,
+      });
       for (const tool of SUPPORTED_TOOLS) {
         const p = getToolProvider(tool);
         if (!p.paths.mcpConfigPath) continue;

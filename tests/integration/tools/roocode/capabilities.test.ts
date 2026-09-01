@@ -21,7 +21,6 @@ describe("RooCode — Capabilities", () => {
 
   it("reads .agents/ directory directly", () => {
     expect(p.capabilities.nativeSkillsDiscovery).toBe(true);
-    expect(p.readsAgentsDir).toBe(true);
   });
 
   it("has no docsFormat (reads AGENTS.md natively)", () => {

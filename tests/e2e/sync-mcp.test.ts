@@ -14,11 +14,17 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { sync as mainSync } from "../../src/commands/sync.js";
+import { CliResultSchema, SyncDataSchema } from "../../src/types/output.js";
 import * as fs from "../../src/utils/fs.js";
 
 // Schema for MCP config file structure
 const mcpConfigSchema = z.object({
   mcpServers: z.record(z.string(), z.unknown()),
+});
+
+const syncResultSchema = CliResultSchema.extend({
+  command: z.literal("sync"),
+  data: SyncDataSchema,
 });
 
 describe("MCP Sync E2E", () => {
@@ -27,6 +33,27 @@ describe("MCP Sync E2E", () => {
   let originalCwd: string;
   let originalHome: string | undefined;
   let originalUserProfile: string | undefined;
+  let originalGithubToken: string | undefined;
+  let consoleOutput: string[];
+  const originalLog = console.log;
+
+  function restoreEnv(name: string, value: string | undefined): void {
+    if (value === undefined) {
+      delete process.env[name];
+    } else {
+      process.env[name] = value;
+    }
+  }
+
+  async function runSync() {
+    consoleOutput = [];
+    await mainSync({ cwd: tempDir, json: true });
+
+    expect(consoleOutput).toHaveLength(1);
+    const result = fs.parseJsonValidated(consoleOutput[0], syncResultSchema);
+    expect(result.status).toBe("success");
+    return result;
+  }
 
   /**
    * Helper to write JSON files
@@ -46,11 +73,17 @@ describe("MCP Sync E2E", () => {
     tempHomeDir = await mkdtemp(path.join(os.tmpdir(), "agentsync-home-"));
     originalHome = process.env.HOME;
     process.env.HOME = tempHomeDir;
+    originalUserProfile = process.env.USERPROFILE;
+    originalGithubToken = process.env.GITHUB_TOKEN;
 
     if (process.platform === "win32") {
-      originalUserProfile = process.env.USERPROFILE;
       process.env.USERPROFILE = tempHomeDir;
     }
+
+    consoleOutput = [];
+    console.log = (...args: unknown[]) => {
+      consoleOutput.push(args.map(String).join(" "));
+    };
 
     // Setup global registry
     const globalRegistry = {
@@ -73,11 +106,10 @@ describe("MCP Sync E2E", () => {
 
   afterEach(async () => {
     process.chdir(originalCwd);
-    process.env.HOME = originalHome;
-
-    if (originalUserProfile !== undefined) {
-      process.env.USERPROFILE = originalUserProfile;
-    }
+    console.log = originalLog;
+    restoreEnv("HOME", originalHome);
+    restoreEnv("USERPROFILE", originalUserProfile);
+    restoreEnv("GITHUB_TOKEN", originalGithubToken);
 
     await fs.remove(tempDir);
     await fs.remove(tempHomeDir);
@@ -90,21 +122,19 @@ describe("MCP Sync E2E", () => {
       path.join(".agents", "agentsync.toml"),
       `tools = ["cursor", "claude"]
 
-[mcp_servers.github]
+[mcp.github]
 command = "npx"
 args = ["-y", "@modelcontextprotocol/server-github"]
 
-[mcp_servers.github.env]
+[mcp.github.env]
 GITHUB_TOKEN = "test-token-123"
 `,
     );
 
     // Run sync
-    await mainSync(tempDir, {
-      verbose: false,
-      dryRun: false,
-      confirm: false,
-    });
+    const result = await runSync();
+    expect(result.data.tools).toEqual(["cursor", "claude"]);
+    expect(result.data.mcpServers).toBe(1);
 
     // Verify Cursor MCP config
     const cursorMcpFile = path.join(tempDir, ".cursor", "mcp.json");
@@ -147,21 +177,18 @@ GITHUB_TOKEN = "test-token-123"
       path.join(".agents", "agentsync.toml"),
       `tools = ["cursor"]
 
-[mcp_servers.github]
+[mcp.github]
 command = "npx"
 args = ["-y", "@modelcontextprotocol/server-github"]
 
-[mcp_servers.github.env]
+[mcp.github.env]
 GITHUB_TOKEN = "{GITHUB_TOKEN}"
 `,
     );
 
     // Run sync
-    await mainSync(tempDir, {
-      verbose: false,
-      dryRun: false,
-      confirm: false,
-    });
+    const result = await runSync();
+    expect(result.data.mcpServers).toBe(1);
 
     // Verify token substitution
     const cursorMcpFile = path.join(tempDir, ".cursor", "mcp.json");
@@ -172,9 +199,6 @@ GITHUB_TOKEN = "{GITHUB_TOKEN}"
       args: ["-y", "@modelcontextprotocol/server-github"],
       env: { GITHUB_TOKEN: "env-token-456" },
     });
-
-    // Cleanup
-    process.env.GITHUB_TOKEN = undefined;
   });
 
   it("should only sync defined MCPs (defined = enabled)", async () => {
@@ -184,18 +208,15 @@ GITHUB_TOKEN = "{GITHUB_TOKEN}"
       path.join(".agents", "agentsync.toml"),
       `tools = ["cursor"]
 
-[mcp_servers.github]
+[mcp.github]
 command = "npx"
 args = ["-y", "@modelcontextprotocol/server-github"]
 `,
     );
 
     // Run sync
-    await mainSync(tempDir, {
-      verbose: false,
-      dryRun: false,
-      confirm: false,
-    });
+    const result = await runSync();
+    expect(result.data.mcpServers).toBe(1);
 
     // Verify only github is synced
     const cursorMcpFile = path.join(tempDir, ".cursor", "mcp.json");
@@ -213,11 +234,11 @@ args = ["-y", "@modelcontextprotocol/server-github"]
       path.join(".agents", "agentsync.toml"),
       `tools = ["cursor"]
 
-[mcp_servers.github]
+[mcp.github]
 command = "npx"
 args = ["-y", "@modelcontextprotocol/server-github"]
 
-[mcp_servers.postgres]
+[mcp.postgres]
 command = "npx"
 args = ["-y", "@modelcontextprotocol/server-postgres"]
 `,
@@ -230,11 +251,8 @@ args = ["-y", "@modelcontextprotocol/server-postgres"]
     );
 
     // Run sync
-    await mainSync(tempDir, {
-      verbose: false,
-      dryRun: false,
-      confirm: false,
-    });
+    const result = await runSync();
+    expect(result.data.mcpServers).toBe(1);
 
     // Verify postgres is excluded
     const cursorMcpFile = path.join(tempDir, ".cursor", "mcp.json");
@@ -254,26 +272,12 @@ args = ["-y", "@modelcontextprotocol/server-postgres"]
     );
 
     // Run sync
-    await mainSync(tempDir, {
-      verbose: false,
-      dryRun: false,
-      confirm: false,
-    });
+    const result = await runSync();
+    expect(result.data.mcpServers).toBe(0);
 
-    // Verify either no MCP file is written, or it has empty mcpServers
+    // No MCP file is written when there are no active servers.
     const cursorMcpFile = path.join(tempDir, ".cursor", "mcp.json");
-    const exists = await fs.pathExists(cursorMcpFile);
-    if (exists) {
-      const content = await fs.readJsonValidated(
-        cursorMcpFile,
-        mcpConfigSchema,
-      );
-      expect(content.mcpServers).toEqual({});
-      expect(Object.keys(content.mcpServers)).toHaveLength(0);
-    } else {
-      // No MCP file created when no MCPs are defined — expected behavior
-      expect(exists).toBe(false);
-    }
+    expect(await fs.pathExists(cursorMcpFile)).toBe(false);
   });
 
   it("should sync URL-based MCP servers", async () => {
@@ -283,20 +287,17 @@ args = ["-y", "@modelcontextprotocol/server-postgres"]
       path.join(".agents", "agentsync.toml"),
       `tools = ["cursor"]
 
-[mcp_servers.remote-api]
+[mcp.remote-api]
 url = "https://api.example.com/mcp"
 
-[mcp_servers.remote-api.headers]
+[mcp.remote-api.headers]
 Authorization = "Bearer secret-token"
 `,
     );
 
     // Run sync
-    await mainSync(tempDir, {
-      verbose: false,
-      dryRun: false,
-      confirm: false,
-    });
+    const result = await runSync();
+    expect(result.data.mcpServers).toBe(1);
 
     // Verify URL-based server
     const cursorMcpFile = path.join(tempDir, ".cursor", "mcp.json");

@@ -69,10 +69,16 @@ export const gooseProvider: ToolProvider = {
     nativeAgentsMd: true,
     nativeSkillsDiscovery: true,
   },
-  readsAgentsDir: true,
+  readsGlobalAgentsDir: "unverified",
+  manifestCleanSurfaces: [],
   agentFileExtension: ".md",
   mcpFormat: {
-    async writeMCP(mcps: Record<string, MCP>, cwd: string): Promise<void> {
+    projectPath: "static",
+    ownership: { kind: "owned-keys", keys: ["extensions"], format: "yaml" },
+    async writeProjectMCP(
+      mcps: Record<string, MCP>,
+      cwd: string,
+    ): Promise<void> {
       const configFile = path.join(cwd, ".goose", "config.yaml");
 
       // Merge into existing config.yaml to preserve non-MCP settings

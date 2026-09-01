@@ -69,13 +69,13 @@ export async function remove(path: string): Promise<void> {
   await rm(path, { recursive: true, force: true });
 }
 
-/**
- * Read and parse a JSON file
- * Replacement for fs-extra's readJson()
- */
-async function readJson<T = unknown>(file: string): Promise<T> {
-  const content = await readFile(file, "utf-8");
-  return JSON.parse(content) as T;
+/** Parse a JSON string and validate its runtime shape. */
+export function parseJsonValidated<T>(
+  content: string,
+  schema: z.ZodSchema<T>,
+): T {
+  const parsed: unknown = JSON.parse(content);
+  return schema.parse(parsed);
 }
 
 /**
@@ -90,8 +90,8 @@ export async function readJsonValidated<T>(
   file: string,
   schema: z.ZodSchema<T>,
 ): Promise<T> {
-  const content = await readJson(file);
-  return schema.parse(content);
+  const content = await readFile(file, "utf-8");
+  return parseJsonValidated(content, schema);
 }
 
 /**

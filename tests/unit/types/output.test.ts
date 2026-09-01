@@ -13,6 +13,7 @@ describe("cliResult", () => {
       skills: 1,
       commands: 0,
       agents: 0,
+      rules: 0,
       mcpServers: 0,
     });
     expect(result).toEqual({
@@ -24,6 +25,7 @@ describe("cliResult", () => {
         skills: 1,
         commands: 0,
         agents: 0,
+        rules: 0,
         mcpServers: 0,
       },
     });
@@ -32,7 +34,7 @@ describe("cliResult", () => {
   it("includes warnings without changing status", () => {
     const result = cliResult(
       "sync",
-      { tools: [], skills: 0, commands: 0, agents: 0, mcpServers: 0 },
+      { tools: [], skills: 0, commands: 0, agents: 0, rules: 0, mcpServers: 0 },
       {
         warnings: ["Transitive extends not supported"],
       },
@@ -44,7 +46,14 @@ describe("cliResult", () => {
   it("allows explicit partial status", () => {
     const result = cliResult(
       "sync",
-      { tools: ["cursor"], skills: 1, commands: 0, agents: 0, mcpServers: 0 },
+      {
+        tools: ["cursor"],
+        skills: 1,
+        commands: 0,
+        agents: 0,
+        rules: 0,
+        mcpServers: 0,
+      },
       {
         status: "partial",
         errors: [
@@ -71,7 +80,7 @@ describe("cliError", () => {
   it("produces an error envelope with data and errors array", () => {
     const result = cliError(
       "sync",
-      { tools: [], skills: 0, commands: 0, agents: 0, mcpServers: 0 },
+      { tools: [], skills: 0, commands: 0, agents: 0, rules: 0, mcpServers: 0 },
       {
         code: "CONFIG_NOT_FOUND",
         message: "No config found",
@@ -87,7 +96,7 @@ describe("cliError", () => {
   it("accepts an array of errors", () => {
     const result = cliError(
       "sync",
-      { tools: [], skills: 0, commands: 0, agents: 0, mcpServers: 0 },
+      { tools: [], skills: 0, commands: 0, agents: 0, rules: 0, mcpServers: 0 },
       [
         { code: "ERR_1", message: "first" },
         { code: "ERR_2", message: "second" },

@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "algorithm": "sha256",
+  "root": "dist",
+  "files": [
+    {
+      "path": "cli.js",
+      "sha256": "e6496424b38ab83427cf213e666fc182b48c0e73f82e5794c49551fbd02a111a",
+      "size": 433019,
+      "executable": true
+    }
+  ]
+}

@@ -229,7 +229,7 @@ describe("Merge Semantics Acceptance Tests", () => {
       expect(absent).toHaveLength(0);
     });
 
-    it("project custom skills always load regardless of profile filter", async () => {
+    it("project custom skills load when no presets are selected", async () => {
       // Project custom skill exists even when no presets are loaded
       const projectSkillDir = path.join(
         tmpDir,
@@ -240,7 +240,7 @@ describe("Merge Semantics Acceptance Tests", () => {
       await ensureDir(projectSkillDir);
       await outputFile(path.join(projectSkillDir, "SKILL.md"), "# Local Skill");
 
-      // No presets (empty extends after profile filter)
+      // No presets selected.
       const providers = [getToolProvider("claude")];
       const results = await syncSkills(providers, tmpDir, undefined);
 
@@ -286,7 +286,7 @@ describe("Merge Semantics Acceptance Tests", () => {
       expect(results[0].skillCount).toBe(3);
     });
 
-    it("commands from 3 presets all accumulate with namespace dirs", async () => {
+    it("commands from 3 presets all accumulate with flat namespaces", async () => {
       const rootCmds = path.join(tmpDir, "root-cmds");
       const wsCmds = path.join(tmpDir, "ws-cmds");
       const pkgCmds = path.join(tmpDir, "pkg-cmds");
@@ -305,15 +305,9 @@ describe("Merge Semantics Acceptance Tests", () => {
       const results = await syncCommands(providers, tmpDir, presets);
 
       expect(results[0].commandCount).toBe(3);
-      expect(results[0].commands).toContain(
-        path.join("acme-standards", "lint.md"),
-      );
-      expect(results[0].commands).toContain(
-        path.join("acme-team-tools", "deploy.md"),
-      );
-      expect(results[0].commands).toContain(
-        path.join("acme-experimental", "bench.md"),
-      );
+      expect(results[0].commands).toContain("acme-standards--lint.md");
+      expect(results[0].commands).toContain("acme-team-tools--deploy.md");
+      expect(results[0].commands).toContain("acme-experimental--bench.md");
     });
   });
 
@@ -462,34 +456,35 @@ describe("Merge Semantics Acceptance Tests", () => {
   });
 
   // =========================================================================
-  // TC-12: fs: tool directory reference (namespace derivation)
+  // TC-12: filesystem preset namespace derivation
   // =========================================================================
-  describe("TC-12: fs: tool directory namespace derivation", () => {
-    it("fs:~/.cursor derives namespace 'cursor'", () => {
-      expect(deriveNamespace("fs:~/.cursor")).toBe("cursor");
+  describe("TC-12: filesystem preset namespace derivation", () => {
+    it("a hidden preset directory derives a normalized namespace", () => {
+      expect(deriveNamespace("fs:~/.team-preset")).toBe("team-preset");
     });
 
-    it("fs: Windows tool directory derives namespace 'cursor'", () => {
-      expect(deriveNamespace("fs:C:\\Users\\me\\.cursor")).toBe("cursor");
+    it("a Windows preset path derives its final directory", () => {
+      expect(deriveNamespace("fs:C:\\Users\\me\\team-preset")).toBe(
+        "team-preset",
+      );
     });
 
     it("github:acme/standards derives namespace 'acme-standards'", () => {
       expect(deriveNamespace("github:acme/standards")).toBe("acme-standards");
     });
 
-    it("fs: tool directory skills get correct namespace prefix", async () => {
-      // Simulate a cursor tool directory with skills
-      const cursorSkills = path.join(tmpDir, "cursor-dir", "skills");
-      await createSkill(cursorSkills, "code-review", "# Cursor Review");
-      await createSkill(cursorSkills, "testing", "# Cursor Testing");
+    it("filesystem preset skills get the derived namespace prefix", async () => {
+      const presetSkills = path.join(tmpDir, "team-preset", "skills");
+      await createSkill(presetSkills, "code-review", "# Team Review");
+      await createSkill(presetSkills, "testing", "# Team Testing");
 
-      const presets = new Map([["cursor", [cursorSkills]]]);
+      const presets = new Map([["team-preset", [presetSkills]]]);
 
       const providers = [getToolProvider("claude")];
       const results = await syncSkills(providers, tmpDir, presets);
 
-      expect(results[0].skills).toContain("cursor--code-review");
-      expect(results[0].skills).toContain("cursor--testing");
+      expect(results[0].skills).toContain("team-preset--code-review");
+      expect(results[0].skills).toContain("team-preset--testing");
       expect(results[0].skillCount).toBe(2);
     });
 
@@ -498,20 +493,19 @@ describe("Merge Semantics Acceptance Tests", () => {
       const ghSkills = path.join(tmpDir, "gh-preset", "skills");
       await createSkill(ghSkills, "tdd", "# GitHub TDD");
 
-      // FS preset (simulating tool directory)
-      const fsSkills = path.join(tmpDir, "cursor-dir", "skills");
-      await createSkill(fsSkills, "code-review", "# Cursor Review");
+      const fsSkills = path.join(tmpDir, "team-preset", "skills");
+      await createSkill(fsSkills, "code-review", "# Team Review");
 
       const presets = new Map([
         ["acme-standards", [ghSkills]],
-        ["cursor", [fsSkills]],
+        ["team-preset", [fsSkills]],
       ]);
 
       const providers = [getToolProvider("claude")];
       const results = await syncSkills(providers, tmpDir, presets);
 
       expect(results[0].skills).toContain("acme-standards--tdd");
-      expect(results[0].skills).toContain("cursor--code-review");
+      expect(results[0].skills).toContain("team-preset--code-review");
       expect(results[0].skillCount).toBe(2);
     });
   });
@@ -557,7 +551,7 @@ describe("Merge Semantics Acceptance Tests", () => {
       const providers = [getToolProvider("claude")];
       const results = await syncAgents(providers, tmpDir, presets);
 
-      expect(results[0].agents).toContain(path.join("company", "reviewer.md"));
+      expect(results[0].agents).toContain("company--reviewer.md");
       expect(results[0].agentCount).toBe(1);
     });
 
@@ -580,7 +574,7 @@ describe("Merge Semantics Acceptance Tests", () => {
 
       expect(results[0].agentCount).toBe(2);
       expect(results[0].agents).toContain("helper.md");
-      expect(results[0].agents).toContain(path.join("company", "reviewer.md"));
+      expect(results[0].agents).toContain("company--reviewer.md");
     });
   });
 });

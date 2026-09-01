@@ -14,6 +14,7 @@ import { codexProvider } from "./codex.js";
 import { copilotProvider } from "./copilot.js";
 import { crushProvider } from "./crush.js";
 import { cursorProvider } from "./cursor.js";
+import { droidProvider } from "./droid.js";
 import { geminiProvider } from "./gemini.js";
 import { gooseProvider } from "./goose.js";
 import { junieProvider } from "./junie.js";
@@ -21,9 +22,11 @@ import { kilocodeProvider } from "./kilocode.js";
 import { kiroProvider } from "./kiro.js";
 import { opencodeProvider } from "./opencode.js";
 import { openhandsProvider } from "./openhands.js";
+import { piProvider } from "./pi.js";
 import { qwenProvider } from "./qwen.js";
 import { roocodeProvider } from "./roocode.js";
 import type { ToolProvider } from "./types.js";
+import { vibeProvider } from "./vibe.js";
 
 const providers: Record<ToolName, ToolProvider> = {
   claude: claudeProvider,
@@ -45,6 +48,9 @@ const providers: Record<ToolName, ToolProvider> = {
   crush: crushProvider,
   kilocode: kilocodeProvider,
   qwen: qwenProvider,
+  droid: droidProvider,
+  pi: piProvider,
+  vibe: vibeProvider,
 };
 
 /**

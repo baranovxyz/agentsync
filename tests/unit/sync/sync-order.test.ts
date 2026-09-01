@@ -66,11 +66,11 @@ describe("Sync write order: project custom wins over preset", () => {
       "---\ndescription: deploy\n---\n# Preset Deploy",
     );
 
-    // Project custom command that will collide with namespaced "acme/deploy.md"
-    const customCmdDir = path.join(tmpDir, ".agents", "commands", "acme");
+    // Project custom command with the exact flat namespace-format name.
+    const customCmdDir = path.join(tmpDir, ".agents", "commands");
     await ensureDir(customCmdDir);
     await outputFile(
-      path.join(customCmdDir, "deploy.md"),
+      path.join(customCmdDir, "acme--deploy.md"),
       "---\ndescription: custom deploy\n---\n# Custom Deploy",
     );
 
@@ -79,7 +79,7 @@ describe("Sync write order: project custom wins over preset", () => {
     await syncCommands(providers, tmpDir, presets);
 
     const content = await readFile(
-      path.join(tmpDir, ".claude", "commands", "acme", "deploy.md"),
+      path.join(tmpDir, ".claude", "commands", "acme--deploy.md"),
       "utf-8",
     );
 
@@ -97,11 +97,11 @@ describe("Sync write order: project custom wins over preset", () => {
       "---\ndescription: reviewer\n---\n# Preset Reviewer",
     );
 
-    // Project custom agent that will collide with namespaced "acme/reviewer.md"
-    const customAgentDir = path.join(tmpDir, ".agents", "agents", "acme");
+    // Project custom agent with the exact flat namespace-format name.
+    const customAgentDir = path.join(tmpDir, ".agents", "agents");
     await ensureDir(customAgentDir);
     await outputFile(
-      path.join(customAgentDir, "reviewer.md"),
+      path.join(customAgentDir, "acme--reviewer.md"),
       "---\ndescription: custom reviewer\n---\n# Custom Reviewer",
     );
 
@@ -110,7 +110,7 @@ describe("Sync write order: project custom wins over preset", () => {
     await syncAgents(providers, tmpDir, presets);
 
     const content = await readFile(
-      path.join(tmpDir, ".claude", "agents", "acme", "reviewer.md"),
+      path.join(tmpDir, ".claude", "agents", "acme--reviewer.md"),
       "utf-8",
     );
 

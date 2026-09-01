@@ -1,13 +1,8 @@
 /**
- * Source plugin interface for resolving different preset source types
- * Enables extensible support for GitHub, filesystem, and future source types
+ * Source plugin interface for supported GitHub and filesystem preset sources.
  */
 
 export type SourceType = "github" | "filesystem";
-
-// Future source types (v0.4.0+):
-// | "git"    - Generic git repositories (GitLab, Bitbucket, self-hosted)
-// | "http"   - Direct HTTP downloads
 
 /**
  * Options for resolving a source
@@ -15,8 +10,6 @@ export type SourceType = "github" | "filesystem";
 export interface ResolveOptions {
   /** Working directory for resolving relative paths */
   cwd?: string;
-  /** Disable automatic tool directory detection (for debugging) */
-  noToolDetection?: boolean;
 }
 
 /**
@@ -52,11 +45,4 @@ export interface SourcePlugin {
    * @throws Error if resolution fails
    */
   resolve(source: string, options?: ResolveOptions): Promise<string>;
-
-  /**
-   * Get cache key for this source (optional, for cacheable sources)
-   * @param source - Source string
-   * @returns Cache key string, or undefined if not cacheable
-   */
-  getCacheKey?(source: string): string;
 }

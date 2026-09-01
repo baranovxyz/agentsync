@@ -10,8 +10,6 @@ export type ToolName = ToolNameType;
 
 // Re-export canonical format types
 export * from "./canonical";
-// Re-export preset types
-export * from "./preset";
 // Re-export schema types (covers all type and function exports from schemas.ts)
 export * from "./schemas";
 

@@ -31,11 +31,17 @@ export const qwenProvider: ToolProvider = {
     nativeAgentsMd: true,
     nativeSkillsDiscovery: true,
   },
-  readsAgentsDir: true,
+  readsGlobalAgentsDir: "unverified",
+  manifestCleanSurfaces: [],
   agentFileExtension: ".md",
   mcpFormat: {
-    async writeMCP(mcps: Record<string, MCP>, cwd: string): Promise<void> {
-      await writeMcpJson(path.join(cwd, ".qwen", ".mcp.json"), mcps);
+    projectPath: "static",
+    ownership: { kind: "whole-file" },
+    async writeProjectMCP(
+      mcps: Record<string, MCP>,
+      cwd: string,
+    ): Promise<void> {
+      await writeMcpJson(path.join(cwd, ".qwen", ".mcp.json"), mcps, cwd);
     },
   },
   docsFormat: null,

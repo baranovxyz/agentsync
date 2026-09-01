@@ -21,7 +21,6 @@ describe("Aider — Capabilities", () => {
 
   it("does not read .agents/ directory", () => {
     expect(p.capabilities.nativeSkillsDiscovery).toBe(false);
-    expect(p.readsAgentsDir).toBe(false);
   });
 
   it("has no MCP or docs format handler", () => {

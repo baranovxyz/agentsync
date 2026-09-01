@@ -1,15 +1,15 @@
 /**
- * Command Frontmatter Preservation Test
- * Tests that command .md files with YAML frontmatter (description, argument-hint)
- * pass through sync without modification.
+ * Command Frontmatter Projection Test
+ * Tests byte preservation for unchanged providers and native-schema projection
+ * for providers with a command content transform.
  */
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { syncCommands } from "../../../src/sync/commands.js";
-import { generateHeader } from "../../../src/sync/header.js";
 import { getToolProvider } from "../../../src/tools/index.js";
+import { splitFrontmatter } from "../../../src/utils/frontmatter.js";
 import { ensureDir, outputFile, pathExists } from "../../../src/utils/fs.js";
 
 describe("Command Frontmatter Preservation", () => {
@@ -45,8 +45,7 @@ Create a commit following conventional commits format.`;
     const outputPath = path.join(tmpDir, ".claude", "commands", "commit.md");
     expect(await pathExists(outputPath)).toBe(true);
     const written = await readFile(outputPath, "utf-8");
-    const header = generateHeader(".agents/commands/commit.md");
-    expect(written).toBe(header + commandContent);
+    expect(written).toBe(commandContent);
   });
 
   it("preserves complex frontmatter with multiple fields", async () => {
@@ -81,8 +80,7 @@ Run tests with optional coverage and watch mode.
 
     const outputPath = path.join(tmpDir, ".claude", "commands", "test.md");
     const written = await readFile(outputPath, "utf-8");
-    const header = generateHeader(".agents/commands/test.md");
-    expect(written).toBe(header + commandContent);
+    expect(written).toBe(commandContent);
   });
 
   it("preserves command without frontmatter", async () => {
@@ -99,11 +97,10 @@ Run tests with optional coverage and watch mode.
 
     const outputPath = path.join(tmpDir, ".opencode", "commands", "simple.md");
     const written = await readFile(outputPath, "utf-8");
-    const header = generateHeader(".agents/commands/simple.md");
-    expect(written).toBe(header + commandContent);
+    expect(written).toBe(commandContent);
   });
 
-  it("preserves frontmatter across multiple tools simultaneously", async () => {
+  it("preserves frontmatter unless the provider has a narrower schema", async () => {
     const commandContent = `---
 description: Deploy to staging environment
 argument-hint: <environment> [--force]
@@ -124,10 +121,9 @@ Deploy the application to the specified environment.`;
       getToolProvider("opencode"),
       getToolProvider("roocode"),
     ];
-    await syncCommands(providers, tmpDir);
+    const results = await syncCommands(providers, tmpDir);
 
-    const header = generateHeader(".agents/commands/deploy.md");
-    for (const tool of ["claude", "opencode", "roocode"]) {
+    for (const tool of ["claude", "roocode"]) {
       const toolDir = tool === "roocode" ? ".roo" : `.${tool}`;
       const outputPath = path.join(tmpDir, toolDir, "commands", "deploy.md");
       expect(
@@ -135,8 +131,22 @@ Deploy the application to the specified environment.`;
         `${tool} should have deploy.md`,
       ).toBe(true);
       const written = await readFile(outputPath, "utf-8");
-      expect(written).toBe(header + commandContent);
+      expect(written).toBe(commandContent);
     }
+
+    const openCode = splitFrontmatter(
+      await readFile(
+        path.join(tmpDir, ".opencode", "commands", "deploy.md"),
+        "utf-8",
+      ),
+    );
+    expect(openCode.fm).toEqual({
+      description: "Deploy to staging environment",
+    });
+    expect(openCode.body).toBe(splitFrontmatter(commandContent).body);
+    expect(
+      results.find((result) => result.tool === "opencode")?.warnings,
+    ).toEqual([expect.stringContaining("argument-hint")]);
   });
 
   it("skips tools that do not support commands", async () => {
@@ -147,7 +157,6 @@ Deploy the application to the specified environment.`;
     );
 
     const providers = [
-      getToolProvider("cursor"),
       getToolProvider("codex"),
       getToolProvider("copilot"),
       getToolProvider("gemini"),
@@ -193,8 +202,7 @@ Deploy the application to the specified environment.`;
       const outputPath = path.join(tmpDir, ".claude", "commands", cmd.name);
       expect(await pathExists(outputPath)).toBe(true);
       const written = await readFile(outputPath, "utf-8");
-      const header = generateHeader(`.agents/commands/${cmd.name}`);
-      expect(written).toBe(header + cmd.content);
+      expect(written).toBe(cmd.content);
     }
   });
 
@@ -224,8 +232,7 @@ Handle various error scenarios.`;
       "error-handler.md",
     );
     const written = await readFile(outputPath, "utf-8");
-    const header = generateHeader(".agents/commands/error-handler.md");
-    expect(written).toBe(header + commandContent);
+    expect(written).toBe(commandContent);
   });
 
   it("preserves preset commands with namespace and frontmatter", async () => {
@@ -248,12 +255,10 @@ argument-hint: <env>
       tmpDir,
       ".claude",
       "commands",
-      "company",
-      "deploy.md",
+      "company--deploy.md",
     );
     expect(await pathExists(outputPath)).toBe(true);
     const written = await readFile(outputPath, "utf-8");
-    const header = generateHeader("preset:company/deploy.md");
-    expect(written).toBe(header + commandContent);
+    expect(written).toBe(commandContent);
   });
 });

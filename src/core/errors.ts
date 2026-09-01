@@ -63,9 +63,11 @@ export class ValidationError extends AgentSyncError {
     validationErrors?: z.ZodError,
     context?: Record<string, unknown>,
   ) {
+    const { suggestion, ...details } = context ?? {};
     super(message, ErrorCategory.VALIDATION, {
       code: "VALIDATION_FAILED",
-      context,
+      suggestion: typeof suggestion === "string" ? suggestion : undefined,
+      context: Object.keys(details).length > 0 ? details : undefined,
     });
     this.validationErrors = validationErrors;
     if (validationErrors) {
@@ -278,12 +280,16 @@ export function statusToExitCode(
  * Format an error for the process safety net handlers (uncaughtException,
  * unhandledRejection). Uses CliResult envelope in JSON mode.
  */
-export function formatSafetyNetError(error: unknown, isJson: boolean): string {
+export function formatSafetyNetError(
+  error: unknown,
+  isJson: boolean,
+  command = "unknown",
+): string {
   if (isJson) {
     const errorObj = {
       version: "1.0" as const,
       status: "error" as const,
-      command: "unknown",
+      command,
       data: {},
       errors: [
         {
@@ -294,6 +300,7 @@ export function formatSafetyNetError(error: unknown, isJson: boolean): string {
           message: error instanceof Error ? error.message : String(error),
           suggestion:
             error instanceof AgentSyncError ? error.suggestion : undefined,
+          context: error instanceof AgentSyncError ? error.context : undefined,
           retryable:
             error instanceof SyncError ||
             error instanceof SourceResolutionError,

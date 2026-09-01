@@ -147,14 +147,16 @@ describe("sanitizeMcpConfig", () => {
   it("strips ANSI from args", () => {
     const input = { command: "node", args: ["\x1b[31m./server.js\x1b[0m"] };
     const { config, warnings } = sanitizeMcpConfig(input, "test");
-    expect((config.args as string[])[0]).toBe("./server.js");
+    expect("command" in config ? config.args?.[0] : undefined).toBe(
+      "./server.js",
+    );
     expect(warnings.some((w) => w.includes("ANSI"))).toBe(true);
   });
 
   it("strips dangerous Unicode from env values", () => {
     const input = { command: "node", args: [], env: { TOKEN: "abc\u202Edef" } };
     const { config, warnings } = sanitizeMcpConfig(input, "test");
-    expect((config.env as Record<string, string>).TOKEN).toBe("abcdef");
+    expect("command" in config ? config.env?.TOKEN : undefined).toBe("abcdef");
     expect(warnings.some((w) => w.includes("Unicode"))).toBe(true);
   });
 
@@ -163,6 +165,20 @@ describe("sanitizeMcpConfig", () => {
     const { config, warnings } = sanitizeMcpConfig(input, "test");
     expect(config).toEqual(input);
     expect(warnings).toEqual([]);
+  });
+
+  it("sanitizes URL and header strings", () => {
+    const input = {
+      url: "https://example.com/\u202Emcp",
+      headers: { Authorization: "Bearer\x00token" },
+    };
+    const { config, warnings } = sanitizeMcpConfig(input, "test");
+
+    expect(config).toEqual({
+      url: "https://example.com/mcp",
+      headers: { Authorization: "Bearertoken" },
+    });
+    expect(warnings).toHaveLength(2);
   });
 
   it("includes source in warnings", () => {

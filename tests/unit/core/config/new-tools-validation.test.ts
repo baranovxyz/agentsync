@@ -1,14 +1,14 @@
 /**
  * New Tools Validation Test
- * Tests that all 19 tools are accepted by schema, tool combinations,
- * rejection of removed tools (windsurf), and empty tools array.
+ * Tests that every supported tool is accepted by schema, along with common
+ * combinations, unsupported values, and an empty tools array.
  */
 import { describe, expect, it } from "vitest";
 import { SUPPORTED_TOOLS } from "../../../../src/constants.js";
 import { AgentSyncConfigSchema } from "../../../../src/types/schemas.js";
 
 describe("New Tools Validation", () => {
-  const ALL_TOOLS = [
+  const EXPECTED_TOOLS = [
     "claude",
     "opencode",
     "cursor",
@@ -28,10 +28,13 @@ describe("New Tools Validation", () => {
     "crush",
     "kilocode",
     "qwen",
+    "droid",
+    "pi",
+    "vibe",
   ] as const;
 
-  it("accepts all 19 supported tools individually", () => {
-    for (const tool of ALL_TOOLS) {
+  it("accepts every supported tool individually", () => {
+    for (const tool of SUPPORTED_TOOLS) {
       const result = AgentSyncConfigSchema.safeParse({
         tools: [tool],
       });
@@ -39,17 +42,13 @@ describe("New Tools Validation", () => {
     }
   });
 
-  it("SUPPORTED_TOOLS constant matches expected 19 tools", () => {
-    expect(SUPPORTED_TOOLS).toHaveLength(19);
-    for (const tool of ALL_TOOLS) {
-      expect(SUPPORTED_TOOLS).toContain(tool);
-    }
+  it("SUPPORTED_TOOLS matches the expected tool set", () => {
+    expect([...SUPPORTED_TOOLS].sort()).toEqual([...EXPECTED_TOOLS].sort());
   });
 
-  it("accepts all 19 tools together", () => {
+  it("accepts every supported tool together", () => {
     const result = AgentSyncConfigSchema.safeParse({
-      version: "1.0",
-      tools: [...ALL_TOOLS],
+      tools: [...SUPPORTED_TOOLS],
     });
     expect(result.success).toBe(true);
   });
@@ -76,7 +75,6 @@ describe("New Tools Validation", () => {
 
   it("accepts 'cline' as a supported tool", () => {
     const result = AgentSyncConfigSchema.safeParse({
-      version: "1.0",
       tools: ["cline"],
     });
     expect(result.success).toBe(true);
@@ -84,7 +82,6 @@ describe("New Tools Validation", () => {
 
   it("rejects 'windsurf' as an unsupported tool", () => {
     const result = AgentSyncConfigSchema.safeParse({
-      version: "1.0",
       tools: ["windsurf"],
     });
     expect(result.success).toBe(false);
@@ -102,7 +99,6 @@ describe("New Tools Validation", () => {
 
   it("accepts empty tools array", () => {
     const result = AgentSyncConfigSchema.safeParse({
-      version: "1.0",
       tools: [],
     });
     expect(result.success).toBe(true);
@@ -112,15 +108,12 @@ describe("New Tools Validation", () => {
   });
 
   it("accepts config without tools field (optional)", () => {
-    const result = AgentSyncConfigSchema.safeParse({
-      version: "1.0",
-    });
+    const result = AgentSyncConfigSchema.safeParse({});
     expect(result.success).toBe(true);
   });
 
   it("rejects mix of valid and invalid tools", () => {
     const result = AgentSyncConfigSchema.safeParse({
-      version: "1.0",
       tools: ["claude", "windsurf", "cursor"],
     });
     expect(result.success).toBe(false);

@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { MCP } from "../../../src/core/mcp/tokens.js";
 import { getToolProvider } from "../../../src/tools/index.js";
 import { outputFile } from "../../../src/utils/fs.js";
+import { writeProjectMcp } from "../../helpers/mcp.js";
 
 describe("OpenCode MCP Format", () => {
   let tmpDir: string;
@@ -28,7 +29,7 @@ describe("OpenCode MCP Format", () => {
       github: { command: "npx", args: ["-y", "@mcp/github"] },
     };
 
-    await provider.mcpFormat!.writeMCP(mcps, tmpDir);
+    await writeProjectMcp(provider, mcps, tmpDir);
 
     const content = JSON.parse(
       await readFile(path.join(tmpDir, "opencode.json"), "utf-8"),
@@ -42,7 +43,7 @@ describe("OpenCode MCP Format", () => {
       server: { command: "npx", args: ["-y", "@mcp/test", "--port", "3000"] },
     };
 
-    await provider.mcpFormat!.writeMCP(mcps, tmpDir);
+    await writeProjectMcp(provider, mcps, tmpDir);
 
     const content = JSON.parse(
       await readFile(path.join(tmpDir, "opencode.json"), "utf-8"),
@@ -68,7 +69,7 @@ describe("OpenCode MCP Format", () => {
       },
     };
 
-    await provider.mcpFormat!.writeMCP(mcps, tmpDir);
+    await writeProjectMcp(provider, mcps, tmpDir);
 
     const content = JSON.parse(
       await readFile(path.join(tmpDir, "opencode.json"), "utf-8"),
@@ -85,7 +86,7 @@ describe("OpenCode MCP Format", () => {
       server: { command: "npx", args: [] },
     };
 
-    await provider.mcpFormat!.writeMCP(mcps, tmpDir);
+    await writeProjectMcp(provider, mcps, tmpDir);
 
     const content = JSON.parse(
       await readFile(path.join(tmpDir, "opencode.json"), "utf-8"),
@@ -101,7 +102,7 @@ describe("OpenCode MCP Format", () => {
       },
     };
 
-    await provider.mcpFormat!.writeMCP(mcps, tmpDir);
+    await writeProjectMcp(provider, mcps, tmpDir);
 
     const content = JSON.parse(
       await readFile(path.join(tmpDir, "opencode.json"), "utf-8"),
@@ -117,7 +118,7 @@ describe("OpenCode MCP Format", () => {
       s2: { url: "https://remote.example.com/mcp" },
     };
 
-    await provider.mcpFormat!.writeMCP(mcps, tmpDir);
+    await writeProjectMcp(provider, mcps, tmpDir);
 
     const content = JSON.parse(
       await readFile(path.join(tmpDir, "opencode.json"), "utf-8"),
@@ -131,7 +132,7 @@ describe("OpenCode MCP Format", () => {
       server: { command: "npx", args: ["-y", "@mcp/server"] },
     };
 
-    await provider.mcpFormat!.writeMCP(mcps, tmpDir);
+    await writeProjectMcp(provider, mcps, tmpDir);
 
     const content = JSON.parse(
       await readFile(path.join(tmpDir, "opencode.json"), "utf-8"),
@@ -155,7 +156,7 @@ describe("OpenCode MCP Format", () => {
       github: { command: "npx", args: ["-y", "@mcp/github"] },
     };
 
-    await provider.mcpFormat!.writeMCP(mcps, tmpDir);
+    await writeProjectMcp(provider, mcps, tmpDir);
 
     const content = JSON.parse(
       await readFile(path.join(tmpDir, "opencode.json"), "utf-8"),
@@ -185,7 +186,7 @@ describe("OpenCode MCP Format", () => {
       },
     };
 
-    await provider.mcpFormat!.writeMCP(mcps, tmpDir);
+    await writeProjectMcp(provider, mcps, tmpDir);
 
     const content = JSON.parse(
       await readFile(path.join(tmpDir, "opencode.json"), "utf-8"),
@@ -202,18 +203,21 @@ describe("OpenCode MCP Format", () => {
     expect(content.mcp.remote.type).toBe("remote");
   });
 
-  it("recovers from malformed existing opencode.json", async () => {
-    await outputFile(path.join(tmpDir, "opencode.json"), "not valid json{{{");
+  it("preserves malformed existing opencode.json and fails closed", async () => {
+    const settingsPath = path.join(tmpDir, "opencode.json");
+    const malformed = "not valid json{{{";
+    await outputFile(settingsPath, malformed);
 
     const mcps: Record<string, MCP> = {
       server: { command: "npx", args: [] },
     };
 
-    await provider.mcpFormat!.writeMCP(mcps, tmpDir);
-
-    const content = JSON.parse(
-      await readFile(path.join(tmpDir, "opencode.json"), "utf-8"),
+    await expect(writeProjectMcp(provider, mcps, tmpDir)).rejects.toMatchObject(
+      {
+        code: "CONFIG_ERROR",
+        suggestion: expect.stringContaining("Repair the existing JSON"),
+      },
     );
-    expect(content.mcp.server).toBeDefined();
+    expect(await readFile(settingsPath, "utf-8")).toBe(malformed);
   });
 });

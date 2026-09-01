@@ -176,9 +176,9 @@ describe("Multi-Preset Merge", () => {
     const results = await syncCommands(providers, tmpDir, presetCommands);
 
     expect(results[0].commandCount).toBe(3);
-    expect(results[0].commands).toContain(path.join("company", "deploy.md"));
-    expect(results[0].commands).toContain(path.join("team", "test.md"));
-    expect(results[0].commands).toContain(path.join("org", "lint.md"));
+    expect(results[0].commands).toContain("company--deploy.md");
+    expect(results[0].commands).toContain("team--test.md");
+    expect(results[0].commands).toContain("org--lint.md");
   });
 
   it("project commands and preset commands coexist", async () => {
@@ -205,7 +205,7 @@ describe("Multi-Preset Merge", () => {
     ).toBe(true);
     expect(
       await pathExists(
-        path.join(tmpDir, ".claude", "commands", "company", "commit.md"),
+        path.join(tmpDir, ".claude", "commands", "company--commit.md"),
       ),
     ).toBe(true);
   });
@@ -236,7 +236,7 @@ describe("Multi-Preset Merge", () => {
       ),
     ).toBe(true);
 
-    // RooCode (readsAgentsDir=true) skips skill copy
+    // RooCode (nativeSkillsDiscovery=true) skips skill copy
     const roocodeResult = results.find((r) => r.tool === "roocode");
     expect(roocodeResult?.skillCount).toBe(0);
   });

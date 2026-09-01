@@ -21,7 +21,7 @@ describe("OpenCode — Capabilities", () => {
 
   it("reads .agents/ directory directly", () => {
     expect(p.capabilities.nativeSkillsDiscovery).toBe(true);
-    expect(p.readsAgentsDir).toBe(true);
+    expect(p.readsGlobalAgentsDir).toBe(true);
   });
 
   it("uses .md agent file extension", () => {
@@ -33,7 +33,7 @@ describe("OpenCode — Capabilities", () => {
   });
 
   it("has correct paths", () => {
-    expect(p.paths.skillsDir).toBe(".opencode/skills");
+    expect(p.paths.skillsDir).toBe(".agents/skills");
     expect(p.paths.commandsDir).toBe(".opencode/commands");
     expect(p.paths.agentsDir).toBe(".opencode/agents");
     expect(p.paths.mcpConfigPath).toBe("opencode.json");

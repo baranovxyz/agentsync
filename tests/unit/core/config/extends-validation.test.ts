@@ -26,8 +26,22 @@ describe("Extends Validation", () => {
     });
 
     it("accepts github source with branch ref", () => {
-      const result = ExtendsEntrySchema.safeParse("github:org/repo@main");
+      const result = ExtendsEntrySchema.safeParse(
+        "github:org/repo@feature/source-parser",
+      );
       expect(result.success).toBe(true);
+    });
+
+    it("rejects an empty github ref", () => {
+      const result = ExtendsEntrySchema.safeParse("github:org/repo@");
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects whitespace in a github ref", () => {
+      const result = ExtendsEntrySchema.safeParse(
+        "github:org/repo@feature branch",
+      );
+      expect(result.success).toBe(false);
     });
 
     it("rejects malformed github source (missing repo)", () => {
@@ -142,34 +156,31 @@ describe("Extends Validation", () => {
       expect(result[0].namespace).toBe("org-repo");
     });
 
-    it("accepts legacy object format with namespace", () => {
+    it("derives namespace from the repository rather than its ref", () => {
       const result = normalizeExtends([
-        { source: "github:org/repo", namespace: "org" },
+        "github:org/repo@feature/source-parser",
       ]);
-      expect(result).toHaveLength(1);
-      expect(result[0].namespace).toBe("org");
-    });
 
-    it("throws when source is missing from object", () => {
-      // biome-ignore lint/suspicious/noExplicitAny: Testing runtime error
-      expect(() => normalizeExtends([{ namespace: "test" }] as any)).toThrow();
-    });
-
-    it("normalizes valid entry with include/exclude (legacy)", () => {
-      const result = normalizeExtends([
+      expect(result).toEqual([
         {
-          source: "github:org/repo",
-          namespace: "org",
-          include: ["*.md"],
-          exclude: ["deprecated/**"],
+          source: "github:org/repo@feature/source-parser",
+          namespace: "org-repo",
         },
       ]);
+    });
 
-      expect(result).toHaveLength(1);
-      expect(result[0].source).toBe("github:org/repo");
-      expect(result[0].namespace).toBe("org");
-      expect(result[0].include).toEqual(["*.md"]);
-      expect(result[0].exclude).toEqual(["deprecated/**"]);
+    it("rejects object-form entries instead of normalizing them", () => {
+      const result = AgentSyncConfigSchema.safeParse({
+        extends: [
+          {
+            source: "github:org/repo",
+            namespace: "org",
+            include: ["*.md"],
+          },
+        ],
+      });
+
+      expect(result.success).toBe(false);
     });
 
     it("returns empty array for undefined input", () => {

@@ -4,7 +4,7 @@ import { getToolProvider } from "../../../../src/tools/index.js";
 describe("Codex CLI — Capabilities", () => {
   const p = getToolProvider("codex");
 
-  it("supports skills and agents (commands routed through skills)", () => {
+  it("supports skills and agents but not commands", () => {
     expect(p.capabilities.skills).toBe(true);
     expect(p.capabilities.commands).toBe(false);
     expect(p.capabilities.agents).toBe(true);
@@ -21,11 +21,15 @@ describe("Codex CLI — Capabilities", () => {
 
   it("reads .agents/ directory directly (shared skills)", () => {
     expect(p.capabilities.nativeSkillsDiscovery).toBe(true);
-    expect(p.readsAgentsDir).toBe(true);
+  });
+
+  it("reads global ~/.agents/skills", () => {
+    expect(p.readsGlobalAgentsDir).toBe(true);
   });
 
   it("skillsDir points to shared .agents/skills/", () => {
     expect(p.paths.skillsDir).toBe(".agents/skills");
+    expect(p.paths.generatedPresetSkillsDir).toBe(".codex/skills");
   });
 
   it("has correct paths", () => {

@@ -60,10 +60,10 @@ describe("Skills Subdirectory Files", () => {
       "#!/bin/bash\necho 'rolling back'",
     );
 
-    const providers = [getToolProvider("cursor")];
+    const providers = [getToolProvider("claude")];
     await syncSkills(providers, tmpDir);
 
-    const base = path.join(tmpDir, ".cursor", "skills", "deploy");
+    const base = path.join(tmpDir, ".claude", "skills", "deploy");
     expect(await pathExists(path.join(base, "deploy.sh"))).toBe(true);
     expect(await pathExists(path.join(base, "rollback.sh"))).toBe(true);
 
@@ -80,13 +80,12 @@ describe("Skills Subdirectory Files", () => {
       JSON.stringify({ rules: { semi: "error" } }, null, 2),
     );
 
-    // Use cursor (holdout tool, readsAgentsDir=false) instead of roocode (native)
-    const providers = [getToolProvider("cursor")];
+    const providers = [getToolProvider("claude")];
     await syncSkills(providers, tmpDir);
 
     const configPath = path.join(
       tmpDir,
-      ".cursor",
+      ".claude",
       "skills",
       "lint",
       "config.json",
@@ -103,11 +102,11 @@ describe("Skills Subdirectory Files", () => {
     await outputFile(path.join(skillDir, "SKILL.md"), "# Test Skill");
     await outputFile(path.join(skillDir, "reference.md"), "# Reference Doc");
 
-    // Only holdout tools (readsAgentsDir=false) get copies
-    const providers = getToolProviders(["claude", "cursor"]);
+    // Only holdout tools (nativeSkillsDiscovery=false) get copies
+    const providers = getToolProviders(["claude", "copilot"]);
     await syncSkills(providers, tmpDir);
 
-    const holdoutDirs = [".claude/skills", ".cursor/skills"];
+    const holdoutDirs = [".claude/skills", ".github/skills"];
     for (const dir of holdoutDirs) {
       expect(
         await pathExists(path.join(tmpDir, dir, "test-skill", "reference.md")),

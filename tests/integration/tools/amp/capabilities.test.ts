@@ -4,9 +4,9 @@ import { getToolProvider } from "../../../../src/tools/index.js";
 describe("Amp — Capabilities", () => {
   const p = getToolProvider("amp");
 
-  it("supports skills and commands (no agents)", () => {
+  it("supports skills but not removed custom commands or agents", () => {
     expect(p.capabilities.skills).toBe(true);
-    expect(p.capabilities.commands).toBe(true);
+    expect(p.capabilities.commands).toBe(false);
     expect(p.capabilities.agents).toBe(false);
   });
 
@@ -21,12 +21,11 @@ describe("Amp — Capabilities", () => {
 
   it("reads .agents/ directory directly (shared skills)", () => {
     expect(p.capabilities.nativeSkillsDiscovery).toBe(true);
-    expect(p.readsAgentsDir).toBe(true);
   });
 
   it("has correct paths", () => {
     expect(p.paths.skillsDir).toBe(".agents/skills");
-    expect(p.paths.commandsDir).toBe(".agents/commands");
+    expect(p.paths.commandsDir).toBeNull();
     expect(p.paths.agentsDir).toBeNull();
     expect(p.paths.mcpConfigPath).toBe(".amp/settings.json");
     expect(p.paths.docsFile).toBe("AGENTS.md");

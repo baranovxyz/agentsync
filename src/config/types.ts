@@ -3,84 +3,50 @@
  * TOML config type definitions
  */
 
-/** MCP server config */
-export interface McpServerConfig {
-  command?: string;
-  args?: string[];
-  env?: Record<string, string>;
-  url?: string;
-  headers?: Record<string, string>;
-}
+import type { ToolName } from "../constants.js";
+import type {
+  AgentSyncConfig,
+  McpServerConfig as CanonicalMcpServerConfig,
+  ProfileConfig,
+} from "../types/schemas.js";
+
+/** MCP server config shared with the canonical runtime schema. */
+export type McpServerConfig = CanonicalMcpServerConfig;
 
 /** Profile config in TOML ([profiles.<name>]) */
-export interface TomlProfileConfig {
-  tools?: string[];
-  skills_dirs?: string[];
-  paths?: string[];
-  env?: string;
+export type TomlProfileConfig = ProfileConfig;
+
+/** A single [agents.<id>] block in a foreign (dallay/Rust agentsync) config */
+export interface ForeignAgentConfig {
+  /** Defaults to true when omitted, matching the foreign schema */
+  enabled?: boolean;
 }
 
-/** AgentSync extension block ([agentsync] in TOML) */
-export interface AgentSyncExtension {
-  profile?: string;
-  presets?: Array<{
-    source: string;
-    namespace: string;
-    include?: string[];
-    exclude?: string[];
-  }>;
-}
-
-/** Hook spec under [[hooks.<Event>]] */
-export interface TomlHookSpec {
-  id: string;
-  matcher?: string;
-  command: string;
-  timeout?: number;
-  description?: string;
-}
-
-/** [permissions] block */
-export interface TomlPermissions {
-  default?: "allow" | "ask" | "deny";
-  rules?: Array<{
-    id: string;
-    tool: string;
-    pattern?: string;
-    decision: "allow" | "ask" | "deny";
-  }>;
-}
-
-/** [statusline] block */
-export interface TomlStatusline {
-  items?: string[];
-  custom_items?: Array<{ id: string; label?: string; command: string }>;
-}
-
-/** [output_style] block */
-export interface TomlOutputStyle {
-  tone?: "terse" | "pragmatic" | "explanatory" | "friendly" | "none";
-  custom?: Array<{ name: string; file: string }>;
-}
-
-/** Full TOML config structure with AgentSync extensions */
+/** Parsed current-format config, plus the isolated dallay/Rust foreign layout. */
 export interface AgentSyncTomlConfig {
-  /** v1 format: flat tool list */
-  tools?: string[];
-  /** v1 format: flat extends list */
+  /** Current format: flat tool list. Mutually exclusive with foreign selectors. */
+  tools?: ToolName[];
+  /**
+   * Tool selection from the dallay/Rust config that shares this file path.
+   * It is valid only when `tools` is absent.
+   */
+  default_agents?: string[];
+  /**
+   * Tool selection from `[agents.<id>]` in a dallay/Rust config. It is valid
+   * only when `tools` is absent.
+   */
+  agents?: Record<string, ForeignAgentConfig>;
+  /** Current format: flat source strings only. */
   extends?: string[];
-  /** v1 format: [mcp.*] server definitions (defined = enabled) */
+  /** Current format: [mcp.*] server definitions (defined = enabled). */
   mcp?: Record<string, McpServerConfig>;
-  /** Legacy format: [mcp_servers.*] blocks */
-  mcp_servers?: Record<string, McpServerConfig>;
-  agentsync?: AgentSyncExtension;
   profiles?: Record<string, TomlProfileConfig>;
   /** [[hooks.<Event>]] — keyed by canonical event name */
-  hooks?: Record<string, TomlHookSpec[]>;
+  hooks?: NonNullable<AgentSyncConfig["hooks"]>;
   /** [permissions] */
-  permissions?: TomlPermissions;
+  permissions?: NonNullable<AgentSyncConfig["permissions"]>;
   /** [statusline] */
-  statusline?: TomlStatusline;
+  statusline?: NonNullable<AgentSyncConfig["statusline"]>;
   /** [output_style] */
-  output_style?: TomlOutputStyle;
+  output_style?: NonNullable<AgentSyncConfig["output_style"]>;
 }

@@ -11,7 +11,7 @@ import {
   syncAgents,
   syncCommands,
   syncDocs,
-  syncMCP,
+  syncManagedMCP,
   syncSkills,
 } from "../../src/sync/index.js";
 import { getToolProvider } from "../../src/tools/index.js";
@@ -34,14 +34,14 @@ describe("OpenCode Full Workflow E2E", () => {
     expect(provider.capabilities.skills).toBe(true);
     expect(provider.capabilities.commands).toBe(true);
     expect(provider.capabilities.agents).toBe(true);
-    expect(provider.paths.skillsDir).toBe(".opencode/skills");
+    expect(provider.paths.skillsDir).toBe(".agents/skills");
     expect(provider.paths.commandsDir).toBe(".opencode/commands");
     expect(provider.paths.agentsDir).toBe(".opencode/agents");
     expect(provider.paths.mcpConfigPath).toBe("opencode.json");
     expect(provider.paths.docsFile).toBe("AGENTS.md");
   });
 
-  it("skips skills copy because readsAgentsDir=true", async () => {
+  it("skips skills copy because nativeSkillsDiscovery=true", async () => {
     const skillDir = path.join(tmpDir, ".agents", "skills", "code-review");
     await ensureDir(skillDir);
     await outputFile(
@@ -51,7 +51,7 @@ describe("OpenCode Full Workflow E2E", () => {
 
     const results = await syncSkills([provider], tmpDir);
 
-    // OpenCode has readsAgentsDir=true — skills are NOT copied
+    // OpenCode has nativeSkillsDiscovery=true — skills are NOT copied
     expect(results[0].skillCount).toBe(0);
 
     // But the skill still exists at .agents/skills/ for OpenCode to read natively
@@ -86,7 +86,10 @@ describe("OpenCode Full Workflow E2E", () => {
     expect(await pathExists(commitPath)).toBe(true);
     const commitContent = await readFile(commitPath, "utf-8");
     expect(commitContent).toContain("description: Create a commit");
-    expect(commitContent).toContain("argument-hint: [message]");
+    expect(commitContent).not.toContain("argument-hint");
+    expect(results[0].warnings).toEqual([
+      expect.stringContaining("argument-hint"),
+    ]);
   });
 
   it("syncs agents to .opencode/agents/", async () => {
@@ -120,7 +123,7 @@ describe("OpenCode Full Workflow E2E", () => {
       },
     };
 
-    await syncMCP([provider], mcps, tmpDir);
+    await syncManagedMCP([provider], mcps, tmpDir);
 
     const configPath = path.join(tmpDir, "opencode.json");
     expect(await pathExists(configPath)).toBe(true);
@@ -153,7 +156,7 @@ describe("OpenCode Full Workflow E2E", () => {
       },
     };
 
-    await syncMCP([provider], mcps, tmpDir);
+    await syncManagedMCP([provider], mcps, tmpDir);
 
     const config = JSON.parse(
       await readFile(path.join(tmpDir, "opencode.json"), "utf-8"),
@@ -181,7 +184,7 @@ describe("OpenCode Full Workflow E2E", () => {
       tracker: { command: "npx", args: ["-y", "@org/tracker"] },
     };
 
-    await syncMCP([provider], mcps, tmpDir);
+    await syncManagedMCP([provider], mcps, tmpDir);
 
     const config = JSON.parse(
       await readFile(path.join(tmpDir, "opencode.json"), "utf-8"),
@@ -197,7 +200,7 @@ describe("OpenCode Full Workflow E2E", () => {
     expect(config.mcp.tracker.command).toEqual(["npx", "-y", "@org/tracker"]);
   });
 
-  it("AGENTS.md is the docs file (read natively, docsFormat=null)", async () => {
+  it("ignores a noncanonical nested instruction file", async () => {
     await ensureDir(path.join(tmpDir, ".agents"));
     await outputFile(
       path.join(tmpDir, ".agents", "AGENTS.md"),
@@ -207,8 +210,7 @@ describe("OpenCode Full Workflow E2E", () => {
     const results = await syncDocs([provider], tmpDir);
 
     expect(results[0].docsFile).toBe("AGENTS.md");
-    // OpenCode has docsFormat=null, so created = hasAgentsMd check
-    expect(results[0].created).toBe(true);
+    expect(results[0].created).toBe(false);
   });
 
   it("complete workflow: skills + commands + agents + docs + MCP", async () => {
@@ -229,11 +231,7 @@ describe("OpenCode Full Workflow E2E", () => {
       "# QA Agent",
     );
 
-    await ensureDir(path.join(tmpDir, ".agents"));
-    await outputFile(
-      path.join(tmpDir, ".agents", "AGENTS.md"),
-      "# Full Workflow Project",
-    );
+    await outputFile(path.join(tmpDir, "AGENTS.md"), "# Full Workflow Project");
 
     const mcps = {
       test: { command: "npx", args: ["test-server"] },
@@ -244,9 +242,9 @@ describe("OpenCode Full Workflow E2E", () => {
     const cmdResults = await syncCommands([provider], tmpDir);
     const agentResults = await syncAgents([provider], tmpDir);
     await syncDocs([provider], tmpDir);
-    await syncMCP([provider], mcps, tmpDir);
+    await syncManagedMCP([provider], mcps, tmpDir);
 
-    // Verify counts — OpenCode has readsAgentsDir=true, so skills are NOT copied
+    // Verify counts — OpenCode has nativeSkillsDiscovery=true, so skills are NOT copied
     expect(skillResults[0].skillCount).toBe(0);
     expect(cmdResults[0].commandCount).toBe(1);
     expect(agentResults[0].agentCount).toBe(1);

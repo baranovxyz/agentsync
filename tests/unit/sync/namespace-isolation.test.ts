@@ -129,10 +129,10 @@ describe("Namespace Isolation", () => {
       const providers = [getToolProvider("claude")];
       const results = await syncCommands(providers, tmpDir, presets);
 
-      expect(results[0].commands).toContain(path.join("team", "commit.md"));
+      expect(results[0].commands).toContain("team--commit.md");
       expect(
         await pathExists(
-          path.join(tmpDir, ".claude", "commands", "team", "commit.md"),
+          path.join(tmpDir, ".claude", "commands", "team--commit.md"),
         ),
       ).toBe(true);
     });
@@ -150,14 +150,14 @@ describe("Namespace Isolation", () => {
   });
 
   describe("Multi-tool namespace consistency", () => {
-    it("same namespace structure across holdout tools (readsAgentsDir=false)", async () => {
+    it("same namespace structure across holdout tools (nativeSkillsDiscovery=false)", async () => {
       const presetDir = path.join(tmpDir, "preset", "tdd");
       await ensureDir(presetDir);
       await outputFile(path.join(presetDir, "SKILL.md"), "# TDD");
 
       const presets = new Map([["company", [path.join(tmpDir, "preset")]]]);
 
-      // Only holdout tools (readsAgentsDir=false) get skills copied
+      // Only holdout tools (nativeSkillsDiscovery=false) get skills copied
       const providers = [
         getToolProvider("claude"),
         getToolProvider("cursor"),
@@ -176,7 +176,7 @@ describe("Namespace Isolation", () => {
         expect(await pathExists(path.join(tmpDir, p))).toBe(true);
       }
 
-      // Native tools (roocode, gemini) with readsAgentsDir=true skip skill copy
+      // Native tools (roocode, gemini) with nativeSkillsDiscovery=true skip skill copy
       const nativePaths = [
         ".roo/skills/company--tdd/SKILL.md",
         ".gemini/skills/company--tdd/SKILL.md",

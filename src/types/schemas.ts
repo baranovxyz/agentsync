@@ -6,6 +6,11 @@
 import { z } from "zod";
 import { SUPPORTED_TOOLS } from "../constants.js";
 
+export const GITHUB_SOURCE_PATTERN =
+  /^github:([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)(?:@(\S+))?$/;
+
+export const ToolNameSchema = z.enum(SUPPORTED_TOOLS);
+
 // Extends entry: flat string with source validation
 // Namespace is auto-derived from source (last segment)
 export const ExtendsEntrySchema = z
@@ -14,17 +19,17 @@ export const ExtendsEntrySchema = z
   .refine(
     (s) => {
       if (s.startsWith("github:")) {
-        return /^github:[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+(@[a-zA-Z0-9_.-]+)?$/.test(
-          s,
-        );
+        return GITHUB_SOURCE_PATTERN.test(s);
       }
       if (s.startsWith("fs:")) {
         const path = s.slice(3);
         return path.length > 0 && !path.includes("://");
       }
       return !(
-        s.includes("://") ||
+        /\s/.test(s) ||
+        s.includes(":") ||
         s.startsWith("http") ||
+        s.startsWith("ftp") ||
         s.startsWith("git@")
       );
     },
@@ -35,12 +40,12 @@ export const ExtendsEntrySchema = z
   );
 
 // Hook spec: a single hook entry under [[hooks.<Event>]]
-// Canonical shape across CLIs that support hooks (cc + cx today).
+// Canonical shape across tools that support lifecycle hooks.
 export const HookSpecSchema = z.object({
   id: z.string().min(1),
   matcher: z.string().optional(), // glob/pipe-delim tool pattern; ignored for non-tool events
   command: z.string().min(1),
-  timeout: z.number().int().positive().optional(), // milliseconds
+  timeout: z.number().int().positive().optional(), // canonical milliseconds
   description: z.string().optional(),
 });
 
@@ -52,6 +57,7 @@ export type HookSpec = z.infer<typeof HookSpecSchema>;
 export const HOOK_EVENTS = [
   "PreToolUse",
   "PostToolUse",
+  "PostToolUseFailure",
   "UserPromptSubmit",
   "SessionStart",
   "Stop",
@@ -132,15 +138,19 @@ export const OutputStyleConfigSchema = z
 
 // MCP server config: command-based (stdio) or URL-based (http)
 export const McpServerConfigSchema = z.union([
-  z.object({
-    command: z.string(),
-    args: z.array(z.string()).optional(),
-    env: z.record(z.string(), z.string()).optional(),
-  }),
-  z.object({
-    url: z.string(),
-    headers: z.record(z.string(), z.string()).optional(),
-  }),
+  z
+    .object({
+      command: z.string().min(1),
+      args: z.array(z.string()).optional(),
+      env: z.record(z.string(), z.string()).optional(),
+    })
+    .strict(),
+  z
+    .object({
+      url: z.string().min(1),
+      headers: z.record(z.string(), z.string()).optional(),
+    })
+    .strict(),
 ]);
 
 export type McpServerConfig = z.infer<typeof McpServerConfigSchema>;
@@ -148,47 +158,45 @@ export type McpServerConfig = z.infer<typeof McpServerConfigSchema>;
 // Profile config schema: filter semantics for CI/enterprise
 export const ProfileConfigSchema = z
   .object({
-    tools: z.array(z.string()).optional(), // Replaces base tools
+    tools: z.array(ToolNameSchema).optional(), // Replaces base tools
     mcp: z.array(z.string()).optional(), // Filters to only these MCPs
-    extends: z.array(ExtendsEntrySchema).optional(), // Replaces base presets
-    skills: z.array(z.string()).optional(), // Filters to only these skills
+    extends: z.array(ExtendsEntrySchema).optional(), // Filters base presets
     paths: z.array(z.string()).optional(), // Auto-activate on CWD match
     env: z.string().optional(), // Auto-activate on env var
   })
-  .passthrough();
+  .strict();
 
 export type ProfileConfig = z.infer<typeof ProfileConfigSchema>;
 
 // Main configuration schema — v1.0 simplified format
 // tools = flat list, mcp = defined means enabled, extends = flat strings
-export const AgentSyncConfigSchema = z.object({
-  // Flat tool list (no [agents.*] blocks)
-  tools: z.array(z.enum(SUPPORTED_TOOLS)).optional(),
+export const AgentSyncConfigSchema = z
+  .object({
+    // Flat tool list (no [agents.*] blocks)
+    tools: z.array(ToolNameSchema).optional(),
 
-  // MCP servers: defined = enabled. No separate enable list.
-  mcp: z.record(z.string(), McpServerConfigSchema).optional(),
+    // MCP servers: defined = enabled. No separate enable list.
+    mcp: z.record(z.string(), McpServerConfigSchema).optional(),
 
-  // Presets: flat string array. Namespace auto-derived from source.
-  extends: z.array(ExtendsEntrySchema).optional(),
+    // Presets: flat string array. Namespace auto-derived from source.
+    extends: z.array(ExtendsEntrySchema).optional(),
 
-  // Active profile name
-  profile: z.string().optional(),
+    // Named profile overrides (filter semantics)
+    profiles: z.record(z.string(), ProfileConfigSchema).optional(),
 
-  // Named profile overrides (filter semantics)
-  profiles: z.record(z.string(), ProfileConfigSchema).optional(),
+    // Hooks: [[hooks.<Event>]] arrays in agentsync.toml
+    hooks: HooksConfigSchema,
 
-  // Hooks: [[hooks.<Event>]] arrays in agentsync.toml
-  hooks: HooksConfigSchema,
+    // Permissions: [permissions] block
+    permissions: PermissionsConfigSchema,
 
-  // Permissions: [permissions] block
-  permissions: PermissionsConfigSchema,
+    // Statusline canonical: [statusline]
+    statusline: StatuslineConfigSchema,
 
-  // Statusline canonical: [statusline]
-  statusline: StatuslineConfigSchema,
-
-  // Output style canonical: [output_style]
-  output_style: OutputStyleConfigSchema,
-});
+    // Output style canonical: [output_style]
+    output_style: OutputStyleConfigSchema,
+  })
+  .strict();
 
 // Local config: MCP overrides + disable list + extension overrides
 //
@@ -196,14 +204,16 @@ export const AgentSyncConfigSchema = z.object({
 // "deeper-wins" replace semantics — if local defines any of these, it
 // replaces the project value entirely (matching the AGENTS.md rule
 // "All other fields: deeper config wins"). MCP keeps per-key merge.
-export const LocalConfigSchema = z.object({
-  mcp: z.record(z.string(), McpServerConfigSchema).optional(),
-  mcp_disabled: z.array(z.string()).optional(),
-  hooks: HooksConfigSchema,
-  permissions: PermissionsConfigSchema,
-  statusline: StatuslineConfigSchema,
-  output_style: OutputStyleConfigSchema,
-});
+export const LocalConfigSchema = z
+  .object({
+    mcp: z.record(z.string(), McpServerConfigSchema).optional(),
+    mcp_disabled: z.array(z.string()).optional(),
+    hooks: HooksConfigSchema,
+    permissions: PermissionsConfigSchema,
+    statusline: StatuslineConfigSchema,
+    output_style: OutputStyleConfigSchema,
+  })
+  .strict();
 
 /** Schema for third-party tool config files that we merge MCP into */
 export const ToolSettingsSchema = z.record(z.string(), z.unknown());
@@ -253,8 +263,7 @@ export function validateNamespace(namespace: string): void {
  *
  * "github:company/standards" → "company-standards"
  * "github:acme-corp/tools" → "acme-corp-tools"
- * "github:acme/mono/packages/presets" → "acme-mono-presets"
- * "github:company/standards@v2" → "company-standards"
+ * "github:company/standards@feature/parser" → "company-standards"
  * "fs:./local-presets" → "local-presets"
  * "fs:~/.cursor" → "cursor"
  * "/absolute/path" → "path"
@@ -265,21 +274,13 @@ export function deriveNamespace(source: string): string {
   let cleaned = source;
 
   if (cleaned.startsWith("github:")) {
-    // GitHub: use owner-repo (or owner-repo-leaf for subpaths)
-    cleaned = cleaned.slice(7);
-    // Strip @ref suffix
-    cleaned = cleaned.replace(/@[a-zA-Z0-9_.-]+$/, "");
-    const segments = cleaned.split("/").filter(Boolean);
-    if (segments.length >= 3) {
-      // Subpath: owner-repo-leaf
-      const ns = `${segments[0]}-${segments[1]}-${segments[segments.length - 1]}`;
-      return normalizeNamespaceString(ns);
+    const match = cleaned.match(GITHUB_SOURCE_PATTERN);
+    if (!match) {
+      throw new Error(`Cannot derive namespace from invalid source: ${source}`);
     }
-    if (segments.length === 2) {
-      // Standard: owner-repo
-      return normalizeNamespaceString(`${segments[0]}-${segments[1]}`);
-    }
-    return normalizeNamespaceString(segments[0] || "preset");
+
+    const [, owner, repo] = match;
+    return normalizeNamespaceString(`${owner}-${repo}`);
   }
 
   // fs: or bare paths — use basename
@@ -308,60 +309,28 @@ function normalizeNamespaceString(raw: string): string {
   );
 }
 
-// Legacy object format for extends entries (allocated once at module level)
-const LegacyEntrySchema = z.object({
-  source: z.string().min(1, "Source is required in extends entry"),
-  namespace: z.string().optional(),
-  include: z.array(z.string()).optional(),
-  exclude: z.array(z.string()).optional(),
-});
-
 /**
  * Normalize extends entries to a consistent format with derived namespaces.
- * V1 format: flat string array → auto-derive namespace from source.
- * Legacy format: object with source/namespace → use as-is.
+ * Current format is a flat string array; namespaces are derived from sources.
  *
  * Deduplicates by source URI: if the same source appears multiple times
  * (e.g., root and workspace configs both extend the same preset),
  * keeps the last occurrence. This preserves last-wins semantics for
  * MCP servers while ensuring each preset is resolved exactly once.
  */
-export function normalizeExtends(
-  extends_: (string | Record<string, unknown>)[] | undefined,
-): Array<{
+export function normalizeExtends(extends_: string[] | undefined): Array<{
   source: string;
   namespace: string;
-  include?: string[];
-  exclude?: string[];
 }> {
   if (!extends_ || extends_.length === 0) {
     return [];
   }
 
   const normalized = extends_.map((entry) => {
-    // V1 flat string format: derive namespace from source
-    if (typeof entry === "string") {
-      const namespace = deriveNamespace(entry);
-      validateNamespace(namespace);
-      return { source: entry, namespace };
-    }
-
-    // Legacy object format: validate with Zod schema
-    const parsed = LegacyEntrySchema.parse(entry);
-
-    const namespace = parsed.namespace || deriveNamespace(parsed.source);
+    const source = ExtendsEntrySchema.parse(entry);
+    const namespace = deriveNamespace(source);
     validateNamespace(namespace);
-
-    const result: {
-      source: string;
-      namespace: string;
-      include?: string[];
-      exclude?: string[];
-    } = { source: parsed.source, namespace };
-
-    if (parsed.include) result.include = parsed.include;
-    if (parsed.exclude) result.exclude = parsed.exclude;
-    return result;
+    return { source, namespace };
   });
 
   // Deduplicate by source URI, keeping last occurrence

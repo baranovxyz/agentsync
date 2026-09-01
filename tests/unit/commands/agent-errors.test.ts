@@ -11,7 +11,7 @@ describe("agent-oriented errors", () => {
     expect(err.suggestion).toBe("Run: agentsync init --tools cursor");
   });
 
-  it("ValidationError includes context for agents", () => {
+  it("ValidationError promotes recovery and preserves context for agents", () => {
     const err = new ValidationError(
       "Tool 'cursro' is not supported",
       undefined,
@@ -20,7 +20,8 @@ describe("agent-oriented errors", () => {
         validValues: ["cursor", "claude"],
       },
     );
-    expect(err.context?.suggestion).toBe("agentsync config add tool cursor");
+    expect(err.suggestion).toBe("agentsync config add tool cursor");
+    expect(err.context).not.toHaveProperty("suggestion");
     expect(err.context?.validValues).toContain("cursor");
   });
 
@@ -43,7 +44,7 @@ describe("agent-oriented errors", () => {
     expect(errorObj.error.code).toBe("CONFIG_ERROR");
   });
 
-  it("ValidationError includes validValues and suggestion in context", () => {
+  it("ValidationError keeps one top-level suggestion", () => {
     const err = new ValidationError(
       'Unknown config type "bogus". Valid types: tool, mcp, preset, skill, command',
       undefined,
@@ -61,7 +62,8 @@ describe("agent-oriented errors", () => {
       "command",
     ]);
     expect(err.context?.provided).toBe("bogus");
-    expect(err.context?.suggestion).toBe("agentsync config add tool <name>");
+    expect(err.suggestion).toBe("agentsync config add tool <name>");
+    expect(err.context).not.toHaveProperty("suggestion");
   });
 
   it("ValidationError with invalid tool includes SUPPORTED_TOOLS in context", () => {
@@ -95,6 +97,7 @@ describe("agent-oriented errors", () => {
       },
     );
     expect(err.context?.validFormats).toContain("github:org/repo");
-    expect(err.context?.suggestion).toContain("github:org/repo");
+    expect(err.suggestion).toContain("github:org/repo");
+    expect(err.context).not.toHaveProperty("suggestion");
   });
 });

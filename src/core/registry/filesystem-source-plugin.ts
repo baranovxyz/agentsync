@@ -43,9 +43,8 @@ export class FilesystemSourcePlugin implements SourcePlugin {
       return true;
     }
 
-    // Check if it's a simple relative path (no colons, no URL-like patterns)
-    // But exclude URLs and other protocols, and invalid formats
-    // This provides backward compatibility with the old implementation
+    // Bare relative paths are part of the current source-string contract.
+    // Exclude URLs, other protocols, and invalid formats.
     return (
       !(
         source.includes(":") ||
@@ -92,9 +91,6 @@ export class FilesystemSourcePlugin implements SourcePlugin {
     // Validate path exists and is accessible
     await this.validatePath(resolvedPath);
 
-    // Tool directory detection removed (codecs deleted).
-    // Tool directories are now handled as standard preset directories.
-
     // Standard preset directory - validate structure
     await this.validatePresetStructure(resolvedPath);
 
@@ -137,20 +133,17 @@ export class FilesystemSourcePlugin implements SourcePlugin {
     }
   }
 
-  /**
-   * Validate preset structure (warn if no skills/, commands/, agents/, or mcp.json)
-   */
+  /** Warn when a preset has no current content directories. */
   private async validatePresetStructure(resolvedPath: string): Promise<void> {
-    const [hasSkills, hasCommands, hasAgents, hasMcp] = await Promise.all([
+    const recognized = await Promise.all([
       pathExists(path.join(resolvedPath, "skills")),
       pathExists(path.join(resolvedPath, "commands")),
       pathExists(path.join(resolvedPath, "agents")),
-      pathExists(path.join(resolvedPath, "mcp.json")),
     ]);
 
-    if (!(hasSkills || hasCommands || hasAgents || hasMcp)) {
+    if (!recognized.some(Boolean)) {
       console.warn(
-        `Warning: Filesystem preset at ${resolvedPath} has no skills/, commands/, agents/, or mcp.json`,
+        `Warning: Filesystem preset at ${resolvedPath} has no skills/, commands/, or agents/`,
       );
     }
   }

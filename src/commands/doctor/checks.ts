@@ -2,18 +2,28 @@
  * Doctor Command — Diagnostic Check Functions
  */
 
-import { readFile, stat } from "node:fs/promises";
+import { stat } from "node:fs/promises";
+import { homedir } from "node:os";
 import * as path from "node:path";
 import fg from "fast-glob";
-import {
-  parseTomlConfig,
-  tomlToInternalConfig,
-} from "../../config/toml-loader.js";
 import type { ToolName } from "../../constants.js";
-import { getErrorMessage } from "../../core/errors.js";
+import { discoverConfigContext } from "../../core/config/discovery.js";
+import { resolveConfig } from "../../core/config/resolve.js";
+import { AgentSyncError, getErrorMessage } from "../../core/errors.js";
+import { loadEnv } from "../../core/mcp/env.js";
 import { TOKEN_PATTERN } from "../../core/mcp/tokens.js";
+import { GitHubSourceParser } from "../../core/registry/github-source.js";
+import {
+  globalSkillsGapFix,
+  globalSkillsGapMessage,
+  globalSkillsRemedyPath,
+  hasGlobalSkillsGap,
+} from "../../sync/global-skills-gap.js";
 import { hashFile, readManifest } from "../../sync/manifest.js";
+import { getToolProvider } from "../../tools/index.js";
+import type { McpServerConfig } from "../../types/schemas.js";
 import { pathExists } from "../../utils/fs.js";
+import { getGlobalConfigDir } from "../../utils/global-config.js";
 import type { ConfigCheckResult, DoctorResult } from "./types.js";
 
 const HOLDOUT_PATHS: Record<string, string> = {
@@ -25,32 +35,31 @@ const HOLDOUT_PATHS: Record<string, string> = {
 };
 
 /**
- * Collect {TOKEN_NAME} references from all string values in a record.
+ * Collect {TOKEN_NAME} references from a string or record.
  */
-function collectTokenRefs(record: unknown, refs: string[]): void {
-  if (!record || typeof record !== "object" || Array.isArray(record)) return;
-  for (const value of Object.values(record)) {
-    if (typeof value === "string") {
-      for (const match of value.matchAll(TOKEN_PATTERN)) {
-        refs.push(match[1]);
-      }
-    }
+function collectTokenRefs(value: unknown): string[] {
+  if (typeof value === "string") {
+    return [...value.matchAll(TOKEN_PATTERN)].map((match) => match[1]);
   }
+  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+  return Object.values(value).flatMap(collectTokenRefs);
 }
 
 /**
  * Extract env var references from an MCP server config.
  * Looks for {TOKEN_NAME} patterns in env values and headers.
  */
-function extractEnvVarRefs(server: Record<string, unknown>): string[] {
-  const refs: string[] = [];
-  collectTokenRefs(server.env, refs);
-  collectTokenRefs(server.headers, refs);
+function extractEnvVarRefs(server: McpServerConfig): string[] {
+  const refs =
+    "url" in server
+      ? [...collectTokenRefs(server.url), ...collectTokenRefs(server.headers)]
+      : collectTokenRefs(server.env);
   return [...new Set(refs)];
 }
 
 /**
- * Count skills the sync engine will actually consume.
+ * List skill names (the `<name>` in `<name>/SKILL.md`) the sync engine will
+ * actually consume from a directory.
  *
  * Must match the glob in `src/sync/skills.ts` (`syncSkillsToTool`):
  * skills are `<name>/SKILL.md` directories, not flat `<name>.md`
@@ -59,62 +68,55 @@ function extractEnvVarRefs(server: Record<string, unknown>): string[] {
  * had laid skills out flat — doctor saw them but sync silently
  * dropped them.
  */
-async function countSkillDirs(dir: string): Promise<number> {
+async function listSkillDirNames(dir: string): Promise<string[]> {
   try {
     const matches = await fg("*/SKILL.md", {
       cwd: dir,
       absolute: false,
       onlyFiles: true,
     });
-    return matches.length;
+    return matches.map((f) => path.dirname(f));
   } catch {
-    return 0;
+    return [];
   }
+}
+
+/** Count skills the sync engine will actually consume. See `listSkillDirNames`. */
+async function countSkillDirs(dir: string): Promise<number> {
+  return (await listSkillDirNames(dir)).length;
 }
 
 /**
  * Check config file existence and validity, extracting tools, MCP servers, and extends.
  */
 async function checkConfig(cwd: string): Promise<ConfigCheckResult> {
-  const configPath = path.join(cwd, ".agents", "agentsync.toml");
-
-  if (!(await pathExists(configPath))) {
-    return {
-      config: {
-        found: false,
-        valid: false,
-        error:
-          "No configuration file found (.agents/agentsync.toml). Run: agentsync init",
-      },
-      tools: [],
-      mcpServers: {},
-      extendsSources: [],
-    };
-  }
+  const { chain } = await discoverConfigContext(cwd);
+  const configPath = chain[0];
 
   try {
-    const content = await readFile(configPath, "utf-8");
-    const toml = parseTomlConfig(content, configPath);
-    const internal = tomlToInternalConfig(toml);
-    const mcpServers: Record<string, Record<string, unknown>> = {};
-    if (internal.mcp) {
-      for (const [k, v] of Object.entries(internal.mcp)) {
-        mcpServers[k] = v as Record<string, unknown>;
-      }
-    }
+    const config = await resolveConfig({ cwd });
     return {
       config: { found: true, valid: true },
       configPath,
-      tools: internal.tools || [],
-      mcpServers,
-      extendsSources: internal.extends || [],
+      tools: config.tools ?? [],
+      mcpServers: config.mcp ?? {},
+      extendsSources: config.extends ?? [],
     };
   } catch (error) {
+    const projectMissing =
+      !configPath &&
+      error instanceof AgentSyncError &&
+      error.message === "Project config not found";
+    const message = getErrorMessage(error);
     return {
       config: {
-        found: true,
+        found: Boolean(configPath),
         valid: false,
-        error: getErrorMessage(error),
+        error: projectMissing
+          ? "No configuration file found (.agents/agentsync.toml). Run: agentsync init"
+          : error instanceof AgentSyncError && error.suggestion
+            ? `${message}\nRecovery: ${error.suggestion}`
+            : message,
       },
       configPath,
       tools: [],
@@ -157,13 +159,14 @@ async function checkSkills(
  * Check MCP server env var resolution status.
  */
 function checkMcpEnvVars(
-  mcpServers: Record<string, Record<string, unknown>>,
+  mcpServers: Record<string, McpServerConfig>,
+  env: Readonly<Record<string, string>>,
 ): DoctorResult["mcp"] {
   const results: DoctorResult["mcp"] = [];
   for (const [name, server] of Object.entries(mcpServers)) {
     const envVarRefs = extractEnvVarRefs(server);
     const missingEnvVars = envVarRefs.filter(
-      (varName) => !process.env[varName],
+      (varName) => !Object.hasOwn(env, varName),
     );
     // Severity: unresolved env tokens are critical (server will fail at runtime
     // with plaintext "{TOKEN}" strings sent to the MCP server).
@@ -186,11 +189,12 @@ function checkMcpEnvVars(
  * Checks that the source matches the expected github:org/repo[@ref] pattern.
  */
 function checkGithubPreset(source: string): { source: string; valid: boolean } {
-  const withoutPrefix = source.slice(7);
-  const [repoPath] = withoutPrefix.split("@");
-  const parts = repoPath.split("/");
-  // Valid if it has exactly org/repo
-  return { source, valid: parts.length === 2 && !!parts[0] && !!parts[1] };
+  try {
+    new GitHubSourceParser().parse(source);
+    return { source, valid: true };
+  } catch {
+    return { source, valid: false };
+  }
 }
 
 /**
@@ -302,6 +306,63 @@ async function checkPresets(
 }
 
 /**
+ * Check whether any configured tool that is verified to read the project
+ * `.agents/` but NOT the global `~/.agents/` (`ToolProvider.readsGlobalAgentsDir
+ * === false` — see `src/sync/global-skills-gap.ts`) is missing the documented
+ * symlink remedy while global skills exist for it to lose. Read-only: never
+ * creates the remedy itself, only reports on it.
+ *
+ * "ok" covers both "nothing to deliver" (no global skills) and "remedy
+ * symlink/directory already present". "gap" is the actionable failure.
+ */
+async function checkGlobalSkillsGap(
+  tools: ToolName[],
+): Promise<DoctorResult["globalSkillsGap"]> {
+  const results: DoctorResult["globalSkillsGap"] = [];
+  const globalSkills = await listSkillDirNames(
+    path.join(getGlobalConfigDir(), "skills"),
+  );
+
+  for (const tool of tools) {
+    let provider: ReturnType<typeof getToolProvider>;
+    try {
+      provider = getToolProvider(tool);
+    } catch {
+      continue;
+    }
+    if (!hasGlobalSkillsGap(provider)) continue;
+
+    if (globalSkills.length === 0) {
+      results.push({ tool, status: "ok", skillCount: 0, skills: [] });
+      continue;
+    }
+
+    const remedyPath = globalSkillsRemedyPath(provider, homedir());
+    const remedyPresent = remedyPath ? await pathExists(remedyPath) : false;
+
+    results.push(
+      remedyPresent
+        ? {
+            tool,
+            status: "ok",
+            skillCount: globalSkills.length,
+            skills: globalSkills,
+          }
+        : {
+            tool,
+            status: "gap",
+            skillCount: globalSkills.length,
+            skills: globalSkills,
+            message: globalSkillsGapMessage(provider, globalSkills),
+            fix: globalSkillsGapFix(provider),
+          },
+    );
+  }
+
+  return results;
+}
+
+/**
  * Run all diagnostic checks and return a structured result.
  * Separated from display logic for testability.
  */
@@ -318,25 +379,28 @@ export async function runDiagnostics(cwd: string): Promise<DoctorResult> {
       presets: [],
       drift: [],
       contentDrift: [],
-      workerHints: [],
+      globalSkillsGap: [],
     };
   }
 
-  const [skills, presets, drift, contentDrift] = await Promise.all([
-    checkSkills(cwd, tools),
-    checkPresets(cwd, extendsSources),
-    configPath ? checkDrift(cwd, tools, configPath) : Promise.resolve([]),
-    checkContentDrift(cwd),
-  ]);
+  const [skills, presets, drift, contentDrift, globalSkillsGap, env] =
+    await Promise.all([
+      checkSkills(cwd, tools),
+      checkPresets(cwd, extendsSources),
+      configPath ? checkDrift(cwd, tools, configPath) : Promise.resolve([]),
+      checkContentDrift(cwd),
+      checkGlobalSkillsGap(tools),
+      loadEnv(path.join(cwd, ".env")),
+    ]);
   return {
     config,
     tools: checkTools(tools),
     skills,
-    mcp: checkMcpEnvVars(mcpServers),
+    mcp: checkMcpEnvVars(mcpServers, env),
     presets,
     drift,
     contentDrift,
-    workerHints: [],
+    globalSkillsGap,
   };
 }
 

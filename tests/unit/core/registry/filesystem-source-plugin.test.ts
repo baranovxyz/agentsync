@@ -123,7 +123,7 @@ describe("FilesystemSourcePlugin", () => {
       } as MockStats);
       vi.mocked(fsUtils.pathExists).mockResolvedValue(true);
 
-      const result = await plugin.resolve(source, { noToolDetection: true });
+      const result = await plugin.resolve(source);
 
       expect(result).toBe(expectedPath);
     });
@@ -137,7 +137,7 @@ describe("FilesystemSourcePlugin", () => {
       } as MockStats);
       vi.mocked(fsUtils.pathExists).mockResolvedValue(true);
 
-      const result = await plugin.resolve(source, { noToolDetection: true });
+      const result = await plugin.resolve(source);
 
       expect(result).toBe(source);
       expect(fs.access).toHaveBeenCalledWith(source);
@@ -153,7 +153,7 @@ describe("FilesystemSourcePlugin", () => {
       } as MockStats);
       vi.mocked(fsUtils.pathExists).mockResolvedValue(true);
 
-      const result = await plugin.resolve(source, { noToolDetection: true });
+      const result = await plugin.resolve(source);
 
       expect(result).toBe(expectedPath);
     });
@@ -171,7 +171,6 @@ describe("FilesystemSourcePlugin", () => {
 
       const result = await plugin.resolve(source, {
         cwd: customCwd,
-        noToolDetection: true,
       });
 
       expect(result).toBe(expectedPath);
@@ -217,9 +216,7 @@ describe("FilesystemSourcePlugin", () => {
       await plugin.resolve(source);
 
       expect(consoleWarnSpy).toHaveBeenCalledWith(
-        expect.stringContaining(
-          "has no skills/, commands/, agents/, or mcp.json",
-        ),
+        expect.stringContaining("has no skills/, commands/, or agents/"),
       );
 
       consoleWarnSpy.mockRestore();
@@ -263,7 +260,7 @@ describe("FilesystemSourcePlugin", () => {
       consoleWarnSpy.mockRestore();
     });
 
-    it("does not warn when mcp.json exists", async () => {
+    it("warns when only an unrelated mcp.json exists", async () => {
       const source = "./preset-with-mcp";
       const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation();
 
@@ -277,7 +274,9 @@ describe("FilesystemSourcePlugin", () => {
 
       await plugin.resolve(source);
 
-      expect(consoleWarnSpy).not.toHaveBeenCalled();
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("has no skills/, commands/, or agents/"),
+      );
 
       consoleWarnSpy.mockRestore();
     });
@@ -359,32 +358,13 @@ describe("FilesystemSourcePlugin", () => {
       await plugin.resolve(source);
 
       expect(consoleWarnSpy).toHaveBeenCalledWith(
-        expect.stringContaining(
-          "has no skills/, commands/, agents/, or mcp.json",
-        ),
+        expect.stringContaining("has no skills/, commands/, or agents/"),
       );
       consoleWarnSpy.mockRestore();
     });
   });
 
-  describe("tool detection removed", () => {
-    it("never returns tool: marker (codec detection removed)", async () => {
-      const plugin = new FilesystemSourcePlugin();
-      const source = "fs:./cursor";
-
-      vi.mocked(fs.access).mockResolvedValue(undefined);
-      vi.mocked(fs.stat).mockResolvedValue({
-        isDirectory: () => true,
-      } as MockStats);
-      vi.mocked(fsUtils.pathExists).mockImplementation(async (p: string) => {
-        return p.endsWith("skills");
-      });
-
-      const result = await plugin.resolve(source);
-
-      expect(result).not.toMatch(/^tool:/);
-    });
-
+  describe("custom working directory", () => {
     it("resolves with custom cwd", async () => {
       const plugin = new FilesystemSourcePlugin();
       const source = "fs:./.cursor";

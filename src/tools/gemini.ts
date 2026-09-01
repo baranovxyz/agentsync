@@ -12,6 +12,7 @@
 import * as path from "node:path";
 import type { MCP } from "../core/mcp/tokens.js";
 import { outputFile } from "../utils/fs.js";
+import { toPosixPath } from "../utils/path-normalization.js";
 import { mergeIntoSettings } from "./mcp-helpers.js";
 import type { ToolProvider } from "./types.js";
 
@@ -34,17 +35,28 @@ export const geminiProvider: ToolProvider = {
     nativeAgentsMd: false,
     nativeSkillsDiscovery: true,
   },
-  readsAgentsDir: true,
+  readsGlobalAgentsDir: "unverified",
+  manifestCleanSurfaces: ["docs"],
   agentFileExtension: ".md",
   mcpFormat: {
-    async writeMCP(mcps: Record<string, MCP>, cwd: string): Promise<void> {
-      await mergeIntoSettings(path.join(cwd, ".gemini", "settings.json"), mcps);
+    projectPath: "static",
+    ownership: { kind: "owned-keys", keys: ["mcpServers"], format: "json" },
+    async writeProjectMCP(
+      mcps: Record<string, MCP>,
+      cwd: string,
+    ): Promise<void> {
+      await mergeIntoSettings(
+        path.join(cwd, ".gemini", "settings.json"),
+        mcps,
+        cwd,
+      );
     },
   },
   docsFormat: {
-    async writeDocs(_agentsMdPath: string, cwd: string): Promise<void> {
+    async writeDocs(agentsMdPath: string, cwd: string): Promise<void> {
       const geminiMd = path.join(cwd, "GEMINI.md");
-      await outputFile(geminiMd, "@AGENTS.md\n", { encoding: "utf-8" });
+      const relPath = toPosixPath(path.relative(cwd, agentsMdPath));
+      await outputFile(geminiMd, `@${relPath}\n`, { encoding: "utf-8" });
     },
   },
 };

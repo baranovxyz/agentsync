@@ -32,11 +32,17 @@ export const crushProvider: ToolProvider = {
     nativeAgentsMd: false,
     nativeSkillsDiscovery: false,
   },
-  readsAgentsDir: false,
+  readsGlobalAgentsDir: false,
+  manifestCleanSurfaces: [],
   agentFileExtension: ".md",
   mcpFormat: {
-    async writeMCP(mcps: Record<string, MCP>, cwd: string): Promise<void> {
-      await mergeIntoSettings(path.join(cwd, "crush.json"), mcps, "mcp");
+    projectPath: "static",
+    ownership: { kind: "owned-keys", keys: ["mcp"], format: "json" },
+    async writeProjectMCP(
+      mcps: Record<string, MCP>,
+      cwd: string,
+    ): Promise<void> {
+      await mergeIntoSettings(path.join(cwd, "crush.json"), mcps, cwd, "mcp");
     },
   },
   docsFormat: null,

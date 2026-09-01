@@ -2,37 +2,31 @@ name: MCP Add and Sync Workflow
 setup:
   project:
     files:
-      .cursor/.placeholder: ""
-  home:
-    files:
-      .agents/mcp.json: |
-        {
-          "github": {
-            "command": "npx",
-            "args": ["-y", "@modelcontextprotocol/server-github"],
-            "env": {
-              "GITHUB_TOKEN": "{GITHUB_TOKEN}"
-            }
-          },
-          "postgres": {
-            "command": "npx",
-            "args": ["-y", "@modelcontextprotocol/server-postgres"],
-            "env": {
-              "DATABASE_URL": "{DATABASE_URL}"
-            }
-          }
-        }
+      .agents/agentsync.toml: |
+        tools = ["cursor"]
   env:
     GITHUB_TOKEN: github_test_test_token_123
     DATABASE_URL: postgresql://localhost/testdb
 steps:
-  - run: ["mcp", "add", "github"]
+  - run:
+      - "config"
+      - "add"
+      - "mcp"
+      - "github"
+      - "--mcp-config"
+      - '{"command":"npx","args":["-y","@modelcontextprotocol/server-github"],"env":{"GITHUB_TOKEN":"{GITHUB_TOKEN}"}}'
     expect:
       exitCode: 0
-  - run: ["mcp", "add", "postgres"]
+  - run:
+      - "config"
+      - "add"
+      - "mcp"
+      - "postgres"
+      - "--mcp-config"
+      - '{"command":"npx","args":["-y","@modelcontextprotocol/server-postgres"],"env":{"DATABASE_URL":"{DATABASE_URL}"}}'
     expect:
       exitCode: 0
-  - run: ["mcp", "sync"]
+  - run: ["sync"]
     expect:
       exitCode: 0
 assert:

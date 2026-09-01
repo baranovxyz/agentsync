@@ -21,12 +21,11 @@ describe("Augment — Capabilities", () => {
 
   it("reads .agents/ directory directly (shared skills)", () => {
     expect(p.capabilities.nativeSkillsDiscovery).toBe(true);
-    expect(p.readsAgentsDir).toBe(true);
   });
 
   it("has correct paths", () => {
     expect(p.paths.skillsDir).toBe(".agents/skills");
-    expect(p.paths.commandsDir).toBe(".agents/commands");
+    expect(p.paths.commandsDir).toBe(".augment/commands");
     expect(p.paths.agentsDir).toBeNull();
     expect(p.paths.mcpConfigPath).toBe(".augment/settings.json");
     expect(p.paths.docsFile).toBe("AGENTS.md");
