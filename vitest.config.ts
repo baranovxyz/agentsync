@@ -6,6 +6,7 @@ const CI_MULTIPLIER = process.env.CI ? 2 : 1;
 
 export default defineConfig({
   test: {
+    globalSetup: resolve(__dirname, "tests/setup/isolated-home.ts"),
     globals: true,
     environment: "node",
     exclude: ["node_modules/**"],
