@@ -120,7 +120,13 @@ jobs:
           node scripts/verify-dist-manifest.mjs \
             --package-root "$RUNNER_TEMP/agentsync-packed/package" \
             --manifest dist-manifest.json
-          PACKED_VERSION=$(node "$RUNNER_TEMP/agentsync-packed/package/dist/cli.js" --version)
+          npm install \
+            --prefix "$RUNNER_TEMP/agentsync-install" \
+            --ignore-scripts \
+            --no-audit \
+            --no-fund \
+            ./agentsync-release.tgz
+          PACKED_VERSION=$(node "$RUNNER_TEMP/agentsync-install/node_modules/agentsync/dist/cli.js" --version)
           if [[ "$PACKED_VERSION" != "$EXPECTED_VERSION" ]]; then
             echo "::error::Packed CLI version $PACKED_VERSION differs from $EXPECTED_VERSION"
             exit 1

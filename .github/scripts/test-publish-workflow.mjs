@@ -26,6 +26,14 @@ assert.match(prepare, /pnpm test:artifact/);
 assert.match(prepare, /npm pack --ignore-scripts/);
 assert.match(prepare, /Verify packed dist against reviewed manifest/);
 assert.match(prepare, /scripts\/verify-dist-manifest\.mjs/);
+assert.match(
+  prepare,
+  /npm install \\\n\s+--prefix "\$RUNNER_TEMP\/agentsync-install" \\\n\s+--ignore-scripts/,
+);
+assert.match(
+  prepare,
+  /agentsync-install\/node_modules\/agentsync\/dist\/cli\.js/,
+);
 assert.match(prepare, /path: agentsync-release\.tgz/);
 assert.ok(
   workflow.indexOf("- name: Pack release candidate") <
