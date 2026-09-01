@@ -56,12 +56,16 @@ assert.doesNotMatch(publish, /NPM_TOKEN|NODE_AUTH_TOKEN|npm@latest/);
 assert.doesNotMatch(publish, /^\s+registry-url:/m);
 assert.doesNotMatch(publish, /_authToken/);
 assert.match(publish, /npm install -g npm@11\.17\.0 --ignore-scripts/);
+assert.match(publish, /Verify GitHub OIDC request channel/);
+assert.match(publish, /ACTIONS_ID_TOKEN_REQUEST_URL/);
+assert.match(publish, /ACTIONS_ID_TOKEN_REQUEST_TOKEN/);
 assert.match(publish, /release-artifact\/agentsync-release\.tgz/);
 assert.match(publish, /downloaded release candidate integrity mismatch/);
 assert.match(
   publish,
   /npm publish "\$ARTIFACT" --provenance --access public --ignore-scripts --tag/,
 );
+assert.equal(publish.match(/--loglevel verbose/g)?.length, 2);
 
 assert.doesNotMatch(verify, /id-token: write|environment: npm/);
 assert.match(verify, /zod@4\.4\.3/);

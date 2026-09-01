@@ -205,6 +205,13 @@ jobs:
       # lifecycle scripts disabled. Do not set setup-node's registry-url here:
       # its generated classic-auth entry suppresses npm's OIDC exchange.
       - run: npm install -g npm@11.17.0 --ignore-scripts
+      - name: Verify GitHub OIDC request channel
+        run: |
+          if [[ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" || \
+                -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]]; then
+            echo "::error::GitHub did not provide the OIDC request channel"
+            exit 1
+          fi
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: agentsync-release-candidate
@@ -223,10 +230,10 @@ jobs:
           '
       - name: Publish (dry run)
         if: ${{ inputs['dry-run'] }}
-        run: npm publish "$ARTIFACT" --provenance --access public --ignore-scripts --tag ${{ needs.prepare.outputs.tag }} --dry-run
+        run: npm publish "$ARTIFACT" --provenance --access public --ignore-scripts --tag ${{ needs.prepare.outputs.tag }} --dry-run --loglevel verbose
       - name: Publish
         if: ${{ !inputs['dry-run'] }}
-        run: npm publish "$ARTIFACT" --provenance --access public --ignore-scripts --tag ${{ needs.prepare.outputs.tag }}
+        run: npm publish "$ARTIFACT" --provenance --access public --ignore-scripts --tag ${{ needs.prepare.outputs.tag }} --loglevel verbose
 
   verify:
     needs: [prepare, publish]

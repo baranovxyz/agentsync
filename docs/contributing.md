@@ -60,7 +60,8 @@ environment `npm`. No npm token secret is required. Use `dry-run` only for unpub
 use `finalize-only` to repair a tag or GitHub release after the existing registry artifact passes
 exact integrity and provenance verification. The OIDC-authorized job deliberately omits
 `setup-node`'s `registry-url` input because its generated classic-auth entry prevents npm from
-starting the trusted-publisher exchange.
+starting the trusted-publisher exchange. It also fails early when GitHub omits the OIDC request
+channel and retains verbose npm exchange diagnostics for actionable trusted-publisher failures.
 
 ## Security
 
