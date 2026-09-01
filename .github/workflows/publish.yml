@@ -201,9 +201,9 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
-          registry-url: https://registry.npmjs.org
       # Trusted publishing needs npm >= 11.5.1. Install the exact CLI with
-      # lifecycle scripts disabled and no registry credential environment.
+      # lifecycle scripts disabled. Do not set setup-node's registry-url here:
+      # its generated classic-auth entry suppresses npm's OIDC exchange.
       - run: npm install -g npm@11.17.0 --ignore-scripts
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:

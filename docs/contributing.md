@@ -58,7 +58,9 @@ and that job publishes the exact uploaded tarball without checking out repositor
 The npm trusted publisher is bound to `baranovxyz/agentsync`, workflow `publish.yml`, and GitHub
 environment `npm`. No npm token secret is required. Use `dry-run` only for unpublished versions;
 use `finalize-only` to repair a tag or GitHub release after the existing registry artifact passes
-exact integrity and provenance verification.
+exact integrity and provenance verification. The OIDC-authorized job deliberately omits
+`setup-node`'s `registry-url` input because its generated classic-auth entry prevents npm from
+starting the trusted-publisher exchange.
 
 ## Security
 
