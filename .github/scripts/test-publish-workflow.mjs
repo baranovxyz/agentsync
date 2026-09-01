@@ -53,6 +53,8 @@ assert.doesNotMatch(publish, /contents: (read|write)/);
 assert.doesNotMatch(publish, /actions\/checkout@/);
 assert.doesNotMatch(publish, /pnpm |test:artifact|npm view|from "zod"/);
 assert.doesNotMatch(publish, /NPM_TOKEN|NODE_AUTH_TOKEN|npm@latest/);
+assert.doesNotMatch(publish, /^\s+registry-url:/m);
+assert.doesNotMatch(publish, /_authToken/);
 assert.match(publish, /npm install -g npm@11\.17\.0 --ignore-scripts/);
 assert.match(publish, /release-artifact\/agentsync-release\.tgz/);
 assert.match(publish, /downloaded release candidate integrity mismatch/);
