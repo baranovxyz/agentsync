@@ -3,12 +3,12 @@
 **Purpose**: Machine-verifiable requirements for LLM code review. Each requirement has a verification method (grep, file check, test run, or code inspection).
 
 **Sources**: Consolidates requirements from:
-- `2026-03-28-v1-hardening-design.md` — CLI surface, errors, presets
-- `2026-03-29-output-contract-design.md` — JSON envelope, exit codes, field projection
-- `2026-03-30-v1-polish-design.md` — minified JSON, sanitization, operation receipts
-- `2026-03-30-architecture-cleanup-design.md` — error simplification, registry wiring, sync restructuring, doctor decomposition, codec deletion
-- Design session 2026-03-31 — bootstrap deletion, symlinks-as-default, git hooks
-- `2026-04-01-directory-cleanup-design.md` — .agentsync/ removal, no cache, 3-tier config, ~/.agents/ global dir
+- v1 hardening design — CLI surface, errors, presets
+- output-contract design — JSON envelope, exit codes, field projection
+- v1 polish design — minified JSON, sanitization, operation receipts
+- architecture-cleanup design — error simplification, registry wiring, sync restructuring, doctor decomposition, codec deletion
+- bootstrap design — bootstrap deletion, symlinks-as-default, git hooks
+- directory-cleanup design — .agentsync/ removal, no cache, 3-tier config, ~/.agents/ global dir
 
 ---
 
@@ -442,7 +442,7 @@ Global user config at `~/.agents/config.toml`. Global content at `~/.agents/skil
 
 ---
 
-## 14. Code Quality (Added 2026-04-01)
+## 14. Code Quality
 
 ### REQ-QUAL-01: No legacy TOML format support
 The `[agents.*]` block format is removed. Only `tools = [...]` flat list is supported. No legacy branch in TOML loader.

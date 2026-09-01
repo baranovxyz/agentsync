@@ -103,8 +103,6 @@ desktop.ini
 # Internal preparation artifacts
 research/
 bugs/
-docs/research/
-docs/superpowers/
 
 # Ignore all root .md files except essential ones
 /*.md
