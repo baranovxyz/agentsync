@@ -1,9 +1,8 @@
 # Codebase Simplification Findings
 
-Generated: 2026-04-01
-Branch: feat/v1-hardening
+Generated during v1 hardening
 Scope: Full analysis of all 78 source files in src/
-**Verified: 2026-04-01** — each finding validated against current code
+**Verified during v1 hardening** — each finding validated against current code
 
 ---
 
