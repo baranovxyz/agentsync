@@ -7,6 +7,7 @@ import { readdir } from "node:fs/promises";
 import * as path from "node:path";
 import { loadProjectConfig } from "../../config/load-project-config.js";
 import { ValidationError } from "../../core/errors.js";
+import { getProjectConfigPath } from "../../utils/config-creation.js";
 import { pathExists } from "../../utils/fs.js";
 
 const VALID_TYPES = ["tools", "mcp", "presets", "skills", "commands"] as const;
@@ -54,14 +55,9 @@ export async function configLs(
   const f = type as ConfigLsType | undefined;
   const wants = (t: ConfigLsType) => !f || f === t;
 
-  // Use dual-read shim (TOML first, JSON fallback with deprecation warning)
-  let config: import("../../types/index.js").AgentSyncConfig | null = null;
-  try {
-    const result = await loadProjectConfig(cwd);
-    config = result.config;
-  } catch {
-    // No config found — return empty results
-  }
+  const config = (await pathExists(getProjectConfigPath(cwd)))
+    ? (await loadProjectConfig(cwd)).config
+    : null;
 
   const result: ConfigLsResult = {};
 

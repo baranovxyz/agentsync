@@ -14,6 +14,7 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { MCP } from "../../../src/core/mcp/tokens.js";
 import { getToolProvider } from "../../../src/tools/index.js";
+import { writeProjectMcp } from "../../helpers/mcp.js";
 
 describe("OpenHands Split-Array MCP Format", () => {
   let tmpDir: string;
@@ -36,7 +37,7 @@ describe("OpenHands Split-Array MCP Format", () => {
       },
     };
 
-    await provider.mcpFormat!.writeMCP(mcps, tmpDir);
+    await writeProjectMcp(provider, mcps, tmpDir);
 
     const mcpFile = path.join(tmpDir, ".openhands", "mcp.json");
     const content = JSON.parse(await readFile(mcpFile, "utf-8")) as {
@@ -62,7 +63,7 @@ describe("OpenHands Split-Array MCP Format", () => {
       },
     };
 
-    await provider.mcpFormat!.writeMCP(mcps, tmpDir);
+    await writeProjectMcp(provider, mcps, tmpDir);
 
     const mcpFile = path.join(tmpDir, ".openhands", "mcp.json");
     const content = JSON.parse(await readFile(mcpFile, "utf-8")) as {
@@ -91,7 +92,7 @@ describe("OpenHands Split-Array MCP Format", () => {
       },
     };
 
-    await provider.mcpFormat!.writeMCP(mcps, tmpDir);
+    await writeProjectMcp(provider, mcps, tmpDir);
 
     const mcpFile = path.join(tmpDir, ".openhands", "mcp.json");
     const content = JSON.parse(await readFile(mcpFile, "utf-8")) as {
@@ -114,7 +115,7 @@ describe("OpenHands Split-Array MCP Format", () => {
   it("empty MCPs produce empty arrays", async () => {
     const mcps: Record<string, MCP> = {};
 
-    await provider.mcpFormat!.writeMCP(mcps, tmpDir);
+    await writeProjectMcp(provider, mcps, tmpDir);
 
     const mcpFile = path.join(tmpDir, ".openhands", "mcp.json");
     const content = JSON.parse(await readFile(mcpFile, "utf-8")) as {

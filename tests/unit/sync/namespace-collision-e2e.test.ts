@@ -1,84 +1,60 @@
-/**
- * Namespace Collision E2E Test
- * Validates that the sync command throws a ConfigError with actionable
- * suggestion when two preset sources derive the same namespace.
- */
-import { describe, expect, it } from "vitest";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import * as path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ConfigError } from "../../../src/core/errors.js";
-import { normalizeExtends } from "../../../src/types/schemas.js";
+import { buildSyncPlan } from "../../../src/sync/plan.js";
+import { outputFile } from "../../../src/utils/fs.js";
 
-describe("Namespace collision detection in sync pipeline", () => {
-  it("versioned refs to same repo produce same namespace", () => {
-    const entries = normalizeExtends([
-      "github:acme/standards@v1",
-      "github:acme/standards@v2",
-    ]);
+describe("preset namespace collision", () => {
+  let cwd: string;
 
-    expect(entries).toHaveLength(2);
-    expect(entries[0].namespace).toBe("acme-standards");
-    expect(entries[1].namespace).toBe("acme-standards");
-
-    const seenNamespaces = new Map<string, string>();
-    let thrownError: ConfigError | null = null;
-
-    for (const entry of entries) {
-      const existing = seenNamespaces.get(entry.namespace);
-      if (existing) {
-        const isVersionedCollision =
-          existing.replace(/@[^@]+$/, "") ===
-          entry.source.replace(/@[^@]+$/, "");
-        const hint = isVersionedCollision
-          ? `Both "${existing}" and "${entry.source}" derive the same namespace "${entry.namespace}". ` +
-            "Pin to a single version, or use the object form with an explicit namespace: " +
-            `{ source: "${entry.source}", namespace: "custom-name" }`
-          : `"${existing}" and "${entry.source}" both derive namespace "${entry.namespace}". ` +
-            "Use the object form with an explicit namespace to resolve.";
-        thrownError = new ConfigError(
-          `Namespace collision: "${entry.namespace}"`,
-          "",
-          hint,
-        );
-        break;
-      }
-      seenNamespaces.set(entry.namespace, entry.source);
-    }
-
-    expect(thrownError).not.toBeNull();
-    expect(thrownError!.message).toContain("Namespace collision");
-    expect(thrownError!.suggestion).toContain("Pin to a single version");
-    expect(thrownError!.suggestion).toContain("custom-name");
+  beforeEach(async () => {
+    cwd = await mkdtemp(path.join(tmpdir(), "agentsync-namespace-"));
   });
 
-  it("different repos with different namespaces pass collision check", () => {
-    const entries = normalizeExtends([
-      "github:acme/standards",
-      "github:acme/team-tools",
-    ]);
-
-    const seenNamespaces = new Map<string, string>();
-    let hasCollision = false;
-
-    for (const entry of entries) {
-      if (seenNamespaces.has(entry.namespace)) {
-        hasCollision = true;
-        break;
-      }
-      seenNamespaces.set(entry.namespace, entry.source);
-    }
-
-    expect(hasCollision).toBe(false);
+  afterEach(async () => {
+    await rm(cwd, { recursive: true, force: true });
   });
 
-  it("non-versioned collision produces different hint", () => {
-    const seenNamespaces = new Map<string, string>();
-    seenNamespaces.set("shared-ns", "github:alpha/shared-ns");
+  async function writeConfig(extendsSources: readonly string[]): Promise<void> {
+    const quoted = extendsSources
+      .map((source) => JSON.stringify(source))
+      .join(", ");
+    await outputFile(
+      path.join(cwd, ".agents", "agentsync.toml"),
+      `tools = ["claude"]\nextends = [${quoted}]\n`,
+    );
+  }
 
-    const entry = { source: "fs:./other-shared-ns", namespace: "shared-ns" };
-    const existing = seenNamespaces.get(entry.namespace);
+  async function collisionError(): Promise<ConfigError> {
+    try {
+      await buildSyncPlan({ cwd });
+    } catch (error) {
+      if (error instanceof ConfigError) return error;
+      throw error;
+    }
+    throw new Error("expected namespace collision");
+  }
 
-    expect(existing).toBeDefined();
-    const isVersionedCollision =
-      existing!.replace(/@[^@]+$/, "") === entry.source.replace(/@[^@]+$/, "");
-    expect(isVersionedCollision).toBe(false);
+  it("tells users to keep one version when two refs derive one namespace", async () => {
+    await writeConfig(["github:acme/standards@v1", "github:acme/standards@v2"]);
+
+    const error = await collisionError();
+
+    expect(error.message).toBe('Namespace collision: "acme-standards"');
+    expect(error.suggestion).toContain("Keep exactly one version");
+    expect(error.suggestion).not.toContain("object form");
+  });
+
+  it("offers only current-format recovery for different colliding sources", async () => {
+    await writeConfig(["github:alpha/shared", "fs:./alpha-shared"]);
+
+    const error = await collisionError();
+
+    expect(error.message).toBe('Namespace collision: "alpha-shared"');
+    expect(error.suggestion).toContain("Remove one source");
+    expect(error.suggestion).toContain("unique final path or repository name");
+    expect(error.suggestion).not.toContain("namespace:");
   });
 });

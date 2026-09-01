@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { deriveNamespace, normalizeExtends } from "../../src/types/schemas.js";
+import {
+  AgentSyncConfigSchema,
+  deriveNamespace,
+  normalizeExtends,
+} from "../../src/types/schemas.js";
 
 describe("probing: normalizeExtends contracts", () => {
   it("derives namespace from github source string", () => {
@@ -82,54 +86,23 @@ describe("probing: normalizeExtends contracts", () => {
     expect(result[0].namespace).toMatch(/^[a-zA-Z0-9_-]+$/);
   });
 
-  it("handles legacy object format with explicit namespace", () => {
-    const result = normalizeExtends([
-      { source: "github:company/standards", namespace: "my-ns" },
-    ]);
-    expect(result).toHaveLength(1);
-    expect(result[0].source).toBe("github:company/standards");
-    expect(result[0].namespace).toBe("my-ns");
+  it("rejects object-form entries at the current config boundary", () => {
+    const result = AgentSyncConfigSchema.safeParse({
+      extends: [
+        {
+          source: "github:company/standards",
+          namespace: "my-ns",
+        },
+      ],
+    });
+
+    expect(result.success).toBe(false);
   });
 
-  it("handles legacy object format deriving namespace when not provided", () => {
-    const result = normalizeExtends([{ source: "github:company/standards" }]);
-    expect(result).toHaveLength(1);
-    expect(result[0].namespace).toBe("company-standards");
-  });
-
-  it("handles legacy object format with include/exclude", () => {
-    const result = normalizeExtends([
-      {
-        source: "github:company/standards",
-        namespace: "stds",
-        include: ["*.ts"],
-        exclude: ["test/**"],
-      },
-    ]);
-    expect(result).toHaveLength(1);
-    expect(result[0].include).toEqual(["*.ts"]);
-    expect(result[0].exclude).toEqual(["test/**"]);
-  });
-
-  it("throws on reserved namespace", () => {
-    // "default" is a reserved namespace
-    expect(() =>
-      normalizeExtends([{ source: "github:org/repo", namespace: "default" }]),
-    ).toThrow(/reserved/i);
-  });
-
-  it("throws on invalid namespace characters", () => {
-    expect(() =>
-      normalizeExtends([
-        { source: "github:org/repo", namespace: "bad namespace!" },
-      ]),
-    ).toThrow(/invalid characters/i);
-  });
-
-  it("throws on object entry missing source", () => {
-    expect(() =>
-      normalizeExtends([{ namespace: "foo" } as Record<string, unknown>]),
-    ).toThrow();
+  it("rejects invalid source strings during normalization", () => {
+    expect(() => normalizeExtends(["https://example.test/preset"])).toThrow(
+      /Source must be/,
+    );
   });
 });
 
@@ -146,9 +119,15 @@ describe("probing: deriveNamespace contracts", () => {
     );
   });
 
-  it("uses owner-repo-leaf for github subpath", () => {
-    expect(deriveNamespace("github:acme/mono/packages/presets")).toBe(
-      "acme-mono-presets",
+  it("ignores a slash-containing github ref", () => {
+    expect(deriveNamespace("github:acme/mono@feature/preset-parser")).toBe(
+      "acme-mono",
+    );
+  });
+
+  it("rejects a github repository subpath", () => {
+    expect(() => deriveNamespace("github:acme/mono/packages/presets")).toThrow(
+      "Cannot derive namespace from invalid source",
     );
   });
 

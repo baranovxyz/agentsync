@@ -171,16 +171,20 @@ function renderContentDriftSection(
 }
 
 /**
- * Render worker-mode hints (non-failing, operator-actionable).
+ * Render the global skills gap section — tools that read the project
+ * .agents/ but are verified not to read ~/.agents/, missing the symlink
+ * remedy while global skills exist.
  */
-function renderWorkerHintsSection(
-  workerHints: DoctorResult["workerHints"],
+function renderGlobalSkillsGapSection(
+  globalSkillsGap: DoctorResult["globalSkillsGap"],
 ): void {
-  if (workerHints.length === 0) return;
-  console.log(pc.bold("\nWorker Hints"));
-  for (const hint of workerHints) {
-    console.log(pc.yellow(`  ⚠ ${hint.tool}: ${hint.message}`));
-    console.log(pc.gray(`    Fix: ${hint.fix}`));
+  const gaps = globalSkillsGap.filter((g) => g.status === "gap");
+  if (gaps.length === 0) return;
+
+  console.log(pc.bold("\nGlobal Skills"));
+  for (const gap of gaps) {
+    console.log(pc.yellow(`  ⚠ ${gap.tool}: ${gap.message}`));
+    if (gap.fix) console.log(pc.gray(`    Fix: ${gap.fix}`));
   }
 }
 
@@ -200,7 +204,7 @@ export function displayDoctorReport(result: DoctorResult): void {
   renderPresetsSection(result.presets);
   renderDriftSection(result.drift);
   renderContentDriftSection(result.contentDrift);
-  renderWorkerHintsSection(result.workerHints);
+  renderGlobalSkillsGapSection(result.globalSkillsGap);
 
   console.log();
 }

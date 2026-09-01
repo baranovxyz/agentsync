@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { MCP } from "../../../src/core/mcp/tokens.js";
 import { getToolProvider } from "../../../src/tools/index.js";
 import { pathExists } from "../../../src/utils/fs.js";
+import { writeProjectMcp } from "../../helpers/mcp.js";
 
 describe("Copilot MCP Format", () => {
   let tmpDir: string;
@@ -30,7 +31,7 @@ describe("Copilot MCP Format", () => {
     };
 
     expect(await pathExists(path.join(tmpDir, ".vscode"))).toBe(false);
-    await provider.mcpFormat!.writeMCP(mcps, tmpDir);
+    await writeProjectMcp(provider, mcps, tmpDir);
     expect(await pathExists(path.join(tmpDir, ".vscode"))).toBe(true);
   });
 
@@ -39,7 +40,7 @@ describe("Copilot MCP Format", () => {
       test: { command: "node", args: ["server.js"] },
     };
 
-    await provider.mcpFormat!.writeMCP(mcps, tmpDir);
+    await writeProjectMcp(provider, mcps, tmpDir);
 
     const mcpFile = path.join(tmpDir, ".vscode", "mcp.json");
     expect(await pathExists(mcpFile)).toBe(true);
@@ -51,7 +52,7 @@ describe("Copilot MCP Format", () => {
       test: { command: "node", args: ["server.js"] },
     };
 
-    await provider.mcpFormat!.writeMCP(mcps, tmpDir);
+    await writeProjectMcp(provider, mcps, tmpDir);
 
     const content = JSON.parse(
       await readFile(path.join(tmpDir, ".vscode", "mcp.json"), "utf-8"),
@@ -79,7 +80,7 @@ describe("Copilot MCP Format", () => {
       },
     };
 
-    await provider.mcpFormat!.writeMCP(mcps, tmpDir);
+    await writeProjectMcp(provider, mcps, tmpDir);
 
     const content = JSON.parse(
       await readFile(path.join(tmpDir, ".vscode", "mcp.json"), "utf-8"),
@@ -103,7 +104,7 @@ describe("Copilot MCP Format", () => {
       },
     };
 
-    await provider.mcpFormat!.writeMCP(mcps, tmpDir);
+    await writeProjectMcp(provider, mcps, tmpDir);
 
     const content = JSON.parse(
       await readFile(path.join(tmpDir, ".vscode", "mcp.json"), "utf-8"),
@@ -124,7 +125,7 @@ describe("Copilot MCP Format", () => {
       remote: { url: "https://api.example.com/mcp" },
     };
 
-    await provider.mcpFormat!.writeMCP(mcps, tmpDir);
+    await writeProjectMcp(provider, mcps, tmpDir);
 
     const content = JSON.parse(
       await readFile(path.join(tmpDir, ".vscode", "mcp.json"), "utf-8"),
@@ -135,7 +136,7 @@ describe("Copilot MCP Format", () => {
   });
 
   it("handles empty MCP config", async () => {
-    await provider.mcpFormat!.writeMCP({}, tmpDir);
+    await writeProjectMcp(provider, {}, tmpDir);
 
     const content = JSON.parse(
       await readFile(path.join(tmpDir, ".vscode", "mcp.json"), "utf-8"),
@@ -146,13 +147,15 @@ describe("Copilot MCP Format", () => {
 
   it("overwrites existing mcp.json", async () => {
     // First write
-    await provider.mcpFormat!.writeMCP(
+    await writeProjectMcp(
+      provider,
       { old: { command: "old-cmd", args: [] } },
       tmpDir,
     );
 
     // Second write
-    await provider.mcpFormat!.writeMCP(
+    await writeProjectMcp(
+      provider,
       { new: { command: "new-cmd", args: ["--flag"] } },
       tmpDir,
     );
@@ -170,7 +173,7 @@ describe("Copilot MCP Format", () => {
       test: { command: "node", args: ["index.js"] },
     };
 
-    await provider.mcpFormat!.writeMCP(mcps, tmpDir);
+    await writeProjectMcp(provider, mcps, tmpDir);
 
     const raw = await readFile(
       path.join(tmpDir, ".vscode", "mcp.json"),
@@ -186,7 +189,7 @@ describe("Copilot MCP Format", () => {
       minimal: { command: "npx", args: ["-y", "minimal-server"] },
     };
 
-    await provider.mcpFormat!.writeMCP(mcps, tmpDir);
+    await writeProjectMcp(provider, mcps, tmpDir);
 
     const content = JSON.parse(
       await readFile(path.join(tmpDir, ".vscode", "mcp.json"), "utf-8"),

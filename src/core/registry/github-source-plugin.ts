@@ -41,9 +41,4 @@ export class GitHubSourcePlugin implements SourcePlugin {
   async resolve(source: string, _options?: ResolveOptions): Promise<string> {
     return this.githubResolver.resolve(source);
   }
-
-  getCacheKey(source: string): string {
-    const parsed = this.parser.parse(source);
-    return this.parser.toCacheKey(parsed);
-  }
 }

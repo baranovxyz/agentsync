@@ -45,10 +45,32 @@ describe("selectProfile", () => {
     expect(selectProfile(profiles, { envFlags: { CI: "true" } })).toBe("ci");
   });
 
+  it("treats an empty environment variable as set", () => {
+    expect(selectProfile(profiles, { envFlags: { CI: "" } })).toBe("ci");
+  });
+
+  it("falls through from env auto-detection to a path match", () => {
+    expect(
+      selectProfile(profiles, {
+        envFlags: {},
+        repoRelativePath: "backend/services/api",
+      }),
+    ).toBe("backend");
+  });
+
   it("explicit beats env var", () => {
     expect(
       selectProfile(profiles, { explicit: "frontend", envVar: "backend" }),
     ).toBe("frontend");
+  });
+
+  it.each([
+    ["--profile", { explicit: "missing" }],
+    ["AGENTSYNC_PROFILE", { envVar: "missing" }],
+  ])("rejects an unknown profile from %s", (source, context) => {
+    expect(() => selectProfile(profiles, context)).toThrow(
+      `Unknown profile "missing" from ${source}`,
+    );
   });
 
   it("returns undefined when nothing matches", () => {
@@ -66,6 +88,23 @@ describe("selectProfile", () => {
       selectProfile(overlapping, { repoRelativePath: "shared/utils" }),
     ).toBe("first");
   });
+
+  it("supports path globs beyond fixed prefixes", () => {
+    const globProfiles: Record<string, ProfileConfig> = {
+      package: { paths: ["packages/*/src/**"] },
+    };
+
+    expect(
+      selectProfile(globProfiles, {
+        repoRelativePath: "packages/api/src/routes/users",
+      }),
+    ).toBe("package");
+    expect(
+      selectProfile(globProfiles, {
+        repoRelativePath: "packages/api/test/routes/users",
+      }),
+    ).toBeUndefined();
+  });
 });
 
 describe("applyProfile", () => {
@@ -78,7 +117,7 @@ describe("applyProfile", () => {
     expect(result.tools).toEqual(["cursor", "copilot"]);
   });
 
-  it("replaces mcp with profile.mcp (replace semantics)", () => {
+  it("filters mcp with the profile allowlist", () => {
     const base: AgentSyncConfig = {
       mcp: {
         github: { command: "npx", args: ["gh-mcp"] },
@@ -88,7 +127,6 @@ describe("applyProfile", () => {
     };
     const profile: ProfileConfig = { mcp: ["github", "storybook"] };
     const result = applyProfile(base, profile);
-    // Only github and storybook should remain (replace semantics)
     expect(result.mcp).toHaveProperty("github");
     expect(result.mcp).toHaveProperty("storybook");
     expect(result.mcp).not.toHaveProperty("postgres");
@@ -103,6 +141,25 @@ describe("applyProfile", () => {
     const profile: ProfileConfig = { mcp: ["nonexistent"] };
     const result = applyProfile(base, profile);
     expect(result.mcp).toBeUndefined();
+  });
+
+  it("filters extends without introducing new preset sources", () => {
+    const base: AgentSyncConfig = {
+      extends: ["github:acme/base", "github:acme/frontend"],
+    };
+    const profile: ProfileConfig = {
+      extends: ["github:acme/frontend", "github:other/not-in-base"],
+    };
+
+    expect(applyProfile(base, profile).extends).toEqual([
+      "github:acme/frontend",
+    ]);
+  });
+
+  it("allows a profile to disable every preset", () => {
+    const base: AgentSyncConfig = { extends: ["github:acme/base"] };
+
+    expect(applyProfile(base, { extends: [] }).extends).toEqual([]);
   });
 
   it("returns base unchanged when no profile", () => {

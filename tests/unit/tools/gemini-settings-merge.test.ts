@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { MCP } from "../../../src/core/mcp/tokens.js";
 import { getToolProvider } from "../../../src/tools/index.js";
 import { ensureDir, outputFile, pathExists } from "../../../src/utils/fs.js";
+import { writeProjectMcp } from "../../helpers/mcp.js";
 
 describe("Gemini settings.json Merge", () => {
   let tmpDir: string;
@@ -28,7 +29,7 @@ describe("Gemini settings.json Merge", () => {
       github: { command: "npx", args: ["-y", "@mcp/github"] },
     };
 
-    await provider.mcpFormat!.writeMCP(mcps, tmpDir);
+    await writeProjectMcp(provider, mcps, tmpDir);
 
     const settingsPath = path.join(tmpDir, ".gemini", "settings.json");
     expect(await pathExists(settingsPath)).toBe(true);
@@ -58,7 +59,7 @@ describe("Gemini settings.json Merge", () => {
       github: { command: "npx", args: ["-y", "@mcp/github"] },
     };
 
-    await provider.mcpFormat!.writeMCP(mcps, tmpDir);
+    await writeProjectMcp(provider, mcps, tmpDir);
 
     const content = JSON.parse(
       await readFile(path.join(geminiDir, "settings.json"), "utf-8"),
@@ -85,7 +86,7 @@ describe("Gemini settings.json Merge", () => {
       new_server: { command: "new", args: [] },
     };
 
-    await provider.mcpFormat!.writeMCP(mcps, tmpDir);
+    await writeProjectMcp(provider, mcps, tmpDir);
 
     const content = JSON.parse(
       await readFile(path.join(geminiDir, "settings.json"), "utf-8"),
@@ -95,25 +96,24 @@ describe("Gemini settings.json Merge", () => {
     expect(content.mcpServers.new_server.command).toBe("new");
   });
 
-  it("recovers from malformed settings.json", async () => {
+  it("preserves malformed settings.json and fails closed", async () => {
     const geminiDir = path.join(tmpDir, ".gemini");
     await ensureDir(geminiDir);
-    await outputFile(
-      path.join(geminiDir, "settings.json"),
-      "this is not valid json!!!",
-    );
+    const settingsPath = path.join(geminiDir, "settings.json");
+    const malformed = "this is not valid json!!!";
+    await outputFile(settingsPath, malformed);
 
     const mcps: Record<string, MCP> = {
       github: { command: "npx", args: [] },
     };
 
-    // Should not throw
-    await provider.mcpFormat!.writeMCP(mcps, tmpDir);
-
-    const content = JSON.parse(
-      await readFile(path.join(geminiDir, "settings.json"), "utf-8"),
+    await expect(writeProjectMcp(provider, mcps, tmpDir)).rejects.toMatchObject(
+      {
+        code: "CONFIG_ERROR",
+        suggestion: expect.stringContaining("Repair the existing JSON"),
+      },
     );
-    expect(content.mcpServers.github).toBeDefined();
+    expect(await readFile(settingsPath, "utf-8")).toBe(malformed);
   });
 
   it("handles empty settings.json", async () => {
@@ -125,7 +125,7 @@ describe("Gemini settings.json Merge", () => {
       server: { command: "npx", args: [] },
     };
 
-    await provider.mcpFormat!.writeMCP(mcps, tmpDir);
+    await writeProjectMcp(provider, mcps, tmpDir);
 
     const content = JSON.parse(
       await readFile(path.join(geminiDir, "settings.json"), "utf-8"),
@@ -157,7 +157,7 @@ describe("Gemini settings.json Merge", () => {
       github: { command: "npx", args: ["-y", "@mcp/github"] },
     };
 
-    await provider.mcpFormat!.writeMCP(mcps, tmpDir);
+    await writeProjectMcp(provider, mcps, tmpDir);
 
     const content = JSON.parse(
       await readFile(path.join(geminiDir, "settings.json"), "utf-8"),
@@ -173,7 +173,7 @@ describe("Gemini settings.json Merge", () => {
       server: { command: "npx", args: [] },
     };
 
-    await provider.mcpFormat!.writeMCP(mcps, tmpDir);
+    await writeProjectMcp(provider, mcps, tmpDir);
 
     const raw = await readFile(
       path.join(tmpDir, ".gemini", "settings.json"),
@@ -194,7 +194,7 @@ describe("Gemini settings.json Merge", () => {
       },
     };
 
-    await provider.mcpFormat!.writeMCP(mcps, tmpDir);
+    await writeProjectMcp(provider, mcps, tmpDir);
 
     const content = JSON.parse(
       await readFile(path.join(tmpDir, ".gemini", "settings.json"), "utf-8"),

@@ -6,6 +6,8 @@
  * (same trust model as npm dependencies).
  */
 
+import type { McpServerConfig } from "../types/schemas.js";
+
 /** Default maximum content length (100KB) */
 const DEFAULT_MAX_LENGTH = 100 * 1024;
 
@@ -108,38 +110,44 @@ export function sanitizeContent(
  * but for config strings (no length truncation).
  */
 export function sanitizeMcpConfig(
-  config: Record<string, unknown>,
+  config: McpServerConfig,
   source: string,
-): { config: Record<string, unknown>; warnings: string[] } {
+): { config: McpServerConfig; warnings: string[] } {
   const warnings: string[] = [];
 
   function cleanString(value: string, field: string): string {
     return stripDangerous(value, source, `MCP ${field}`, warnings);
   }
 
-  const cleaned = { ...config };
-  if (typeof cleaned.command === "string") {
-    cleaned.command = cleanString(cleaned.command, "command");
-  }
-  if (Array.isArray(cleaned.args)) {
-    cleaned.args = cleaned.args.map((arg, i) =>
-      typeof arg === "string" ? cleanString(arg, `args[${i}]`) : arg,
+  const cleanRecord = (
+    record: Record<string, string>,
+    field: "env" | "headers",
+  ): Record<string, string> =>
+    Object.fromEntries(
+      Object.entries(record).map(([key, value]) => [
+        key,
+        cleanString(value, `${field}.${key}`),
+      ]),
     );
-  }
-  if (
-    cleaned.env &&
-    typeof cleaned.env === "object" &&
-    !Array.isArray(cleaned.env)
-  ) {
-    const env: Record<string, string> = {};
-    for (const [key, val] of Object.entries(
-      cleaned.env as Record<string, unknown>,
-    )) {
-      if (typeof val === "string") {
-        env[key] = cleanString(val, `env.${key}`);
-      }
-    }
-    cleaned.env = env;
-  }
+
+  const cleaned: McpServerConfig =
+    "url" in config
+      ? {
+          url: cleanString(config.url, "url"),
+          ...(config.headers
+            ? { headers: cleanRecord(config.headers, "headers") }
+            : {}),
+        }
+      : {
+          command: cleanString(config.command, "command"),
+          ...(config.args
+            ? {
+                args: config.args.map((arg, index) =>
+                  cleanString(arg, `args[${index}]`),
+                ),
+              }
+            : {}),
+          ...(config.env ? { env: cleanRecord(config.env, "env") } : {}),
+        };
   return { config: cleaned, warnings };
 }

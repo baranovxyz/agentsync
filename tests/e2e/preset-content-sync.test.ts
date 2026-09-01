@@ -1,7 +1,7 @@
 /**
  * Preset Content Sync E2E Test
  * Validates the core v1 feature: presets syncing skills, commands, and agents
- * to holdout tool directories with correct namespace isolation.
+ * to generated tool destinations with correct namespace isolation.
  */
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -9,7 +9,7 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { syncAgents, syncCommands, syncSkills } from "../../src/sync/index.js";
 import { getToolProvider, getToolProviders } from "../../src/tools/index.js";
-import { ensureDir, outputFile } from "../../src/utils/fs.js";
+import { ensureDir, outputFile, pathExists } from "../../src/utils/fs.js";
 
 describe("Preset Content Sync E2E", () => {
   let tmpDir: string;
@@ -110,7 +110,7 @@ describe("Preset Content Sync E2E", () => {
     expect(tddContent).toContain("Write tests first");
 
     const deployContent = await readFile(
-      path.join(tmpDir, ".claude", "commands", "company", "deploy.md"),
+      path.join(tmpDir, ".claude", "commands", "company--deploy.md"),
       "utf-8",
     );
     expect(deployContent).toContain("Deploy to production");
@@ -156,14 +156,21 @@ describe("Preset Content Sync E2E", () => {
 
     const providers = getToolProviders(["claude", "cursor"]);
     const skillResults = await syncSkills(providers, tmpDir, presetSkills);
-    await syncCommands(providers, tmpDir, presetCommands);
+    const commandResults = await syncCommands(
+      providers,
+      tmpDir,
+      presetCommands,
+    );
 
     for (const result of skillResults) {
-      if (result.skillCount > 0) {
-        expect(result.skillCount).toBe(2);
-        expect(result.skills).toContain("alpha--deploy");
-        expect(result.skills).toContain("beta--deploy");
-      }
+      expect(result.skillCount).toBe(2);
+      expect(result.skills).toContain("alpha--deploy");
+      expect(result.skills).toContain("beta--deploy");
+    }
+    for (const result of commandResults) {
+      expect(result.commandCount).toBe(2);
+      expect(result.commands).toContain("alpha--build.md");
+      expect(result.commands).toContain("beta--build.md");
     }
 
     // Verify content differs between namespaces
@@ -177,6 +184,23 @@ describe("Preset Content Sync E2E", () => {
     );
     expect(alphaContent).toContain("Deploy Alpha");
     expect(betaContent).toContain("Deploy Beta");
+
+    const cursorPresetSkill = path.join(
+      tmpDir,
+      ".cursor",
+      "skills",
+      "alpha--deploy",
+      "SKILL.md",
+    );
+    expect(await readFile(cursorPresetSkill, "utf-8")).toContain(
+      "Deploy Alpha",
+    );
+    expect(
+      await readFile(
+        path.join(tmpDir, ".cursor", "commands", "beta--build.md"),
+        "utf-8",
+      ),
+    ).toContain("Build Beta");
   });
 
   it("preset + project custom skills coexist", async () => {
@@ -197,9 +221,24 @@ describe("Preset Content Sync E2E", () => {
     const providers = [getToolProvider("cursor")];
     const results = await syncSkills(providers, tmpDir, presetSkills);
 
-    expect(results[0].skillCount).toBe(2);
-    expect(results[0].skills).toContain("my-custom");
+    // Cursor reads the project skill natively and only generates the preset.
+    expect(results[0].skillCount).toBe(1);
     expect(results[0].skills).toContain("org--standard");
+    expect(
+      await pathExists(
+        path.join(tmpDir, ".agents", "skills", "my-custom", "SKILL.md"),
+      ),
+    ).toBe(true);
+    expect(
+      await pathExists(
+        path.join(tmpDir, ".cursor", "skills", "org--standard", "SKILL.md"),
+      ),
+    ).toBe(true);
+    expect(
+      await pathExists(
+        path.join(tmpDir, ".cursor", "skills", "my-custom", "SKILL.md"),
+      ),
+    ).toBe(false);
   });
 
   it("missing preset subdirectory does not error", async () => {
@@ -235,7 +274,7 @@ describe("Preset Content Sync E2E", () => {
       ["native-test", [path.join(presetDir, "skills")]],
     ]);
 
-    // gemini and opencode are native tools (readsAgentsDir=true)
+    // Gemini and OpenCode discover skills natively with no preset destination.
     const providers = getToolProviders(["gemini", "opencode"]);
     const results = await syncSkills(providers, tmpDir, presetSkills);
 

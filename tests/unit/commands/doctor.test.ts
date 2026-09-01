@@ -5,9 +5,9 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runDiagnostics } from "../../../src/commands/doctor/index.js";
-import { writeManifest } from "../../../src/sync/manifest.js";
+import { writeOwnedManifest } from "../../../src/sync/manifest.js";
 import { ensureDir, outputFile } from "../../../src/utils/fs.js";
 
 describe("Doctor Command", () => {
@@ -15,9 +15,15 @@ describe("Doctor Command", () => {
 
   beforeEach(async () => {
     tmpDir = await mkdtemp(path.join(tmpdir(), "agentsync-doctor-"));
+    const home = path.join(tmpDir, "home");
+    await ensureDir(home);
+    vi.stubEnv("HOME", home);
+    vi.stubEnv("USERPROFILE", home);
+    vi.stubEnv("AGENTSYNC_PROFILE", "");
   });
 
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await rm(tmpDir, { recursive: true, force: true });
   });
 
@@ -27,6 +33,12 @@ describe("Doctor Command", () => {
   async function writeTomlConfig(content: string): Promise<void> {
     await ensureDir(path.join(tmpDir, ".agents"));
     await outputFile(path.join(tmpDir, ".agents", "agentsync.toml"), content);
+  }
+
+  async function writeDriftIndex(filePaths: string[]): Promise<void> {
+    await writeOwnedManifest(tmpDir, new Map([["diagnostic", filePaths]]), {
+      preserveUnselected: false,
+    });
   }
 
   describe("Config check", () => {
@@ -62,6 +74,44 @@ tools = ["cursor", "claude"]
       expect(result.config.found).toBe(true);
       expect(result.config.valid).toBe(false);
       expect(result.config.error).toBeDefined();
+    });
+
+    it("reports current-format recovery for an invalid config", async () => {
+      await writeTomlConfig('tools = ["claude"]\nunexpected = true\n');
+
+      const result = await runDiagnostics(tmpDir);
+
+      expect(result.config.valid).toBe(false);
+      expect(result.config.error).toContain("Unrecognized key");
+      expect(result.config.error).toContain(
+        "Recovery: Use current top-level tools, extends (string array), mcp",
+      );
+    });
+
+    it("reports a strict global-config failure from the sync hierarchy", async () => {
+      await writeTomlConfig('tools = ["claude"]\n');
+      await outputFile(
+        path.join(tmpDir, "home", ".agents", "config.toml"),
+        'tools = ["claude"]\nunexpected = true\n',
+      );
+
+      const result = await runDiagnostics(tmpDir);
+
+      expect(result.config.valid).toBe(false);
+      expect(result.config.error).toContain("Unrecognized key");
+    });
+
+    it("reports invalid local-only fields from the sync hierarchy", async () => {
+      await writeTomlConfig('tools = ["claude"]\n');
+      await outputFile(
+        path.join(tmpDir, "agentsync.local.toml"),
+        'tools = ["cursor"]\n',
+      );
+
+      const result = await runDiagnostics(tmpDir);
+
+      expect(result.config.valid).toBe(false);
+      expect(result.config.error).toContain("Unrecognized key");
     });
 
     it("reports config found and valid for a minimal TOML config", async () => {
@@ -161,11 +211,11 @@ tools = ["cursor"]
 
       try {
         await writeTomlConfig(`
-[mcp_servers.github]
+[mcp.github]
 command = "npx"
 args = ["-y", "@modelcontextprotocol/server-github"]
 
-[mcp_servers.github.env]
+[mcp.github.env]
 GITHUB_TOKEN = "{GITHUB_TOKEN}"
 `);
 
@@ -194,11 +244,11 @@ GITHUB_TOKEN = "{GITHUB_TOKEN}"
 
       try {
         await writeTomlConfig(`
-[mcp_servers.github]
+[mcp.github]
 command = "npx"
 args = ["-y", "@modelcontextprotocol/server-github"]
 
-[mcp_servers.github.env]
+[mcp.github.env]
 GITHUB_TOKEN = "{GITHUB_TOKEN}"
 `);
 
@@ -217,9 +267,61 @@ GITHUB_TOKEN = "{GITHUB_TOKEN}"
       }
     });
 
+    it("checks token references in URL-based MCP servers", async () => {
+      const originalEnv = process.env.MCP_URL;
+      Reflect.deleteProperty(process.env, "MCP_URL");
+
+      try {
+        await writeTomlConfig(`
+[mcp.remote]
+url = "{MCP_URL}/mcp"
+`);
+
+        const result = await runDiagnostics(tmpDir);
+        const remote = result.mcp.find((server) => server.name === "remote");
+
+        expect(remote).toMatchObject({
+          envResolved: false,
+          hasEnvRefs: true,
+          missingEnvVars: ["MCP_URL"],
+          severity: "critical",
+        });
+      } finally {
+        if (originalEnv !== undefined) process.env.MCP_URL = originalEnv;
+      }
+    });
+
+    it("uses the project .env file like sync", async () => {
+      const originalEnv = process.env.MCP_URL;
+      Reflect.deleteProperty(process.env, "MCP_URL");
+
+      try {
+        await writeTomlConfig(`
+[mcp.remote]
+url = "{MCP_URL}/mcp"
+`);
+        await outputFile(
+          path.join(tmpDir, ".env"),
+          "MCP_URL=https://mcp.example\n",
+        );
+
+        const result = await runDiagnostics(tmpDir);
+        const remote = result.mcp.find((server) => server.name === "remote");
+
+        expect(remote).toMatchObject({
+          envResolved: true,
+          hasEnvRefs: true,
+          missingEnvVars: [],
+          severity: "ok",
+        });
+      } finally {
+        if (originalEnv !== undefined) process.env.MCP_URL = originalEnv;
+      }
+    });
+
     it("reports no env vars needed for servers without token references", async () => {
       await writeTomlConfig(`
-[mcp_servers.filesystem]
+[mcp.filesystem]
 command = "npx"
 args = ["-y", "@modelcontextprotocol/server-filesystem", "."]
 `);
@@ -242,11 +344,11 @@ args = ["-y", "@modelcontextprotocol/server-filesystem", "."]
 
       try {
         await writeTomlConfig(`
-[mcp_servers.multi]
+[mcp.multi]
 command = "node"
 args = ["server.js"]
 
-[mcp_servers.multi.env]
+[mcp.multi.env]
 GITHUB_TOKEN = "{GITHUB_TOKEN}"
 DATABASE_URL = "{DATABASE_URL}"
 `);
@@ -266,17 +368,32 @@ DATABASE_URL = "{DATABASE_URL}"
   });
 
   describe("Presets check", () => {
+    it("reports a GitHub preset with the supported main ref as valid", async () => {
+      await writeTomlConfig('extends = ["github:company/standards@main"]\n');
+
+      const result = await runDiagnostics(tmpDir);
+
+      expect(result.presets).toEqual([
+        { source: "github:company/standards@main", valid: true },
+      ]);
+    });
+
+    it("reports a GitHub preset with a named ref as valid", async () => {
+      await writeTomlConfig('extends = ["github:company/standards@v2"]\n');
+
+      const result = await runDiagnostics(tmpDir);
+
+      expect(result.presets).toEqual([
+        { source: "github:company/standards@v2", valid: true },
+      ]);
+    });
+
     it("reports filesystem preset as valid when directory exists", async () => {
       const presetDir = path.join(tmpDir, "local-presets");
       await ensureDir(presetDir);
 
       await writeTomlConfig(`
-[agentsync]
-version = "1.0"
-
-[[agentsync.presets]]
-source = "fs:./local-presets"
-namespace = "local"
+extends = ["fs:./local-presets"]
 `);
 
       const result = await runDiagnostics(tmpDir);
@@ -290,12 +407,7 @@ namespace = "local"
 
     it("reports filesystem preset as not valid when directory is missing", async () => {
       await writeTomlConfig(`
-[agentsync]
-version = "1.0"
-
-[[agentsync.presets]]
-source = "fs:./nonexistent-presets"
-namespace = "local"
+extends = ["fs:./nonexistent-presets"]
 `);
 
       const result = await runDiagnostics(tmpDir);
@@ -324,7 +436,7 @@ namespace = "local"
       await outputFile(skillFile, "# Foo skill content");
 
       // Write manifest as if sync just ran
-      await writeManifest(tmpDir, [skillFile]);
+      await writeDriftIndex([skillFile]);
 
       const result = await runDiagnostics(tmpDir);
 
@@ -348,7 +460,7 @@ namespace = "local"
       await outputFile(skillFile, "# Original content");
 
       // Write manifest with the original content hash
-      await writeManifest(tmpDir, [skillFile]);
+      await writeDriftIndex([skillFile]);
 
       // Now modify the file directly (simulating user editing the copy)
       await outputFile(skillFile, "# Modified content by user");
@@ -375,7 +487,7 @@ namespace = "local"
       await outputFile(skillFile, "# Content");
 
       // Write manifest
-      await writeManifest(tmpDir, [skillFile]);
+      await writeDriftIndex([skillFile]);
 
       // Delete the file
       await rm(skillFile);
@@ -416,7 +528,7 @@ namespace = "local"
       await outputFile(cursorFile, "# Cursor copy");
       await outputFile(claudeFile, "# Claude copy");
 
-      await writeManifest(tmpDir, [cursorFile, claudeFile]);
+      await writeDriftIndex([cursorFile, claudeFile]);
 
       // Modify only the cursor copy
       await outputFile(cursorFile, "# User changed cursor copy");
@@ -437,13 +549,15 @@ namespace = "local"
     });
   });
 
-  describe("Worker hints compatibility", () => {
-    it("keeps the reserved result field empty", async () => {
-      await writeTomlConfig(`tools = ["opencode"]\n`);
+  describe("Global skills gap", () => {
+    it("is empty for the four release targets", async () => {
+      await writeTomlConfig(
+        'tools = ["claude", "codex", "opencode", "cursor"]\n',
+      );
 
       const result = await runDiagnostics(tmpDir);
 
-      expect(result.workerHints).toEqual([]);
+      expect(result.globalSkillsGap).toEqual([]);
     });
   });
 
@@ -457,14 +571,14 @@ namespace = "local"
         await writeTomlConfig(`
 tools = ["cursor", "claude", "opencode"]
 
-[mcp_servers.github]
+[mcp.github]
 command = "npx"
 args = ["-y", "@modelcontextprotocol/server-github"]
 
-[mcp_servers.github.env]
+[mcp.github.env]
 GITHUB_TOKEN = "{GITHUB_TOKEN}"
 
-[mcp_servers.filesystem]
+[mcp.filesystem]
 command = "npx"
 args = ["-y", "@modelcontextprotocol/server-filesystem", "."]
 `);

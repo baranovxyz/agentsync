@@ -17,10 +17,7 @@ describe("discoverConfigChain", () => {
 
   it("returns single config at root", async () => {
     await mkdir(join(root, ".agents"), { recursive: true });
-    await writeFile(
-      join(root, ".agents", "agentsync.toml"),
-      '[agentsync]\nversion = "1.0"\n',
-    );
+    await writeFile(join(root, ".agents", "agentsync.toml"), "tools = []\n");
     await mkdir(join(root, ".git"));
 
     const chain = await discoverConfigChain(root);
@@ -31,23 +28,17 @@ describe("discoverConfigChain", () => {
   it("returns chain ordered from most-specific to root", async () => {
     await mkdir(join(root, ".git"));
     await mkdir(join(root, ".agents"), { recursive: true });
-    await writeFile(
-      join(root, ".agents", "agentsync.toml"),
-      '[agentsync]\nversion = "1.0"\n',
-    );
+    await writeFile(join(root, ".agents", "agentsync.toml"), "tools = []\n");
 
     const teamDir = join(root, "frontend");
     await mkdir(join(teamDir, ".agents"), { recursive: true });
-    await writeFile(
-      join(teamDir, ".agents", "agentsync.toml"),
-      '[agentsync]\nversion = "1.0"\n',
-    );
+    await writeFile(join(teamDir, ".agents", "agentsync.toml"), "tools = []\n");
 
     const serviceDir = join(root, "frontend", "packages", "checkout");
     await mkdir(join(serviceDir, ".agents"), { recursive: true });
     await writeFile(
       join(serviceDir, ".agents", "agentsync.toml"),
-      '[agentsync]\nversion = "1.0"\n',
+      "tools = []\n",
     );
 
     const chain = await discoverConfigChain(serviceDir);
@@ -62,10 +53,7 @@ describe("discoverConfigChain", () => {
     await mkdir(join(root, ".git"));
     const subDir = join(root, "sub");
     await mkdir(join(subDir, ".agents"), { recursive: true });
-    await writeFile(
-      join(subDir, ".agents", "agentsync.toml"),
-      '[agentsync]\nversion = "1.0"\n',
-    );
+    await writeFile(join(subDir, ".agents", "agentsync.toml"), "tools = []\n");
 
     const chain = await discoverConfigChain(subDir);
     expect(chain).toHaveLength(1);

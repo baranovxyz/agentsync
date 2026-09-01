@@ -79,17 +79,14 @@ describe("Preset sync integration", () => {
     const claudeResult = results.find((r) => r.tool === "claude");
     expect(claudeResult).toBeDefined();
     expect(claudeResult!.commandCount).toBeGreaterThanOrEqual(1);
-    expect(claudeResult!.commands).toContain(
-      path.join("test-preset", "commit.md"),
-    );
+    expect(claudeResult!.commands).toContain("test-preset--commit.md");
 
     // Verify the file exists on disk
     const commandPath = path.join(
       project.dir,
       ".claude",
       "commands",
-      "test-preset",
-      "commit.md",
+      "test-preset--commit.md",
     );
     expect(await pathExists(commandPath)).toBe(true);
 
@@ -108,17 +105,14 @@ describe("Preset sync integration", () => {
     const claudeResult = results.find((r) => r.tool === "claude");
     expect(claudeResult).toBeDefined();
     expect(claudeResult!.agentCount).toBeGreaterThanOrEqual(1);
-    expect(claudeResult!.agents).toContain(
-      path.join("test-preset", "reviewer.md"),
-    );
+    expect(claudeResult!.agents).toContain("test-preset--reviewer.md");
 
     // Verify the file exists on disk
     const agentPath = path.join(
       project.dir,
       ".claude",
       "agents",
-      "test-preset",
-      "reviewer.md",
+      "test-preset--reviewer.md",
     );
     expect(await pathExists(agentPath)).toBe(true);
 

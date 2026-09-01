@@ -7,11 +7,18 @@
 import { readFile, rm } from "node:fs/promises";
 import * as path from "node:path";
 import fg from "fast-glob";
-import type { ToolProvider } from "../tools/types.js";
+import type { ProjectedAgentFile, ToolProvider } from "../tools/types.js";
 import { outputFile, pathExists } from "../utils/fs.js";
-import { validateSyncNamespace } from "../utils/path-normalization.js";
+import {
+  toPosixPath,
+  validateSyncNamespace,
+  withFlatNamespace,
+} from "../utils/path-normalization.js";
+import { assertSafeProjectOutputPath } from "../utils/project-output.js";
 import { sanitizeContent } from "../utils/sanitize.js";
 import type { SyncOptions } from "./skills.js";
+import { countMarkdownFiles, flattenPresetDirs } from "./source-count.js";
+import { unsupportedSurfaceWarning } from "./surface-warning.js";
 import { writeFileByMode } from "./write-file.js";
 
 /** Result of syncing agents to a single tool */
@@ -22,100 +29,276 @@ export interface AgentSyncResult {
   warnings: string[];
 }
 
-// writeFileByMode imported from ./write-file.js
+interface AgentPlan {
+  warnings: string[];
+  plannedFiles: PlannedAgentFile[];
+}
+
+interface PlannedAgentFile extends ProjectedAgentFile {
+  sourcePath: string;
+  copyRequired: boolean;
+  sameFile: boolean;
+}
+
+interface AgentSourceGroup {
+  directories: string[];
+  namespace?: string;
+}
+
+async function preflightAgentsPostHook(
+  provider: ToolProvider,
+  projectedFiles: ProjectedAgentFile[],
+  cwd: string,
+): Promise<void> {
+  const hook = provider.agentsPostHook;
+  if (!hook) return;
+  hook.validate(projectedFiles);
+  await hook.preflight(projectedFiles, cwd);
+}
+
+function uniqueAgentFiles<T extends ProjectedAgentFile>(
+  projectedFiles: readonly T[],
+): T[] {
+  const byDestination = new Map<string, T>();
+  for (const file of projectedFiles) {
+    byDestination.set(file.relativePath, file);
+  }
+  return [...byDestination.values()];
+}
+
+async function unsupportedAgentsResult(
+  provider: ToolProvider,
+  projectAgentsDir: string,
+  presetAgents: Map<string, string[]> | undefined,
+  globalDirs: string[] | undefined,
+): Promise<AgentSyncResult> {
+  const count = await countMarkdownFiles([
+    ...(globalDirs ?? []),
+    ...flattenPresetDirs(presetAgents),
+    projectAgentsDir,
+  ]);
+  return {
+    tool: provider.name,
+    agentCount: 0,
+    agents: [],
+    warnings:
+      count > 0
+        ? [unsupportedSurfaceWarning(provider.name, "agents", count)]
+        : [],
+  };
+}
+
+function agentDestination(
+  provider: ToolProvider,
+  targetDir: string,
+  relativePath: string,
+  namespace: string | undefined,
+): { outputPath: string; relativePath: string } {
+  let destination = withFlatNamespace(relativePath, namespace);
+  if (provider.agentFileExtension !== ".md") {
+    const parsed = path.parse(destination);
+    destination = path.join(
+      parsed.dir,
+      `${parsed.name}${provider.agentFileExtension}`,
+    );
+  }
+  return {
+    outputPath: path.join(targetDir, destination),
+    relativePath: destination,
+  };
+}
+
+/**
+ * Native agent identity derived from the complete projected destination.
+ * Provider readers identify agents by frontmatter rather than file path, so
+ * every nested segment participates in the name to keep recursive trees
+ * distinct after projection.
+ */
+function projectedAgentIdentity(
+  relativePath: string,
+  extension: string,
+): string {
+  const withoutExtension = relativePath.endsWith(extension)
+    ? relativePath.slice(0, -extension.length)
+    : relativePath;
+  return toPosixPath(withoutExtension).replaceAll("/", "--");
+}
+
+async function planAgentFile(
+  provider: ToolProvider,
+  targetDir: string,
+  sourceDirectory: string,
+  relativePath: string,
+  namespace: string | undefined,
+): Promise<{ file?: PlannedAgentFile; warnings: string[] }> {
+  const sourcePath = path.join(sourceDirectory, relativePath);
+  const destination = agentDestination(
+    provider,
+    targetDir,
+    relativePath,
+    namespace,
+  );
+  const warnings: string[] = [];
+  let content = await readFile(sourcePath, "utf-8");
+  if (namespace) {
+    const sanitized = sanitizeContent(content, {
+      source: `${namespace}/${relativePath}`,
+    });
+    content = sanitized.content;
+    warnings.push(...sanitized.warnings);
+  }
+  const transform = provider.agentContentTransform;
+  if (transform) {
+    const result = transform.transform(
+      content,
+      projectedAgentIdentity(
+        destination.relativePath,
+        provider.agentFileExtension,
+      ),
+    );
+    warnings.push(...result.warnings);
+    if (result.skip) return { warnings };
+    content = result.content;
+  }
+  return {
+    warnings,
+    file: {
+      ...destination,
+      content,
+      sourcePath,
+      copyRequired:
+        namespace !== undefined ||
+        provider.agentFileExtension !== ".md" ||
+        transform !== undefined,
+      sameFile:
+        path.resolve(sourcePath) === path.resolve(destination.outputPath),
+    },
+  };
+}
 
 /**
  * Sync agents to a single tool
  */
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: sequential sync with mode/namespace branching
-async function syncAgentsToTool(
+async function planAgentsForTool(
   agentDirs: string[],
   provider: ToolProvider,
   cwd: string,
   namespace?: string,
-  options?: SyncOptions,
-): Promise<AgentSyncResult> {
+): Promise<AgentPlan> {
   if (!provider.paths.agentsDir) {
-    return { tool: provider.name, agentCount: 0, agents: [], warnings: [] };
+    return {
+      warnings: [],
+      plannedFiles: [],
+    };
   }
 
   const targetDir = path.join(cwd, provider.paths.agentsDir);
-  const agents: string[] = [];
   const warnings: string[] = [];
+  const plannedFiles: PlannedAgentFile[] = [];
 
   for (const agentDir of agentDirs) {
     if (!(await pathExists(agentDir))) continue;
 
-    const files = await fg("**/*.md", { cwd: agentDir, absolute: false });
-
-    const mode = options?.mode || "copy";
+    const files = (
+      await fg("**/*.md", { cwd: agentDir, absolute: false })
+    ).sort();
 
     for (const relPath of files) {
-      const sourcePath = path.join(agentDir, relPath);
-
-      // Rename extension for tools that need it (e.g., Copilot: .agent.md)
-      // (must compute destPath before the same-file check)
-      let destName = namespace ? path.join(namespace, relPath) : relPath;
-      if (provider.agentFileExtension !== ".md") {
-        const parsed = path.parse(destName);
-        destName = path.join(
-          parsed.dir,
-          `${parsed.name}${provider.agentFileExtension}`,
-        );
-      }
-
-      const destPath = path.join(targetDir, destName);
-
-      // Skip if source and dest are the same file (tool reads .agents/ directly)
-      if (path.resolve(sourcePath) === path.resolve(destPath)) {
-        agents.push(destName);
-        continue;
-      }
-
-      // A content transform (e.g. OpenCode frontmatter translation) rewrites
-      // the file the tool reads, so the dest diverges from source — that forces
-      // a real copy too (a symlink would point back at the untranslated source).
-      const transform = provider.agentContentTransform;
-
-      // Namespaced (preset) content needs sanitization — always copy.
-      // Extension rename also requires copy (can't symlink with different name).
-      // A content transform likewise requires a real copy.
-      if (namespace || provider.agentFileExtension !== ".md" || transform) {
-        let content = await readFile(sourcePath, "utf-8");
-        if (namespace) {
-          const sanitized = sanitizeContent(content, {
-            source: `${namespace}/${relPath}`,
-          });
-          content = sanitized.content;
-          warnings.push(...sanitized.warnings);
-        }
-        if (transform) {
-          const result = transform.transform(
-            content,
-            path.basename(relPath, path.extname(relPath)),
-          );
-          content = result.content;
-          warnings.push(...result.warnings);
-        }
-        // Drop any stale entry first: outputFile uses writeFile, which would
-        // follow a symlink left by a prior `--link` sync and clobber the
-        // canonical source. rm removes the link itself; force ignores a
-        // missing dest.
-        await rm(destPath, { force: true });
-        await outputFile(destPath, content, { encoding: "utf-8" });
-      } else {
-        const sourceLabel = path.relative(cwd, sourcePath);
-        await writeFileByMode(sourcePath, destPath, mode, sourceLabel);
-      }
-      agents.push(destName);
+      const projection = await planAgentFile(
+        provider,
+        targetDir,
+        agentDir,
+        relPath,
+        namespace,
+      );
+      warnings.push(...projection.warnings);
+      if (projection.file) plannedFiles.push(projection.file);
     }
   }
 
   return {
-    tool: provider.name,
-    agentCount: agents.length,
-    agents,
     warnings,
+    plannedFiles,
+  };
+}
+
+function agentSourceGroups(
+  projectAgentsDir: string,
+  presetAgents: Map<string, string[]> | undefined,
+  globalDirs: string[] | undefined,
+): AgentSourceGroup[] {
+  const groups: AgentSourceGroup[] = [];
+  if (globalDirs?.length) groups.push({ directories: globalDirs });
+  for (const [namespace, directories] of presetAgents ?? []) {
+    validateSyncNamespace(namespace);
+    groups.push({ directories, namespace });
+  }
+  groups.push({ directories: [projectAgentsDir] });
+  return groups;
+}
+
+async function planAgentSources(
+  provider: ToolProvider,
+  cwd: string,
+  groups: AgentSourceGroup[],
+): Promise<AgentPlan> {
+  const warnings: string[] = [];
+  const plannedFiles: PlannedAgentFile[] = [];
+  for (const group of groups) {
+    const plan = await planAgentsForTool(
+      group.directories,
+      provider,
+      cwd,
+      group.namespace,
+    );
+    warnings.push(...plan.warnings);
+    plannedFiles.push(...plan.plannedFiles);
+  }
+  return { warnings, plannedFiles };
+}
+
+async function writePlannedAgent(
+  file: PlannedAgentFile,
+  cwd: string,
+  mode: NonNullable<SyncOptions["mode"]>,
+): Promise<void> {
+  if (file.sameFile) return;
+  if (!file.copyRequired) {
+    await writeFileByMode(file.sourcePath, file.outputPath, mode, cwd);
+    return;
+  }
+  // outputFile follows an existing symlink. Remove the path first so changing
+  // from link mode to a transformed/copy projection cannot modify the source.
+  await assertSafeProjectOutputPath(cwd, file.outputPath);
+  await rm(file.outputPath, { force: true });
+  await outputFile(file.outputPath, file.content, { encoding: "utf-8" });
+}
+
+async function projectSupportedAgents(
+  provider: ToolProvider,
+  cwd: string,
+  groups: AgentSourceGroup[],
+  options: SyncOptions | undefined,
+  write: boolean,
+): Promise<AgentSyncResult> {
+  const plan = await planAgentSources(provider, cwd, groups);
+  const uniqueFiles = uniqueAgentFiles(plan.plannedFiles);
+  await preflightAgentsPostHook(provider, uniqueFiles, cwd);
+  if (write) {
+    for (const file of uniqueFiles) {
+      await writePlannedAgent(file, cwd, options?.mode ?? "copy");
+    }
+    if (provider.agentsPostHook) {
+      plan.warnings.push(
+        ...(await provider.agentsPostHook.postSync(uniqueFiles, cwd)).warnings,
+      );
+    }
+  }
+  return {
+    tool: provider.name,
+    agentCount: uniqueFiles.length,
+    agents: uniqueFiles.map((file) => file.relativePath),
+    warnings: plan.warnings,
   };
 }
 
@@ -123,95 +306,56 @@ async function syncAgentsToTool(
  * Sync agents to all configured tools
  * Source: .agents/agents/
  */
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: sequential global+preset+project+postHook orchestration
+async function projectAgents(
+  providers: ToolProvider[],
+  cwd: string,
+  presetAgents?: Map<string, string[]>,
+  options?: SyncOptions & { globalDirs?: string[] },
+  write = true,
+): Promise<AgentSyncResult[]> {
+  const projectAgentsDir = path.join(cwd, ".agents", "agents");
+  const results: AgentSyncResult[] = [];
+  const sourceGroups = agentSourceGroups(
+    projectAgentsDir,
+    presetAgents,
+    options?.globalDirs,
+  );
+
+  for (const provider of providers) {
+    if (!(provider.capabilities.agents && provider.paths.agentsDir)) {
+      results.push(
+        await unsupportedAgentsResult(
+          provider,
+          projectAgentsDir,
+          presetAgents,
+          options?.globalDirs,
+        ),
+      );
+      continue;
+    }
+    results.push(
+      await projectSupportedAgents(provider, cwd, sourceGroups, options, write),
+    );
+  }
+
+  return results;
+}
+
 export async function syncAgents(
   providers: ToolProvider[],
   cwd: string,
   presetAgents?: Map<string, string[]>,
   options?: SyncOptions & { globalDirs?: string[] },
 ): Promise<AgentSyncResult[]> {
-  const projectAgentsDir = path.join(cwd, ".agents", "agents");
-  const results: AgentSyncResult[] = [];
+  return projectAgents(providers, cwd, presetAgents, options, true);
+}
 
-  for (const provider of providers) {
-    if (!provider.capabilities.agents) {
-      results.push({
-        tool: provider.name,
-        agentCount: 0,
-        agents: [],
-        warnings: [],
-      });
-      continue;
-    }
-
-    let totalAgents = 0;
-    const allAgents: string[] = [];
-    const allWarnings: string[] = [];
-
-    // Global user agents first (lowest priority — can be overwritten by presets and project)
-    if (options?.globalDirs && options.globalDirs.length > 0) {
-      const globalResult = await syncAgentsToTool(
-        options.globalDirs,
-        provider,
-        cwd,
-        undefined,
-        options,
-      );
-      totalAgents += globalResult.agentCount;
-      allAgents.push(...globalResult.agents);
-      allWarnings.push(...globalResult.warnings);
-    }
-
-    // Preset agents next (middle priority — can be overwritten by project)
-    if (presetAgents) {
-      for (const [namespace, dirs] of presetAgents) {
-        validateSyncNamespace(namespace);
-        const presetResult = await syncAgentsToTool(
-          dirs,
-          provider,
-          cwd,
-          namespace,
-          options,
-        );
-        totalAgents += presetResult.agentCount;
-        allAgents.push(...presetResult.agents);
-        allWarnings.push(...presetResult.warnings);
-      }
-    }
-
-    // Project custom agents last (highest priority — wins on collision)
-    const projectResult = await syncAgentsToTool(
-      [projectAgentsDir],
-      provider,
-      cwd,
-      undefined,
-      options,
-    );
-
-    totalAgents += projectResult.agentCount;
-    allAgents.push(...projectResult.agents);
-    allWarnings.push(...projectResult.warnings);
-
-    // Tool-specific post-processing (e.g., Codex writes .toml role wrappers
-    // and merges [agents.<n>] into .codex/config.toml). Runs against the
-    // canonical source dirs — postSync owns its destination layout.
-    if (provider.agentsPostHook && totalAgents > 0) {
-      const sources: string[] = [];
-      if (options?.globalDirs) sources.push(...options.globalDirs);
-      if (presetAgents) {
-        for (const [, dirs] of presetAgents) sources.push(...dirs);
-      }
-      sources.push(projectAgentsDir);
-      await provider.agentsPostHook.postSync(sources, cwd);
-    }
-
-    results.push({
-      tool: provider.name,
-      agentCount: totalAgents,
-      agents: allAgents,
-      warnings: allWarnings,
-    });
-  }
-
-  return results;
+/** Read-only agent projection used by dry-run. */
+export async function previewAgents(
+  providers: ToolProvider[],
+  cwd: string,
+  presetAgents?: Map<string, string[]>,
+  options?: SyncOptions & { globalDirs?: string[] },
+): Promise<AgentSyncResult[]> {
+  return projectAgents(providers, cwd, presetAgents, options, false);
 }

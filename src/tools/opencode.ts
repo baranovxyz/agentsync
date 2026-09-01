@@ -6,36 +6,139 @@
  * Ref: https://opencode.ai/docs/mcp-servers/
  */
 
+import { lstat } from "node:fs/promises";
 import * as path from "node:path";
 import yaml from "js-yaml";
-import type { z } from "zod";
+import { z } from "zod";
+import { ConfigError } from "../core/errors.js";
 import type { MCP } from "../core/mcp/tokens.js";
+import type { StructuredStateClaim } from "../sync/structured-state.js";
 import type { PermissionsConfigSchema } from "../types/schemas.js";
-import { mergeIntoSettings } from "./mcp-helpers.js";
-import type { AgentContentTransform, ToolProvider } from "./types.js";
+import { splitFrontmatter } from "../utils/frontmatter.js";
+import { toPosixPath } from "../utils/path-normalization.js";
+import { mergeIntoJsoncSettings } from "./mcp-helpers.js";
+import type {
+  AgentContentTransform,
+  CanonicalRule,
+  CommandContentTransform,
+  ContentTransformResult,
+  McpProjectTarget,
+  McpProjectWriteEvidence,
+  ToolProvider,
+} from "./types.js";
 
 type PermissionsConfig = z.infer<typeof PermissionsConfigSchema>;
 
+/** Native Markdown frontmatter contracts for stable `opencode-ai` 1.x. */
+const OpenCodePermissionActionSchema = z.enum(["ask", "allow", "deny"]);
+const OpenCodePermissionRuleSchema = z.union([
+  OpenCodePermissionActionSchema,
+  z.record(z.string(), OpenCodePermissionActionSchema),
+]);
+const OpenCodePermissionSchema = z.union([
+  OpenCodePermissionActionSchema,
+  z
+    .object({
+      read: OpenCodePermissionRuleSchema.optional(),
+      edit: OpenCodePermissionRuleSchema.optional(),
+      glob: OpenCodePermissionRuleSchema.optional(),
+      grep: OpenCodePermissionRuleSchema.optional(),
+      list: OpenCodePermissionRuleSchema.optional(),
+      bash: OpenCodePermissionRuleSchema.optional(),
+      task: OpenCodePermissionRuleSchema.optional(),
+      external_directory: OpenCodePermissionRuleSchema.optional(),
+      todowrite: OpenCodePermissionActionSchema.optional(),
+      question: OpenCodePermissionActionSchema.optional(),
+      webfetch: OpenCodePermissionActionSchema.optional(),
+      websearch: OpenCodePermissionActionSchema.optional(),
+      lsp: OpenCodePermissionRuleSchema.optional(),
+      doom_loop: OpenCodePermissionActionSchema.optional(),
+      skill: OpenCodePermissionRuleSchema.optional(),
+    })
+    .catchall(OpenCodePermissionRuleSchema),
+]);
+const OpenCodeToolsSchema = z.record(z.string(), z.boolean());
+
+const OpenCodeAgentFrontmatterSchema = z
+  .object({
+    model: z.string().optional(),
+    variant: z.string().optional(),
+    temperature: z.number().finite().optional(),
+    top_p: z.number().finite().optional(),
+    prompt: z.string().optional(),
+    tools: OpenCodeToolsSchema.optional(),
+    disable: z.boolean().optional(),
+    description: z.string().optional(),
+    mode: z.enum(["subagent", "primary", "all"]).optional(),
+    hidden: z.boolean().optional(),
+    options: z.record(z.string(), z.unknown()).optional(),
+    color: z
+      .union([
+        z.string().regex(/^#[0-9a-fA-F]{6}$/),
+        z.enum([
+          "primary",
+          "secondary",
+          "accent",
+          "success",
+          "warning",
+          "error",
+          "info",
+        ]),
+      ])
+      .optional(),
+    steps: z.number().int().positive().optional(),
+    maxSteps: z.number().int().positive().optional(),
+    permission: OpenCodePermissionSchema.optional(),
+  })
+  .catchall(z.unknown());
+
+const OpenCodeCommandFrontmatterSchema = z
+  .object({
+    description: z.string().optional(),
+    agent: z.string().optional(),
+    model: z.string().optional(),
+    variant: z.string().optional(),
+    subtask: z.boolean().optional(),
+  })
+  .strict();
+const OPEN_CODE_COMMAND_FIELDS = new Set(
+  Object.keys(OpenCodeCommandFrontmatterSchema.shape),
+);
+
 /** True for an OpenCode-native `tools: { name: boolean }` record. */
 function isBooleanRecord(value: unknown): boolean {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    !Array.isArray(value) &&
-    Object.values(value as Record<string, unknown>).every(
-      (v) => typeof v === "boolean",
-    )
-  );
+  return OpenCodeToolsSchema.safeParse(value).success;
+}
+
+function invalidFrontmatterFields(error: z.ZodError): string {
+  const fields = [
+    ...new Set(
+      error.issues.map((issue) => String(issue.path[0] ?? "frontmatter")),
+    ),
+  ].sort();
+  return fields.map((field) => `'${field}'`).join(", ");
+}
+
+function serializeFrontmatter(
+  frontmatter: Record<string, unknown>,
+  body: string,
+  eol: "\n" | "\r\n",
+): string {
+  const serialized = yaml
+    .dump(frontmatter, { lineWidth: -1 })
+    .trimEnd()
+    .replaceAll("\n", eol);
+  return `---${eol}${serialized}${eol}---${eol}${body}`;
 }
 
 /**
  * Translate a canonical agentsync agent .md into OpenCode-valid frontmatter.
  *
- * OpenCode parses each `.opencode/agents/<name>.md`'s frontmatter against a
- * strict schema and treats one bad file as a FATAL boot error. agentsync's
- * canonical frontmatter trips it on the `tools` field (a comma-scalar / list
- * where OpenCode demands `Record<string, boolean>`). This rewrites the file
- * OpenCode reads:
+ * OpenCode parses each `.opencode/agents/<name>.md`'s known frontmatter fields
+ * against its native schema and treats one bad file as a FATAL boot error.
+ * agentsync's canonical frontmatter trips it on the `tools` field (a
+ * comma-scalar / list where OpenCode demands `Record<string, boolean>`). This
+ * rewrites the file OpenCode reads:
  *
  *  - `tools` allowlist (scalar/array) → dropped + warned. OpenCode's tools map
  *    is deny-by-explicit-`false` (not allowlist-by-omission) and is deprecated
@@ -54,20 +157,9 @@ function isBooleanRecord(value: unknown): boolean {
 function translateOpenCodeAgentContent(
   content: string,
   name: string,
-): { content: string; warnings: string[] } {
-  const match = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
-  if (!match) return { content, warnings: [] };
-
-  let fm: Record<string, unknown>;
-  try {
-    const parsed = yaml.load(match[1]);
-    if (!parsed || typeof parsed !== "object") return { content, warnings: [] };
-    fm = parsed as Record<string, unknown>;
-  } catch {
-    return { content, warnings: [] };
-  }
-
-  const body = match[2];
+): ContentTransformResult {
+  const { fm, body, eol } = splitFrontmatter(content);
+  if (!fm) return { content, warnings: [] };
   const warnings: string[] = [];
 
   // Rebuild the frontmatter in one pass, omitting keys OpenCode can't accept.
@@ -99,98 +191,213 @@ function translateOpenCodeAgentContent(
   // Default mode to subagent (canonical shape for an injected role).
   if (!("mode" in out)) out.mode = "subagent";
 
-  const serialized = yaml.dump(out, { lineWidth: -1 }).trimEnd();
-  return { content: `---\n${serialized}\n---\n${body}`, warnings };
+  const validated = OpenCodeAgentFrontmatterSchema.safeParse(out);
+  if (!validated.success) {
+    warnings.push(
+      `[opencode] agent '${name}': skipped — invalid OpenCode frontmatter fields: ${invalidFrontmatterFields(validated.error)}`,
+    );
+    return { skip: true, warnings };
+  }
+
+  return {
+    content: serializeFrontmatter(out, body, eol),
+    warnings,
+  };
 }
 
 const agentContentTransform: AgentContentTransform = {
   transform: translateOpenCodeAgentContent,
 };
 
-const DECISION_STRICTNESS: Record<string, number> = {
-  allow: 0,
-  ask: 1,
-  deny: 2,
+function translateOpenCodeCommandContent(
+  content: string,
+  name: string,
+): ContentTransformResult {
+  const { fm, body, eol } = splitFrontmatter(content);
+  if (!fm) return { content, warnings: [] };
+
+  const unsupportedFields = Object.keys(fm)
+    .filter((field) => !OPEN_CODE_COMMAND_FIELDS.has(field))
+    .sort();
+  const warnings = unsupportedFields.length
+    ? [
+        `[opencode] command '${name}': dropped unsupported frontmatter fields: ${unsupportedFields.join(", ")}`,
+      ]
+    : [];
+  const projected = Object.fromEntries(
+    Object.entries(fm).filter(([field]) => OPEN_CODE_COMMAND_FIELDS.has(field)),
+  );
+  const validated = OpenCodeCommandFrontmatterSchema.safeParse(projected);
+  if (!validated.success) {
+    warnings.push(
+      `[opencode] command '${name}': skipped — invalid OpenCode frontmatter fields: ${invalidFrontmatterFields(validated.error)}`,
+    );
+    return { skip: true, warnings };
+  }
+
+  return {
+    content: serializeFrontmatter(projected, body, eol),
+    warnings,
+  };
+}
+
+const commandContentTransform: CommandContentTransform = {
+  transform: translateOpenCodeCommandContent,
 };
-const STRICTNESS_TO_DECISION = ["allow", "ask", "deny"] as const;
 
 const OC_TOOL_MAP: Record<string, string> = {
   Bash: "bash",
+  Shell: "bash",
+  Read: "read",
   Edit: "edit",
-  Write: "write",
+  Write: "edit",
+  ApplyPatch: "edit",
+  Glob: "glob",
+  Grep: "grep",
+  List: "list",
+  Task: "task",
+  ExternalDirectory: "external_directory",
+  LSP: "lsp",
+  Skill: "skill",
+  TodoWrite: "todowrite",
+  TodoRead: "todowrite",
   WebFetch: "webfetch",
+  WebSearch: "websearch",
+  Question: "question",
+  DoomLoop: "doom_loop",
 };
+
+const OC_ACTION_ONLY_PERMISSIONS = new Set([
+  "todowrite",
+  "webfetch",
+  "websearch",
+  "question",
+  "doom_loop",
+]);
 
 type PermissionRule = NonNullable<
   NonNullable<PermissionsConfig>["rules"]
 >[number];
 
-interface CollapsedRules {
-  byTool: Map<string, number>;
-  allowRulesByTool: Map<string, string[]>;
-  patternWarnings: string[];
+type PermissionDecision = PermissionRule["decision"];
+type OpenCodePermission =
+  | PermissionDecision
+  | Record<string, PermissionDecision>;
+
+type OpenCodeMcpPermissionProjection = { key: string } | { reason: string };
+
+function openCodeMcpPermissionKey(
+  pattern: string | undefined,
+): OpenCodeMcpPermissionProjection {
+  if (!pattern || pattern === "*" || pattern === "*:*") {
+    return {
+      reason:
+        "an all-MCP wildcard has no safe OpenCode equivalent because '*_*' also matches " +
+        "built-in and custom tools",
+    };
+  }
+  const parts = pattern.split(":");
+  if (parts.length !== 2 || parts.some((part) => part.length === 0)) {
+    return { reason: "expected server:tool (or literal-server:*)" };
+  }
+  const [server, tool] = parts;
+  if (/[*?[\]]/.test(server)) {
+    return {
+      reason:
+        "a wildcard server segment is not safely MCP-only in OpenCode's flat tool namespace",
+    };
+  }
+  if (tool !== "*" && /[*?[\]]/.test(tool)) {
+    return {
+      reason: "only an exact tool or a literal-server:* wildcard is supported",
+    };
+  }
+  const sanitize = (part: string) => part.replace(/[^a-zA-Z0-9_-]/g, "_");
+  return {
+    key: `${sanitize(server)}_${tool === "*" ? "*" : sanitize(tool)}`,
+  };
 }
 
-function collapseRules(rules: readonly PermissionRule[]): CollapsedRules {
-  const byTool = new Map<string, number>();
-  const allowRulesByTool = new Map<string, string[]>();
-  const patternWarnings: string[] = [];
+function setLastOpenCodePermission(
+  projected: Record<string, OpenCodePermission>,
+  tool: string,
+  permission: OpenCodePermission,
+): void {
+  // OpenCode uses the last matching permission rule. Moving a repeated key to
+  // the end preserves its canonical position relative to overlapping wildcard
+  // identities such as `github_*` and `github_search`.
+  delete projected[tool];
+  projected[tool] = permission;
+}
 
-  for (const rule of rules) {
-    if (rule.pattern && rule.pattern !== "*") {
-      patternWarnings.push(
-        `permissions.rule ${rule.id}: pattern "${rule.pattern}" dropped on opencode — ` +
-          "oc supports only tool-level coarse decisions.",
-      );
-    }
-    const ocTool = OC_TOOL_MAP[rule.tool] ?? rule.tool.toLowerCase();
-    const next = DECISION_STRICTNESS[rule.decision];
-    if (next > (byTool.get(ocTool) ?? -1)) byTool.set(ocTool, next);
-    if (rule.decision === "allow") {
-      const list = allowRulesByTool.get(ocTool) ?? [];
-      list.push(rule.id);
-      allowRulesByTool.set(ocTool, list);
-    }
+function projectOpenCodePermissionRule(
+  projected: Record<string, OpenCodePermission>,
+  warnings: string[],
+  rule: PermissionRule,
+): void {
+  const mcpProjection =
+    rule.tool === "MCP" ? openCodeMcpPermissionKey(rule.pattern) : undefined;
+  if (mcpProjection && "reason" in mcpProjection) {
+    warnings.push(
+      `permissions.rule ${rule.id}: MCP pattern '${rule.pattern ?? "*"}' dropped on opencode — ` +
+        `${mcpProjection.reason}.`,
+    );
+    return;
+  }
+  const tool =
+    mcpProjection && "key" in mcpProjection
+      ? mcpProjection.key
+      : (OC_TOOL_MAP[rule.tool] ?? rule.tool.toLowerCase());
+  if (mcpProjection && "key" in mcpProjection) {
+    setLastOpenCodePermission(projected, tool, rule.decision);
+    return;
   }
 
-  return { byTool, allowRulesByTool, patternWarnings };
+  const pattern = rule.pattern ?? "*";
+  if (OC_ACTION_ONLY_PERMISSIONS.has(tool)) {
+    if (pattern !== "*") {
+      warnings.push(
+        `permissions.rule ${rule.id} dropped on opencode — pattern '${pattern}' cannot be ` +
+          `represented because OpenCode ${tool} accepts only a tool-level decision.`,
+      );
+      return;
+    }
+    setLastOpenCodePermission(projected, tool, rule.decision);
+    return;
+  }
+
+  const current = projected[tool];
+  const patterns: Record<string, PermissionDecision> =
+    typeof current === "object" ? { ...current } : {};
+  if (typeof current === "string") patterns["*"] = current;
+  // OpenCode applies the last matching pattern. Replacing an existing JS
+  // property does not move it, so delete first to preserve canonical order.
+  delete patterns[pattern];
+  patterns[pattern] = rule.decision;
+  setLastOpenCodePermission(projected, tool, patterns);
 }
 
-function allowLossWarnings(
-  tool: string,
-  strictness: number,
-  allowRulesByTool: Map<string, string[]>,
-): string[] {
-  // strictest-wins per tool silently drops allow rules when a stricter
-  // (ask/deny) rule lands on the same tool — surface each lost allow.
-  if (strictness <= 0) return [];
-  const decision = STRICTNESS_TO_DECISION[strictness];
-  return (allowRulesByTool.get(tool) ?? []).map(
-    (ruleId) =>
-      `permissions.rule ${ruleId}: allow rule for tool "${tool}" dropped on opencode — ` +
-      `collapsed to "${decision}" by a stricter rule on the same tool.`,
-  );
+/** Translate ordered canonical rules to OpenCode's granular permission map. */
+export function projectOpenCodePermissions(
+  permissions: NonNullable<PermissionsConfig>,
+): { value: Record<string, OpenCodePermission>; warnings: string[] } {
+  const projected: Record<string, OpenCodePermission> = {};
+  const warnings: string[] = [];
+  if (permissions.default) projected["*"] = permissions.default;
+
+  for (const rule of permissions.rules ?? []) {
+    projectOpenCodePermissionRule(projected, warnings, rule);
+  }
+
+  return { value: projected, warnings };
 }
 
 async function writeOpenCodePermissions(
   permissions: NonNullable<PermissionsConfig>,
-  cwd: string,
+  _cwd: string,
 ): Promise<{ warnings: string[] }> {
-  const { byTool, allowRulesByTool, patternWarnings } = collapseRules(
-    permissions.rules ?? [],
-  );
-  const warnings = [...patternWarnings];
-  const out: Record<string, string> = {};
-  for (const [tool, strictness] of byTool) {
-    out[tool] = STRICTNESS_TO_DECISION[strictness];
-    warnings.push(...allowLossWarnings(tool, strictness, allowRulesByTool));
-  }
-  if (permissions.default && Object.keys(out).length === 0) {
-    // No rules — apply default to common tools.
-    for (const t of ["bash", "edit", "webfetch"]) out[t] = permissions.default;
-  }
-  await mergeIntoSettings(path.join(cwd, "opencode.json"), out, "permission");
-  return { warnings };
+  const projection = projectOpenCodePermissions(permissions);
+  return { warnings: projection.warnings };
 }
 
 /**
@@ -218,11 +425,163 @@ function toOpenCodeMCP(mcps: Record<string, MCP>): Record<string, unknown> {
   return result;
 }
 
+/** Prefix identifying an `instructions` entry that agentsync owns. */
+const RULES_INSTRUCTION_PREFIX = ".agents/rules/";
+const OPENCODE_JSON_PATH = "opencode.json";
+const OPENCODE_JSONC_PATH = "opencode.jsonc";
+const OPENCODE_DIRECTORY_JSON_PATH = ".opencode/opencode.json";
+const OPENCODE_DIRECTORY_JSONC_PATH = ".opencode/opencode.jsonc";
+const OPENCODE_CONFIG_PATHS: readonly string[] = [
+  OPENCODE_JSON_PATH,
+  OPENCODE_JSONC_PATH,
+  OPENCODE_DIRECTORY_JSON_PATH,
+  OPENCODE_DIRECTORY_JSONC_PATH,
+];
+const OPENCODE_CONFIG_PRECEDENCE: readonly string[] = [
+  OPENCODE_DIRECTORY_JSONC_PATH,
+  OPENCODE_DIRECTORY_JSON_PATH,
+  OPENCODE_JSONC_PATH,
+  OPENCODE_JSON_PATH,
+];
+
+function isMissingFileError(error: unknown): boolean {
+  return error instanceof Error && "code" in error && error.code === "ENOENT";
+}
+
+/** OpenCode loads JSONC after JSON in one directory, so it has precedence. */
+export async function resolveOpenCodeConfigPath(cwd: string): Promise<string> {
+  for (const configPath of OPENCODE_CONFIG_PRECEDENCE) {
+    try {
+      await lstat(path.join(cwd, configPath));
+      return configPath;
+    } catch (error) {
+      if (!isMissingFileError(error)) throw error;
+    }
+  }
+  return OPENCODE_JSON_PATH;
+}
+
+async function writeOpenCodeMcpAtTarget(
+  mcps: Record<string, MCP>,
+  cwd: string,
+  target: McpProjectTarget,
+): Promise<McpProjectWriteEvidence> {
+  const currentPath = await resolveOpenCodeConfigPath(cwd);
+  if (currentPath !== target.relativePath) {
+    throw new ConfigError(
+      `Refusing to update OpenCode MCP configuration "${target.absolutePath}": the active config path changed after preflight.`,
+      target.absolutePath,
+      "Preserve the newly active OpenCode config, then rerun agentsync sync against its current precedence.",
+    );
+  }
+  const value = toOpenCodeMCP(mcps);
+  await mergeIntoJsoncSettings(
+    target.absolutePath,
+    value,
+    "mcp",
+    cwd,
+    target.expectedOwnedValues?.mcp,
+  );
+  return { ownedValues: { mcp: value } };
+}
+
+/**
+ * OpenCode has no conditional instruction channel: every entry in
+ * `instructions` is resolved and concatenated into the system prompt on every
+ * session (packages/opencode/src/session/instruction.ts). So only rules
+ * WITHOUT a `paths:` condition are written; a path-scoped rule is withheld and
+ * reported, never widened to always-on.
+ *
+ * Entries are enumerated per rule rather than written as a directory glob:
+ * `.agents/rules/*.md` would sweep the path-scoped rules back in and make them
+ * unconditional, which is the exact outcome the filter above prevents.
+ *
+ * Entries the user wrote themselves are preserved — only the ones agentsync
+ * owns (prefixed `.agents/rules/`) are replaced, so a hand-added
+ * `CONTRIBUTING.md` survives a sync.
+ */
+export function projectOpenCodeRules(rules: readonly CanonicalRule[]): {
+  written: string[];
+  warnings: string[];
+  instructions: string[];
+} {
+  const unconditional = rules.filter((r) => !r.paths);
+  const warnings = rules
+    .filter((r) => r.paths)
+    .map(
+      (r) =>
+        `rule "${r.name}" is path-scoped; opencode loads every instruction ` +
+        `unconditionally — skipped rather than widened to always-on`,
+    );
+  return {
+    written: unconditional.map((rule) => rule.name),
+    warnings,
+    instructions: unconditional.map(
+      (rule) => `${RULES_INSTRUCTION_PREFIX}${toPosixPath(rule.relPath)}`,
+    ),
+  };
+}
+
+async function writeOpenCodeRules(
+  rules: CanonicalRule[],
+  _cwd: string,
+): Promise<{ written: string[]; warnings: string[] }> {
+  return projectOpenCodeRules(rules);
+}
+
+function openCodeStructuredDeclaration(
+  configPath: string,
+): NonNullable<ToolProvider["structuredConfig"]>["declarations"][number] {
+  return {
+    path: configPath,
+    format: "jsonc",
+    context: "opencode settings",
+    keys: [{ key: "permission", semanticHash: "property-order" }],
+    arraySlices: [{ key: "instructions", prefix: RULES_INSTRUCTION_PREFIX }],
+  };
+}
+
+const opencodeStructuredConfig: NonNullable<ToolProvider["structuredConfig"]> =
+  {
+    declarations: OPENCODE_CONFIG_PATHS.map(openCodeStructuredDeclaration),
+    artifactDependencies: [],
+    resolveProjectConfigPath: resolveOpenCodeConfigPath,
+    async project(input, _cwd, projectConfigPath) {
+      if (!projectConfigPath) {
+        throw new ConfigError(
+          "OpenCode structured projection has no preflighted active config path.",
+          undefined,
+          "Repair the structured lifecycle so it binds the active OpenCode path before projection.",
+        );
+      }
+      const configPath = projectConfigPath;
+      const claims: StructuredStateClaim[] = [];
+      if (input.extensions.permissions) {
+        claims.push({
+          kind: "key",
+          path: configPath,
+          key: "permission",
+          value: projectOpenCodePermissions(input.extensions.permissions).value,
+        });
+      }
+      const rules = projectOpenCodeRules(input.rules);
+      if (rules.instructions.length > 0) {
+        claims.push({
+          kind: "array-slice",
+          path: configPath,
+          key: "instructions",
+          values: rules.instructions,
+        });
+      }
+      return { claims };
+    },
+  };
+
 export const opencodeProvider: ToolProvider = {
   name: "opencode",
   displayName: "OpenCode",
   paths: {
-    skillsDir: ".opencode/skills",
+    skillsDir: ".agents/skills",
     commandsDir: ".opencode/commands",
     agentsDir: ".opencode/agents",
     mcpConfigPath: "opencode.json",
@@ -237,21 +596,43 @@ export const opencodeProvider: ToolProvider = {
     nativeAgentsMd: true,
     nativeSkillsDiscovery: true,
     permissions: true,
+    rules: true,
   },
-  readsAgentsDir: true,
+  manifestCleanSurfaces: ["commands", "agents"],
+  readsGlobalAgentsDir: true,
   agentFileExtension: ".md",
   agentContentTransform,
+  commandContentTransform,
+  structuredConfig: opencodeStructuredConfig,
   mcpFormat: {
-    async writeMCP(mcps: Record<string, MCP>, cwd: string): Promise<void> {
-      await mergeIntoSettings(
-        path.join(cwd, "opencode.json"),
-        toOpenCodeMCP(mcps),
-        "mcp",
-      );
+    projectPath: "dynamic",
+    // Only `mcp` — the key THIS writer assigns. `permission` and
+    // `instructions` come from writers that run only when the project
+    // configures those features, so stripping them on clean would delete
+    // blocks a user hand-wrote and AgentSync never touched.
+    ownership: { kind: "owned-keys", keys: ["mcp"], format: "jsonc" },
+    projectConfigPaths: OPENCODE_CONFIG_PATHS,
+    resolveProjectConfigPath: resolveOpenCodeConfigPath,
+    async writeProjectMCPAtPath(mcps, cwd, target) {
+      if (!target.expectedOwnedValues?.mcp) {
+        throw new ConfigError(
+          `Refusing to update OpenCode MCP configuration "${target.absolutePath}": the managed target has no preflight key expectation.`,
+          target.absolutePath,
+          "Repair the managed MCP lifecycle so it carries exact preflight state into the writer.",
+        );
+      }
+      return writeOpenCodeMcpAtTarget(mcps, cwd, target);
     },
   },
   docsFormat: null,
   permissionsFormat: {
+    previewPermissions: async (permissions, _cwd) => {
+      return { warnings: projectOpenCodePermissions(permissions).warnings };
+    },
     writePermissions: writeOpenCodePermissions,
+  },
+  rulesFormat: {
+    previewRules: projectOpenCodeRules,
+    writeRules: writeOpenCodeRules,
   },
 };

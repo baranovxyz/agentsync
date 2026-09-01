@@ -89,10 +89,16 @@ export const openhandsProvider: ToolProvider = {
     nativeAgentsMd: true,
     nativeSkillsDiscovery: true,
   },
-  readsAgentsDir: true,
+  readsGlobalAgentsDir: "unverified",
+  manifestCleanSurfaces: [],
   agentFileExtension: ".md",
   mcpFormat: {
-    async writeMCP(mcps: Record<string, MCP>, cwd: string): Promise<void> {
+    projectPath: "static",
+    ownership: { kind: "whole-file" },
+    async writeProjectMCP(
+      mcps: Record<string, MCP>,
+      cwd: string,
+    ): Promise<void> {
       const mcpFile = path.join(cwd, ".openhands", "mcp.json");
       const config = toOpenHandsConfig(mcps);
       await outputFile(mcpFile, `${JSON.stringify(config, null, 2)}\n`);

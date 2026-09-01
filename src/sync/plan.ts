@@ -7,13 +7,15 @@
  * Used by the sync command (plan/execute split) and reusable by doctor, dry-run, etc.
  */
 
+import { readFile } from "node:fs/promises";
 import * as path from "node:path";
-import { isToolName, SUPPORTED_TOOLS, type ToolName } from "../constants.js";
 import {
-  loadConfigHierarchy,
-  type MergedConfig,
-} from "../core/config/hierarchy.js";
-import { applyProfile, selectProfile } from "../core/config/profiles.js";
+  isForeignDallayConfig,
+  parseProjectTomlConfig,
+} from "../config/toml-loader.js";
+import { isToolName, SUPPORTED_TOOLS, type ToolName } from "../constants.js";
+import type { MergedConfig } from "../core/config/hierarchy.js";
+import { resolveConfig } from "../core/config/resolve.js";
 import { ConfigError, getErrorMessage } from "../core/errors.js";
 import { loadEnv } from "../core/mcp/env.js";
 import type { MCP } from "../core/mcp/tokens.js";
@@ -49,27 +51,57 @@ export interface SyncPlanOptions {
   dryRun?: boolean;
   tool?: string;
   profile?: string;
-  noToolDetection?: boolean;
   link?: boolean;
+}
+
+// ── Foreign-config detection ────────────────────────────────
+
+/**
+ * Root-level tool-selection keys in the unrelated dallay/Rust config that
+ * shares `.agents/agentsync.toml` with this project.
+ */
+const FOREIGN_CONFIG_KEYS = ["default_agents", "agents"] as const;
+
+/**
+ * Find the foreign selector keys in a validated config chain. Read failures
+ * are ignored because hierarchy loading already surfaced them.
+ */
+async function detectForeignConfigKeys(
+  configPaths: string[],
+): Promise<string[]> {
+  const found = new Set<string>();
+  for (const configPath of configPaths) {
+    try {
+      const content = await readFile(configPath, "utf-8");
+      const raw = parseProjectTomlConfig(content, configPath);
+      if (!isForeignDallayConfig(raw)) continue;
+      for (const key of FOREIGN_CONFIG_KEYS) {
+        if (Object.hasOwn(raw, key)) {
+          found.add(key);
+        }
+      }
+    } catch {
+      // Best-effort only -- skip unreadable/unparsable files.
+    }
+  }
+  return [...found];
 }
 
 // ── Helpers ────────────────────────────────────────────────
 
-/**
- * Derive the CWD's position relative to the git root using the config chain.
- * The last entry in the chain is the root-most config, and its parent's parent
- * is the git root (e.g., /repo/.agents/agentsync.toml -> /repo).
- * Falls back to "." if the chain is empty or CWD is the root.
- */
-function getRepoRelativePath(cwd: string, chain: string[]): string {
-  if (chain.length === 0) return ".";
-  // The root-most config is the last in the chain
-  const rootConfig = chain[chain.length - 1];
-  // Config is at <root>/.agents/agentsync.toml
-  // Go up two levels to get to the repo root directory
-  const repoRoot = path.dirname(path.dirname(rootConfig));
-  const rel = path.relative(repoRoot, cwd);
-  return rel || ".";
+function resolveTools(
+  requested: string | undefined,
+  configured: ToolName[],
+): ToolName[] {
+  if (requested === undefined) return configured;
+  if (!isToolName(requested)) {
+    throw new ConfigError(
+      `Unknown tool: ${requested}`,
+      "",
+      `Valid tools: ${SUPPORTED_TOOLS.join(", ")}`,
+    );
+  }
+  return [requested];
 }
 
 // ── Plan Builder ───────────────────────────────────────────
@@ -87,41 +119,33 @@ export async function buildSyncPlan(
   const presetErrors: CliError[] = [];
 
   // 1. Load config hierarchy
-  let config = await loadConfigHierarchy(cwd);
-
-  // 2. Resolve and apply profile if available
-  if (config.profiles) {
-    const repoRelativePath = getRepoRelativePath(cwd, config._sources.chain);
-    const profileName =
-      options.profile ??
-      process.env.AGENTSYNC_PROFILE ??
-      config.profile ??
-      selectProfile(config.profiles, { repoRelativePath });
-
-    if (profileName && config.profiles[profileName]) {
-      const applied = applyProfile(config, config.profiles[profileName]);
-      config = {
-        ...applied,
-        _sources: config._sources,
-        _deduplicationLog: config._deduplicationLog,
-      } as MergedConfig;
-    }
-  }
+  const config = await resolveConfig({ cwd, profile: options.profile });
 
   // 3. Validate target tools
-  if (options.tool && !isToolName(options.tool)) {
-    throw new ConfigError(
-      `Unknown tool: ${options.tool}`,
-      "",
-      `Valid tools: ${SUPPORTED_TOOLS.join(", ")}`,
-    );
-  }
-  const tools: ToolName[] = options.tool
-    ? [options.tool as ToolName]
-    : config.tools || [];
+  const tools = resolveTools(options.tool, config.tools ?? []);
 
   // Get tool providers
   const providers = getToolProviders(tools);
+
+  // 3b. Zero resolved tools means sync has nothing to do -- almost always a
+  // config mistake, not an intentional no-op. A classified dallay/Rust file
+  // gets recovery that respects its read-only boundary.
+  if (tools.length === 0) {
+    const foreignKeys = await detectForeignConfigKeys(config._sources.chain);
+    if (foreignKeys.length > 0) {
+      warnings.push(
+        `Read-only dallay/Rust config selected no supported tools from ${foreignKeys.join(", ")}. ` +
+          "Choose supported ids in default_agents or [agents.<id>], or pass --tool <name>; " +
+          "AgentSync will not rewrite the foreign config.",
+      );
+    } else {
+      warnings.push(
+        "No tools configured -- sync has nothing to do. Add tools = [...] to " +
+          ".agents/agentsync.toml, or pass --tool <name> to sync a single tool " +
+          '(see "agentsync config add tool <name>" or docs/cli.md).',
+      );
+    }
+  }
 
   // 4. Resolve presets (namespace collision check, source resolution)
   let presetSkills: Map<string, string[]> | undefined;
@@ -155,10 +179,9 @@ export async function buildSyncPlan(
           entry.source.replace(/@[^@]+$/, "");
         const hint = isVersionedCollision
           ? `Both "${existing}" and "${entry.source}" derive the same namespace "${entry.namespace}". ` +
-            "Pin to a single version, or use the object form with an explicit namespace: " +
-            `{ source: "${entry.source}", namespace: "custom-name" }`
+            "Keep exactly one version in the top-level extends array."
           : `"${existing}" and "${entry.source}" both derive namespace "${entry.namespace}". ` +
-            "Use the object form with an explicit namespace to resolve.";
+            "Remove one source from the top-level extends array, or give the source a unique final path or repository name.";
         throw new ConfigError(
           `Namespace collision: "${entry.namespace}"`,
           "",
@@ -175,13 +198,7 @@ export async function buildSyncPlan(
 
     for (const entry of entries) {
       try {
-        const cachePath = await resolver.resolve(entry.source, {
-          cwd,
-          noToolDetection: options.noToolDetection,
-        });
-
-        // Skip tool directory markers
-        if (cachePath.startsWith("tool:")) continue;
+        const cachePath = await resolver.resolve(entry.source, { cwd });
 
         // Warn about transitive extends (not supported in v1)
         const presetToml = path.join(cachePath, ".agents", "agentsync.toml");
@@ -225,30 +242,25 @@ export async function buildSyncPlan(
 
     for (const [name, server] of Object.entries(config.mcp || {})) {
       const { config: cleaned, warnings: mcpWarnings } = sanitizeMcpConfig(
-        server as Record<string, unknown>,
+        server,
         `mcp.${name}`,
       );
       warnings.push(...mcpWarnings);
 
-      if ("url" in cleaned) {
-        const mcp: MCP = { url: cleaned.url as string };
-        if (cleaned.headers) {
-          mcp.headers = cleaned.headers as Record<string, string>;
-        }
-        activeMCPs[name] = mcp;
-      } else {
-        const mcp: MCP = {
-          command: (cleaned.command as string) || "",
-          args: (cleaned.args as string[]) || [],
-        };
-        if (cleaned.env) {
-          mcp.env = cleaned.env as Record<string, string>;
-        }
-        activeMCPs[name] = mcp;
-      }
+      activeMCPs[name] =
+        "url" in cleaned
+          ? {
+              url: cleaned.url,
+              ...(cleaned.headers ? { headers: cleaned.headers } : {}),
+            }
+          : {
+              command: cleaned.command,
+              args: cleaned.args ?? [],
+              ...(cleaned.env ? { env: cleaned.env } : {}),
+            };
     }
 
-    const env = await loadEnv();
+    const env = await loadEnv(path.join(cwd, ".env"));
     const substituted = substituteAllMCPs(activeMCPs, env);
     validateTokens(substituted);
 

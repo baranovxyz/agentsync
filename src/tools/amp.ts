@@ -1,7 +1,7 @@
 /**
  * Amp Tool Provider (Sourcegraph)
  *
- * Amp reads .agents/commands/ and .agents/skills/ natively (shared cross-tool directory).
+ * Amp reads .agents/skills/ natively. Current Amp removed custom commands in favor of skills.
  * MCP is configured via JSON at .amp/settings.json (project-scoped), under "amp.mcpServers" key.
  * Merges into existing settings file to preserve non-MCP settings.
  *
@@ -18,27 +18,34 @@ export const ampProvider: ToolProvider = {
   displayName: "Amp",
   paths: {
     skillsDir: ".agents/skills",
-    commandsDir: ".agents/commands",
+    commandsDir: null,
     agentsDir: null,
     mcpConfigPath: ".amp/settings.json",
     docsFile: "AGENTS.md",
   },
   capabilities: {
     skills: true,
-    commands: true,
+    commands: false,
     agents: false,
     mcpStdio: true,
     mcpHttp: true,
     nativeAgentsMd: true,
     nativeSkillsDiscovery: true,
   },
-  readsAgentsDir: true,
+  readsGlobalAgentsDir: "unverified",
+  manifestCleanSurfaces: [],
   agentFileExtension: ".md",
   mcpFormat: {
-    async writeMCP(mcps: Record<string, MCP>, cwd: string): Promise<void> {
+    projectPath: "static",
+    ownership: { kind: "owned-keys", keys: ["amp.mcpServers"], format: "json" },
+    async writeProjectMCP(
+      mcps: Record<string, MCP>,
+      cwd: string,
+    ): Promise<void> {
       await mergeIntoSettings(
         path.join(cwd, ".amp", "settings.json"),
         mcps,
+        cwd,
         "amp.mcpServers",
       );
     },

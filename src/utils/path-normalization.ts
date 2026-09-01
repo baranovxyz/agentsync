@@ -13,6 +13,17 @@ export function toPosixPath(value: string): string {
 }
 
 /**
+ * Prefix a preset artifact without turning its namespace into a directory.
+ * Nested paths stay nested below the prefixed first segment.
+ */
+export function withFlatNamespace(
+  relativePath: string,
+  namespace?: string,
+): string {
+  return namespace ? `${namespace}--${relativePath}` : relativePath;
+}
+
+/**
  * Validate a namespace for safe use in file paths (defense-in-depth).
  * Prevents path traversal via namespace values even if upstream validation
  * (validateNamespace in schemas.ts) is bypassed by direct function calls.

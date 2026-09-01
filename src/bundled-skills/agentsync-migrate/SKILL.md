@@ -22,10 +22,11 @@ Check these directories for existing configurations:
 ## Migration steps
 
 1. **Initialize**: Run `agentsync init --tools claude,opencode,codex` to create the `.agents/`
-   directory. Add optional adapters such as Cursor only when the user asks to keep syncing those
+   directory. Add other validated targets such as Cursor when the user asks to keep syncing those
    tool directories.
-2. **Copy content**: Put each skill at `.agents/skills/<name>/SKILL.md` and copy slash commands to
-   `.agents/commands/*.md`. Flat files directly under `.agents/skills/` are skipped.
+2. **Copy content**: Put each skill at `.agents/skills/<name>/SKILL.md`, rules at
+   `.agents/rules/*.md`, and slash commands at `.agents/commands/*.md`. Flat files directly under
+   `.agents/skills/` are skipped.
 3. **Configure MCP**: Run
    `agentsync config add mcp <name> --mcp-config '{"command":"...","args":[...]}'` for each MCP
    server
@@ -46,7 +47,8 @@ args = ["-y", "@modelcontextprotocol/server-github"]
 
 ## Common patterns
 
-- Cursor `.mdc` rules become `.agents/skills/<name>/SKILL.md` skills
+- Cursor `.mdc` rules become `.agents/rules/<name>.md`; map `globs` to canonical `paths`, and omit
+  `paths` for an always-on rule
 - MCP configs from `.cursor/mcp.json` or `.mcp.json` merge into `.agents/agentsync.toml`
 - `AGENTS.md` content is used directly (no migration needed)
 

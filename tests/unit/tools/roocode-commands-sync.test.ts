@@ -8,7 +8,6 @@ import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { syncCommands } from "../../../src/sync/commands.js";
-import { generateHeader } from "../../../src/sync/header.js";
 import { getToolProvider } from "../../../src/tools/index.js";
 import { ensureDir, outputFile, pathExists } from "../../../src/utils/fs.js";
 
@@ -112,8 +111,7 @@ describe("RooCode Commands Sync", () => {
     expect(output).toContain("description: Authenticate user");
     expect(output).toContain("argument-hint: <provider> [scopes]");
     expect(output).toContain("# Auth");
-    const header = generateHeader(".agents/commands/auth.md");
-    expect(output).toBe(header + content);
+    expect(output).toBe(content);
   });
 
   it("syncs preset commands with namespace prefix", async () => {
@@ -133,22 +131,15 @@ describe("RooCode Commands Sync", () => {
 
     expect(results[0].commandCount).toBe(2);
 
-    // Namespaced as company/lint.md
-    const lintPath = path.join(
-      tmpDir,
-      ".roo",
-      "commands",
-      "company",
-      "lint.md",
-    );
+    // Namespaced with the flat separator.
+    const lintPath = path.join(tmpDir, ".roo", "commands", "company--lint.md");
     expect(await pathExists(lintPath)).toBe(true);
 
     const formatPath = path.join(
       tmpDir,
       ".roo",
       "commands",
-      "company",
-      "format.md",
+      "company--format.md",
     );
     expect(await pathExists(formatPath)).toBe(true);
 
@@ -182,10 +173,10 @@ describe("RooCode Commands Sync", () => {
       await pathExists(path.join(tmpDir, ".roo", "commands", "local-cmd.md")),
     ).toBe(true);
 
-    // Preset command in namespace directory
+    // Preset command with a flat namespace prefix.
     expect(
       await pathExists(
-        path.join(tmpDir, ".roo", "commands", "team", "preset-cmd.md"),
+        path.join(tmpDir, ".roo", "commands", "team--preset-cmd.md"),
       ),
     ).toBe(true);
   });
@@ -234,7 +225,6 @@ describe("RooCode Commands Sync", () => {
       path.join(tmpDir, ".roo", "commands", "complex.md"),
       "utf-8",
     );
-    const header = generateHeader(".agents/commands/complex.md");
-    expect(output).toBe(header + complexContent);
+    expect(output).toBe(complexContent);
   });
 });

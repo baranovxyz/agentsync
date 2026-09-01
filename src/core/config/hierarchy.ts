@@ -7,7 +7,7 @@ import { readFile } from "node:fs/promises";
 import * as path from "node:path";
 import { parse } from "smol-toml";
 import {
-  parseTomlConfig,
+  parseProjectTomlConfig,
   tomlToInternalConfig,
 } from "../../config/toml-loader.js";
 import type { AgentSyncConfig } from "../../types/index.js";
@@ -19,7 +19,7 @@ import {
   loadGlobalConfig,
 } from "../../utils/global-config.js";
 import { AgentSyncError, ConfigError, getErrorMessage } from "../errors.js";
-import { discoverConfigChain } from "./discovery.js";
+import { discoverConfigContext } from "./discovery.js";
 import { mergeConfigChain } from "./merge.js";
 
 /**
@@ -28,7 +28,7 @@ import { mergeConfigChain } from "./merge.js";
 export interface MergedConfig extends AgentSyncConfig {
   _sources: {
     global?: string;
-    project: string; // most-specific project config (backward compat)
+    repoRoot: string;
     chain: string[]; // all discovered config paths, most-specific first
     local?: string;
   };
@@ -41,13 +41,13 @@ export interface MergedConfig extends AgentSyncConfig {
 
 /**
  * Parse a single TOML config file into AgentSyncConfig.
- * Only TOML is supported — no JSON fallback.
+ * Project and global configuration use the current TOML schema.
  */
 async function parseConfigFile(configPath: string): Promise<AgentSyncConfig> {
   const content = await readFile(configPath, "utf-8");
 
   try {
-    const toml = parseTomlConfig(content, configPath);
+    const toml = parseProjectTomlConfig(content, configPath);
     return tomlToInternalConfig(toml);
   } catch (error) {
     if (error instanceof AgentSyncError) {
@@ -143,34 +143,32 @@ function mergeMcpConfigs(
   return Object.keys(merged).length > 0 ? merged : undefined;
 }
 
-const EXTENSION_FIELDS = [
-  "hooks",
-  "permissions",
-  "statusline",
-  "output_style",
-] as const;
-
-type ExtensionField = (typeof EXTENSION_FIELDS)[number];
-type ExtensionSlice = Partial<Pick<MergedConfig, ExtensionField>>;
+type ExtensionSlice = Partial<
+  Pick<MergedConfig, "hooks" | "permissions" | "statusline" | "output_style">
+>;
 
 /**
- * Pick extension surfaces from local first, then project. A defined
- * local value replaces project entirely; an undefined field is omitted
- * from the output object so MergedConfig's optional-fields shape is
- * preserved.
+ * Pick extension surfaces from local, project, then global. A defined deeper
+ * value replaces the outer value entirely.
  */
 function pickExtensions(
+  global: AgentSyncConfig | null,
   project: AgentSyncConfig,
   local: LocalConfig | null,
 ): ExtensionSlice {
-  const out: ExtensionSlice = {};
-  for (const field of EXTENSION_FIELDS) {
-    const value = local?.[field] ?? project[field];
-    if (value !== undefined) {
-      (out as Record<string, unknown>)[field] = value;
-    }
-  }
-  return out;
+  const hooks = local?.hooks ?? project.hooks ?? global?.hooks;
+  const permissions =
+    local?.permissions ?? project.permissions ?? global?.permissions;
+  const statusline =
+    local?.statusline ?? project.statusline ?? global?.statusline;
+  const outputStyle =
+    local?.output_style ?? project.output_style ?? global?.output_style;
+  return {
+    ...(hooks !== undefined ? { hooks } : {}),
+    ...(permissions !== undefined ? { permissions } : {}),
+    ...(statusline !== undefined ? { statusline } : {}),
+    ...(outputStyle !== undefined ? { output_style: outputStyle } : {}),
+  };
 }
 
 /**
@@ -179,7 +177,7 @@ function pickExtensions(
  */
 export async function loadConfigHierarchy(cwd: string): Promise<MergedConfig> {
   const global = await loadGlobalConfig();
-  const chain = await discoverConfigChain(cwd);
+  const { chain, repoRoot } = await discoverConfigContext(cwd);
 
   if (chain.length === 0) {
     const tomlPath = path.join(cwd, ".agents", "agentsync.toml");
@@ -194,8 +192,6 @@ export async function loadConfigHierarchy(cwd: string): Promise<MergedConfig> {
     chain.map((configPath) => parseConfigFile(configPath)),
   );
   const project = mergeConfigChain(parsedConfigs);
-  const projectPath = chain[0];
-
   const { local, localPath } = await loadLocalConfig(cwd);
 
   const { deduped, log } = deduplicateExtends(
@@ -206,18 +202,18 @@ export async function loadConfigHierarchy(cwd: string): Promise<MergedConfig> {
   // Extension surfaces (hooks/permissions/statusline/output_style):
   // local replaces project entirely if defined (deeper-wins; matches
   // AGENTS.md "All other fields" merge rule).
-  const extensions = pickExtensions(project, local);
+  const extensions = pickExtensions(global, project, local);
+  const profiles = { ...global?.profiles, ...project.profiles };
 
   return {
-    tools: project.tools || global?.tools || [],
+    tools: project.tools ?? global?.tools ?? [],
     extends: deduped,
     mcp: mergeMcpConfigs(global, project, local),
-    ...(project.profile ? { profile: project.profile } : {}),
-    ...(project.profiles ? { profiles: project.profiles } : {}),
+    ...(Object.keys(profiles).length > 0 ? { profiles } : {}),
     ...extensions,
     _sources: {
       ...(global ? { global: getGlobalConfigPath() } : {}),
-      project: projectPath,
+      repoRoot,
       chain,
       ...(local ? { local: localPath } : {}),
     },

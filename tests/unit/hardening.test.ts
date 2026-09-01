@@ -11,6 +11,7 @@ import {
   parseTomlConfig,
   tomlToInternalConfig,
 } from "../../src/config/toml-loader.js";
+import { ConfigError } from "../../src/core/errors.js";
 import { syncDocs } from "../../src/sync/docs.js";
 import { syncSkills } from "../../src/sync/skills.js";
 import { getToolProvider } from "../../src/tools/index.js";
@@ -27,21 +28,19 @@ describe("TOML loader edge cases", () => {
     ).toThrow(/\/path\/to\/config\.toml/);
   });
 
-  it("filters unknown tool names from tools array", () => {
-    const toml = parseTomlConfig(`
+  it("rejects unknown tool names in the current tools array", () => {
+    expect(() =>
+      parseTomlConfig(`
 tools = ["claude", "not_a_real_tool", "cursor"]
-`);
-    const internal = tomlToInternalConfig(toml);
-    expect(internal.tools).toContain("claude");
-    expect(internal.tools).toContain("cursor");
-    expect(internal.tools).not.toContain("not_a_real_tool");
+`),
+    ).toThrow(ConfigError);
   });
 
   it("maps URL-based MCP server from TOML", () => {
     const toml = parseTomlConfig(`
-[mcp_servers.remote-api]
+[mcp.remote-api]
 url = "https://mcp.example.com/v1"
-[mcp_servers.remote-api.headers]
+[mcp.remote-api.headers]
 Authorization = "Bearer test-token"
 `);
     const internal = tomlToInternalConfig(toml);
@@ -54,20 +53,17 @@ Authorization = "Bearer test-token"
     expect(remoteApi.headers?.Authorization).toBe("Bearer test-token");
   });
 
-  it("skips MCP server entries with neither command nor url", () => {
-    const toml = parseTomlConfig(`
-[mcp_servers.broken]
+  it("rejects MCP server entries with neither command nor url", () => {
+    expect(() =>
+      parseTomlConfig(`
+[mcp.broken]
 args = ["should-be-ignored"]
-`);
-    const internal = tomlToInternalConfig(toml);
-    // Broken server should be filtered out (mapMcpServer returns null)
-    expect(internal.mcp).toBeUndefined();
+`),
+    ).toThrow(ConfigError);
   });
 
   it("returns undefined tools when no tools field", () => {
-    const toml = parseTomlConfig(
-      `[mcp_servers.test]\ncommand = "echo"\nargs = ["hi"]`,
-    );
+    const toml = parseTomlConfig(`[mcp.test]\ncommand = "echo"\nargs = ["hi"]`);
     const internal = tomlToInternalConfig(toml);
     expect(internal.tools).toBeUndefined();
   });
@@ -149,6 +145,35 @@ describe("Skills sync - rewriteSkillName", () => {
     // The original unnamespaced name should not appear as a standalone field
     expect(content).not.toMatch(/^name: review$/m);
   });
+
+  it.each([
+    {
+      label: "replaces an existing name",
+      source:
+        "---\r\nname: review\r\ndescription: Code review\r\n---\r\n# Review\r\n",
+    },
+    {
+      label: "injects a missing name",
+      source: "---\r\ndescription: Code review\r\n---\r\n# Review\r\n",
+    },
+  ])("preserves CRLF when it $label", async ({ source }) => {
+    const skillDir = path.join(tmpDir, "preset-skills", "review");
+    await ensureDir(skillDir);
+    await outputFile(path.join(skillDir, "SKILL.md"), source);
+
+    await syncSkills(
+      [getToolProvider("claude")],
+      tmpDir,
+      new Map([["org", [path.join(tmpDir, "preset-skills")]]]),
+    );
+
+    const content = await readFile(
+      path.join(tmpDir, ".claude", "skills", "org--review", "SKILL.md"),
+      "utf-8",
+    );
+    expect(content).toContain("name: org--review\r\n");
+    expect(content.replaceAll("\r\n", "")).not.toContain("\n");
+  });
 });
 
 describe("Docs sync edge cases", () => {
@@ -163,7 +188,6 @@ describe("Docs sync edge cases", () => {
   });
 
   it("skips all tools when no AGENTS.md exists anywhere", async () => {
-    // No AGENTS.md at root and no .agents/AGENTS.md
     const providers = [
       getToolProvider("claude"),
       getToolProvider("cursor"),
@@ -204,7 +228,7 @@ describe("Docs sync edge cases", () => {
     expect(content).toBe("@AGENTS.md\n");
   });
 
-  it("prefers .agents/AGENTS.md over root AGENTS.md", async () => {
+  it("uses root AGENTS.md and ignores a nested duplicate", async () => {
     // Create both
     await outputFile(path.join(tmpDir, "AGENTS.md"), "# Root");
     await outputFile(
@@ -216,9 +240,8 @@ describe("Docs sync edge cases", () => {
     const results = await syncDocs(providers, tmpDir);
 
     expect(results[0].created).toBe(true);
-    // CLAUDE.md should be created
     const claudeMd = path.join(tmpDir, "CLAUDE.md");
-    expect(await pathExists(claudeMd)).toBe(true);
+    expect(await readFile(claudeMd, "utf-8")).toBe("@AGENTS.md\n");
   });
 });
 
@@ -251,7 +274,7 @@ describe("Config hierarchy - TOML loading", () => {
     const config = await loadConfigHierarchy(tmpDir);
     expect(config.tools).toContain("claude");
     expect(config.tools).toContain("cursor");
-    expect(config._sources.project).toContain("agentsync.toml");
+    expect(config._sources.chain[0]).toContain("agentsync.toml");
   });
 
   it("loads TOML config with MCP servers", async () => {
@@ -262,7 +285,7 @@ describe("Config hierarchy - TOML loading", () => {
       path.join(agentsDir, "agentsync.toml"),
       `tools = ["claude"]
 
-[mcp_servers.github]
+[mcp.github]
 command = "npx"
 args = ["-y", "@modelcontextprotocol/server-github"]
 `,
@@ -274,7 +297,7 @@ args = ["-y", "@modelcontextprotocol/server-github"]
 
     const config = await loadConfigHierarchy(tmpDir);
     expect(config.tools).toContain("claude");
-    expect(config._sources.project).toContain("agentsync.toml");
+    expect(config._sources.chain[0]).toContain("agentsync.toml");
   });
 });
 
@@ -304,7 +327,7 @@ describe("Config TOML-only loading", () => {
     const config = await loadConfigHierarchy(tmpDir);
     expect(config.tools).toContain("cursor");
     expect(config.tools).toContain("roocode");
-    expect(config._sources.project).toContain("agentsync.toml");
+    expect(config._sources.chain[0]).toContain("agentsync.toml");
   });
 
   it("loads TOML config with multiple tools", async () => {
@@ -323,6 +346,6 @@ describe("Config TOML-only loading", () => {
     const config = await loadConfigHierarchy(tmpDir);
     expect(config.tools).toContain("gemini");
     expect(config.tools).toContain("cursor");
-    expect(config._sources.project).toContain("agentsync.toml");
+    expect(config._sources.chain[0]).toContain("agentsync.toml");
   });
 });

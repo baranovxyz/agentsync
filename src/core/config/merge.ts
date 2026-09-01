@@ -1,7 +1,7 @@
-import { isToolName } from "../../constants.js";
 import type { AgentSyncConfig } from "../../types/schemas.js";
 
 type Mcp = NonNullable<AgentSyncConfig["mcp"]>;
+type Profiles = NonNullable<AgentSyncConfig["profiles"]>;
 
 function mergeMcp(base: Mcp | undefined, overlay: Mcp): Mcp {
   return { ...base, ...overlay };
@@ -12,9 +12,9 @@ function mergeExtends(base: string[] | undefined, overlay: string[]): string[] {
 }
 
 function mergeProfiles(
-  base: Record<string, unknown> | undefined,
-  overlay: Record<string, unknown>,
-): Record<string, unknown> {
+  base: Profiles | undefined,
+  overlay: Profiles,
+): Profiles {
   return { ...base, ...overlay };
 }
 
@@ -39,7 +39,7 @@ function mergeHooks(
 
 function applyLayer(merged: AgentSyncConfig, config: AgentSyncConfig): void {
   if (config.tools) {
-    merged.tools = config.tools.filter(isToolName);
+    merged.tools = config.tools;
   }
   if (config.mcp) {
     merged.mcp = mergeMcp(merged.mcp, config.mcp);
@@ -47,14 +47,8 @@ function applyLayer(merged: AgentSyncConfig, config: AgentSyncConfig): void {
   if (config.extends) {
     merged.extends = mergeExtends(merged.extends, config.extends);
   }
-  if (config.profile) {
-    merged.profile = config.profile;
-  }
   if (config.profiles) {
-    merged.profiles = mergeProfiles(
-      merged.profiles,
-      config.profiles,
-    ) as AgentSyncConfig["profiles"];
+    merged.profiles = mergeProfiles(merged.profiles, config.profiles);
   }
   if (config.hooks) {
     merged.hooks = mergeHooks(merged.hooks, config.hooks);

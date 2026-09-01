@@ -4,10 +4,10 @@ import { getToolProvider } from "../../../../src/tools/index.js";
 describe("Cursor — Capabilities", () => {
   const p = getToolProvider("cursor");
 
-  it("supports skills only (no commands, no agents)", () => {
+  it("supports skills, commands, and subagents", () => {
     expect(p.capabilities.skills).toBe(true);
-    expect(p.capabilities.commands).toBe(false);
-    expect(p.capabilities.agents).toBe(false);
+    expect(p.capabilities.commands).toBe(true);
+    expect(p.capabilities.agents).toBe(true);
   });
 
   it("supports both MCP transports", () => {
@@ -19,9 +19,18 @@ describe("Cursor — Capabilities", () => {
     expect(p.capabilities.nativeAgentsMd).toBe(true);
   });
 
-  it("does NOT discover .agents/skills/ natively", () => {
-    expect(p.capabilities.nativeSkillsDiscovery).toBe(false);
-    expect(p.readsAgentsDir).toBe(false);
+  it("discovers project and global .agents/skills natively", () => {
+    expect(p.capabilities.nativeSkillsDiscovery).toBe(true);
+    expect(p.readsGlobalAgentsDir).toBe(true);
+  });
+
+  it("declares project hooks, CLI permissions, and rules writers", () => {
+    expect(p.capabilities.hooks).toBe(true);
+    expect(p.hooksFormat?.writeHooks).toBeTypeOf("function");
+    expect(p.capabilities.permissions).toBe(true);
+    expect(p.permissionsFormat?.writePermissions).toBeTypeOf("function");
+    expect(p.capabilities.rules).toBe(true);
+    expect(p.rulesFormat?.writeRules).toBeTypeOf("function");
   });
 
   it("has no docsFormat (reads AGENTS.md natively)", () => {
@@ -29,9 +38,10 @@ describe("Cursor — Capabilities", () => {
   });
 
   it("has correct paths", () => {
-    expect(p.paths.skillsDir).toBe(".cursor/skills");
-    expect(p.paths.commandsDir).toBeNull();
-    expect(p.paths.agentsDir).toBeNull();
+    expect(p.paths.skillsDir).toBe(".agents/skills");
+    expect(p.paths.generatedPresetSkillsDir).toBe(".cursor/skills");
+    expect(p.paths.commandsDir).toBe(".cursor/commands");
+    expect(p.paths.agentsDir).toBe(".cursor/agents");
     expect(p.paths.mcpConfigPath).toBe(".cursor/mcp.json");
     expect(p.paths.docsFile).toBe("AGENTS.md");
   });

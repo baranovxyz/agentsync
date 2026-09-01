@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { MCP } from "../../../src/core/mcp/tokens.js";
 import { getToolProvider } from "../../../src/tools/index.js";
 import { ensureDir, outputFile } from "../../../src/utils/fs.js";
+import { writeProjectMcp } from "../../helpers/mcp.js";
 
 describe("Amp MCP Format", () => {
   let tmpDir: string;
@@ -34,7 +35,7 @@ describe("Amp MCP Format", () => {
       },
     };
 
-    await provider.mcpFormat!.writeMCP(mcps, tmpDir);
+    await writeProjectMcp(provider, mcps, tmpDir);
 
     const settingsFile = path.join(tmpDir, ".amp", "settings.json");
     const content = JSON.parse(await readFile(settingsFile, "utf-8"));
@@ -68,7 +69,7 @@ describe("Amp MCP Format", () => {
       },
     };
 
-    await provider.mcpFormat!.writeMCP(mcps, tmpDir);
+    await writeProjectMcp(provider, mcps, tmpDir);
 
     const content = JSON.parse(
       await readFile(path.join(ampDir, "settings.json"), "utf-8"),

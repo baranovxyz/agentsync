@@ -39,6 +39,7 @@ export interface SyncToolDetail {
   skills: string[];
   commands: string[];
   agents: string[];
+  rules: string[];
   mcp: string[];
 }
 
@@ -47,6 +48,7 @@ export interface SyncData {
   skills: number;
   commands: number;
   agents: number;
+  rules: number;
   mcpServers: number;
   details: SyncToolDetail[];
 }
@@ -77,8 +79,11 @@ export interface CleanData {
     tool: string;
     removedFiles: string[];
     removedDirs: string[];
+    /** Shared config files edited in place, not removed. */
+    modifiedFiles: string[];
+    warnings: string[];
   }>;
-  summary: { files: number; directories: number };
+  summary: { files: number; directories: number; modified: number };
 }
 
 export interface ConfigAddData {
@@ -136,6 +141,7 @@ const SyncToolDetailSchema = z
     skills: z.array(z.string()),
     commands: z.array(z.string()),
     agents: z.array(z.string()),
+    rules: z.array(z.string()),
     mcp: z.array(z.string()),
   })
   .strict();
@@ -146,6 +152,7 @@ export const SyncDataSchema = z
     skills: z.number(),
     commands: z.number(),
     agents: z.number(),
+    rules: z.number(),
     mcpServers: z.number(),
     details: z.array(SyncToolDetailSchema),
   })
@@ -202,9 +209,15 @@ export const CleanDataSchema = z
         tool: z.string(),
         removedFiles: z.array(z.string()),
         removedDirs: z.array(z.string()),
+        modifiedFiles: z.array(z.string()),
+        warnings: z.array(z.string()),
       }),
     ),
-    summary: z.object({ files: z.number(), directories: z.number() }),
+    summary: z.object({
+      files: z.number(),
+      directories: z.number(),
+      modified: z.number(),
+    }),
   })
   .strict();
 

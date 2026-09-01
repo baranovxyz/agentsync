@@ -8,7 +8,6 @@ import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { syncAgents } from "../../src/sync/agents.js";
-import { generateHeader } from "../../src/sync/header.js";
 import { getToolProvider } from "../../src/tools/index.js";
 import { ensureDir, outputFile, pathExists } from "../../src/utils/fs.js";
 
@@ -64,8 +63,7 @@ describe("Copilot Agents Sync E2E", () => {
       "deployer.agent.md",
     );
     const written = await readFile(outputPath, "utf-8");
-    const header = generateHeader(".agents/agents/deployer.md");
-    expect(written).toBe(header + agentContent);
+    expect(written).toBe(agentContent);
   });
 
   it("syncs multiple agents to Copilot with .agent.md extension", async () => {
@@ -117,16 +115,13 @@ describe("Copilot Agents Sync E2E", () => {
     const results = await syncAgents(providers, tmpDir, presetAgents);
 
     expect(results[0].agentCount).toBe(1);
-    expect(results[0].agents).toContain(
-      path.join("company", "qa-bot.agent.md"),
-    );
+    expect(results[0].agents).toContain("company--qa-bot.agent.md");
 
     const namespacedPath = path.join(
       tmpDir,
       ".github",
       "agents",
-      "company",
-      "qa-bot.agent.md",
+      "company--qa-bot.agent.md",
     );
     expect(await pathExists(namespacedPath)).toBe(true);
   });
@@ -156,7 +151,7 @@ describe("Copilot Agents Sync E2E", () => {
     ).toBe(true);
     expect(
       await pathExists(
-        path.join(tmpDir, ".github", "agents", "team", "shared-bot.agent.md"),
+        path.join(tmpDir, ".github", "agents", "team--shared-bot.agent.md"),
       ),
     ).toBe(true);
   });

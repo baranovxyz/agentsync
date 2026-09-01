@@ -12,12 +12,13 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SUPPORTED_TOOLS } from "../../../../src/constants.js";
 import type { MCP } from "../../../../src/core/mcp/tokens.js";
 import { substituteTokens } from "../../../../src/core/mcp/tokens.js";
-import { syncMCP } from "../../../../src/sync/mcp.js";
+import { syncManagedMCP } from "../../../../src/sync/mcp.js";
 import {
   getToolProvider,
   getToolProviders,
 } from "../../../../src/tools/index.js";
 import { pathExists } from "../../../../src/utils/fs.js";
+import { writeProjectMcp } from "../../../helpers/mcp.js";
 
 describe("MCP URL-Based Servers", () => {
   let tmpDir: string;
@@ -48,6 +49,14 @@ describe("MCP URL-Based Servers", () => {
     return JSON.parse(raw);
   }
 
+  function keyByName(entries: unknown[]): Record<string, unknown> {
+    const merged: Record<string, unknown> = {};
+    for (const entry of entries as Array<{ name: string }>) {
+      merged[entry.name] = entry;
+    }
+    return merged;
+  }
+
   function extractServersFromConfig(
     content: Record<string, unknown>,
   ): Record<string, unknown> {
@@ -58,6 +67,9 @@ describe("MCP URL-Based Servers", () => {
       content.mcp ||
       content.servers ||
       content.extensions;
+    // Vibe stores servers as an array of tables carrying their own `name`
+    // field rather than as a name-keyed map.
+    if (Array.isArray(direct)) return keyByName(direct);
     if (direct) return direct as Record<string, unknown>;
     const merged: Record<string, unknown> = {};
     for (const entry of (content.stdio_servers as Array<{ name: string }>) ||
@@ -70,7 +82,7 @@ describe("MCP URL-Based Servers", () => {
 
   it("writes URL MCP to all tool configs", async () => {
     const providers = getToolProviders([...SUPPORTED_TOOLS]);
-    await syncMCP(providers, urlMCP, tmpDir);
+    await syncManagedMCP(providers, urlMCP, tmpDir);
 
     for (const toolName of SUPPORTED_TOOLS) {
       const provider = getToolProvider(toolName);
@@ -87,7 +99,7 @@ describe("MCP URL-Based Servers", () => {
   it("standard tools preserve url and headers directly", async () => {
     for (const toolName of ["claude", "cursor", "roocode"] as const) {
       const provider = getToolProvider(toolName);
-      await provider.mcpFormat!.writeMCP(urlMCP, tmpDir);
+      await writeProjectMcp(provider, urlMCP, tmpDir);
 
       const fullPath = path.join(tmpDir, provider.paths.mcpConfigPath!);
       const content = JSON.parse(await readFile(fullPath, "utf-8"));
@@ -103,7 +115,7 @@ describe("MCP URL-Based Servers", () => {
 
   it("Copilot preserves url and headers under 'servers' key", async () => {
     const provider = getToolProvider("copilot");
-    await provider.mcpFormat!.writeMCP(urlMCP, tmpDir);
+    await writeProjectMcp(provider, urlMCP, tmpDir);
 
     const fullPath = path.join(tmpDir, provider.paths.mcpConfigPath!);
     const content = JSON.parse(await readFile(fullPath, "utf-8"));
@@ -118,7 +130,7 @@ describe("MCP URL-Based Servers", () => {
 
   it("Codex preserves url and headers in TOML format", async () => {
     const provider = getToolProvider("codex");
-    await provider.mcpFormat!.writeMCP(urlMCP, tmpDir);
+    await writeProjectMcp(provider, urlMCP, tmpDir);
 
     const fullPath = path.join(tmpDir, provider.paths.mcpConfigPath!);
     const content = parseToml(await readFile(fullPath, "utf-8")) as Record<
@@ -141,7 +153,7 @@ describe("MCP URL-Based Servers", () => {
 
   it("OpenCode converts URL MCP to remote type", async () => {
     const provider = getToolProvider("opencode");
-    await provider.mcpFormat!.writeMCP(urlMCP, tmpDir);
+    await writeProjectMcp(provider, urlMCP, tmpDir);
 
     const content = JSON.parse(
       await readFile(path.join(tmpDir, "opencode.json"), "utf-8"),
@@ -157,7 +169,7 @@ describe("MCP URL-Based Servers", () => {
 
   it("Gemini merges URL MCP into settings.json", async () => {
     const provider = getToolProvider("gemini");
-    await provider.mcpFormat!.writeMCP(urlMCP, tmpDir);
+    await writeProjectMcp(provider, urlMCP, tmpDir);
 
     const content = JSON.parse(
       await readFile(path.join(tmpDir, ".gemini", "settings.json"), "utf-8"),
@@ -177,7 +189,7 @@ describe("MCP URL-Based Servers", () => {
     };
 
     const provider = getToolProvider("claude");
-    await provider.mcpFormat!.writeMCP(noHeaderMCP, tmpDir);
+    await writeProjectMcp(provider, noHeaderMCP, tmpDir);
 
     const content = JSON.parse(
       await readFile(path.join(tmpDir, ".mcp.json"), "utf-8"),
@@ -201,7 +213,7 @@ describe("MCP URL-Based Servers", () => {
     };
 
     const provider = getToolProvider("cursor");
-    await provider.mcpFormat!.writeMCP(mixedMCP, tmpDir);
+    await writeProjectMcp(provider, mixedMCP, tmpDir);
 
     const content = JSON.parse(
       await readFile(path.join(tmpDir, ".cursor", "mcp.json"), "utf-8"),
@@ -257,7 +269,7 @@ describe("MCP URL-Based Servers", () => {
     };
 
     const provider = getToolProvider("claude");
-    await provider.mcpFormat!.writeMCP(multiURL, tmpDir);
+    await writeProjectMcp(provider, multiURL, tmpDir);
 
     const content = JSON.parse(
       await readFile(path.join(tmpDir, ".mcp.json"), "utf-8"),

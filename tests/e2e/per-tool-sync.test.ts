@@ -7,12 +7,11 @@ import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ToolName } from "../../src/constants.js";
-import { generateHeader } from "../../src/sync/header.js";
 import {
   syncAgents,
   syncCommands,
   syncDocs,
-  syncMCP,
+  syncManagedMCP,
   syncSkills,
 } from "../../src/sync/index.js";
 import { getToolProvider, getToolProviders } from "../../src/tools/index.js";
@@ -41,12 +40,11 @@ describe("Per-Tool Sync E2E", () => {
     await ensureDir(path.join(tmpDir, ".agents", "agents"));
     await outputFile(
       path.join(tmpDir, ".agents", "agents", "reviewer.md"),
-      "---\nname: reviewer\n---\n# Reviewer Agent",
+      "---\nname: reviewer\ndescription: Review changes\n---\n# Reviewer Agent",
     );
 
-    await ensureDir(path.join(tmpDir, ".agents"));
     await outputFile(
-      path.join(tmpDir, ".agents", "AGENTS.md"),
+      path.join(tmpDir, "AGENTS.md"),
       "# Project Docs\n\nStandard project documentation.",
     );
   });
@@ -69,7 +67,7 @@ describe("Per-Tool Sync E2E", () => {
     await syncCommands(providers, tmpDir);
     await syncAgents(providers, tmpDir);
     await syncDocs(providers, tmpDir);
-    await syncMCP(providers, mcps, tmpDir);
+    await syncManagedMCP(providers, mcps, tmpDir);
   }
 
   describe("Claude Code", () => {
@@ -99,10 +97,10 @@ describe("Per-Tool Sync E2E", () => {
   });
 
   describe("OpenCode", () => {
-    it("syncs commands, agents, MCP (opencode format) — skills skipped (readsAgentsDir)", async () => {
+    it("syncs commands, agents, MCP (opencode format) — skills skipped (nativeSkillsDiscovery)", async () => {
       await syncAllForTool("opencode");
 
-      // OpenCode has readsAgentsDir=true — skills are NOT copied to .opencode/skills/
+      // OpenCode has nativeSkillsDiscovery=true — skills are NOT copied to .opencode/skills/
       // Commands and agents are still synced
       expect(
         await pathExists(
@@ -126,44 +124,41 @@ describe("Per-Tool Sync E2E", () => {
   });
 
   describe("Cursor", () => {
-    it("syncs skills and MCP only (no commands or agents)", async () => {
+    it("reads canonical skills and generates commands, agents, and MCP", async () => {
       await syncAllForTool("cursor");
 
-      // Skills synced (cursor is holdout tool, readsAgentsDir=false)
+      // Cursor reads the canonical skill in place; no duplicate is generated.
       expect(
         await pathExists(
-          path.join(tmpDir, ".cursor", "skills", "tdd", "SKILL.md"),
+          path.join(tmpDir, ".agents", "skills", "tdd", "SKILL.md"),
         ),
       ).toBe(true);
+      expect(await pathExists(path.join(tmpDir, ".cursor", "skills"))).toBe(
+        false,
+      );
 
       // MCP synced
       expect(await pathExists(path.join(tmpDir, ".cursor", "mcp.json"))).toBe(
         true,
       );
 
-      // No commands dir (Cursor uses rules)
-      expect(await pathExists(path.join(tmpDir, ".cursor", "commands"))).toBe(
-        false,
-      );
+      expect(
+        await pathExists(path.join(tmpDir, ".cursor", "commands", "commit.md")),
+      ).toBe(true);
+      expect(
+        await pathExists(path.join(tmpDir, ".cursor", "agents", "reviewer.md")),
+      ).toBe(true);
 
-      // No agents dir
-      expect(await pathExists(path.join(tmpDir, ".cursor", "agents"))).toBe(
-        false,
-      );
-
-      // Cursor reads AGENTS.md natively (docsFormat=null) — no file created by syncDocs
-      // .agents/AGENTS.md still exists as the source
-      expect(await pathExists(path.join(tmpDir, ".agents", "AGENTS.md"))).toBe(
-        true,
-      );
+      // Cursor reads the canonical root file natively.
+      expect(await pathExists(path.join(tmpDir, "AGENTS.md"))).toBe(true);
     });
   });
 
   describe("RooCode", () => {
-    it("syncs commands and MCP (skills skipped — readsAgentsDir=true, no agents)", async () => {
+    it("syncs commands and MCP (skills skipped — nativeSkillsDiscovery=true, no agents)", async () => {
       await syncAllForTool("roocode");
 
-      // RooCode has readsAgentsDir=true — skills NOT copied
+      // RooCode has nativeSkillsDiscovery=true — skills NOT copied
       // Commands are still synced
       expect(
         await pathExists(path.join(tmpDir, ".roo", "commands", "commit.md")),
@@ -243,10 +238,10 @@ describe("Per-Tool Sync E2E", () => {
   });
 
   describe("Gemini CLI", () => {
-    it("syncs MCP merged into settings.json, GEMINI.md directive (skills skipped — readsAgentsDir)", async () => {
+    it("syncs MCP merged into settings.json, GEMINI.md directive (skills skipped — nativeSkillsDiscovery)", async () => {
       await syncAllForTool("gemini");
 
-      // Skills NOT copied (readsAgentsDir=true)
+      // Skills NOT copied (nativeSkillsDiscovery=true)
 
       // MCP merged into settings
       const settings = JSON.parse(
@@ -254,7 +249,6 @@ describe("Per-Tool Sync E2E", () => {
       );
       expect(settings.mcpServers.github.command).toBe("npx");
 
-      // GEMINI.md created with @AGENTS.md directive
       expect(await pathExists(path.join(tmpDir, "GEMINI.md"))).toBe(true);
       const geminiContent = await readFile(
         path.join(tmpDir, "GEMINI.md"),
@@ -286,10 +280,9 @@ describe("Per-Tool Sync E2E", () => {
       const providers = getToolProviders(allTools);
       await syncSkills(providers, tmpDir);
 
-      // Only holdout tools (readsAgentsDir=false) get copies
+      // Only holdout tools get copies; Cursor reads the source natively.
       const holdoutPaths = [
         ".claude/skills/tdd/SKILL.md",
-        ".cursor/skills/tdd/SKILL.md",
         ".github/skills/tdd/SKILL.md", // copilot
       ];
 
@@ -305,13 +298,11 @@ describe("Per-Tool Sync E2E", () => {
         expect(contents[i]).toBe(contents[0]);
       }
 
-      // Source file content should be present after the header
       const sourceContent = await readFile(
         path.join(tmpDir, ".agents", "skills", "tdd", "SKILL.md"),
         "utf-8",
       );
-      const header = generateHeader(".agents/skills/tdd/SKILL.md");
-      expect(contents[0]).toBe(header + sourceContent);
+      expect(contents[0]).toBe(sourceContent);
     });
   });
 });

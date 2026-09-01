@@ -22,7 +22,6 @@ describe("Cline — Capabilities", () => {
 
   it("does NOT read .agents/ directory directly (holdout tool)", () => {
     expect(p.capabilities.nativeSkillsDiscovery).toBe(false);
-    expect(p.readsAgentsDir).toBe(false);
   });
 
   it("has correct paths", () => {

@@ -1,82 +1,22 @@
 /**
  * Init Git Hook Tests
  * Verifies that agentsync init installs a post-merge git hook
- * that runs `npx agentsync sync --quiet` after git pull.
+ * that runs `npx agentsync sync` after git pull.
  */
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { ensureDir, outputFile, pathExists } from "../../../src/utils/fs.js";
+import { createProgram } from "../../../src/cli.js";
+import {
+  installGitHook,
+  POST_MERGE_HOOK_COMMAND,
+  POST_MERGE_HOOK_MARKER,
+} from "../../../src/commands/init.js";
+import { ensureDir, pathExists } from "../../../src/utils/fs.js";
 
-const HOOK_COMMAND = "npx agentsync sync --quiet 2>/dev/null || true";
-const MARKER = "# AgentSync:";
-
-/**
- * Dynamically import and invoke the private installGitHook method.
- * We instantiate InitCommand and call performInit indirectly via a
- * minimal helper that exercises installGitHook through the public API.
- *
- * Instead, we replicate the hook logic here to test it in isolation,
- * since installGitHook is private. This mirrors the implementation
- * exactly and avoids coupling to template loading / config creation.
- */
-async function installGitHook(
-  cwd: string,
-  log?: (msg: string) => void,
-): Promise<void> {
-  // Replicate findGitDir logic
-  let current = cwd;
-  const root = path.parse(current).root;
-  let gitDir: string | null = null;
-
-  while (current !== root) {
-    const candidate = path.join(current, ".git");
-    if (await pathExists(candidate)) {
-      gitDir = candidate;
-      break;
-    }
-    current = path.dirname(current);
-  }
-
-  if (!gitDir) {
-    log?.("No .git directory found, skipping git hook");
-    return;
-  }
-
-  const hooksDir = path.join(gitDir, "hooks");
-  await ensureDir(hooksDir);
-
-  const hookPath = path.join(hooksDir, "post-merge");
-
-  if (await pathExists(hookPath)) {
-    const content = await readFile(hookPath, "utf-8");
-
-    if (content.includes(HOOK_COMMAND)) {
-      log?.("post-merge hook already has agentsync sync");
-      return;
-    }
-
-    // Append to existing hook
-    const appendContent = `\n${MARKER} auto-sync tool configs after pull\n${HOOK_COMMAND}\n`;
-    await outputFile(hookPath, content + appendContent);
-    const { chmod } = await import("node:fs/promises");
-    await chmod(hookPath, 0o755);
-    log?.("Appended agentsync sync to existing post-merge hook");
-  } else {
-    // Create new hook
-    const hookContent = [
-      "#!/bin/sh",
-      `${MARKER} auto-sync tool configs after pull`,
-      HOOK_COMMAND,
-      "",
-    ].join("\n");
-    await outputFile(hookPath, hookContent);
-    const { chmod } = await import("node:fs/promises");
-    await chmod(hookPath, 0o755);
-    log?.("Created post-merge git hook");
-  }
-}
+const HOOK_COMMAND = POST_MERGE_HOOK_COMMAND;
+const MARKER = POST_MERGE_HOOK_MARKER;
 
 describe("Init Git Hook Installation", () => {
   let tmpDir: string;
@@ -87,6 +27,22 @@ describe("Init Git Hook Installation", () => {
 
   afterEach(async () => {
     await rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it("uses the registered sync command and flags", () => {
+    const program = createProgram({ exitOverride: true });
+    const syncCommand = program.commands.find(
+      (command) => command.name() === "sync",
+    );
+    if (!syncCommand) throw new Error("sync command is not registered");
+
+    const commandParts = HOOK_COMMAND.split(/\s+/);
+    expect(commandParts.slice(0, 3)).toEqual(["npx", "agentsync", "sync"]);
+    expect(HOOK_COMMAND.match(/(?:^|\s)(--[a-z0-9-]+)/gi) ?? []).toEqual([]);
+    expect(syncCommand.options.map((option) => option.long)).not.toContain(
+      "--quiet",
+    );
+    expect(HOOK_COMMAND).toBe("npx agentsync sync 2>/dev/null || true");
   });
 
   it("creates post-merge hook when none exists", async () => {
@@ -137,12 +93,7 @@ describe("Init Git Hook Installation", () => {
     const hooksDir = path.join(tmpDir, ".git", "hooks");
     await ensureDir(hooksDir);
 
-    const existingContent = [
-      "#!/bin/sh",
-      `${MARKER} auto-sync tool configs after pull`,
-      HOOK_COMMAND,
-      "",
-    ].join("\n");
+    const existingContent = ["#!/bin/sh", MARKER, HOOK_COMMAND, ""].join("\n");
     await writeFile(path.join(hooksDir, "post-merge"), existingContent);
 
     const logs: string[] = [];

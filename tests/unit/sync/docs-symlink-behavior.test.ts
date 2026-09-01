@@ -1,7 +1,7 @@
 /**
- * Docs Symlink Behavior Test
- * Tests CLAUDE.md and GEMINI.md symlink creation, overwrite of existing files,
- * behavior when AGENTS.md doesn't exist, and copy from .agents/.
+ * Docs Directive Behavior Test
+ * Tests CLAUDE.md and GEMINI.md directive creation, overwrite of existing files,
+ * and behavior when root AGENTS.md doesn't exist.
  */
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -9,13 +9,13 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { syncDocs } from "../../../src/sync/docs.js";
 import { getToolProvider } from "../../../src/tools/index.js";
-import { ensureDir, outputFile, pathExists } from "../../../src/utils/fs.js";
+import { outputFile, pathExists } from "../../../src/utils/fs.js";
 
-describe("Docs Symlink Behavior", () => {
+describe("Docs Directive Behavior", () => {
   let tmpDir: string;
 
   beforeEach(async () => {
-    tmpDir = await mkdtemp(path.join(tmpdir(), "agentsync-docs-symlink-"));
+    tmpDir = await mkdtemp(path.join(tmpdir(), "agentsync-docs-directive-"));
   });
 
   afterEach(async () => {
@@ -70,23 +70,6 @@ describe("Docs Symlink Behavior", () => {
     expect(await pathExists(path.join(tmpDir, "GEMINI.md"))).toBe(false);
   });
 
-  it("creates CLAUDE.md directive when .agents/AGENTS.md exists", async () => {
-    const docsContent = "# From Docs\n\nContent from .agents/.";
-    await ensureDir(path.join(tmpDir, ".agents"));
-    await outputFile(path.join(tmpDir, ".agents", "AGENTS.md"), docsContent);
-
-    const providers = [getToolProvider("claude")];
-    await syncDocs(providers, tmpDir);
-
-    // CLAUDE.md should exist with @AGENTS.md directive
-    expect(await pathExists(path.join(tmpDir, "CLAUDE.md"))).toBe(true);
-    const claudeContent = await readFile(
-      path.join(tmpDir, "CLAUDE.md"),
-      "utf-8",
-    );
-    expect(claudeContent).toBe("@AGENTS.md\n");
-  });
-
   it("overwrites existing CLAUDE.md file on re-sync", async () => {
     // Create initial CLAUDE.md
     await outputFile(path.join(tmpDir, "CLAUDE.md"), "Old content");
@@ -98,8 +81,9 @@ describe("Docs Symlink Behavior", () => {
     const providers = [getToolProvider("claude")];
     await syncDocs(providers, tmpDir);
 
-    // CLAUDE.md should still exist (replaced)
-    expect(await pathExists(path.join(tmpDir, "CLAUDE.md"))).toBe(true);
+    expect(await readFile(path.join(tmpDir, "CLAUDE.md"), "utf8")).toBe(
+      "@AGENTS.md\n",
+    );
   });
 
   it("tools reading AGENTS.md natively report created status based on existence", async () => {
