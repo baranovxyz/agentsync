@@ -25,7 +25,7 @@ describe("loadConfigHierarchy — monorepo", () => {
 
     const config = await loadConfigHierarchy(root);
     expect(config.tools).toEqual(expect.arrayContaining(["cursor"]));
-    expect(config._sources.project).toBe(
+    expect(config._sources.chain[0]).toBe(
       join(root, ".agents", "agentsync.toml"),
     );
     expect(config._sources.chain).toEqual([
@@ -38,7 +38,7 @@ describe("loadConfigHierarchy — monorepo", () => {
     await mkdir(join(root, ".agents"), { recursive: true });
     await writeFile(
       join(root, ".agents", "agentsync.toml"),
-      `tools = ["cursor", "claude"]\n\n[mcp_servers.github]\ncommand = "npx"\nargs = ["-y", "gh-mcp"]\n`,
+      `tools = ["cursor", "claude"]\n\n[mcp.github]\ncommand = "npx"\nargs = ["-y", "gh-mcp"]\n`,
     );
 
     // Team
@@ -46,7 +46,7 @@ describe("loadConfigHierarchy — monorepo", () => {
     await mkdir(join(teamDir, ".agents"), { recursive: true });
     await writeFile(
       join(teamDir, ".agents", "agentsync.toml"),
-      `[mcp_servers.storybook]\ncommand = "npx"\nargs = ["-y", "sb-mcp"]\n`,
+      `[mcp.storybook]\ncommand = "npx"\nargs = ["-y", "sb-mcp"]\n`,
     );
 
     const config = await loadConfigHierarchy(teamDir);
@@ -83,7 +83,7 @@ describe("loadConfigHierarchy — monorepo", () => {
     await mkdir(join(root, ".agents"), { recursive: true });
     await writeFile(
       join(root, ".agents", "agentsync.toml"),
-      `tools = ["cursor"]\n\n[mcp_servers.github]\ncommand = "npx"\nargs = ["-y", "gh-mcp"]\n`,
+      `tools = ["cursor"]\n\n[mcp.github]\ncommand = "npx"\nargs = ["-y", "gh-mcp"]\n`,
     );
 
     // Team
@@ -91,7 +91,7 @@ describe("loadConfigHierarchy — monorepo", () => {
     await mkdir(join(teamDir, ".agents"), { recursive: true });
     await writeFile(
       join(teamDir, ".agents", "agentsync.toml"),
-      `[mcp_servers.db]\ncommand = "npx"\nargs = ["-y", "db-mcp"]\n`,
+      `[mcp.db]\ncommand = "npx"\nargs = ["-y", "db-mcp"]\n`,
     );
 
     // App (most specific)
@@ -111,7 +111,7 @@ describe("loadConfigHierarchy — monorepo", () => {
     expect(config.mcp?.db).toBeDefined();
     // Full chain
     expect(config._sources.chain).toHaveLength(3);
-    expect(config._sources.project).toBe(
+    expect(config._sources.chain[0]).toBe(
       join(appDir, ".agents", "agentsync.toml"),
     );
   });

@@ -10,15 +10,7 @@ describe("gitignore utilities", () => {
     it("should generate base patterns for empty tool list", () => {
       const content = generateGitignoreContent([]);
       expect(content).toContain("# AgentSync");
-      expect(content).toContain(".agents/backups/");
       expect(content).toContain("agentsync.local.toml");
-    });
-
-    it("should not gitignore old .agentsync/ patterns", () => {
-      const content = generateGitignoreContent([]);
-      expect(content).not.toContain(".agentsync/backups/");
-      expect(content).not.toContain("agentsync.local.json");
-      expect(content).not.toContain("*.backup");
     });
 
     it("should include tool MCP config patterns for selected tools", () => {

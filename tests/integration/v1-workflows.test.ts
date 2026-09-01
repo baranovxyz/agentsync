@@ -44,7 +44,7 @@ describe("V1 Workflows: TOML -> sync flow", () => {
     const providers = getToolProviders(["claude", "opencode"]);
     const results = await syncSkills(providers, project.dir);
 
-    // Claude is holdout (readsAgentsDir=false) — gets copies
+    // Claude is a generated-output skill reader and receives a copy.
     const claudeResult = results.find((r) => r.tool === "claude");
     expect(claudeResult).toBeDefined();
     expect(claudeResult!.skillCount).toBe(1);
@@ -62,7 +62,7 @@ describe("V1 Workflows: TOML -> sync flow", () => {
     const content = await readFile(skillPath, "utf-8");
     expect(content).toContain("# Test Skill");
 
-    // OpenCode is native (readsAgentsDir=true) — skipped
+    // OpenCode discovers project skills natively, so no copy is generated.
     const opencodeResult = results.find((r) => r.tool === "opencode");
     expect(opencodeResult).toBeDefined();
     expect(opencodeResult!.skillCount).toBe(0);
@@ -141,14 +141,11 @@ describe("V1 Workflows: flat namespace flow", () => {
     const providers = getToolProviders(["claude", "cursor"]);
     const results = await syncSkills(providers, project.dir, presetSkills);
 
-    // Both holdout tools should get the skill with -- separator
+    // Preset skills are generated for both holdout and hybrid native readers.
     for (const result of results) {
       expect(result.skillCount).toBe(1);
       expect(result.skills).toContain("company--tdd");
-      // Must NOT contain "/" separator
-      for (const skill of result.skills) {
-        expect(skill).not.toContain("/");
-      }
+      expect(result.skills.every((skill) => !skill.includes("/"))).toBe(true);
     }
 
     // Verify actual file path uses --
@@ -217,14 +214,13 @@ describe("V1 Workflows: docs directive flow", () => {
     await project.cleanup();
   });
 
-  it("creates CLAUDE.md with @AGENTS.md directive (not a symlink)", async () => {
+  it("creates CLAUDE.md with a root AGENTS.md directive (not a symlink)", async () => {
     const providers = getToolProviders(["claude"]);
     await syncDocs(providers, project.dir);
 
     const claudeMdPath = path.join(project.dir, "CLAUDE.md");
     expect(await pathExists(claudeMdPath)).toBe(true);
 
-    // Content is the @AGENTS.md directive
     const content = await readFile(claudeMdPath, "utf-8");
     expect(content).toBe("@AGENTS.md\n");
 
@@ -234,7 +230,7 @@ describe("V1 Workflows: docs directive flow", () => {
     expect(stat.isFile()).toBe(true);
   });
 
-  it("creates GEMINI.md with @AGENTS.md directive for gemini", async () => {
+  it("creates GEMINI.md with a root AGENTS.md directive", async () => {
     const providers = getToolProviders(["gemini"]);
     await syncDocs(providers, project.dir);
 
@@ -245,14 +241,14 @@ describe("V1 Workflows: docs directive flow", () => {
     expect(content).toBe("@AGENTS.md\n");
   });
 
-  it("cursor reads AGENTS.md natively — no action needed by syncDocs", async () => {
+  it("cursor reads the canonical root AGENTS.md natively", async () => {
     const providers = getToolProviders(["cursor"]);
     const results = await syncDocs(providers, project.dir);
 
-    // Cursor has docsFormat=null — reads AGENTS.md natively
+    // Cursor has docsFormat=null — reads AGENTS.md natively from the
+    // project root only.
     const cursorResult = results.find((r) => r.tool === "cursor");
     expect(cursorResult).toBeDefined();
-    // created=true means AGENTS.md exists (native tool still reports it)
     expect(cursorResult!.created).toBe(true);
 
     // No CURSOR.md or other derivative file should be created
@@ -342,13 +338,12 @@ describe("V1 Workflows: Copilot .agent.md flow", () => {
     // Should have both project agent + preset agent
     expect(results[0].agentCount).toBe(2);
 
-    // Namespaced preset agent: company/qa-bot.agent.md
+    // Namespaced preset agent: company--qa-bot.agent.md
     const namespacedPath = path.join(
       project.dir,
       ".github",
       "agents",
-      "company",
-      "qa-bot.agent.md",
+      "company--qa-bot.agent.md",
     );
     expect(await pathExists(namespacedPath)).toBe(true);
 
@@ -400,67 +395,82 @@ describe("V1 Workflows: combined full sync", () => {
     const docsResults = await syncDocs(providers, project.dir);
 
     // --- Skills ---
-    // Holdout tools (claude, cursor, copilot) get skill copies
+    // Holdout tools (Claude and Copilot) get generated skill copies.
     const claudeSkills = skillResults.find((r) => r.tool === "claude");
-    const cursorSkills = skillResults.find((r) => r.tool === "cursor");
     const copilotSkills = skillResults.find((r) => r.tool === "copilot");
     expect(claudeSkills!.skillCount).toBe(1);
-    expect(cursorSkills!.skillCount).toBe(1);
     expect(copilotSkills!.skillCount).toBe(1);
 
-    // Native tools (opencode, gemini) skip
+    // Native skill readers (Cursor, OpenCode, Gemini) use .agents/skills.
+    const cursorSkills = skillResults.find((r) => r.tool === "cursor");
     const opencodeSkills = skillResults.find((r) => r.tool === "opencode");
     const geminiSkills = skillResults.find((r) => r.tool === "gemini");
+    expect(cursorSkills!.skillCount).toBe(0);
     expect(opencodeSkills!.skillCount).toBe(0);
     expect(geminiSkills!.skillCount).toBe(0);
+    expect(await pathExists(path.join(project.dir, ".cursor", "skills"))).toBe(
+      false,
+    );
 
     // --- Commands ---
-    // Claude and OpenCode support commands
+    // Claude, OpenCode, and Cursor support commands.
     const claudeCmds = commandResults.find((r) => r.tool === "claude");
     const opencodeCmds = commandResults.find((r) => r.tool === "opencode");
+    const cursorCmds = commandResults.find((r) => r.tool === "cursor");
     expect(claudeCmds!.commandCount).toBe(1);
     expect(opencodeCmds!.commandCount).toBe(1);
+    expect(cursorCmds!.commandCount).toBe(1);
+    expect(cursorCmds!.commands).toContain("test.md");
+    expect(
+      await pathExists(
+        path.join(project.dir, ".cursor", "commands", "test.md"),
+      ),
+    ).toBe(true);
 
-    // Cursor, Copilot, Gemini do NOT support commands
-    const cursorCmds = commandResults.find((r) => r.tool === "cursor");
+    // Copilot and Gemini do not support commands.
     const copilotCmds = commandResults.find((r) => r.tool === "copilot");
     const geminiCmds = commandResults.find((r) => r.tool === "gemini");
-    expect(cursorCmds!.commandCount).toBe(0);
     expect(copilotCmds!.commandCount).toBe(0);
     expect(geminiCmds!.commandCount).toBe(0);
 
     // --- Agents ---
-    // Claude, OpenCode, Copilot support agents
+    // Claude, OpenCode, Cursor, and Copilot support agents.
     const claudeAgents = agentResults.find((r) => r.tool === "claude");
     const opencodeAgents = agentResults.find((r) => r.tool === "opencode");
+    const cursorAgents = agentResults.find((r) => r.tool === "cursor");
     const copilotAgents = agentResults.find((r) => r.tool === "copilot");
     expect(claudeAgents!.agentCount).toBe(1);
     expect(opencodeAgents!.agentCount).toBe(1);
+    expect(cursorAgents!.agentCount).toBe(1);
+    expect(cursorAgents!.agents).toContain("reviewer.md");
     expect(copilotAgents!.agentCount).toBe(1);
+    expect(
+      await pathExists(
+        path.join(project.dir, ".cursor", "agents", "reviewer.md"),
+      ),
+    ).toBe(true);
 
     // Copilot uses .agent.md extension
     expect(copilotAgents!.agents).toContain("reviewer.agent.md");
 
-    // Cursor and Gemini do NOT support agents
-    const cursorAgents = agentResults.find((r) => r.tool === "cursor");
+    // Gemini does not support agents.
     const geminiAgents = agentResults.find((r) => r.tool === "gemini");
-    expect(cursorAgents!.agentCount).toBe(0);
     expect(geminiAgents!.agentCount).toBe(0);
 
     // --- Docs ---
-    // Claude gets CLAUDE.md with @AGENTS.md directive
+    // Claude gets CLAUDE.md with the canonical root directive.
     const claudeDocs = docsResults.find((r) => r.tool === "claude");
     expect(claudeDocs!.created).toBe(true);
     expect(await pathExists(path.join(project.dir, "CLAUDE.md"))).toBe(true);
 
-    // Gemini gets GEMINI.md with @AGENTS.md directive
+    // Gemini gets GEMINI.md with the canonical root directive.
     const geminiDocs = docsResults.find((r) => r.tool === "gemini");
     expect(geminiDocs!.created).toBe(true);
     expect(await pathExists(path.join(project.dir, "GEMINI.md"))).toBe(true);
 
-    // Cursor, OpenCode read AGENTS.md natively (no derivative file)
+    // Cursor and OpenCode read the root AGENTS.md natively.
     const cursorDocs = docsResults.find((r) => r.tool === "cursor");
-    expect(cursorDocs!.created).toBe(true); // AGENTS.md exists
+    expect(cursorDocs!.created).toBe(true);
   });
 });
 

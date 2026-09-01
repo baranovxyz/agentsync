@@ -9,8 +9,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { syncAgents } from "../../../src/sync/agents.js";
 import { syncCommands } from "../../../src/sync/commands.js";
 import { syncDocs } from "../../../src/sync/docs.js";
-import { generateHeader } from "../../../src/sync/header.js";
-import { syncMCP } from "../../../src/sync/mcp.js";
+import { syncManagedMCP } from "../../../src/sync/mcp.js";
 import { syncSkills } from "../../../src/sync/skills.js";
 import { getToolProvider, getToolProviders } from "../../../src/tools/index.js";
 import { ensureDir, outputFile, pathExists } from "../../../src/utils/fs.js";
@@ -71,7 +70,7 @@ describe("Sync Edge Cases", () => {
       // Holdout tools (claude, cursor) get skills copied; native tools (roocode, gemini) skip
       for (const result of results) {
         const provider = providers.find((p) => p.name === result.tool)!;
-        if (provider.readsAgentsDir) {
+        if (provider.capabilities.nativeSkillsDiscovery) {
           expect(result.skillCount).toBe(0);
         } else {
           expect(result.skillCount).toBe(5);
@@ -105,14 +104,11 @@ describe("Sync Edge Cases", () => {
       expect(results).toHaveLength(0);
     });
 
-    it("syncMCP with empty servers writes empty config", async () => {
+    it("syncManagedMCP with empty servers leaves config absent", async () => {
       const providers = [getToolProvider("claude")];
-      await syncMCP(providers, {}, tmpDir);
+      await syncManagedMCP(providers, {}, tmpDir);
 
-      const content = JSON.parse(
-        await readFile(path.join(tmpDir, ".mcp.json"), "utf-8"),
-      );
-      expect(content.mcpServers).toEqual({});
+      expect(await pathExists(path.join(tmpDir, ".mcp.json"))).toBe(false);
     });
 
     it("syncDocs with no AGENTS.md returns created=false", async () => {
@@ -136,8 +132,7 @@ describe("Sync Edge Cases", () => {
         path.join(tmpDir, ".claude", "skills", "large", "SKILL.md"),
         "utf-8",
       );
-      const header = generateHeader(".agents/skills/large/SKILL.md");
-      expect(output.length).toBe(header.length + largeContent.length);
+      expect(output.length).toBe(largeContent.length);
     });
   });
 
@@ -157,9 +152,9 @@ describe("Sync Edge Cases", () => {
         "roocode",
         "gemini",
       ]);
-      const results = await syncMCP(providers, mcps, tmpDir);
+      const results = await syncManagedMCP(providers, mcps, tmpDir);
 
-      for (const result of results) {
+      for (const result of results.results) {
         expect(result.serverCount).toBe(10);
       }
     });
@@ -175,7 +170,7 @@ describe("Sync Edge Cases", () => {
       };
 
       const providers = [getToolProvider("claude")];
-      await syncMCP(providers, mcps, tmpDir);
+      await syncManagedMCP(providers, mcps, tmpDir);
 
       const content = JSON.parse(
         await readFile(path.join(tmpDir, ".mcp.json"), "utf-8"),
@@ -195,7 +190,7 @@ describe("Sync Edge Cases", () => {
       };
 
       const providers = [getToolProvider("opencode")];
-      await syncMCP(providers, mcps, tmpDir);
+      await syncManagedMCP(providers, mcps, tmpDir);
 
       const content = JSON.parse(
         await readFile(path.join(tmpDir, "opencode.json"), "utf-8"),
@@ -235,8 +230,7 @@ describe("Sync Edge Cases", () => {
         path.join(tmpDir, ".claude", "skills", "special", "SKILL.md"),
         "utf-8",
       );
-      const header = generateHeader(".agents/skills/special/SKILL.md");
-      expect(output).toBe(header + content);
+      expect(output).toBe(content);
     });
 
     it("preserves unicode in command files", async () => {
@@ -255,8 +249,7 @@ describe("Sync Edge Cases", () => {
         path.join(tmpDir, ".claude", "commands", "unicode.md"),
         "utf-8",
       );
-      const header = generateHeader(".agents/commands/unicode.md");
-      expect(output).toBe(header + content);
+      expect(output).toBe(content);
     });
   });
 });

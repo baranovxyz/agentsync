@@ -16,7 +16,6 @@ describe("Architecture Consistency", () => {
     it("AgentSyncConfigSchema accepts all supported tools", () => {
       for (const tool of SUPPORTED_TOOLS) {
         const result = AgentSyncConfigSchema.safeParse({
-          version: "1.0",
           tools: [tool],
         });
 
@@ -32,7 +31,6 @@ describe("Architecture Consistency", () => {
 
     it("schemas accept multiple supported tools", () => {
       const result = AgentSyncConfigSchema.safeParse({
-        version: "1.0",
         tools: [...SUPPORTED_TOOLS],
       });
 
@@ -46,7 +44,6 @@ describe("Architecture Consistency", () => {
 
       for (const tool of unsupportedTools) {
         const result = AgentSyncConfigSchema.safeParse({
-          version: "1.0",
           tools: [tool],
         });
 
@@ -60,7 +57,6 @@ describe("Architecture Consistency", () => {
 
     it("schemas reject mixed valid and invalid tools", () => {
       const result = AgentSyncConfigSchema.safeParse({
-        version: "1.0",
         tools: ["cursor", "invalid-tool", "claude"],
       });
 
@@ -102,10 +98,12 @@ describe("Architecture Consistency", () => {
 
       expect(OPTIONAL_ADAPTER_TOOLS).toEqual(expectedOptional);
       expect(OPTIONAL_ADAPTER_TOOLS).toEqual([
-        "cursor",
         "roocode",
         "copilot",
         "cline",
+        "droid",
+        "pi",
+        "vibe",
       ]);
     });
   });

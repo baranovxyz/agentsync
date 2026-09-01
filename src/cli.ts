@@ -9,11 +9,11 @@
  *   config add, config rm, config ls, config show
  */
 
-import { readFile } from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Command } from "commander";
 import esMain from "es-main";
+import { z } from "zod";
 import { type CleanResult, cleanCommand } from "./commands/clean.js";
 import { configAdd } from "./commands/config/add.js";
 import { configLs } from "./commands/config/ls.js";
@@ -22,6 +22,7 @@ import { configShow } from "./commands/config/show.js";
 import { doctor } from "./commands/doctor/index.js";
 import { init } from "./commands/init.js";
 import { sync } from "./commands/sync.js";
+import { SUPPORTED_TOOLS } from "./constants.js";
 import { formatSafetyNetError, statusToExitCode } from "./core/errors.js";
 import {
   type CleanData,
@@ -31,20 +32,42 @@ import {
   jsonStringify,
   projectFields,
 } from "./types/output.js";
+import { readJsonValidated } from "./utils/fs.js";
 
 // Read version from package.json
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const packageJsonPath = path.resolve(__dirname, "../package.json");
+const PackageJsonSchema = z.object({ version: z.string() });
 
 let version: string;
 try {
-  const packageJsonContent = await readFile(packageJsonPath, "utf-8");
-  const packageJson = JSON.parse(packageJsonContent);
-  version = packageJson.version || "0.0.0";
+  const packageJson = await readJsonValidated(
+    packageJsonPath,
+    PackageJsonSchema,
+  );
+  version = packageJson.version;
 } catch (error) {
   console.warn("Failed to read version from package.json:", error);
   version = "0.0.0";
+}
+
+/** One-line tally shown after the per-tool listing. */
+function cleanSummaryLine(
+  dryRun: boolean,
+  totalFiles: number,
+  totalDirs: number,
+  totalModified: number,
+): string {
+  if (totalFiles === 0 && totalDirs === 0 && totalModified === 0) {
+    return "\nNothing to clean.\n";
+  }
+  const verb = dryRun ? "Would remove" : "Removed";
+  const edited =
+    totalModified > 0
+      ? `, and ${dryRun ? "would edit" : "edited"} ${totalModified} shared config file(s)`
+      : "";
+  return `\n${verb} ${totalFiles} file(s) and ${totalDirs} directory/directories${edited}.\n`;
 }
 
 /** Display clean results in human-readable format. */
@@ -53,27 +76,42 @@ async function displayCleanResults(
   dryRun: boolean,
   totalFiles: number,
   totalDirs: number,
+  totalModified: number,
 ): Promise<void> {
   const pc = (await import("picocolors")).default;
   if (dryRun) console.log(pc.yellow("\nDry run - no files will be removed\n"));
 
   for (const result of results) {
-    if (result.removedFiles.length + result.removedDirs.length === 0) continue;
+    const { removedFiles, removedDirs, modifiedFiles, warnings } = result;
+    if (
+      removedFiles.length +
+        removedDirs.length +
+        modifiedFiles.length +
+        warnings.length ===
+      0
+    ) {
+      continue;
+    }
     console.log(pc.bold(`${result.tool}:`));
-    for (const f of result.removedFiles) console.log(pc.gray(`  - ${f}`));
-    for (const d of result.removedDirs) console.log(pc.gray(`  - ${d}/`));
+    for (const f of removedFiles) console.log(pc.gray(`  - ${f}`));
+    for (const d of removedDirs) console.log(pc.gray(`  - ${d}/`));
+    // `~` rather than `-`: the file stays, only AgentSync's keys leave it.
+    for (const f of modifiedFiles) {
+      console.log(pc.gray(`  ~ ${f} (removed AgentSync keys)`));
+    }
+    for (const warning of warnings) {
+      console.log(pc.yellow(`  ! ${warning}`));
+    }
   }
 
-  if (totalFiles === 0 && totalDirs === 0) {
-    console.log(pc.gray("\nNothing to clean.\n"));
-  } else {
-    const verb = dryRun ? "Would remove" : "Removed";
-    console.log(
-      pc.green(
-        `\n${verb} ${totalFiles} file(s) and ${totalDirs} directory/directories.\n`,
-      ),
-    );
-  }
+  const summary = cleanSummaryLine(
+    dryRun,
+    totalFiles,
+    totalDirs,
+    totalModified,
+  );
+  const nothing = summary.includes("Nothing to clean");
+  console.log(nothing ? pc.gray(summary) : pc.green(summary));
 }
 
 /** Detect JSON mode: explicit --json flag OR non-TTY stdout (pipelines, CI). */
@@ -101,6 +139,14 @@ function resolvePretty(
   return true;
 }
 
+function activeCommand(
+  argv: readonly string[] = process.argv.slice(2),
+): string {
+  const [command, subcommand] = argv;
+  if (command === "config" && subcommand) return `config.${subcommand}`;
+  return command ?? "unknown";
+}
+
 // Create program factory for testing
 export function createProgram(options?: { exitOverride?: boolean }): Command {
   const program = new Command();
@@ -120,7 +166,7 @@ export function createProgram(options?: { exitOverride?: boolean }): Command {
     .description("Initialize AgentSync in the current project")
     .option(
       "--tools <tools>",
-      "Comma-separated list of tools (claude,opencode,cursor,roocode,codex,copilot,gemini)",
+      `Comma-separated list of tools (${SUPPORTED_TOOLS.join(",")})`,
     )
     .option("--json", "Output structured JSON (for AI agents)")
     .option("--pretty", "Pretty-print JSON output (useful in pipes)")
@@ -128,7 +174,7 @@ export function createProgram(options?: { exitOverride?: boolean }): Command {
       const tools = options.tools
         ? options.tools.split(",").map((t: string) => t.trim())
         : undefined;
-      init({
+      return init({
         tools,
         json: resolveJsonMode(options.json),
         pretty: resolvePretty(options.pretty, options.json),
@@ -138,7 +184,9 @@ export function createProgram(options?: { exitOverride?: boolean }): Command {
   // Sync command
   program
     .command("sync")
-    .description("Sync skills, commands, agents, and MCPs to tools")
+    .description(
+      "Sync skills, commands, agents, rules, docs, MCPs, and extensions to tools",
+    )
     .option("-d, --dry-run", "Preview changes without writing files")
     .option("-t, --tool <tool>", "Sync only to a specific tool")
     .option("--copy", "Use file copies for tool outputs (default)")
@@ -151,7 +199,6 @@ export function createProgram(options?: { exitOverride?: boolean }): Command {
       "Comma-separated fields to include in JSON output",
     )
     .option("--ci", "CI/CD mode: non-interactive, implies --json")
-    .option("--no-tool-detection", "Disable automatic tool directory detection")
     .action(async (options) => {
       await sync({
         dryRun: options.dryRun,
@@ -162,8 +209,6 @@ export function createProgram(options?: { exitOverride?: boolean }): Command {
         pretty: resolvePretty(options.pretty, options.json),
         fields: options.fields,
         ci: options.ci,
-        // Commander's --no-X flags expose as options.X = false (not options.noX)
-        noToolDetection: options.toolDetection === false,
       });
     });
 
@@ -182,12 +227,20 @@ export function createProgram(options?: { exitOverride?: boolean }): Command {
       const results = await cleanCommand({ dryRun: options.dryRun });
       const totalFiles = results.reduce((n, r) => n + r.removedFiles.length, 0);
       const totalDirs = results.reduce((n, r) => n + r.removedDirs.length, 0);
+      const totalModified = results.reduce(
+        (n, r) => n + r.modifiedFiles.length,
+        0,
+      );
 
       if (resolveJsonMode(options.json)) {
         const data: CleanData = {
           dryRun: !!options.dryRun,
           results,
-          summary: { files: totalFiles, directories: totalDirs },
+          summary: {
+            files: totalFiles,
+            directories: totalDirs,
+            modified: totalModified,
+          },
         };
         const validFields = ["dryRun", "results", "summary"] as const;
         const projected = projectFields(data, options.fields, validFields);
@@ -205,6 +258,7 @@ export function createProgram(options?: { exitOverride?: boolean }): Command {
         !!options.dryRun,
         totalFiles,
         totalDirs,
+        totalModified,
       );
     });
 
@@ -328,6 +382,7 @@ export function createProgram(options?: { exitOverride?: boolean }): Command {
   configCommand
     .command("show")
     .description("Dump full resolved config as JSON")
+    .option("--profile <name>", "Apply a specific profile")
     .option("--json", "Output structured JSON (for AI agents)")
     .option("--pretty", "Pretty-print JSON output (useful in pipes)")
     .option(
@@ -335,9 +390,20 @@ export function createProgram(options?: { exitOverride?: boolean }): Command {
       "Comma-separated fields to include in JSON output",
     )
     .action(async (options) => {
-      const config = await configShow();
+      const config = await configShow({ profile: options.profile });
       if (resolveJsonMode(options.json)) {
-        const validFields = ["tools", "mcp", "extends", "profiles"] as const;
+        const validFields = [
+          "tools",
+          "mcp",
+          "extends",
+          "profiles",
+          "hooks",
+          "permissions",
+          "statusline",
+          "output_style",
+          "_sources",
+          "_deduplicationLog",
+        ] as const;
         const projected = projectFields(config, options.fields, validFields);
         const pretty = resolvePretty(options.pretty, options.json);
         console.log(jsonStringify(cliResult("config.show", projected), pretty));
@@ -364,7 +430,7 @@ process.stderr.on("error", (err: NodeJS.ErrnoException) => {
 });
 process.on("uncaughtException", (err) => {
   const isJson = process.argv.includes("--json") || !process.stdout.isTTY;
-  const formatted = formatSafetyNetError(err, isJson);
+  const formatted = formatSafetyNetError(err, isJson, activeCommand());
   if (isJson) {
     // In JSON mode, errors go to stdout as valid JSON
     process.stdout.write(`${formatted}\n`);
@@ -375,7 +441,7 @@ process.on("uncaughtException", (err) => {
 });
 process.on("unhandledRejection", (reason) => {
   const isJson = process.argv.includes("--json") || !process.stdout.isTTY;
-  const formatted = formatSafetyNetError(reason, isJson);
+  const formatted = formatSafetyNetError(reason, isJson, activeCommand());
   if (isJson) {
     process.stdout.write(`${formatted}\n`);
   } else {
@@ -400,7 +466,7 @@ if (isMain) {
     }
 
     const isJson = process.argv.includes("--json") || !process.stdout.isTTY;
-    const formatted = formatSafetyNetError(error, isJson);
+    const formatted = formatSafetyNetError(error, isJson, activeCommand());
 
     if (isJson) {
       process.stdout.write(`${formatted}\n`);

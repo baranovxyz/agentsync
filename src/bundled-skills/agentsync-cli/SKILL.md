@@ -15,7 +15,8 @@ Initialize AgentSync in a project. Creates `.agents/agentsync.toml` and director
 - `--json` — Structured JSON output
 
 ### `agentsync sync`
-Sync all content (skills, commands, agents, docs, MCP servers) to configured tools.
+Sync canonical skills, commands, agents, rules, docs, MCP servers, hooks, permissions, statusline,
+and output style to configured tools where each tool supports them.
 - `--dry-run` — Preview changes without writing
 - `--tool <name>` — Sync to specific tool only
 - `--json` — Structured JSON output (use this for programmatic access)
@@ -23,13 +24,17 @@ Sync all content (skills, commands, agents, docs, MCP servers) to configured too
 - `--profile <name>` — Apply specific profile overrides
 - `--link` — Use symlinks for tool outputs
 - `--copy` — Use file copies for tool outputs
+- `AGENTSYNC_CODEX_HOME_MCP=1` — Also merge Codex MCP servers into the user-level config
 
 ### `agentsync doctor`
 Run diagnostics to debug configuration issues.
 - `--json` — Structured JSON output
 
 ### `agentsync clean`
-Remove all synced/generated files from tool directories.
+Remove all synced/generated files from tool directories. Generated output only — the canonical
+`.agents/` tree and the root `AGENTS.md` are never removed, and a shared tool config that AgentSync
+only merges into (`opencode.json`, `.codex/config.toml`, `.goose/config.yaml`, …) has AgentSync's
+keys stripped rather than being deleted. Those appear as `modifiedFiles`, not `removedFiles`.
 - `--dry-run` — Preview what would be removed
 - `--json` — Structured JSON output
 
@@ -62,7 +67,7 @@ Dump resolved config as JSON.
 │   └── my-skill/SKILL.md
 ├── commands/            # Slash commands (*.md)
 ├── agents/              # Agent definitions (*.md)
-└── backups/             # Pre-sync backups
+└── rules/               # Always-on or path-scoped rules (*.md)
 ```
 
 ## Config Format (v1 TOML)
@@ -107,6 +112,7 @@ When using `--json`, the output structure is:
     "skills": 5,
     "commands": 3,
     "agents": 1,
+    "rules": 2,
     "mcpServers": 2,
     "details": []
   }

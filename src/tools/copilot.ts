@@ -11,7 +11,7 @@
 
 import * as path from "node:path";
 import type { MCP } from "../core/mcp/tokens.js";
-import { writeMcpJson } from "./mcp-helpers.js";
+import { mergeIntoSettings } from "./mcp-helpers.js";
 import type { ToolProvider } from "./types.js";
 
 export const copilotProvider: ToolProvider = {
@@ -33,14 +33,30 @@ export const copilotProvider: ToolProvider = {
     nativeAgentsMd: true,
     nativeSkillsDiscovery: false,
   },
-  readsAgentsDir: false,
+  readsGlobalAgentsDir: false,
+  manifestCleanSurfaces: ["skills", "agents"],
   agentFileExtension: ".agent.md",
   mcpFormat: {
-    async writeMCP(mcps: Record<string, MCP>, cwd: string): Promise<void> {
+    projectPath: "static",
+    // `.vscode/mcp.json` is VS Code's own file: alongside `servers` it carries
+    // `inputs` (prompted-secret definitions) and anything added through the
+    // VS Code UI. Merge rather than serialize the whole file, so neither sync
+    // nor clean discards what AgentSync did not write.
+    //
+    // Caveat: VS Code accepts JSONC here, and the merge parses strict JSON. A
+    // file containing comments fails to parse and is rewritten from scratch,
+    // losing `inputs` — the same outcome as before this became a merge, never
+    // worse, but not the preservation the merge otherwise gives.
+    ownership: { kind: "owned-keys", keys: ["servers"], format: "json" },
+    async writeProjectMCP(
+      mcps: Record<string, MCP>,
+      cwd: string,
+    ): Promise<void> {
       // VS Code native MCP format uses "servers" key (not "mcpServers")
-      await writeMcpJson(
+      await mergeIntoSettings(
         path.join(cwd, ".vscode", "mcp.json"),
         mcps,
+        cwd,
         "servers",
       );
     },

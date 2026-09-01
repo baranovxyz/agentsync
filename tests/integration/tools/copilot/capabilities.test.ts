@@ -21,7 +21,6 @@ describe("Copilot CLI — Capabilities", () => {
 
   it("does NOT discover .agents/skills/ natively", () => {
     expect(p.capabilities.nativeSkillsDiscovery).toBe(false);
-    expect(p.readsAgentsDir).toBe(false);
   });
 
   it("uses .agent.md file extension", () => {

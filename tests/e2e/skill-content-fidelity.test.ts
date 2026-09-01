@@ -8,7 +8,6 @@ import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ToolName } from "../../src/constants.js";
-import { generateHeader } from "../../src/sync/header.js";
 import { syncSkills } from "../../src/sync/skills.js";
 import { getToolProviders } from "../../src/tools/index.js";
 import { ensureDir, outputFile, pathExists } from "../../src/utils/fs.js";
@@ -78,7 +77,7 @@ Supported: English, Japanese (日本語), Korean (한국어), Chinese (中文).
     await ensureDir(skillDir);
     await outputFile(path.join(skillDir, "SKILL.md"), COMPLEX_SKILL);
 
-    const providers = getToolProviders(["claude"] as ToolName[]);
+    const providers = getToolProviders(["claude"]);
     await syncSkills(providers, tmpDir);
 
     const outputPath = path.join(
@@ -90,32 +89,27 @@ Supported: English, Japanese (日本語), Korean (한국어), Chinese (中文).
     );
     expect(await pathExists(outputPath)).toBe(true);
     const content = await readFile(outputPath, "utf-8");
-    const header = generateHeader(".agents/skills/advanced-review/SKILL.md");
-    expect(content).toBe(header + COMPLEX_SKILL);
+    expect(content).toBe(COMPLEX_SKILL);
   });
 
-  it("preserves complex frontmatter through sync to cursor", async () => {
+  it("keeps the canonical skill unchanged for Cursor native discovery", async () => {
     const skillDir = path.join(tmpDir, ".agents", "skills", "advanced-review");
     await ensureDir(skillDir);
     await outputFile(path.join(skillDir, "SKILL.md"), COMPLEX_SKILL);
 
-    const providers = getToolProviders(["cursor"] as ToolName[]);
-    await syncSkills(providers, tmpDir);
+    const providers = getToolProviders(["cursor"]);
+    const results = await syncSkills(providers, tmpDir);
 
-    const outputPath = path.join(
-      tmpDir,
-      ".cursor",
-      "skills",
-      "advanced-review",
-      "SKILL.md",
+    expect(results[0].skillCount).toBe(0);
+    expect(await pathExists(path.join(tmpDir, ".cursor", "skills"))).toBe(
+      false,
     );
-    expect(await pathExists(outputPath)).toBe(true);
-    const content = await readFile(outputPath, "utf-8");
-    const header = generateHeader(".agents/skills/advanced-review/SKILL.md");
-    expect(content).toBe(header + COMPLEX_SKILL);
+    expect(await readFile(path.join(skillDir, "SKILL.md"), "utf-8")).toBe(
+      COMPLEX_SKILL,
+    );
   });
 
-  it("preserves content across holdout tools simultaneously", async () => {
+  it("preserves content across generated-output tools simultaneously", async () => {
     const skillDir = path.join(tmpDir, ".agents", "skills", "advanced-review");
     await ensureDir(skillDir);
     await outputFile(path.join(skillDir, "SKILL.md"), COMPLEX_SKILL);
@@ -132,29 +126,30 @@ Supported: English, Japanese (日本語), Korean (한국어), Chinese (中文).
     const providers = getToolProviders(allTools);
     await syncSkills(providers, tmpDir);
 
-    // Only holdout tools (readsAgentsDir=false) get copies
-    const holdoutPaths = [
+    // Generated-output tools receive copies; native readers use .agents/skills.
+    const generatedPaths = [
       ".claude/skills/advanced-review/SKILL.md",
-      ".cursor/skills/advanced-review/SKILL.md",
       ".github/skills/advanced-review/SKILL.md", // copilot
     ];
 
-    const header = generateHeader(".agents/skills/advanced-review/SKILL.md");
-    for (const expectedPath of holdoutPaths) {
+    for (const expectedPath of generatedPaths) {
       const fullPath = path.join(tmpDir, expectedPath);
       expect(await pathExists(fullPath), `${expectedPath} should exist`).toBe(
         true,
       );
       const content = await readFile(fullPath, "utf-8");
-      expect(content).toBe(header + COMPLEX_SKILL);
+      expect(content).toBe(COMPLEX_SKILL);
     }
 
-    // Source file preserved without header
+    // Source file remains byte-identical.
     const sourceContent = await readFile(
       path.join(tmpDir, ".agents", "skills", "advanced-review", "SKILL.md"),
       "utf-8",
     );
     expect(sourceContent).toBe(COMPLEX_SKILL);
+    expect(await pathExists(path.join(tmpDir, ".cursor", "skills"))).toBe(
+      false,
+    );
   });
 
   it("preserves minimal skill without frontmatter", async () => {
@@ -162,7 +157,7 @@ Supported: English, Japanese (日本語), Korean (한국어), Chinese (中文).
     await ensureDir(skillDir);
     await outputFile(path.join(skillDir, "SKILL.md"), MINIMAL_SKILL);
 
-    const providers = getToolProviders(["claude", "cursor"] as ToolName[]);
+    const providers = getToolProviders(["claude", "cursor"]);
     await syncSkills(providers, tmpDir);
 
     const claudePath = path.join(
@@ -172,17 +167,13 @@ Supported: English, Japanese (日本語), Korean (한국어), Chinese (中文).
       "minimal",
       "SKILL.md",
     );
-    const cursorPath = path.join(
-      tmpDir,
-      ".cursor",
-      "skills",
-      "minimal",
-      "SKILL.md",
+    expect(await readFile(claudePath, "utf-8")).toBe(MINIMAL_SKILL);
+    expect(await readFile(path.join(skillDir, "SKILL.md"), "utf-8")).toBe(
+      MINIMAL_SKILL,
     );
-
-    const header = generateHeader(".agents/skills/minimal/SKILL.md");
-    expect(await readFile(claudePath, "utf-8")).toBe(header + MINIMAL_SKILL);
-    expect(await readFile(cursorPath, "utf-8")).toBe(header + MINIMAL_SKILL);
+    expect(await pathExists(path.join(tmpDir, ".cursor", "skills"))).toBe(
+      false,
+    );
   });
 
   it("preserves unicode content through sync", async () => {
@@ -190,7 +181,7 @@ Supported: English, Japanese (日本語), Korean (한국어), Chinese (中文).
     await ensureDir(skillDir);
     await outputFile(path.join(skillDir, "SKILL.md"), UNICODE_SKILL);
 
-    const providers = getToolProviders(["claude", "gemini"] as ToolName[]);
+    const providers = getToolProviders(["claude", "gemini"]);
     await syncSkills(providers, tmpDir);
 
     const claudePath = path.join(
@@ -200,8 +191,7 @@ Supported: English, Japanese (日本語), Korean (한국어), Chinese (中文).
       "i18n-check",
       "SKILL.md",
     );
-    const header = generateHeader(".agents/skills/i18n-check/SKILL.md");
-    expect(await readFile(claudePath, "utf-8")).toBe(header + UNICODE_SKILL);
+    expect(await readFile(claudePath, "utf-8")).toBe(UNICODE_SKILL);
   });
 
   it("preserves extra files alongside SKILL.md", async () => {
@@ -210,7 +200,7 @@ Supported: English, Japanese (日本語), Korean (한국어), Chinese (中文).
     await outputFile(path.join(skillDir, "SKILL.md"), "# Skill with extras");
     await outputFile(path.join(skillDir, "config.json"), '{"key": "value"}');
 
-    const providers = getToolProviders(["claude"] as ToolName[]);
+    const providers = getToolProviders(["claude"]);
     await syncSkills(providers, tmpDir);
 
     const outputDir = path.join(tmpDir, ".claude", "skills", "with-extra");
@@ -233,7 +223,7 @@ Supported: English, Japanese (日本語), Korean (한국어), Chinese (中文).
       ["company", [path.join(tmpDir, "preset-skills")]],
     ]);
 
-    const providers = getToolProviders(["claude"] as ToolName[]);
+    const providers = getToolProviders(["claude"]);
     await syncSkills(providers, tmpDir, presetSkills);
 
     // Flat namespace separator: company--review

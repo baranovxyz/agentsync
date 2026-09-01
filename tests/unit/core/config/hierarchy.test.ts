@@ -3,6 +3,7 @@
  * Tests for global + project + local config merging with deduplication
  */
 
+import { mkdtemp, rm } from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -11,12 +12,16 @@ import { ConfigError } from "../../../../src/core/errors.js";
 import { ensureDir, outputFile } from "../../../../src/utils/fs.js";
 
 describe("loadConfigHierarchy", () => {
+  let tempRoot: string;
   let tempDir: string;
   let tempHome: string;
 
   beforeEach(async () => {
-    tempDir = path.join(os.tmpdir(), `agentsync-test-${Date.now()}`);
-    tempHome = path.join(os.tmpdir(), `agentsync-home-${Date.now()}`);
+    tempRoot = await mkdtemp(
+      path.join(os.tmpdir(), "agentsync-config-hierarchy-"),
+    );
+    tempDir = path.join(tempRoot, "project");
+    tempHome = path.join(tempRoot, "home");
     await ensureDir(tempDir);
     await ensureDir(tempHome);
 
@@ -30,7 +35,8 @@ describe("loadConfigHierarchy", () => {
   });
 
   afterEach(async () => {
-    // Cleanup would go here in a real test
+    vi.unstubAllEnvs();
+    await rm(tempRoot, { recursive: true, force: true });
   });
 
   it("throws error if project config is missing", async () => {
@@ -46,7 +52,7 @@ describe("loadConfigHierarchy", () => {
     const merged = await loadConfigHierarchy(tempDir);
 
     expect(merged.tools).toEqual(["cursor"]);
-    expect(merged._sources.project).toBe(configPath);
+    expect(merged._sources.chain[0]).toBe(configPath);
     expect(merged._sources.global).toBeUndefined();
   });
 
@@ -72,6 +78,36 @@ describe("loadConfigHierarchy", () => {
     expect(merged.tools).toEqual(["cursor", "claude"]);
   });
 
+  it("keeps an explicit empty project tool list instead of inheriting global tools", async () => {
+    await outputFile(
+      path.join(tempHome, ".agents", "config.toml"),
+      'tools = ["claude"]\n',
+    );
+    await outputFile(
+      path.join(tempDir, ".agents", "agentsync.toml"),
+      "tools = []\n",
+    );
+
+    const merged = await loadConfigHierarchy(tempDir);
+
+    expect(merged.tools).toEqual([]);
+  });
+
+  it("does not fill an empty foreign tool projection from global tools", async () => {
+    await outputFile(
+      path.join(tempHome, ".agents", "config.toml"),
+      'tools = ["claude"]\n',
+    );
+    await outputFile(
+      path.join(tempDir, ".agents", "agentsync.toml"),
+      'default_agents = ["windsurf"]\n',
+    );
+
+    const merged = await loadConfigHierarchy(tempDir);
+
+    expect(merged.tools).toEqual([]);
+  });
+
   it("deduplicates extends by source string - project wins", async () => {
     // Create global config
     const globalConfigDir = path.join(tempHome, ".agents");
@@ -86,7 +122,7 @@ describe("loadConfigHierarchy", () => {
     await ensureDir(path.dirname(projectConfigPath));
     await outputFile(
       projectConfigPath,
-      'tools = []\n\n[[agentsync.presets]]\nsource = "github:company/standards"\nnamespace = "company"\n',
+      'tools = []\nextends = ["github:company/standards"]\n',
     );
 
     const merged = await loadConfigHierarchy(tempDir);
@@ -111,7 +147,7 @@ describe("loadConfigHierarchy", () => {
     await ensureDir(path.dirname(projectConfigPath));
     await outputFile(
       projectConfigPath,
-      'tools = []\n\n[[agentsync.presets]]\nsource = "github:company/standards"\nnamespace = "company"\n',
+      'tools = []\nextends = ["github:company/standards"]\n',
     );
 
     const merged = await loadConfigHierarchy(tempDir);
@@ -136,7 +172,7 @@ describe("loadConfigHierarchy", () => {
     await ensureDir(path.dirname(projectConfigPath));
     await outputFile(
       projectConfigPath,
-      'tools = []\n\n[[agentsync.presets]]\nsource = "github:company/standards"\nnamespace = "company"\n',
+      'tools = []\nextends = ["github:company/standards"]\n',
     );
 
     const merged = await loadConfigHierarchy(tempDir);
@@ -155,11 +191,11 @@ describe("loadConfigHierarchy", () => {
       `tools = []
 extends = []
 
-[mcp_servers.github]
+[mcp.github]
 command = "npx"
 args = ["-y", "mcp-github"]
 
-[mcp_servers.postgres]
+[mcp.postgres]
 command = "docker"
 args = ["exec", "pg"]
 `,
@@ -204,7 +240,7 @@ args = ["-y", "mcp-fs"]
     const merged = await loadConfigHierarchy(tempDir);
 
     expect(merged._sources.global).toBe(globalPath);
-    expect(merged._sources.project).toBe(projectConfigPath);
+    expect(merged._sources.chain[0]).toBe(projectConfigPath);
     expect(merged._sources.local).toBe(localPath);
   });
 

@@ -32,11 +32,17 @@ export const amazonqProvider: ToolProvider = {
     nativeAgentsMd: true,
     nativeSkillsDiscovery: true,
   },
-  readsAgentsDir: true,
+  readsGlobalAgentsDir: "unverified",
+  manifestCleanSurfaces: ["agents"],
   agentFileExtension: ".md",
   mcpFormat: {
-    async writeMCP(mcps: Record<string, MCP>, cwd: string): Promise<void> {
-      await writeMcpJson(path.join(cwd, ".amazonq", "mcp.json"), mcps);
+    projectPath: "static",
+    ownership: { kind: "whole-file" },
+    async writeProjectMCP(
+      mcps: Record<string, MCP>,
+      cwd: string,
+    ): Promise<void> {
+      await writeMcpJson(path.join(cwd, ".amazonq", "mcp.json"), mcps, cwd);
     },
   },
   docsFormat: null,

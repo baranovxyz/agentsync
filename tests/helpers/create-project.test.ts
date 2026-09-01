@@ -61,8 +61,6 @@ describe("TestProject helper", () => {
     const project = await createTestProject(["claude"]);
     cleanup = project.cleanup;
     await project.addDocs("# My Project");
-    expect(
-      await pathExists(path.join(project.dir, ".agents", "AGENTS.md")),
-    ).toBe(true);
+    expect(await pathExists(path.join(project.dir, "AGENTS.md"))).toBe(true);
   });
 });

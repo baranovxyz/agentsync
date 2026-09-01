@@ -1,6 +1,6 @@
 /**
- * Comprehensive MCP format tests for all 7 tools
- * Verifies each tool writes MCP in its expected format and location
+ * Comprehensive MCP format tests for every supported MCP-capable tool.
+ * Verifies each tool writes MCP in its expected format and location.
  */
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -12,6 +12,7 @@ import { SUPPORTED_TOOLS } from "../../../src/constants.js";
 import type { MCP } from "../../../src/core/mcp/tokens.js";
 import { getToolProvider } from "../../../src/tools/index.js";
 import { ensureDir, outputFile, pathExists } from "../../../src/utils/fs.js";
+import { writeProjectMcp } from "../../helpers/mcp.js";
 
 describe("MCP Format Tests - All Tools", () => {
   let tmpDir: string;
@@ -47,7 +48,7 @@ describe("MCP Format Tests - All Tools", () => {
   describe("Claude Code (.mcp.json in project root)", () => {
     it("writes command-based MCPs", async () => {
       const provider = getToolProvider("claude");
-      await provider.mcpFormat!.writeMCP(commandMCP, tmpDir);
+      await writeProjectMcp(provider, commandMCP, tmpDir);
 
       const mcpFile = path.join(tmpDir, ".mcp.json");
       expect(await pathExists(mcpFile)).toBe(true);
@@ -66,7 +67,7 @@ describe("MCP Format Tests - All Tools", () => {
 
     it("writes URL-based MCPs", async () => {
       const provider = getToolProvider("claude");
-      await provider.mcpFormat!.writeMCP(urlMCP, tmpDir);
+      await writeProjectMcp(provider, urlMCP, tmpDir);
 
       const content = JSON.parse(
         await readFile(path.join(tmpDir, ".mcp.json"), "utf-8"),
@@ -83,7 +84,7 @@ describe("MCP Format Tests - All Tools", () => {
   describe("OpenCode (opencode.json — mcp key, not mcpServers)", () => {
     it("writes OpenCode MCP format with type and command array", async () => {
       const provider = getToolProvider("opencode");
-      await provider.mcpFormat!.writeMCP(commandMCP, tmpDir);
+      await writeProjectMcp(provider, commandMCP, tmpDir);
 
       const mcpFile = path.join(tmpDir, "opencode.json");
       expect(await pathExists(mcpFile)).toBe(true);
@@ -117,7 +118,7 @@ describe("MCP Format Tests - All Tools", () => {
       );
 
       const provider = getToolProvider("opencode");
-      await provider.mcpFormat!.writeMCP(commandMCP, tmpDir);
+      await writeProjectMcp(provider, commandMCP, tmpDir);
 
       const content = JSON.parse(
         await readFile(path.join(tmpDir, "opencode.json"), "utf-8"),
@@ -133,7 +134,7 @@ describe("MCP Format Tests - All Tools", () => {
   describe("Cursor (.cursor/mcp.json)", () => {
     it("creates .cursor directory and mcp.json", async () => {
       const provider = getToolProvider("cursor");
-      await provider.mcpFormat!.writeMCP(commandMCP, tmpDir);
+      await writeProjectMcp(provider, commandMCP, tmpDir);
 
       const mcpFile = path.join(tmpDir, ".cursor", "mcp.json");
       expect(await pathExists(mcpFile)).toBe(true);
@@ -146,7 +147,7 @@ describe("MCP Format Tests - All Tools", () => {
   describe("RooCode (.roo/mcp.json)", () => {
     it("creates .roo directory and mcp.json", async () => {
       const provider = getToolProvider("roocode");
-      await provider.mcpFormat!.writeMCP(commandMCP, tmpDir);
+      await writeProjectMcp(provider, commandMCP, tmpDir);
 
       const mcpFile = path.join(tmpDir, ".roo", "mcp.json");
       expect(await pathExists(mcpFile)).toBe(true);
@@ -159,7 +160,7 @@ describe("MCP Format Tests - All Tools", () => {
   describe("Codex CLI (.codex/config.toml)", () => {
     it("creates .codex directory and config.toml in TOML format", async () => {
       const provider = getToolProvider("codex");
-      await provider.mcpFormat!.writeMCP(commandMCP, tmpDir);
+      await writeProjectMcp(provider, commandMCP, tmpDir);
 
       const mcpFile = path.join(tmpDir, ".codex", "config.toml");
       expect(await pathExists(mcpFile)).toBe(true);
@@ -175,7 +176,7 @@ describe("MCP Format Tests - All Tools", () => {
   describe("Copilot CLI (.vscode/mcp.json — VS Code native format)", () => {
     it("creates .vscode directory and mcp.json with 'servers' key", async () => {
       const provider = getToolProvider("copilot");
-      await provider.mcpFormat!.writeMCP(commandMCP, tmpDir);
+      await writeProjectMcp(provider, commandMCP, tmpDir);
 
       const mcpFile = path.join(tmpDir, ".vscode", "mcp.json");
       expect(await pathExists(mcpFile)).toBe(true);
@@ -188,7 +189,7 @@ describe("MCP Format Tests - All Tools", () => {
   describe("Gemini CLI (.gemini/settings.json — merge)", () => {
     it("creates settings.json with mcpServers", async () => {
       const provider = getToolProvider("gemini");
-      await provider.mcpFormat!.writeMCP(commandMCP, tmpDir);
+      await writeProjectMcp(provider, commandMCP, tmpDir);
 
       const settingsFile = path.join(tmpDir, ".gemini", "settings.json");
       expect(await pathExists(settingsFile)).toBe(true);
@@ -212,7 +213,7 @@ describe("MCP Format Tests - All Tools", () => {
       );
 
       const provider = getToolProvider("gemini");
-      await provider.mcpFormat!.writeMCP(commandMCP, tmpDir);
+      await writeProjectMcp(provider, commandMCP, tmpDir);
 
       const content = JSON.parse(
         await readFile(path.join(geminiDir, "settings.json"), "utf-8"),
@@ -237,6 +238,14 @@ describe("MCP Format Tests - All Tools", () => {
       return JSON.parse(raw);
     }
 
+    function keyByName(entries: unknown[]): Record<string, unknown> {
+      const byName: Record<string, unknown> = {};
+      for (const entry of entries as Array<{ name: string }>) {
+        byName[entry.name] = entry;
+      }
+      return byName;
+    }
+
     function extractServers(
       content: Record<string, unknown>,
     ): Record<string, unknown> {
@@ -247,23 +256,22 @@ describe("MCP Format Tests - All Tools", () => {
         content.mcp ||
         content.servers ||
         content.extensions;
+      // Vibe's `[[mcp_servers]]` is an array of tables whose entries carry
+      // their own `name` field instead of being keyed by it.
+      if (Array.isArray(direct)) return keyByName(direct);
       if (direct) return direct as Record<string, unknown>;
       // OpenHands split-array format
-      const merged: Record<string, unknown> = {};
-      for (const entry of (content.stdio_servers as Array<{ name: string }>) ||
-        [])
-        merged[entry.name] = entry;
-      for (const entry of (content.sse_servers as Array<{ name: string }>) ||
-        [])
-        merged[entry.name] = entry;
-      return merged;
+      return {
+        ...keyByName((content.stdio_servers as unknown[]) || []),
+        ...keyByName((content.sse_servers as unknown[]) || []),
+      };
     }
 
     it("all tools produce valid parseable config files", async () => {
       for (const toolName of SUPPORTED_TOOLS) {
         const provider = getToolProvider(toolName);
         if (!(provider.mcpFormat && provider.paths.mcpConfigPath)) continue;
-        await provider.mcpFormat.writeMCP(commandMCP, tmpDir);
+        await writeProjectMcp(provider, commandMCP, tmpDir);
         const fullPath = path.join(tmpDir, provider.paths.mcpConfigPath);
         expect(await pathExists(fullPath)).toBe(true);
         const raw = await readFile(fullPath, "utf-8");
@@ -275,7 +283,7 @@ describe("MCP Format Tests - All Tools", () => {
       for (const toolName of SUPPORTED_TOOLS) {
         const provider = getToolProvider(toolName);
         if (!(provider.mcpFormat && provider.paths.mcpConfigPath)) continue;
-        await provider.mcpFormat.writeMCP(commandMCP, tmpDir);
+        await writeProjectMcp(provider, commandMCP, tmpDir);
         const fullPath = path.join(tmpDir, provider.paths.mcpConfigPath);
         const raw = await readFile(fullPath, "utf-8");
         const servers = extractServers(parseConfigFile(fullPath, raw));
@@ -291,7 +299,7 @@ describe("MCP Format Tests - All Tools", () => {
         if (!provider.mcpFormat) continue;
 
         await expect(
-          provider.mcpFormat.writeMCP({}, tmpDir),
+          writeProjectMcp(provider, {}, tmpDir),
         ).resolves.not.toThrow();
       }
     });

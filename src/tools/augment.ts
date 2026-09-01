@@ -1,7 +1,8 @@
 /**
  * Augment Tool Provider
  *
- * Augment reads .agents/skills/ and .agents/commands/ natively.
+ * Augment reads .agents/skills/ natively and receives consolidated commands
+ * in its recommended workspace directory.
  * MCP is configured via JSON at .augment/settings.json (standard "mcpServers" key).
  * Merges into existing settings file to preserve non-MCP settings.
  *
@@ -18,7 +19,7 @@ export const augmentProvider: ToolProvider = {
   displayName: "Augment",
   paths: {
     skillsDir: ".agents/skills",
-    commandsDir: ".agents/commands",
+    commandsDir: ".augment/commands",
     agentsDir: null,
     mcpConfigPath: ".augment/settings.json",
     docsFile: "AGENTS.md",
@@ -32,13 +33,20 @@ export const augmentProvider: ToolProvider = {
     nativeAgentsMd: true,
     nativeSkillsDiscovery: true,
   },
-  readsAgentsDir: true,
+  readsGlobalAgentsDir: "unverified",
+  manifestCleanSurfaces: ["commands"],
   agentFileExtension: ".md",
   mcpFormat: {
-    async writeMCP(mcps: Record<string, MCP>, cwd: string): Promise<void> {
+    projectPath: "static",
+    ownership: { kind: "owned-keys", keys: ["mcpServers"], format: "json" },
+    async writeProjectMCP(
+      mcps: Record<string, MCP>,
+      cwd: string,
+    ): Promise<void> {
       await mergeIntoSettings(
         path.join(cwd, ".augment", "settings.json"),
         mcps,
+        cwd,
       );
     },
   },

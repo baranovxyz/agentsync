@@ -1,20 +1,21 @@
-import { isToolName } from "../../constants.js";
+import { minimatch } from "minimatch";
 import type { AgentSyncConfig, ProfileConfig } from "../../types/schemas.js";
+import { ConfigError } from "../errors.js";
 
 export interface SelectionContext {
   explicit?: string;
   envVar?: string;
   repoRelativePath?: string;
-  envFlags?: Record<string, string>;
+  envFlags?: Readonly<Record<string, string | undefined>>;
 }
 
 /** Return the profile name whose env key appears in envFlags, or undefined. */
 function matchByEnvFlags(
   profiles: Record<string, ProfileConfig>,
-  envFlags: Record<string, string>,
+  envFlags: Readonly<Record<string, string | undefined>>,
 ): string | undefined {
   for (const [name, profile] of Object.entries(profiles)) {
-    if (profile.env && envFlags[profile.env]) return name;
+    if (profile.env && Object.hasOwn(envFlags, profile.env)) return name;
   }
   return undefined;
 }
@@ -25,12 +26,10 @@ function pathMatchesProfile(
   repoRelativePath: string,
 ): boolean {
   if (!profile.paths) return false;
-  // Simplified prefix matching — matches paths starting with the non-glob prefix.
-  // Full glob semantics not needed for profile path hints.
-  return profile.paths.some((pattern) => {
-    const prefix = pattern.replace(/\*\*.*$/, "");
-    return repoRelativePath.startsWith(prefix);
-  });
+  const normalizedPath = repoRelativePath.replaceAll("\\", "/");
+  return profile.paths.some((pattern) =>
+    minimatch(normalizedPath, pattern.replaceAll("\\", "/"), { dot: true }),
+  );
 }
 
 /** Return the profile name whose paths match repoRelativePath, or undefined. */
@@ -57,58 +56,79 @@ export function selectProfile(
   profiles: Record<string, ProfileConfig>,
   ctx: SelectionContext,
 ): string | undefined {
-  if (ctx.explicit && profiles[ctx.explicit]) return ctx.explicit;
-  if (ctx.envVar && profiles[ctx.envVar]) return ctx.envVar;
-  if (ctx.envFlags) return matchByEnvFlags(profiles, ctx.envFlags);
+  if (ctx.explicit) {
+    if (profiles[ctx.explicit]) return ctx.explicit;
+    throw unknownProfileError(ctx.explicit, "--profile", profiles);
+  }
+  if (ctx.envVar) {
+    if (profiles[ctx.envVar]) return ctx.envVar;
+    throw unknownProfileError(ctx.envVar, "AGENTSYNC_PROFILE", profiles);
+  }
+  const envMatch = ctx.envFlags
+    ? matchByEnvFlags(profiles, ctx.envFlags)
+    : undefined;
+  if (envMatch) return envMatch;
   if (ctx.repoRelativePath) return matchByPath(profiles, ctx.repoRelativePath);
   return undefined;
+}
+
+function unknownProfileError(
+  name: string,
+  source: "--profile" | "AGENTSYNC_PROFILE",
+  profiles: Record<string, ProfileConfig>,
+): ConfigError {
+  const available = Object.keys(profiles);
+  return new ConfigError(
+    `Unknown profile "${name}" from ${source}`,
+    undefined,
+    available.length > 0
+      ? `Choose one of: ${available.join(", ")}`
+      : "Define a [profiles.<name>] entry or omit the profile selector",
+  );
 }
 
 /**
  * Merge a profile's overrides into a base config.
  *
  * - tools: replaced by profile value
- * - mcp: replaced by profile value (profile.mcp names select servers from base)
- * - extends: replaced by profile value
- * - skills: stored on result for downstream filtering
+ * - mcp: filtered to the profile's server names
+ * - extends: filtered to the profile's preset sources
  * - All other base fields are preserved unchanged.
  */
 
-/** Build replacement MCP config from profile's server name list. */
-function replaceMcp(
+/** Filter MCP config to the profile's server-name allowlist. */
+function filterMcp(
   mcp: AgentSyncConfig["mcp"],
   names: string[],
 ): AgentSyncConfig["mcp"] {
   if (!mcp) return undefined;
-  const result: Record<string, NonNullable<AgentSyncConfig["mcp"]>[string]> =
-    {};
-  for (const name of names) {
-    if (mcp[name]) {
-      result[name] = mcp[name];
-    }
-  }
+  const allowed = new Set(names);
+  const result = Object.fromEntries(
+    Object.entries(mcp).filter(([name]) => allowed.has(name)),
+  );
   return Object.keys(result).length > 0 ? result : undefined;
 }
 
-export function applyProfile(
-  config: AgentSyncConfig,
+function filterExtends(
+  sources: string[] | undefined,
+  allowedSources: string[],
+): string[] | undefined {
+  if (!sources) return undefined;
+  const allowed = new Set(allowedSources);
+  return sources.filter((source) => allowed.has(source));
+}
+
+export function applyProfile<T extends AgentSyncConfig>(
+  config: T,
   profile: ProfileConfig | undefined,
-): AgentSyncConfig {
+): T {
   if (!profile) return config;
-
-  const result = { ...config };
-
-  if (profile.tools) {
-    result.tools = profile.tools.filter(isToolName);
-  }
-
-  if (profile.mcp) {
-    result.mcp = replaceMcp(result.mcp, profile.mcp);
-  }
-
-  if (profile.extends) {
-    result.extends = [...profile.extends];
-  }
-
-  return result;
+  return {
+    ...config,
+    ...(profile.tools ? { tools: profile.tools } : {}),
+    ...(profile.mcp ? { mcp: filterMcp(config.mcp, profile.mcp) } : {}),
+    ...(profile.extends
+      ? { extends: filterExtends(config.extends, profile.extends) }
+      : {}),
+  };
 }

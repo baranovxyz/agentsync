@@ -30,9 +30,16 @@ describe("bundled public skills", () => {
   it("documents the skill directory layout consumed by sync", async () => {
     const source = await readFile(migrateSkillPath, "utf8");
     expect(source).toContain(".agents/skills/<name>/SKILL.md");
-    expect(source).toContain(
-      "Flat files directly under `.agents/skills/` are skipped",
-    );
+    expect(source).toContain("Flat files directly under");
+    expect(source).toContain("`.agents/skills/` are skipped.");
     expect(source).not.toContain(".agents/skills/*.md");
+  });
+
+  it("keeps imported rules on the canonical rule surface", async () => {
+    const source = await readFile(migrateSkillPath, "utf8");
+    expect(source).toContain(".agents/rules/<name>.md");
+    expect(source).not.toContain(
+      "rules become `.agents/skills/<name>/SKILL.md`",
+    );
   });
 });

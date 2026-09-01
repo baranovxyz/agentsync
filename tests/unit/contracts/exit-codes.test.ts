@@ -11,6 +11,7 @@ import * as path from "node:path";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { CliResultSchema } from "../../../src/types/output.js";
+import { parseJsonValidated } from "../../../src/utils/fs.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -83,9 +84,7 @@ async function runCli(
 
 /** Assert exit code and JSON status are consistent */
 function assertExitStatusConsistency(exitCode: number, stdout: string) {
-  const parsed = JSON.parse(stdout.trim());
-  const validation = CliResultSchema.safeParse(parsed);
-  expect(validation.success, `Invalid CliResult: ${stdout}`).toBe(true);
+  const parsed = parseJsonValidated(stdout.trim(), CliResultSchema);
 
   if (exitCode === 0) expect(parsed.status).toBe("success");
   if (exitCode === 1) expect(parsed.status).toBe("partial");
@@ -141,8 +140,15 @@ describe("exit code integration", () => {
     );
     expect(exitCode).toBe(2);
     assertExitStatusConsistency(exitCode, stdout);
-    const parsed = JSON.parse(stdout.trim());
-    expect(parsed.errors[0].code).toBeDefined();
+    const parsed = parseJsonValidated(stdout.trim(), CliResultSchema);
+    expect(parsed.command).toBe("config.add");
+    expect(parsed.errors?.[0]).toMatchObject({
+      code: "VALIDATION_FAILED",
+      suggestion: expect.stringContaining("agentsync config add tool"),
+      context: expect.objectContaining({
+        provided: "nonexistent-tool-xyz",
+      }),
+    });
   });
 
   it("config show --json on missing project exits with status error", async () => {
@@ -154,6 +160,8 @@ describe("exit code integration", () => {
     assertExitStatusConsistency(exitCode, stdout);
   });
 
+  // This serially launches three CLI processes and measured 5.18s under the
+  // full workspace suite, just over the shared 5s unit-test budget.
   it("exit code and status are always consistent across commands", async () => {
     const cases = [
       { args: ["doctor", "--json"], cwd: validProject },
@@ -168,5 +176,5 @@ describe("exit code integration", () => {
       const { exitCode, stdout } = await runCli(args, cwd);
       assertExitStatusConsistency(exitCode, stdout);
     }
-  });
+  }, 10_000);
 });

@@ -21,7 +21,6 @@ describe("Goose — Capabilities", () => {
 
   it("reads .agents/ directory directly (shared skills)", () => {
     expect(p.capabilities.nativeSkillsDiscovery).toBe(true);
-    expect(p.readsAgentsDir).toBe(true);
   });
 
   it("has correct paths", () => {

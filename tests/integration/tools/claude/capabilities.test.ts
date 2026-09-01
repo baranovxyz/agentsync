@@ -21,7 +21,6 @@ describe("Claude Code — Capabilities", () => {
 
   it("does NOT discover .agents/skills/ natively", () => {
     expect(p.capabilities.nativeSkillsDiscovery).toBe(false);
-    expect(p.readsAgentsDir).toBe(false);
   });
 
   it("uses .md agent file extension", () => {

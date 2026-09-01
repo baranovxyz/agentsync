@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -17,7 +17,7 @@ describe("Docs Sync", () => {
     await rm(tmpDir, { recursive: true, force: true });
   });
 
-  it("creates CLAUDE.md symlink when AGENTS.md exists", async () => {
+  it("creates the CLAUDE.md directive when AGENTS.md exists", async () => {
     await outputFile(path.join(tmpDir, "AGENTS.md"), "# Project Documentation");
 
     const providers = [getToolProvider("claude")];
@@ -30,7 +30,7 @@ describe("Docs Sync", () => {
     expect(await pathExists(claudeMd)).toBe(true);
   });
 
-  it("creates GEMINI.md symlink when AGENTS.md exists", async () => {
+  it("creates the GEMINI.md directive when AGENTS.md exists", async () => {
     await outputFile(path.join(tmpDir, "AGENTS.md"), "# Docs");
 
     const providers = [getToolProvider("gemini")];
@@ -44,16 +44,54 @@ describe("Docs Sync", () => {
     expect(await pathExists(geminiMd)).toBe(true);
   });
 
-  it("reports created for tools reading AGENTS.md natively when .agents/AGENTS.md exists", async () => {
+  it("emits the canonical root directive for include-capable tools", async () => {
+    await outputFile(path.join(tmpDir, "AGENTS.md"), "# Project Documentation");
+
+    const providers = [getToolProvider("claude"), getToolProvider("gemini")];
+    const results = await syncDocs(providers, tmpDir);
+
+    for (const result of results) {
+      expect(result.created).toBe(true);
+    }
+
+    const claudeMd = await readFile(path.join(tmpDir, "CLAUDE.md"), "utf-8");
+    const geminiMd = await readFile(path.join(tmpDir, "GEMINI.md"), "utf-8");
+    expect(claudeMd).toBe("@AGENTS.md\n");
+    expect(geminiMd).toBe("@AGENTS.md\n");
+  });
+
+  it("uses root AGENTS.md even when a noncanonical nested file exists", async () => {
+    await outputFile(path.join(tmpDir, "AGENTS.md"), "# Root Docs");
+    await outputFile(
+      path.join(tmpDir, ".agents", "AGENTS.md"),
+      "# Agents Dir Docs",
+    );
+
+    const providers = [getToolProvider("claude"), getToolProvider("gemini")];
+    const results = await syncDocs(providers, tmpDir);
+
+    for (const result of results) {
+      expect(result.created).toBe(true);
+    }
+
+    const claudeMd = await readFile(path.join(tmpDir, "CLAUDE.md"), "utf-8");
+    const geminiMd = await readFile(path.join(tmpDir, "GEMINI.md"), "utf-8");
+    expect(claudeMd).toBe("@AGENTS.md\n");
+    expect(geminiMd).toBe("@AGENTS.md\n");
+  });
+
+  it("ignores a nested AGENTS.md when the canonical root file is absent", async () => {
     const docsDir = path.join(tmpDir, ".agents");
     await outputFile(path.join(docsDir, "AGENTS.md"), "# From AgentSync Docs");
 
-    // Cursor reads AGENTS.md natively (docsFormat=null)
-    const providers = [getToolProvider("cursor")];
+    const providers = [getToolProvider("claude"), getToolProvider("gemini")];
     const results = await syncDocs(providers, tmpDir);
 
-    expect(results[0].created).toBe(true);
-    expect(results[0].docsFile).toBe("AGENTS.md");
+    for (const result of results) {
+      expect(result.created).toBe(false);
+    }
+    expect(await pathExists(path.join(tmpDir, "CLAUDE.md"))).toBe(false);
+    expect(await pathExists(path.join(tmpDir, "GEMINI.md"))).toBe(false);
   });
 
   it("returns created=false when no AGENTS.md exists", async () => {
@@ -63,7 +101,7 @@ describe("Docs Sync", () => {
     expect(results[0].created).toBe(false);
   });
 
-  it("handles tools that read AGENTS.md natively", async () => {
+  it("reports created=true for tools that read AGENTS.md natively when root AGENTS.md exists", async () => {
     await outputFile(path.join(tmpDir, "AGENTS.md"), "# Docs");
 
     // Cursor reads AGENTS.md from root natively

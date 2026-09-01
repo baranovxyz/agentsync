@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { MCP } from "../../../src/core/mcp/tokens.js";
 import { getToolProvider } from "../../../src/tools/index.js";
 import { ensureDir, outputFile } from "../../../src/utils/fs.js";
+import { writeProjectMcp } from "../../helpers/mcp.js";
 
 describe("Goose YAML MCP Format", () => {
   let tmpDir: string;
@@ -37,7 +38,7 @@ describe("Goose YAML MCP Format", () => {
       },
     };
 
-    await provider.mcpFormat!.writeMCP(mcps, tmpDir);
+    await writeProjectMcp(provider, mcps, tmpDir);
 
     const configFile = path.join(tmpDir, ".goose", "config.yaml");
     const content = yaml.load(await readFile(configFile, "utf-8")) as Record<
@@ -68,7 +69,7 @@ describe("Goose YAML MCP Format", () => {
       },
     };
 
-    await provider.mcpFormat!.writeMCP(mcps, tmpDir);
+    await writeProjectMcp(provider, mcps, tmpDir);
 
     const configFile = path.join(tmpDir, ".goose", "config.yaml");
     const content = yaml.load(await readFile(configFile, "utf-8")) as Record<
@@ -104,7 +105,7 @@ describe("Goose YAML MCP Format", () => {
       },
     };
 
-    await provider.mcpFormat!.writeMCP(mcps, tmpDir);
+    await writeProjectMcp(provider, mcps, tmpDir);
 
     const content = yaml.load(
       await readFile(path.join(gooseDir, "config.yaml"), "utf-8"),
@@ -128,7 +129,7 @@ describe("Goose YAML MCP Format", () => {
       minimal: { command: "npx", args: ["-y", "minimal-server"] },
     };
 
-    await provider.mcpFormat!.writeMCP(mcps, tmpDir);
+    await writeProjectMcp(provider, mcps, tmpDir);
 
     const configFile = path.join(tmpDir, ".goose", "config.yaml");
     const content = yaml.load(await readFile(configFile, "utf-8")) as Record<

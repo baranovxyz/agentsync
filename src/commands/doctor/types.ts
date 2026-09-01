@@ -3,6 +3,7 @@
  */
 
 import type { ToolName } from "../../constants.js";
+import type { McpServerConfig } from "../../types/schemas.js";
 
 export interface DoctorResult {
   config: { found: boolean; valid: boolean; error?: string };
@@ -23,11 +24,20 @@ export interface DoctorResult {
     file: string;
     status: "ok" | "modified" | "missing";
   }>;
-  workerHints: Array<{
+  /**
+   * Per-tool status for the "reads project .agents/ but not global
+   * ~/.agents/" gap (see `src/sync/global-skills-gap.ts`). Only includes
+   * tools where `ToolProvider.readsGlobalAgentsDir === false`.
+   * "ok" covers both "no global skills to lose" and "remedy symlink/dir
+   * present"; "gap" means global skills exist and the remedy is missing.
+   */
+  globalSkillsGap: Array<{
     tool: string;
-    severity: "warning";
-    message: string;
-    fix: string;
+    status: "ok" | "gap";
+    skillCount: number;
+    skills: string[];
+    message?: string;
+    fix?: string;
   }>;
 }
 
@@ -36,6 +46,6 @@ export interface ConfigCheckResult {
   config: DoctorResult["config"];
   configPath?: string;
   tools: ToolName[];
-  mcpServers: Record<string, Record<string, unknown>>;
+  mcpServers: Record<string, McpServerConfig>;
   extendsSources: string[];
 }

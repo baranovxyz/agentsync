@@ -6,7 +6,7 @@
 import { access, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { sync } from "../../src/commands/sync.js";
 import { ensureDir } from "../../src/utils/fs.js";
 
@@ -24,6 +24,15 @@ async function createMonorepoRoot(): Promise<string> {
   return root;
 }
 
+async function addTestCommand(projectRoot: string): Promise<void> {
+  const commandsDir = join(projectRoot, ".agents", "commands");
+  await ensureDir(commandsDir);
+  await writeFile(
+    join(commandsDir, "test.md"),
+    "---\ndescription: Test command\n---\n# Test",
+  );
+}
+
 describe("monorepo sync with profiles", () => {
   let root: string;
 
@@ -32,6 +41,7 @@ describe("monorepo sync with profiles", () => {
   });
 
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await rm(root, { recursive: true, force: true });
   });
 
@@ -58,14 +68,19 @@ describe("monorepo sync with profiles", () => {
       join(teamDir, ".agents", "skills", "react-patterns", "SKILL.md"),
       "---\nname: react-patterns\ndescription: React patterns\n---\n# React\nUse hooks.",
     );
+    await addTestCommand(teamDir);
 
     // Sync from team directory -- should inherit cursor from org
     await sync({ cwd: teamDir, json: true });
 
-    // Verify cursor skills dir was created
+    // Cursor reads canonical skills natively and projects supported commands.
     await expect(
-      access(join(teamDir, ".cursor", "skills")),
+      access(join(teamDir, ".agents", "skills", "react-patterns", "SKILL.md")),
     ).resolves.toBeUndefined();
+    await expect(
+      access(join(teamDir, ".cursor", "commands", "test.md")),
+    ).resolves.toBeUndefined();
+    await expect(access(join(teamDir, ".cursor", "skills"))).rejects.toThrow();
   });
 
   it("applies profile when --profile is passed", async () => {
@@ -83,18 +98,22 @@ describe("monorepo sync with profiles", () => {
       join(root, ".agents", "skills", "test-skill", "SKILL.md"),
       "---\nname: test-skill\ndescription: A test\n---\n# Test",
     );
+    await addTestCommand(root);
 
     // With profile "minimal", only cursor should be active
     await sync({ cwd: root, profile: "minimal", json: true });
 
-    // cursor should be synced (directory created)
-    await expect(access(join(root, ".cursor"))).resolves.toBeUndefined();
+    // Cursor should receive commands while reading skills from .agents/ natively.
+    await expect(
+      access(join(root, ".cursor", "commands", "test.md")),
+    ).resolves.toBeUndefined();
+    await expect(access(join(root, ".cursor", "skills"))).rejects.toThrow();
 
     // claude should NOT be synced since "minimal" profile only has cursor
     await expect(access(join(root, ".claude"))).rejects.toThrow();
   });
 
-  it("backward compat: single-root project works unchanged", async () => {
+  it("single-root current-format project syncs normally", async () => {
     await ensureDir(join(root, ".agents", "skills", "test-skill"));
     await writeFile(
       join(root, ".agents", "agentsync.toml"),
@@ -104,22 +123,21 @@ describe("monorepo sync with profiles", () => {
       join(root, ".agents", "skills", "test-skill", "SKILL.md"),
       "---\nname: test\ndescription: Test skill\n---\n# Test",
     );
+    await addTestCommand(root);
 
     await sync({ cwd: root, json: true });
     await expect(
-      access(join(root, ".cursor", "skills")),
+      access(join(root, ".cursor", "commands", "test.md")),
     ).resolves.toBeUndefined();
+    await expect(access(join(root, ".cursor", "skills"))).rejects.toThrow();
   });
 
-  it("profile from config is used when no --profile flag", async () => {
+  it("profile from AGENTSYNC_PROFILE is used when no --profile flag", async () => {
     await ensureDir(join(root, ".agents", "skills", "test-skill"));
     await writeFile(
       join(root, ".agents", "agentsync.toml"),
       [
         'tools = ["cursor", "claude"]',
-        "",
-        "[agentsync]",
-        'profile = "ci"',
         "",
         "[profiles.ci]",
         'tools = ["claude"]',
@@ -129,8 +147,10 @@ describe("monorepo sync with profiles", () => {
       join(root, ".agents", "skills", "test-skill", "SKILL.md"),
       "---\nname: test\ndescription: A test\n---\n# Test",
     );
+    await addTestCommand(root);
+    vi.stubEnv("AGENTSYNC_PROFILE", "ci");
 
-    // No --profile flag, but config has profile = "ci"
+    // No --profile flag; the environment selects the "ci" profile.
     await sync({ cwd: root, json: true });
 
     // Only claude should be synced per the "ci" profile
@@ -140,15 +160,12 @@ describe("monorepo sync with profiles", () => {
     await expect(access(join(root, ".cursor"))).rejects.toThrow();
   });
 
-  it("--profile flag overrides config profile", async () => {
+  it("--profile flag overrides AGENTSYNC_PROFILE", async () => {
     await ensureDir(join(root, ".agents", "skills", "test-skill"));
     await writeFile(
       join(root, ".agents", "agentsync.toml"),
       [
         'tools = ["cursor", "claude"]',
-        "",
-        "[agentsync]",
-        'profile = "ci"',
         "",
         "[profiles.ci]",
         'tools = ["claude"]',
@@ -161,12 +178,17 @@ describe("monorepo sync with profiles", () => {
       join(root, ".agents", "skills", "test-skill", "SKILL.md"),
       "---\nname: test\ndescription: A test\n---\n# Test",
     );
+    await addTestCommand(root);
+    vi.stubEnv("AGENTSYNC_PROFILE", "ci");
 
-    // --profile=dev overrides config profile=ci
+    // --profile=dev overrides AGENTSYNC_PROFILE=ci.
     await sync({ cwd: root, profile: "dev", json: true });
 
-    // Only cursor should be synced per the "dev" profile
-    await expect(access(join(root, ".cursor"))).resolves.toBeUndefined();
+    // Only Cursor should be synced per the "dev" profile.
+    await expect(
+      access(join(root, ".cursor", "commands", "test.md")),
+    ).resolves.toBeUndefined();
+    await expect(access(join(root, ".cursor", "skills"))).rejects.toThrow();
 
     // claude should NOT be synced
     await expect(access(join(root, ".claude"))).rejects.toThrow();
@@ -182,11 +204,15 @@ describe("monorepo sync with profiles", () => {
       join(root, ".agents", "skills", "test-skill", "SKILL.md"),
       "---\nname: test\ndescription: A test\n---\n# Test",
     );
+    await addTestCommand(root);
 
     // Both tools should be synced since no profiles section
     await sync({ cwd: root, json: true });
 
-    await expect(access(join(root, ".cursor"))).resolves.toBeUndefined();
+    await expect(
+      access(join(root, ".cursor", "commands", "test.md")),
+    ).resolves.toBeUndefined();
+    await expect(access(join(root, ".cursor", "skills"))).rejects.toThrow();
     await expect(access(join(root, ".claude"))).resolves.toBeUndefined();
   });
 });

@@ -1,20 +1,23 @@
 /**
  * MCP File Locations Test
- * For each of the 7 tools, verifies the MCP file is written to the correct path
- * and that parent directories are auto-created.
+ * Verifies MCP files use the expected path and parent directories are created.
  */
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { parse as parseToml } from "smol-toml";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { SUPPORTED_TOOLS } from "../../../src/constants.js";
 import type { MCP } from "../../../src/core/mcp/tokens.js";
-import { syncMCP } from "../../../src/sync/mcp.js";
+import { syncManagedMCP } from "../../../src/sync/mcp.js";
 import { getToolProvider } from "../../../src/tools/index.js";
-import { pathExists } from "../../../src/utils/fs.js";
+import { outputFile, pathExists } from "../../../src/utils/fs.js";
+
+const testProcessHome = process.env.HOME;
 
 describe("MCP File Locations", () => {
   let tmpDir: string;
+  let tmpHomeDir: string;
 
   const testMcps: Record<string, MCP> = {
     github: {
@@ -26,17 +29,27 @@ describe("MCP File Locations", () => {
 
   beforeEach(async () => {
     tmpDir = await mkdtemp(path.join(tmpdir(), "agentsync-mcp-locations-"));
+    tmpHomeDir = path.join(tmpDir, "home");
+    vi.stubEnv("HOME", tmpHomeDir);
+    vi.stubEnv("USERPROFILE", tmpHomeDir);
   });
 
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it("runs AgentSync tests with a disposable process home", () => {
+    expect(path.basename(testProcessHome ?? "")).toMatch(
+      /^agentsync-vitest-home-/,
+    );
   });
 
   it("writes Claude MCP to .mcp.json", async () => {
     const provider = getToolProvider("claude");
     expect(provider.paths.mcpConfigPath).toBe(".mcp.json");
 
-    await syncMCP([provider], testMcps, tmpDir);
+    await syncManagedMCP([provider], testMcps, tmpDir);
 
     const mcpPath = path.join(tmpDir, ".mcp.json");
     expect(await pathExists(mcpPath)).toBe(true);
@@ -49,7 +62,7 @@ describe("MCP File Locations", () => {
     const provider = getToolProvider("opencode");
     expect(provider.paths.mcpConfigPath).toBe("opencode.json");
 
-    await syncMCP([provider], testMcps, tmpDir);
+    await syncManagedMCP([provider], testMcps, tmpDir);
 
     const mcpPath = path.join(tmpDir, "opencode.json");
     expect(await pathExists(mcpPath)).toBe(true);
@@ -66,7 +79,7 @@ describe("MCP File Locations", () => {
     // .cursor/ should not exist yet
     expect(await pathExists(path.join(tmpDir, ".cursor"))).toBe(false);
 
-    await syncMCP([provider], testMcps, tmpDir);
+    await syncManagedMCP([provider], testMcps, tmpDir);
 
     const mcpPath = path.join(tmpDir, ".cursor", "mcp.json");
     expect(await pathExists(mcpPath)).toBe(true);
@@ -81,7 +94,7 @@ describe("MCP File Locations", () => {
 
     expect(await pathExists(path.join(tmpDir, ".roo"))).toBe(false);
 
-    await syncMCP([provider], testMcps, tmpDir);
+    await syncManagedMCP([provider], testMcps, tmpDir);
 
     const mcpPath = path.join(tmpDir, ".roo", "mcp.json");
     expect(await pathExists(mcpPath)).toBe(true);
@@ -90,13 +103,13 @@ describe("MCP File Locations", () => {
     expect(content.mcpServers.github).toBeDefined();
   });
 
-  it("writes Codex MCP to .codex/config.toml and creates .codex/ dir", async () => {
+  it("writes Codex MCP only to the project config by default", async () => {
     const provider = getToolProvider("codex");
     expect(provider.paths.mcpConfigPath).toBe(".codex/config.toml");
 
     expect(await pathExists(path.join(tmpDir, ".codex"))).toBe(false);
 
-    await syncMCP([provider], testMcps, tmpDir);
+    await syncManagedMCP([provider], testMcps, tmpDir);
 
     const mcpPath = path.join(tmpDir, ".codex", "config.toml");
     expect(await pathExists(mcpPath)).toBe(true);
@@ -107,6 +120,35 @@ describe("MCP File Locations", () => {
     >;
     const servers = content.mcp_servers as Record<string, unknown>;
     expect(servers.github).toBeDefined();
+    expect(
+      await pathExists(path.join(tmpHomeDir, ".codex", "config.toml")),
+    ).toBe(false);
+  });
+
+  it("merges Codex MCP into the disposable home when explicitly enabled", async () => {
+    vi.stubEnv("AGENTSYNC_CODEX_HOME_MCP", "1");
+    const provider = getToolProvider("codex");
+    const homeConfigPath = path.join(tmpHomeDir, ".codex", "config.toml");
+    await outputFile(
+      homeConfigPath,
+      'model = "existing-model"\n\n[mcp_servers.existing]\ncommand = "existing-command"\nargs = []\n',
+    );
+
+    await syncManagedMCP([provider], testMcps, tmpDir);
+
+    const homeConfig = parseToml(
+      await readFile(homeConfigPath, "utf-8"),
+    ) as Record<string, unknown>;
+    expect(homeConfig.model).toBe("existing-model");
+    const homeServers = homeConfig.mcp_servers as Record<string, unknown>;
+    expect(homeServers.existing).toBeDefined();
+    expect(homeServers.github).toBeDefined();
+
+    const projectConfig = parseToml(
+      await readFile(path.join(tmpDir, ".codex", "config.toml"), "utf-8"),
+    ) as Record<string, unknown>;
+    const projectServers = projectConfig.mcp_servers as Record<string, unknown>;
+    expect(projectServers.github).toBeDefined();
   });
 
   it("writes Copilot MCP to .vscode/mcp.json and creates .vscode/ dir", async () => {
@@ -115,7 +157,7 @@ describe("MCP File Locations", () => {
 
     expect(await pathExists(path.join(tmpDir, ".vscode"))).toBe(false);
 
-    await syncMCP([provider], testMcps, tmpDir);
+    await syncManagedMCP([provider], testMcps, tmpDir);
 
     const mcpPath = path.join(tmpDir, ".vscode", "mcp.json");
     expect(await pathExists(mcpPath)).toBe(true);
@@ -131,7 +173,7 @@ describe("MCP File Locations", () => {
 
     expect(await pathExists(path.join(tmpDir, ".gemini"))).toBe(false);
 
-    await syncMCP([provider], testMcps, tmpDir);
+    await syncManagedMCP([provider], testMcps, tmpDir);
 
     const mcpPath = path.join(tmpDir, ".gemini", "settings.json");
     expect(await pathExists(mcpPath)).toBe(true);
@@ -140,36 +182,7 @@ describe("MCP File Locations", () => {
     expect(content.mcpServers.github).toBeDefined();
   });
 
-  it("writes MCP to all 17 MCP-capable tools in one call", async () => {
-    const allTools = [
-      "claude",
-      "opencode",
-      "cursor",
-      "roocode",
-      "codex",
-      "copilot",
-      "gemini",
-      "amp",
-      "goose",
-      "amazonq",
-      "augment",
-      "kiro",
-      "openhands",
-      "junie",
-      "crush",
-      "kilocode",
-      "qwen",
-    ] as const;
-    const providers = allTools.map(getToolProvider);
-    const results = await syncMCP(providers, testMcps, tmpDir);
-
-    expect(results).toHaveLength(17);
-    for (const result of results) {
-      expect(result.serverCount).toBe(1);
-      expect(result.servers).toContain("github");
-    }
-
-    // Verify all files created
+  it("writes MCP to every MCP-capable tool in one call", async () => {
     const expectedPaths = [
       ".mcp.json",
       "opencode.json",
@@ -188,7 +201,22 @@ describe("MCP File Locations", () => {
       "crush.json",
       ".kilocode/mcp.json",
       ".qwen/.mcp.json",
+      ".factory/mcp.json",
+      ".vibe/config.toml",
     ];
+    const providers = SUPPORTED_TOOLS.map(getToolProvider).filter(
+      (provider) => provider.mcpFormat && provider.paths.mcpConfigPath,
+    );
+    expect(
+      providers.map((provider) => provider.paths.mcpConfigPath).sort(),
+    ).toEqual([...expectedPaths].sort());
+
+    const results = await syncManagedMCP(providers, testMcps, tmpDir);
+    expect(results.results).toHaveLength(expectedPaths.length);
+    for (const result of results.results) {
+      expect(result.serverCount).toBe(1);
+      expect(result.servers).toContain("github");
+    }
 
     for (const expected of expectedPaths) {
       expect(
@@ -213,7 +241,7 @@ describe("MCP File Locations", () => {
     };
 
     const provider = getToolProvider("claude");
-    await syncMCP([provider], multiMcps, tmpDir);
+    await syncManagedMCP([provider], multiMcps, tmpDir);
 
     const content = JSON.parse(
       await readFile(path.join(tmpDir, ".mcp.json"), "utf-8"),
@@ -221,5 +249,65 @@ describe("MCP File Locations", () => {
     expect(Object.keys(content.mcpServers)).toHaveLength(2);
     expect(content.mcpServers.github).toBeDefined();
     expect(content.mcpServers.postgres).toBeDefined();
+  });
+
+  it("stamps Droid's type discriminator on both transports", async () => {
+    const provider = getToolProvider("droid");
+    expect(provider.paths.mcpConfigPath).toBe(".factory/mcp.json");
+
+    // Droid writes this file itself, keeping permission and OAuth state in it.
+    await outputFile(
+      path.join(tmpDir, ".factory", "mcp.json"),
+      JSON.stringify({ persistentPermissions: { tracker: "always" } }),
+    );
+
+    await syncManagedMCP(
+      [provider],
+      {
+        ...testMcps,
+        linear: { url: "https://mcp.linear.app/mcp", headers: { A: "b" } },
+      },
+      tmpDir,
+    );
+
+    const content = JSON.parse(
+      await readFile(path.join(tmpDir, ".factory", "mcp.json"), "utf-8"),
+    );
+    // Droid parses entries as a discriminated union on `type`; a URL server
+    // written without it fails Droid's schema outright.
+    expect(content.mcpServers.github.type).toBe("stdio");
+    expect(content.mcpServers.github.command).toBe("npx");
+    expect(content.mcpServers.linear.type).toBe("http");
+    expect(content.mcpServers.linear.url).toBe("https://mcp.linear.app/mcp");
+    expect(content.mcpServers.linear.headers).toEqual({ A: "b" });
+    // Droid-owned state in the same file survives the sync.
+    expect(content.persistentPermissions).toEqual({ tracker: "always" });
+  });
+
+  it("writes Vibe MCP as an array of tables and preserves other config", async () => {
+    const provider = getToolProvider("vibe");
+    expect(provider.paths.mcpConfigPath).toBe(".vibe/config.toml");
+
+    // .vibe/config.toml is human-authored — models, theme and permissions live
+    // alongside the MCP servers, so the writer must merge rather than replace.
+    const configPath = path.join(tmpDir, ".vibe", "config.toml");
+    await outputFile(configPath, 'theme = "dark"\nactive_model = "medium"\n');
+
+    await syncManagedMCP([provider], testMcps, tmpDir);
+
+    const config = parseToml(await readFile(configPath, "utf-8")) as Record<
+      string,
+      unknown
+    >;
+    expect(config.theme).toBe("dark");
+    expect(config.active_model).toBe("medium");
+
+    const servers = config.mcp_servers as Array<Record<string, unknown>>;
+    expect(Array.isArray(servers)).toBe(true);
+    expect(servers).toHaveLength(1);
+    // The server name is a FIELD in Vibe, not the key it is stored under.
+    expect(servers[0].name).toBe("github");
+    expect(servers[0].transport).toBe("stdio");
+    expect(servers[0].command).toBe("npx");
   });
 });

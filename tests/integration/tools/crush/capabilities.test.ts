@@ -21,7 +21,6 @@ describe("Crush — Capabilities", () => {
 
   it("does NOT read .agents/ directory directly", () => {
     expect(p.capabilities.nativeSkillsDiscovery).toBe(false);
-    expect(p.readsAgentsDir).toBe(false);
   });
 
   it("has correct paths", () => {

@@ -14,7 +14,7 @@ describe("Config Schema v1.0", () => {
       expect(result.success).toBe(true);
     });
 
-    it("config with all 7 tools", () => {
+    it("representative multi-tool config", () => {
       const result = AgentSyncConfigSchema.safeParse({
         tools: [
           "claude",
@@ -67,33 +67,6 @@ describe("Config Schema v1.0", () => {
     it("empty config (defaults applied)", () => {
       const result = AgentSyncConfigSchema.safeParse({});
       expect(result.success).toBe(true);
-    });
-  });
-
-  describe("rejects removed v0.2 fields", () => {
-    it("rejects config with security field", () => {
-      // security was removed in v1.0
-      const result = AgentSyncConfigSchema.safeParse({
-        tools: ["claude"],
-        security: {
-          secretScanning: { enabled: true },
-        },
-      });
-      // Zod strips unknown fields by default, so this passes
-      // but the security field is not in the parsed result
-      if (result.success) {
-        expect(result.data).not.toHaveProperty("security");
-      }
-    });
-
-    it("rejects config with useSymlinks field", () => {
-      const result = AgentSyncConfigSchema.safeParse({
-        tools: ["claude"],
-        useSymlinks: true,
-      });
-      if (result.success) {
-        expect(result.data).not.toHaveProperty("useSymlinks");
-      }
     });
   });
 

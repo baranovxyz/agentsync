@@ -1,22 +1,32 @@
-/**
- * Config Add Command
- * Programmatically add tools, MCP servers, presets, skills, and commands
- * to the AgentSync configuration. Designed for AI agent consumption with
- * clear validation errors on bad input.
- */
-
 import * as path from "node:path";
+import yaml from "js-yaml";
+import { stringify as stringifyToml } from "smol-toml";
+import { z } from "zod";
 import { isToolName, SUPPORTED_TOOLS } from "../../constants.js";
 import { ConfigError, ValidationError } from "../../core/errors.js";
 import {
   ExtendsEntrySchema,
-  type McpServerConfig,
   McpServerConfigSchema,
 } from "../../types/schemas.js";
-import { ensureDir, outputFile, pathExists } from "../../utils/fs.js";
-import { escapeRegex, resolveConfigPath, VALID_TYPES } from "./shared.js";
-
-type ConfigAddType = (typeof VALID_TYPES)[number];
+import {
+  ensureDir,
+  outputFile,
+  parseJsonValidated,
+  pathExists,
+} from "../../utils/fs.js";
+import { appendTomlSection } from "./mcp-toml-editor.js";
+import {
+  ARRAY_CONFIG_KEYS,
+  type ArrayConfigType,
+  type ConfigType,
+  type FileConfigType,
+  getConfigItemPath,
+  resolveConfigPath,
+  validateConfigItemName,
+  validateConfigMutationPath,
+  validateConfigType,
+} from "./shared.js";
+import { addTomlStringArrayItem } from "./toml-string-array-editor.js";
 
 export interface ConfigAddOptions {
   cwd?: string;
@@ -25,15 +35,40 @@ export interface ConfigAddOptions {
 }
 
 export interface ConfigAddResult {
-  type: ConfigAddType;
+  type: ConfigType;
   name: string;
   action: "added" | "already_exists";
   path?: string;
 }
 
-/**
- * Add a tool to the config's tools array.
- */
+function createMarkdownContent(name: string, description: string): string {
+  const frontmatter = yaml
+    .dump({ description }, { lineWidth: -1, noRefs: true })
+    .trimEnd();
+  return `---\n${frontmatter}\n---\n\n# ${name}\n`;
+}
+
+async function addArrayItem(
+  type: ArrayConfigType,
+  name: string,
+  cwd: string,
+): Promise<ConfigAddResult> {
+  const resolved = await resolveConfigPath(cwd);
+  const { configPath, content } = resolved;
+  const edit = addTomlStringArrayItem(
+    content ?? "",
+    ARRAY_CONFIG_KEYS[type],
+    name,
+    configPath,
+  );
+  if (!edit.changed) {
+    return { type, name, action: "already_exists", path: configPath };
+  }
+  if (content === null) await ensureDir(path.dirname(configPath));
+  await outputFile(configPath, edit.content, { encoding: "utf-8" });
+  return { type, name, action: "added", path: configPath };
+}
+
 async function addTool(name: string, cwd: string): Promise<ConfigAddResult> {
   if (!isToolName(name)) {
     throw new ValidationError(
@@ -47,51 +82,11 @@ async function addTool(name: string, cwd: string): Promise<ConfigAddResult> {
     );
   }
 
-  const { configPath, content } = await resolveConfigPath(cwd);
-
-  if (content === null) {
-    // No config file yet — create one with just this tool
-    await ensureDir(path.dirname(configPath));
-    await outputFile(configPath, `tools = ["${name}"]\n`, {
-      encoding: "utf-8",
-    });
-    return { type: "tool", name, action: "added", path: configPath };
-  }
-
-  // Check if tool is already in the tools array
-  const toolsMatch = content.match(/^tools\s*=\s*\[([^\]]*)\]/m);
-  if (toolsMatch) {
-    const existing = toolsMatch[1];
-    // Check if already present (match quoted name)
-    if (new RegExp(`["']${name}["']`).test(existing)) {
-      return { type: "tool", name, action: "already_exists", path: configPath };
-    }
-    // Add to existing array
-    const trimmed = existing.trim();
-    const newList = trimmed.length > 0 ? `${trimmed}, "${name}"` : `"${name}"`;
-    const updated = content.replace(
-      /^(tools\s*=\s*\[)[^\]]*(\])/m,
-      `$1${newList}$2`,
-    );
-    await outputFile(configPath, updated, { encoding: "utf-8" });
-    return { type: "tool", name, action: "added", path: configPath };
-  }
-
-  // No tools line found — append it
-  const newContent = `${content.trimEnd()}\ntools = ["${name}"]\n`;
-  await outputFile(configPath, newContent, { encoding: "utf-8" });
-  return { type: "tool", name, action: "added", path: configPath };
+  return addArrayItem("tool", name, cwd);
 }
 
-/**
- * Add an MCP server to the config.
- */
-async function addMcp(
-  name: string,
-  options: ConfigAddOptions,
-  cwd: string,
-): Promise<ConfigAddResult> {
-  if (!options.mcpConfig) {
+function parseMcpConfig(name: string, serialized: string | undefined) {
+  if (!serialized) {
     throw new ConfigError(
       `MCP server "${name}" requires --mcp-config flag with server config`,
       undefined,
@@ -101,26 +96,26 @@ async function addMcp(
 
   let parsed: unknown;
   try {
-    parsed = JSON.parse(options.mcpConfig);
+    parsed = parseJsonValidated(serialized, z.unknown());
   } catch {
     throw new ValidationError(
-      `Invalid JSON in --mcp-config flag: ${options.mcpConfig}`,
+      `Invalid JSON in --mcp-config flag: ${serialized}`,
       undefined,
       {
         suggestion: `agentsync config add mcp ${name} --mcp-config '{"command":"npx","args":["-y","@org/server"]}'`,
-        provided: options.mcpConfig,
+        provided: serialized,
       },
     );
   }
 
-  const result = McpServerConfigSchema.safeParse(parsed);
-  if (!result.success) {
-    const issues = result.error.issues
+  const validation = McpServerConfigSchema.safeParse(parsed);
+  if (!validation.success) {
+    const issues = validation.error.issues
       .map((i) => `  - ${i.path.join(".")}: ${i.message}`)
       .join("\n");
     throw new ValidationError(
       `Invalid MCP server config:\n${issues}\n\nExpected: { command, args?, env? } or { url, headers? }`,
-      result.error,
+      validation.error,
       {
         suggestion: `agentsync config add mcp ${name} --mcp-config '{"command":"npx","args":["-y","@org/server"]}'`,
         validFormats: [
@@ -130,75 +125,35 @@ async function addMcp(
       },
     );
   }
+  return validation.data;
+}
 
-  const mcpConfig = result.data;
-  const { configPath, content } = await resolveConfigPath(cwd);
+async function addMcp(
+  name: string,
+  options: ConfigAddOptions,
+  cwd: string,
+): Promise<ConfigAddResult> {
+  const mcpConfig = parseMcpConfig(name, options.mcpConfig);
+  const section = stringifyToml({ mcp: { [name]: mcpConfig } });
+  const resolved = await resolveConfigPath(cwd);
+  const { configPath, content } = resolved;
 
   if (content === null) {
-    // No config file — create with just this MCP server
     await ensureDir(path.dirname(configPath));
-    const toml = buildMcpTomlSection(name, mcpConfig);
-    await outputFile(configPath, toml, { encoding: "utf-8" });
+    await outputFile(configPath, section, { encoding: "utf-8" });
     return { type: "mcp", name, action: "added", path: configPath };
   }
 
-  // Check if MCP server already exists
-  const sectionRegex = new RegExp(`^\\[mcp\\.${escapeRegex(name)}\\]`, "m");
-  if (sectionRegex.test(content)) {
+  if (resolved.config.mcp && Object.hasOwn(resolved.config.mcp, name)) {
     return { type: "mcp", name, action: "already_exists", path: configPath };
   }
 
-  // Append MCP server section
-  const tomlSection = buildMcpTomlSection(name, mcpConfig);
-  const newContent = `${content.trimEnd()}\n\n${tomlSection}`;
-  await outputFile(configPath, newContent, { encoding: "utf-8" });
+  await outputFile(configPath, appendTomlSection(content, section), {
+    encoding: "utf-8",
+  });
   return { type: "mcp", name, action: "added", path: configPath };
 }
 
-/**
- * Build a TOML section string for an MCP server.
- */
-/**
- * Append a TOML sub-table with key-value pairs if non-empty.
- */
-function appendTomlSubTable(
-  lines: string[],
-  sectionHeader: string,
-  record: Record<string, string>,
-): void {
-  if (Object.keys(record).length === 0) return;
-  lines.push("");
-  lines.push(sectionHeader);
-  for (const [key, value] of Object.entries(record)) {
-    lines.push(`${key} = "${value}"`);
-  }
-}
-
-function buildMcpTomlSection(name: string, config: McpServerConfig): string {
-  const lines: string[] = [`[mcp.${name}]`];
-
-  if ("command" in config) {
-    lines.push(`command = "${config.command}"`);
-    if (config.args && config.args.length > 0) {
-      const argsStr = config.args.map((a) => `"${a}"`).join(", ");
-      lines.push(`args = [${argsStr}]`);
-    }
-    if (config.env) {
-      appendTomlSubTable(lines, `[mcp.${name}.env]`, config.env);
-    }
-  } else {
-    lines.push(`url = "${config.url}"`);
-    if (config.headers) {
-      appendTomlSubTable(lines, `[mcp.${name}.headers]`, config.headers);
-    }
-  }
-
-  return `${lines.join("\n")}\n`;
-}
-
-/**
- * Add a preset (extends entry) to the config.
- */
 async function addPreset(
   source: string,
   cwd: string,
@@ -222,94 +177,30 @@ async function addPreset(
     );
   }
 
-  const { configPath, content } = await resolveConfigPath(cwd);
-
-  if (content === null) {
-    // No config — create with just this preset
-    await ensureDir(path.dirname(configPath));
-    await outputFile(configPath, `extends = ["${source}"]\n`, {
-      encoding: "utf-8",
-    });
-    return { type: "preset", name: source, action: "added", path: configPath };
-  }
-
-  // Check if preset already exists
-  const extendsMatch = content.match(/^extends\s*=\s*\[([^\]]*)\]/m);
-  if (extendsMatch) {
-    const existing = extendsMatch[1];
-    if (existing.includes(`"${source}"`)) {
-      return {
-        type: "preset",
-        name: source,
-        action: "already_exists",
-        path: configPath,
-      };
-    }
-    // Add to existing array
-    const trimmed = existing.trim();
-    const newList =
-      trimmed.length > 0 ? `${trimmed}, "${source}"` : `"${source}"`;
-    const updated = content.replace(
-      /^(extends\s*=\s*\[)[^\]]*(\])/m,
-      `$1${newList}$2`,
-    );
-    await outputFile(configPath, updated, { encoding: "utf-8" });
-    return { type: "preset", name: source, action: "added", path: configPath };
-  }
-
-  // No extends line — append it
-  const newContent = `${content.trimEnd()}\nextends = ["${source}"]\n`;
-  await outputFile(configPath, newContent, { encoding: "utf-8" });
-  return { type: "preset", name: source, action: "added", path: configPath };
+  return addArrayItem("preset", source, cwd);
 }
 
-/**
- * Create a skill directory with SKILL.md.
- */
-async function addSkill(
+async function addMarkdownItem(
+  type: FileConfigType,
   name: string,
-  options: ConfigAddOptions,
+  description: string | undefined,
   cwd: string,
 ): Promise<ConfigAddResult> {
-  const description = options.description || `${name} skill`;
-  const skillDir = path.join(cwd, ".agents", "skills", name);
-  const skillPath = path.join(skillDir, "SKILL.md");
+  validateConfigItemName(name, type);
+  await resolveConfigPath(cwd);
+  const itemRoot = getConfigItemPath(cwd, type, name);
+  const itemPath =
+    type === "skill" ? path.join(itemRoot, "SKILL.md") : itemRoot;
+  await validateConfigMutationPath(cwd, itemPath, type);
 
-  if (await pathExists(skillPath)) {
-    return { type: "skill", name, action: "already_exists", path: skillPath };
+  if (await pathExists(itemPath)) {
+    return { type, name, action: "already_exists", path: itemPath };
   }
 
-  const content = `---\ndescription: ${description}\n---\n\n# ${name}\n`;
-  await ensureDir(skillDir);
-  await outputFile(skillPath, content, { encoding: "utf-8" });
-  return { type: "skill", name, action: "added", path: skillPath };
-}
-
-/**
- * Create a command markdown file.
- */
-async function addCommand(
-  name: string,
-  options: ConfigAddOptions,
-  cwd: string,
-): Promise<ConfigAddResult> {
-  const description = options.description || `${name} command`;
-  const commandsDir = path.join(cwd, ".agents", "commands");
-  const commandPath = path.join(commandsDir, `${name}.md`);
-
-  if (await pathExists(commandPath)) {
-    return {
-      type: "command",
-      name,
-      action: "already_exists",
-      path: commandPath,
-    };
-  }
-
-  const content = `---\ndescription: ${description}\n---\n\n# ${name}\n`;
-  await ensureDir(commandsDir);
-  await outputFile(commandPath, content, { encoding: "utf-8" });
-  return { type: "command", name, action: "added", path: commandPath };
+  await ensureDir(path.dirname(itemPath));
+  const content = createMarkdownContent(name, description || `${name} ${type}`);
+  await outputFile(itemPath, content, { encoding: "utf-8" });
+  return { type, name, action: "added", path: itemPath };
 }
 
 /**
@@ -325,22 +216,9 @@ export async function configAdd(
   options: ConfigAddOptions = {},
 ): Promise<ConfigAddResult> {
   const cwd = options.cwd || process.cwd();
+  validateConfigType(type, "add");
 
-  if (!(VALID_TYPES as readonly string[]).includes(type)) {
-    throw new ValidationError(
-      `Unknown config type "${type}". Valid types: ${VALID_TYPES.join(", ")}`,
-      undefined,
-      {
-        suggestion: `agentsync config add ${VALID_TYPES[0]} <name>`,
-        validValues: [...VALID_TYPES],
-        provided: type,
-      },
-    );
-  }
-
-  const validType = type as ConfigAddType;
-
-  switch (validType) {
+  switch (type) {
     case "tool":
       return addTool(name, cwd);
     case "mcp":
@@ -348,8 +226,8 @@ export async function configAdd(
     case "preset":
       return addPreset(name, cwd);
     case "skill":
-      return addSkill(name, options, cwd);
+      return addMarkdownItem("skill", name, options.description, cwd);
     case "command":
-      return addCommand(name, options, cwd);
+      return addMarkdownItem("command", name, options.description, cwd);
   }
 }

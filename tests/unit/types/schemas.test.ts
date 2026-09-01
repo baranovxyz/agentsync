@@ -28,40 +28,17 @@ describe("ExtendsEntry type", () => {
       });
     });
 
-    it("accepts legacy object format with explicit namespace", () => {
-      const extends_ = [
-        {
-          source: "github:company/standards",
-          namespace: "company",
-        },
-      ];
-      const result = normalizeExtends(extends_);
-
-      expect(result).toHaveLength(1);
-      expect(result[0]).toEqual({
-        source: "github:company/standards",
-        namespace: "company",
+    it("rejects object-form extends at the current schema boundary", () => {
+      const result = AgentSyncConfigSchema.safeParse({
+        extends: [
+          {
+            source: "github:company/standards",
+            namespace: "company",
+          },
+        ],
       });
-    });
 
-    it("normalizes object extends entries with include/exclude fields", () => {
-      const extends_ = [
-        {
-          source: "github:company/standards",
-          namespace: "custom-namespace",
-          include: ["**/*.ts", "**/*.js"],
-          exclude: ["**/*.test.ts"],
-        },
-      ];
-      const result = normalizeExtends(extends_);
-
-      expect(result).toHaveLength(1);
-      expect(result[0]).toEqual({
-        source: "github:company/standards",
-        namespace: "custom-namespace",
-        include: ["**/*.ts", "**/*.js"],
-        exclude: ["**/*.test.ts"],
-      });
+      expect(result.success).toBe(false);
     });
 
     it("handles empty extends array", () => {
@@ -72,18 +49,6 @@ describe("ExtendsEntry type", () => {
     it("handles undefined extends", () => {
       const result = normalizeExtends(undefined);
       expect(result).toHaveLength(0);
-    });
-
-    it("derives namespace from object format when namespace is missing", () => {
-      const extends_ = [
-        {
-          source: "github:acme-corp/backend-rules",
-        },
-      ];
-
-      const result = normalizeExtends(extends_);
-      expect(result).toHaveLength(1);
-      expect(result[0].namespace).toBe("acme-corp-backend-rules");
     });
 
     it("derives namespace from various string formats", () => {
@@ -102,15 +67,17 @@ describe("ExtendsEntry type", () => {
       }
     });
 
-    it("throws error when source is missing", () => {
-      const extends_ = [
-        {
-          namespace: "company",
-        },
-      ];
+    it("validates source strings before deriving namespaces", () => {
+      expect(() => normalizeExtends(["github:company"])).toThrow(
+        /Source must be/,
+      );
+    });
 
-      // biome-ignore lint/suspicious/noExplicitAny: Testing runtime error for invalid input
-      expect(() => normalizeExtends(extends_ as any)).toThrow();
+    it.each([
+      "gitlab:company/standards",
+      "nonsense:thing",
+    ])("rejects unsupported source scheme %s at the schema boundary", (source) => {
+      expect(() => normalizeExtends([source])).toThrow(/Source must be/);
     });
   });
 
@@ -196,9 +163,18 @@ describe("ExtendsEntry type", () => {
       const result = validateConfig(config);
       expect(result.extends).toBeUndefined();
     });
+
+    it("rejects unknown current root fields", () => {
+      expect(
+        AgentSyncConfigSchema.safeParse({
+          tools: ["cursor"],
+          toolz: ["claude"],
+        }).success,
+      ).toBe(false);
+    });
   });
 
-  describe("ExtendsEntry type compatibility", () => {
+  describe("ExtendsEntry current type", () => {
     it("ExtendsEntry is a string type (flat format)", () => {
       const entry: ExtendsEntry = "github:company/standards";
       expect(typeof entry).toBe("string");
@@ -280,11 +256,21 @@ describe("ExtendsEntry type", () => {
         expect(result.data.mcp_disabled).toEqual(["postgres"]);
       }
     });
+
+    it("rejects fields outside the local-only contract", () => {
+      const result = safeParseLocalConfig({
+        tools: ["claude"],
+        profile: "ci",
+        typo: true,
+      });
+
+      expect(result.success).toBe(false);
+    });
   });
 
   describe("Supported tools single source of truth", () => {
-    it("has exactly 19 supported tools", () => {
-      expect(SUPPORTED_TOOLS).toHaveLength(19);
+    it("has exactly 22 supported tools", () => {
+      expect(SUPPORTED_TOOLS).toHaveLength(22);
     });
 
     it("includes all supported tools", () => {
@@ -308,6 +294,9 @@ describe("ExtendsEntry type", () => {
         "crush",
         "kilocode",
         "qwen",
+        "droid",
+        "pi",
+        "vibe",
       ]);
     });
 

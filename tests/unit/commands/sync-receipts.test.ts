@@ -2,13 +2,14 @@
  * Sync Operation Receipts Tests
  * Verifies that sync --json output includes per-tool file details
  */
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { sync } from "../../../src/commands/sync.js";
+import { readManifest } from "../../../src/sync/manifest.js";
 import { CliResultSchema } from "../../../src/types/output.js";
-import { ensureDir, outputFile } from "../../../src/utils/fs.js";
+import { ensureDir, outputFile, pathExists } from "../../../src/utils/fs.js";
 
 // Isolate from real ~/.agents/ so global skills/commands/agents don't bleed into counts
 vi.mock("../../../src/utils/global-config.js", () => ({
@@ -173,6 +174,52 @@ describe("Sync Operation Receipts", () => {
     ).toBe(true);
   });
 
+  it("dry-run rejects the same unowned shared-output collision as real sync", async () => {
+    await setupProject(["cursor"]);
+    await outputFile(
+      path.join(tmpDir, ".agents", "commands", "review.md"),
+      "---\ndescription: Review changes\n---\n# Review\n",
+    );
+    const collision = path.join(tmpDir, ".cursor", "commands", "review.md");
+    await outputFile(collision, "# Manual review\n");
+
+    await sync({ cwd: tmpDir, dryRun: true, json: true });
+
+    const output = parseCliResult();
+    expect(output.status).toBe("error");
+    expect(await readFile(collision, "utf-8")).toBe("# Manual review\n");
+  });
+
+  it("dry-run reports modified stale ownership without changing file or manifest", async () => {
+    await setupProject(["cursor"]);
+    const source = path.join(tmpDir, ".agents", "commands", "review.md");
+    await outputFile(
+      source,
+      "---\ndescription: Review changes\n---\n# Review\n",
+    );
+    await sync({ cwd: tmpDir, json: true });
+    const destination = path.join(tmpDir, ".cursor", "commands", "review.md");
+    await outputFile(destination, "# User-edited stale command\n");
+    await rm(source);
+    const manifestPath = path.join(tmpDir, ".agents", ".sync-manifest.json");
+    const manifestBefore = await readFile(manifestPath, "utf-8");
+    consoleOutput = [];
+
+    await sync({ cwd: tmpDir, dryRun: true, json: true });
+
+    const output = parseCliResult();
+    expect(output.status).toBe("success");
+    expect(output.warnings).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("would preserve stale modified output"),
+      ]),
+    );
+    expect(await readFile(destination, "utf-8")).toBe(
+      "# User-edited stale command\n",
+    );
+    expect(await readFile(manifestPath, "utf-8")).toBe(manifestBefore);
+  });
+
   it("returns empty details array on error", async () => {
     // No config = error
     await sync({ cwd: tmpDir, json: true, pretty: true });
@@ -182,8 +229,9 @@ describe("Sync Operation Receipts", () => {
     expect(data.details).toEqual([]);
   });
 
-  it("emits valid JSON when no tools configured and not dry-run", async () => {
-    // Config exists but tools = [] — should still produce valid JSON output
+  it("emits valid JSON with status=error and an actionable warning when no tools configured and not dry-run", async () => {
+    // Config exists but tools = [] — should still produce valid JSON output,
+    // but zero resolved tools is a config problem, not a silent success.
     await ensureDir(path.join(tmpDir, ".agents"));
     await outputFile(
       path.join(tmpDir, ".agents", "agentsync.toml"),
@@ -193,11 +241,47 @@ describe("Sync Operation Receipts", () => {
     await sync({ cwd: tmpDir, json: true, pretty: true });
 
     const output = parseCliResult();
-    expect(output.status).toBe("success");
+    expect(output.status).toBe("error");
     const data = output.data as Record<string, unknown>;
     expect(data.tools).toEqual([]);
     expect(data.skills).toBe(0);
     expect(data.details).toEqual([]);
+    const warnings = output.warnings as string[];
+    expect(warnings).toBeDefined();
+    expect(warnings.some((w) => w.includes("No tools configured"))).toBe(true);
+    expect(warnings.some((w) => w.includes("tools = [...]"))).toBe(true);
+  });
+
+  it("withdraws the last tool's exact command and MCP outputs when tools becomes empty", async () => {
+    await ensureDir(path.join(tmpDir, ".agents"));
+    const configPath = path.join(tmpDir, ".agents", "agentsync.toml");
+    const config = (tools: string) => `${tools}
+
+[mcp.tracker]
+command = "node"
+args = ["tracker.js"]
+`;
+    await outputFile(configPath, config('tools = ["cursor"]'));
+    await outputFile(
+      path.join(tmpDir, ".agents", "commands", "review.md"),
+      "---\ndescription: Review changes\n---\n# Review\n",
+    );
+    await sync({ cwd: tmpDir, json: true });
+    const commandPath = path.join(tmpDir, ".cursor", "commands", "review.md");
+    const mcpPath = path.join(tmpDir, ".cursor", "mcp.json");
+    expect(await pathExists(commandPath)).toBe(true);
+    expect(await pathExists(mcpPath)).toBe(true);
+
+    consoleOutput = [];
+    await outputFile(configPath, config("tools = []"));
+    await sync({ cwd: tmpDir, json: true });
+
+    expect(parseCliResult().status).toBe("success");
+    expect(await pathExists(commandPath)).toBe(false);
+    expect(await pathExists(mcpPath)).toBe(false);
+    const manifest = await readManifest(tmpDir);
+    expect(manifest?.owners).toEqual({});
+    expect(manifest?.mcp_owners).toBeUndefined();
   });
 
   it("supports --fields projection", async () => {
@@ -206,13 +290,14 @@ describe("Sync Operation Receipts", () => {
       cwd: tmpDir,
       json: true,
       pretty: true,
-      fields: "tools,skills",
+      fields: "tools,skills,rules",
     });
 
     const output = parseCliResult();
     const data = output.data as Record<string, unknown>;
     expect(data).toHaveProperty("tools");
     expect(data).toHaveProperty("skills");
+    expect(data).toHaveProperty("rules");
     expect(data).not.toHaveProperty("details");
     expect(data).not.toHaveProperty("mcpServers");
   });

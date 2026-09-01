@@ -17,6 +17,7 @@ import {
   ValidationError,
 } from "../../../src/core/errors.js";
 import { CliResultSchema } from "../../../src/types/output.js";
+import { parseJsonValidated } from "../../../src/utils/fs.js";
 
 describe("AgentSyncError simplified shape", () => {
   it("exposes flat properties instead of metadata object", () => {
@@ -171,30 +172,55 @@ describe("formatSafetyNetError", () => {
         "/path",
         "Run: agentsync init",
       );
-      const output = formatSafetyNetError(err, true);
-      const parsed = JSON.parse(output);
-      const validation = CliResultSchema.safeParse(parsed);
-      expect(validation.success).toBe(true);
+      const output = formatSafetyNetError(err, true, "config.show");
+      const parsed = parseJsonValidated(output, CliResultSchema);
       expect(parsed.status).toBe("error");
-      expect(parsed.errors[0].code).toBe("CONFIG_ERROR");
-      expect(parsed.errors[0].message).toBe("No config found");
-      expect(parsed.errors[0].suggestion).toBe("Run: agentsync init");
+      expect(parsed.command).toBe("config.show");
+      expect(parsed.errors?.[0]).toMatchObject({
+        code: "CONFIG_ERROR",
+        message: "No config found",
+        suggestion: "Run: agentsync init",
+        context: { configPath: "/path" },
+      });
+    });
+
+    it("promotes validation recovery and preserves structured context", () => {
+      const err = new ValidationError("Unknown tool", undefined, {
+        suggestion: "Choose a supported tool",
+        validValues: ["claude", "codex"],
+        provided: "missing",
+      });
+
+      const parsed = parseJsonValidated(
+        formatSafetyNetError(err, true, "config.add"),
+        CliResultSchema,
+      );
+
+      expect(parsed.errors?.[0]).toMatchObject({
+        suggestion: "Choose a supported tool",
+        context: {
+          validValues: ["claude", "codex"],
+          provided: "missing",
+        },
+      });
     });
 
     it("handles plain Error with UNKNOWN_ERROR code", () => {
       const err = new Error("untyped crash");
       const output = formatSafetyNetError(err, true);
-      const parsed = JSON.parse(output);
+      const parsed = parseJsonValidated(output, CliResultSchema);
       expect(parsed.status).toBe("error");
-      expect(parsed.errors[0].code).toBe("UNKNOWN_ERROR");
+      expect(parsed.errors?.[0]).toMatchObject({ code: "UNKNOWN_ERROR" });
     });
 
     it("handles non-Error values", () => {
       const output = formatSafetyNetError("string value", true);
-      const parsed = JSON.parse(output);
+      const parsed = parseJsonValidated(output, CliResultSchema);
       expect(parsed.status).toBe("error");
-      expect(parsed.errors[0].code).toBe("UNKNOWN_ERROR");
-      expect(parsed.errors[0].message).toBe("string value");
+      expect(parsed.errors?.[0]).toMatchObject({
+        code: "UNKNOWN_ERROR",
+        message: "string value",
+      });
     });
   });
 });

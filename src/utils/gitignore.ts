@@ -8,7 +8,7 @@ export const TOOL_GITIGNORE_PATTERNS: Record<ToolName, string[]> = {
   opencode: ["opencode.json"],
   cursor: [".cursor/mcp.json"],
   roocode: [".roo/mcp.json"],
-  codex: [".codex/config.toml"],
+  codex: [".codex/config.toml", ".codex/.agentsync-ownership.json"],
   copilot: [".vscode/mcp.json"],
   cline: [], // MCP is global-only (VS Code storage), no project files to ignore
   gemini: [".gemini/settings.json", "GEMINI.md"],
@@ -23,6 +23,9 @@ export const TOOL_GITIGNORE_PATTERNS: Record<ToolName, string[]> = {
   crush: ["crush.json"],
   kilocode: [".kilocode/mcp.json"],
   qwen: [".qwen/.mcp.json"],
+  droid: [".factory/mcp.json"],
+  pi: [], // Pi ships no MCP client — nothing generated to ignore
+  vibe: [".vibe/config.toml"],
 };
 
 /**
@@ -31,7 +34,6 @@ export const TOOL_GITIGNORE_PATTERNS: Record<ToolName, string[]> = {
 export const BASE_GITIGNORE_PATTERNS = [
   "",
   "# AgentSync",
-  ".agents/backups/",
   "agentsync.local.toml",
 ];
 

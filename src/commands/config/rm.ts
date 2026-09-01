@@ -1,176 +1,82 @@
-/**
- * Config Remove Command
- * Programmatically remove tools, MCP servers, presets, skills, and commands
- * from the AgentSync configuration. Reverse of config add.
- */
-
-import * as path from "node:path";
-import { ValidationError } from "../../core/errors.js";
 import { outputFile, pathExists, remove } from "../../utils/fs.js";
-import { escapeRegex, resolveConfigPath, VALID_TYPES } from "./shared.js";
-
-type ConfigRmType = (typeof VALID_TYPES)[number];
+import { removeTomlMcpServer } from "./mcp-toml-editor.js";
+import {
+  ARRAY_CONFIG_KEYS,
+  type ArrayConfigType,
+  type ConfigType,
+  type FileConfigType,
+  getConfigItemPath,
+  resolveConfigPath,
+  validateConfigItemName,
+  validateConfigMutationPath,
+  validateConfigType,
+} from "./shared.js";
+import { removeTomlStringArrayItem } from "./toml-string-array-editor.js";
 
 export interface ConfigRmOptions {
   cwd?: string;
 }
 
 export interface ConfigRmResult {
-  type: ConfigRmType;
+  type: ConfigType;
   name: string;
   action: "removed" | "not_found";
   path?: string;
 }
 
-/**
- * Remove a tool from the tools array.
- */
-async function removeTool(name: string, cwd: string): Promise<ConfigRmResult> {
-  const { configPath, content } = await resolveConfigPath(cwd);
-
-  if (content === null) {
-    return { type: "tool", name, action: "not_found" };
-  }
-
-  const toolsMatch = content.match(/^tools\s*=\s*\[([^\]]*)\]/m);
-  if (!toolsMatch) {
-    return { type: "tool", name, action: "not_found" };
-  }
-
-  const existing = toolsMatch[1];
-  // Check if tool is present
-  if (!new RegExp(`["']${escapeRegex(name)}["']`).test(existing)) {
-    return { type: "tool", name, action: "not_found" };
-  }
-
-  // Remove tool from array (handle comma separators)
-  const cleaned = existing
-    .split(",")
-    .map((s) => s.trim())
-    .filter((s) => {
-      const unquoted = s.replace(/^["']|["']$/g, "");
-      return unquoted !== name;
-    })
-    .join(", ");
-
-  const updated = content.replace(
-    /^(tools\s*=\s*\[)[^\]]*(\])/m,
-    `$1${cleaned}$2`,
-  );
-  await outputFile(configPath, updated, { encoding: "utf-8" });
-  return { type: "tool", name, action: "removed", path: configPath };
-}
-
-/**
- * Remove an MCP server section from the TOML config.
- */
-async function removeMcp(name: string, cwd: string): Promise<ConfigRmResult> {
-  const { configPath, content } = await resolveConfigPath(cwd);
-
-  if (content === null) {
-    return { type: "mcp", name, action: "not_found" };
-  }
-
-  const sectionHeader = `[mcp.${name}]`;
-  if (!content.includes(sectionHeader)) {
-    return { type: "mcp", name, action: "not_found" };
-  }
-
-  // Remove the section and all its content up to the next section or EOF
-  const escapedHeader = escapeRegex(sectionHeader);
-  // Also handle the optional .env sub-section
-  const envHeader = `[mcp.${name}.env]`;
-  const headersHeader = `[mcp.${name}.headers]`;
-
-  let updated = content;
-
-  // Remove sub-sections first (env, headers)
-  for (const subHeader of [envHeader, headersHeader]) {
-    const escapedSub = escapeRegex(subHeader);
-    const subRegex = new RegExp(`\\n?${escapedSub}\\n(?:[^\\[\\n].*\\n)*`, "g");
-    updated = updated.replace(subRegex, "");
-  }
-
-  // Remove main section
-  const mainRegex = new RegExp(
-    `\\n?${escapedHeader}\\n(?:[^\\[\\n].*\\n)*`,
-    "g",
-  );
-  updated = updated.replace(mainRegex, "");
-
-  // Clean up extra blank lines
-  updated = updated.replace(/\n{3,}/g, "\n\n");
-
-  await outputFile(configPath, updated, { encoding: "utf-8" });
-  return { type: "mcp", name, action: "removed", path: configPath };
-}
-
-/**
- * Remove a preset from the extends array.
- */
-async function removePreset(
-  source: string,
-  cwd: string,
-): Promise<ConfigRmResult> {
-  const { configPath, content } = await resolveConfigPath(cwd);
-
-  if (content === null) {
-    return { type: "preset", name: source, action: "not_found" };
-  }
-
-  const extendsMatch = content.match(/^extends\s*=\s*\[([^\]]*)\]/m);
-  if (!extendsMatch) {
-    return { type: "preset", name: source, action: "not_found" };
-  }
-
-  const existing = extendsMatch[1];
-  if (!existing.includes(`"${source}"`)) {
-    return { type: "preset", name: source, action: "not_found" };
-  }
-
-  // Remove preset from array
-  const cleaned = existing
-    .split(",")
-    .map((s) => s.trim())
-    .filter((s) => {
-      const unquoted = s.replace(/^["']|["']$/g, "");
-      return unquoted !== source;
-    })
-    .join(", ");
-
-  const updated = content.replace(
-    /^(extends\s*=\s*\[)[^\]]*(\])/m,
-    `$1${cleaned}$2`,
-  );
-  await outputFile(configPath, updated, { encoding: "utf-8" });
-  return { type: "preset", name: source, action: "removed", path: configPath };
-}
-
-/**
- * Remove a skill directory.
- */
-async function removeSkill(name: string, cwd: string): Promise<ConfigRmResult> {
-  const skillDir = path.join(cwd, ".agents", "skills", name);
-  if (!(await pathExists(skillDir))) {
-    return { type: "skill", name, action: "not_found" };
-  }
-  await remove(skillDir);
-  return { type: "skill", name, action: "removed", path: skillDir };
-}
-
-/**
- * Remove a command file.
- */
-async function removeCommand(
+async function removeArrayItem(
+  type: ArrayConfigType,
   name: string,
   cwd: string,
 ): Promise<ConfigRmResult> {
-  const commandPath = path.join(cwd, ".agents", "commands", `${name}.md`);
-  if (!(await pathExists(commandPath))) {
-    return { type: "command", name, action: "not_found" };
+  const resolved = await resolveConfigPath(cwd);
+  const { configPath, content } = resolved;
+  if (content === null) {
+    return { type, name, action: "not_found" };
   }
-  await remove(commandPath);
-  return { type: "command", name, action: "removed", path: commandPath };
+  const edit = removeTomlStringArrayItem(
+    content,
+    ARRAY_CONFIG_KEYS[type],
+    name,
+    configPath,
+  );
+  if (!edit.changed) return { type, name, action: "not_found" };
+  await outputFile(configPath, edit.content, { encoding: "utf-8" });
+  return { type, name, action: "removed", path: configPath };
+}
+
+async function removeMcp(name: string, cwd: string): Promise<ConfigRmResult> {
+  const resolved = await resolveConfigPath(cwd);
+  const { configPath, content } = resolved;
+
+  if (content === null) {
+    return { type: "mcp", name, action: "not_found" };
+  }
+
+  if (!(resolved.config.mcp && Object.hasOwn(resolved.config.mcp, name))) {
+    return { type: "mcp", name, action: "not_found" };
+  }
+
+  await outputFile(configPath, removeTomlMcpServer(content, name), {
+    encoding: "utf-8",
+  });
+  return { type: "mcp", name, action: "removed", path: configPath };
+}
+
+async function removeFileItem(
+  type: FileConfigType,
+  name: string,
+  cwd: string,
+): Promise<ConfigRmResult> {
+  validateConfigItemName(name, type);
+  await resolveConfigPath(cwd);
+  const itemPath = getConfigItemPath(cwd, type, name);
+  await validateConfigMutationPath(cwd, itemPath, type);
+  if (!(await pathExists(itemPath))) {
+    return { type, name, action: "not_found" };
+  }
+  await remove(itemPath);
+  return { type, name, action: "removed", path: itemPath };
 }
 
 /**
@@ -186,31 +92,18 @@ export async function configRm(
   options: ConfigRmOptions = {},
 ): Promise<ConfigRmResult> {
   const cwd = options.cwd || process.cwd();
+  validateConfigType(type, "rm");
 
-  if (!(VALID_TYPES as readonly string[]).includes(type)) {
-    throw new ValidationError(
-      `Unknown config type "${type}". Valid types: ${VALID_TYPES.join(", ")}`,
-      undefined,
-      {
-        suggestion: `agentsync config rm ${VALID_TYPES[0]} <name>`,
-        validValues: [...VALID_TYPES],
-        provided: type,
-      },
-    );
-  }
-
-  const validType = type as ConfigRmType;
-
-  switch (validType) {
+  switch (type) {
     case "tool":
-      return removeTool(name, cwd);
+      return removeArrayItem("tool", name, cwd);
     case "mcp":
       return removeMcp(name, cwd);
     case "preset":
-      return removePreset(name, cwd);
+      return removeArrayItem("preset", name, cwd);
     case "skill":
-      return removeSkill(name, cwd);
+      return removeFileItem("skill", name, cwd);
     case "command":
-      return removeCommand(name, cwd);
+      return removeFileItem("command", name, cwd);
   }
 }

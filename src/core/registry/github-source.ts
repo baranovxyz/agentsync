@@ -3,10 +3,12 @@
  * Parses github:org/repo[@ref] format
  */
 
+import { GITHUB_SOURCE_PATTERN } from "../../types/schemas.js";
+
 export interface GitHubSource {
   org: string;
   repo: string;
-  ref: string; // Always 'main' in v0.3.0-beta
+  ref: string;
 }
 
 export class GitHubSourceParser {
@@ -24,50 +26,14 @@ export class GitHubSourceParser {
       );
     }
 
-    const withoutPrefix = source.slice(7); // Remove "github:"
-
-    // Split ref if present
-    const [repoPath, ref = "main"] = withoutPrefix.split("@");
-
-    // Split org/repo
-    const parts = repoPath.split("/");
-    if (parts.length !== 2) {
+    const match = source.match(GITHUB_SOURCE_PATTERN);
+    if (!match) {
       throw new Error(
         `Invalid GitHub source: ${source}. Format: github:org/repo[@ref]`,
       );
     }
 
-    const [org, repo] = parts;
-
-    // Validate
-    if (!(org && repo)) {
-      throw new Error(
-        `Invalid GitHub source: ${source}. Both org and repo required`,
-      );
-    }
-
-    // v0.3.0-beta: Only support @main
-    if (ref !== "main") {
-      throw new Error(
-        `GitHub ref "${ref}" not supported in v0.3.0-beta.\n` +
-          `Only @main is supported. Version tags coming in v0.4.0.`,
-      );
-    }
-
+    const [, org, repo, ref = "main"] = match;
     return { org, repo, ref };
-  }
-
-  /**
-   * Convert back to source string
-   */
-  toString(source: GitHubSource): string {
-    return `github:${source.org}/${source.repo}@${source.ref}`;
-  }
-
-  /**
-   * Generate cache key (safe for filesystem)
-   */
-  toCacheKey(source: GitHubSource): string {
-    return `github-${source.org}-${source.repo}`;
   }
 }

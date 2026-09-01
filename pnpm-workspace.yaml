@@ -1,0 +1,15 @@
+packages:
+  - .
+
+# pnpm 9/10 build-script allowlist
+onlyBuiltDependencies:
+  - "esbuild"
+
+# pnpm 11+ build-script policy
+allowBuilds:
+  "esbuild": true
+
+# pnpm 11.3+: this repository commits and reviews its standalone lockfile.
+# Treat that lockfile as the trust base instead of re-applying supply-chain
+# policy to every frozen-install entry.
+trustLockfile: true

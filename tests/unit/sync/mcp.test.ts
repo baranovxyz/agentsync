@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { syncMCP } from "../../../src/sync/mcp.js";
+import { syncManagedMCP } from "../../../src/sync/mcp.js";
 import { getToolProvider } from "../../../src/tools/index.js";
 import { pathExists } from "../../../src/utils/fs.js";
 
@@ -27,10 +27,10 @@ describe("MCP Sync", () => {
 
   it("writes MCP to Claude .mcp.json", async () => {
     const providers = [getToolProvider("claude")];
-    const results = await syncMCP(providers, testMcps, tmpDir);
+    const results = await syncManagedMCP(providers, testMcps, tmpDir);
 
-    expect(results).toHaveLength(1);
-    expect(results[0].serverCount).toBe(1);
+    expect(results.results).toHaveLength(1);
+    expect(results.results[0].serverCount).toBe(1);
 
     const mcpFile = path.join(tmpDir, ".mcp.json");
     expect(await pathExists(mcpFile)).toBe(true);
@@ -42,7 +42,7 @@ describe("MCP Sync", () => {
 
   it("writes MCP to Cursor .cursor/mcp.json", async () => {
     const providers = [getToolProvider("cursor")];
-    await syncMCP(providers, testMcps, tmpDir);
+    await syncManagedMCP(providers, testMcps, tmpDir);
 
     const mcpFile = path.join(tmpDir, ".cursor", "mcp.json");
     expect(await pathExists(mcpFile)).toBe(true);
@@ -50,7 +50,7 @@ describe("MCP Sync", () => {
 
   it("writes MCP to RooCode .roo/mcp.json", async () => {
     const providers = [getToolProvider("roocode")];
-    await syncMCP(providers, testMcps, tmpDir);
+    await syncManagedMCP(providers, testMcps, tmpDir);
 
     const mcpFile = path.join(tmpDir, ".roo", "mcp.json");
     expect(await pathExists(mcpFile)).toBe(true);
@@ -58,7 +58,7 @@ describe("MCP Sync", () => {
 
   it("merges MCP into Gemini settings.json", async () => {
     const providers = [getToolProvider("gemini")];
-    await syncMCP(providers, testMcps, tmpDir);
+    await syncManagedMCP(providers, testMcps, tmpDir);
 
     const settingsFile = path.join(tmpDir, ".gemini", "settings.json");
     expect(await pathExists(settingsFile)).toBe(true);
@@ -88,19 +88,19 @@ describe("MCP Sync", () => {
       getToolProvider("qwen"),
     ];
 
-    const results = await syncMCP(allProviders, testMcps, tmpDir);
-    expect(results).toHaveLength(17);
+    const results = await syncManagedMCP(allProviders, testMcps, tmpDir);
+    expect(results.results).toHaveLength(17);
 
     // All should have 1 server
-    for (const result of results) {
+    for (const result of results.results) {
       expect(result.serverCount).toBe(1);
     }
   });
 
   it("handles empty MCP config", async () => {
     const providers = [getToolProvider("claude")];
-    const results = await syncMCP(providers, {}, tmpDir);
+    const results = await syncManagedMCP(providers, {}, tmpDir);
 
-    expect(results[0].serverCount).toBe(0);
+    expect(results.results[0].serverCount).toBe(0);
   });
 });

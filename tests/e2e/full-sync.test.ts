@@ -12,7 +12,7 @@ import {
   syncAgents,
   syncCommands,
   syncDocs,
-  syncMCP,
+  syncManagedMCP,
   syncSkills,
 } from "../../src/sync/index.js";
 import { getToolProviders } from "../../src/tools/index.js";
@@ -61,9 +61,8 @@ describe("Full Sync E2E", () => {
     );
 
     // Create AGENTS.md
-    await ensureDir(path.join(tmpDir, ".agents"));
     await outputFile(
-      path.join(tmpDir, ".agents", "AGENTS.md"),
+      path.join(tmpDir, "AGENTS.md"),
       "# Project\n\nTest project for AgentSync E2E.\n\n## Commands\n\n- `pnpm test`\n",
     );
   }
@@ -76,7 +75,7 @@ describe("Full Sync E2E", () => {
     },
   };
 
-  it("syncs skills to holdout tools (readsAgentsDir=false)", async () => {
+  it("syncs skills to generated-output tools", async () => {
     const tools: ToolName[] = [
       "claude",
       "opencode",
@@ -91,27 +90,29 @@ describe("Full Sync E2E", () => {
     const providers = getToolProviders(tools);
     const results = await syncSkills(providers, tmpDir);
 
-    // Holdout tools (readsAgentsDir=false) get skills copied
-    const holdoutPaths = [
+    // Generated-output tools receive copies.
+    const generatedPaths = [
       ".claude/skills/code-review/SKILL.md",
-      ".cursor/skills/code-review/SKILL.md",
       ".github/skills/code-review/SKILL.md", // copilot
     ];
 
-    for (const expectedPath of holdoutPaths) {
+    for (const expectedPath of generatedPaths) {
       const fullPath = path.join(tmpDir, expectedPath);
       expect(await pathExists(fullPath)).toBe(true);
       const content = await readFile(fullPath, "utf-8");
       expect(content).toContain("# Code Review");
     }
 
-    // Native tools (readsAgentsDir=true) skip — they read .agents/ directly
+    // Native skill readers skip project copies and use .agents/skills directly.
     const nativeResults = results.filter((r) =>
-      ["opencode", "roocode", "codex", "gemini"].includes(r.tool),
+      ["opencode", "cursor", "roocode", "codex", "gemini"].includes(r.tool),
     );
     for (const r of nativeResults) {
       expect(r.skillCount).toBe(0);
     }
+    expect(await pathExists(path.join(tmpDir, ".cursor", "skills"))).toBe(
+      false,
+    );
   });
 
   it("syncs commands to tools that support them", async () => {
@@ -133,16 +134,20 @@ describe("Full Sync E2E", () => {
     const withCommands = results.filter((r) => r.commandCount > 0);
     const withoutCommands = results.filter((r) => r.commandCount === 0);
 
-    // Claude, OpenCode, RooCode support commands
-    expect(withCommands.length).toBe(3);
-    // Cursor, Codex, Copilot, Gemini do not
-    expect(withoutCommands.length).toBe(4);
+    // Claude, OpenCode, Cursor, and RooCode support commands.
+    expect(withCommands.length).toBe(4);
+    expect(withCommands.map((result) => result.tool)).toContain("cursor");
+    // Codex, Copilot, and Gemini do not.
+    expect(withoutCommands.length).toBe(3);
 
     // Verify command file content
     const claudeCmd = path.join(tmpDir, ".claude", "commands", "commit.md");
     expect(await pathExists(claudeCmd)).toBe(true);
     const content = await readFile(claudeCmd, "utf-8");
     expect(content).toContain("conventional commit");
+    const cursorCmd = path.join(tmpDir, ".cursor", "commands", "commit.md");
+    expect(await pathExists(cursorCmd)).toBe(true);
+    expect(await readFile(cursorCmd, "utf-8")).toContain("conventional commit");
   });
 
   it("syncs agents to tools that support them", async () => {
@@ -160,13 +165,17 @@ describe("Full Sync E2E", () => {
     const providers = getToolProviders(tools);
     const results = await syncAgents(providers, tmpDir);
 
-    // Claude, OpenCode, Codex, Copilot support agents
+    // Claude, OpenCode, Cursor, Codex, and Copilot support agents.
     const withAgents = results.filter((r) => r.agentCount > 0);
-    expect(withAgents.length).toBe(4);
+    expect(withAgents.length).toBe(5);
+    expect(withAgents.map((result) => result.tool)).toContain("cursor");
 
     // Verify agent file
     const claudeAgent = path.join(tmpDir, ".claude", "agents", "reviewer.md");
     expect(await pathExists(claudeAgent)).toBe(true);
+    const cursorAgent = path.join(tmpDir, ".cursor", "agents", "reviewer.md");
+    expect(await pathExists(cursorAgent)).toBe(true);
+    expect(await readFile(cursorAgent, "utf-8")).toContain("Reviewer Agent");
     // Codex emits md body + role-config TOML wrapper
     expect(
       await pathExists(path.join(tmpDir, ".codex", "agents", "reviewer.md")),
@@ -183,7 +192,7 @@ describe("Full Sync E2E", () => {
     const providers = getToolProviders(tools);
     await syncDocs(providers, tmpDir);
 
-    // CLAUDE.md created with @AGENTS.md directive
+    // CLAUDE.md includes the canonical root instruction file.
     expect(await pathExists(path.join(tmpDir, "CLAUDE.md"))).toBe(true);
     const claudeContent = await readFile(
       path.join(tmpDir, "CLAUDE.md"),
@@ -191,7 +200,7 @@ describe("Full Sync E2E", () => {
     );
     expect(claudeContent).toBe("@AGENTS.md\n");
 
-    // GEMINI.md created with @AGENTS.md directive
+    // GEMINI.md includes the same canonical file.
     expect(await pathExists(path.join(tmpDir, "GEMINI.md"))).toBe(true);
     const geminiContent = await readFile(
       path.join(tmpDir, "GEMINI.md"),
@@ -213,7 +222,7 @@ describe("Full Sync E2E", () => {
     await setupProject(tools);
 
     const providers = getToolProviders(tools);
-    await syncMCP(providers, testMcps, tmpDir);
+    await syncManagedMCP(providers, testMcps, tmpDir);
 
     // Verify each tool's MCP config
     const mcpPaths = [
@@ -256,14 +265,13 @@ describe("Full Sync E2E", () => {
     const commandResults = await syncCommands(providers, tmpDir);
     const agentResults = await syncAgents(providers, tmpDir);
     await syncDocs(providers, tmpDir);
-    await syncMCP(providers, testMcps, tmpDir);
+    await syncManagedMCP(providers, testMcps, tmpDir);
 
-    // Verify totals: claude(1) + cursor(1) + gemini(0, readsAgentsDir=true) = 2
-    expect(skillResults.reduce((s, r) => s + r.skillCount, 0)).toBe(2);
-    // Only Claude supports commands (Cursor and Gemini don't)
-    expect(commandResults.reduce((s, r) => s + r.commandCount, 0)).toBe(1);
-    // Only Claude supports agents (Cursor and Gemini don't)
-    expect(agentResults.reduce((s, r) => s + r.agentCount, 0)).toBe(1);
+    // Cursor and Gemini read direct project skills from .agents/skills.
+    expect(skillResults.reduce((s, r) => s + r.skillCount, 0)).toBe(1);
+    // Claude and Cursor both receive generated commands and agents.
+    expect(commandResults.reduce((s, r) => s + r.commandCount, 0)).toBe(2);
+    expect(agentResults.reduce((s, r) => s + r.agentCount, 0)).toBe(2);
 
     // Verify Claude has everything
     expect(
@@ -280,18 +288,20 @@ describe("Full Sync E2E", () => {
     expect(await pathExists(path.join(tmpDir, "CLAUDE.md"))).toBe(true);
     expect(await pathExists(path.join(tmpDir, ".mcp.json"))).toBe(true);
 
-    // Verify Cursor has skills but not commands or agents
+    // Cursor reads skills natively and receives commands and agents.
     expect(
       await pathExists(
         path.join(tmpDir, ".cursor", "skills", "code-review", "SKILL.md"),
       ),
+    ).toBe(false);
+    expect(
+      await pathExists(path.join(tmpDir, ".cursor", "commands", "commit.md")),
     ).toBe(true);
-    // Cursor uses rules, not commands
-    expect(await pathExists(path.join(tmpDir, ".cursor", "agents"))).toBe(
-      false,
-    );
+    expect(
+      await pathExists(path.join(tmpDir, ".cursor", "agents", "reviewer.md")),
+    ).toBe(true);
 
-    // Gemini has readsAgentsDir=true, so no skill copy to .gemini/
+    // Gemini has nativeSkillsDiscovery=true, so no skill copy to .gemini/
     // But it still reads from .agents/skills/ natively
 
     // Verify shared directory

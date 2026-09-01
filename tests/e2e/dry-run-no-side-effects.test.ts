@@ -13,7 +13,7 @@ import {
   syncAgents,
   syncCommands,
   syncDocs,
-  syncMCP,
+  syncManagedMCP,
   syncSkills,
 } from "../../src/sync/index.js";
 import { getToolProviders } from "../../src/tools/index.js";
@@ -39,6 +39,9 @@ const ALL_TOOLS: ToolName[] = [
   "crush",
   "kilocode",
   "qwen",
+  "droid",
+  "pi",
+  "vibe",
 ];
 
 describe("Dry Run / No Side Effects", () => {
@@ -127,15 +130,12 @@ describe("Dry Run / No Side Effects", () => {
     expect(await pathExists(path.join(tmpDir, "AGENTS.md"))).toBe(false);
   });
 
-  it("empty MCP config still creates config files", async () => {
-    // With empty MCPs, writeMCP is still called and creates file structure
+  it("empty MCP config does not create project config files", async () => {
     const providers = getToolProviders(ALL_TOOLS);
-    await syncMCP(providers, {}, tmpDir);
+    await syncManagedMCP(providers, {}, tmpDir);
 
-    // MCP configs are written even when empty (valid empty state)
-    // This is by design - tools need the config file to exist
-    expect(await pathExists(path.join(tmpDir, ".mcp.json"))).toBe(true);
-    expect(await pathExists(path.join(tmpDir, "opencode.json"))).toBe(true);
+    expect(await pathExists(path.join(tmpDir, ".mcp.json"))).toBe(false);
+    expect(await pathExists(path.join(tmpDir, "opencode.json"))).toBe(false);
   });
 
   it("tmpDir stays clean when sync functions receive empty providers array", async () => {
@@ -200,13 +200,13 @@ describe("Dry Run / No Side Effects", () => {
     expect(await pathExists(path.join(tmpDir, ".vscode"))).toBe(false);
   });
 
-  it("no MCP configs written when syncMCP receives empty providers", async () => {
+  it("no MCP configs written when syncManagedMCP receives empty providers", async () => {
     const mcps = {
       test: { command: "npx", args: ["server"] },
     };
 
-    const results = await syncMCP([], mcps, tmpDir);
-    expect(results).toHaveLength(0);
+    const results = await syncManagedMCP([], mcps, tmpDir);
+    expect(results.results).toHaveLength(0);
 
     // No MCP files created
     expect(await pathExists(path.join(tmpDir, ".mcp.json"))).toBe(false);

@@ -9,7 +9,7 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { syncCommands, syncSkills } from "../../src/sync/index.js";
 import { getToolProvider, getToolProviders } from "../../src/tools/index.js";
-import { ensureDir, outputFile } from "../../src/utils/fs.js";
+import { ensureDir, outputFile, pathExists } from "../../src/utils/fs.js";
 
 describe("Preset Namespace Collision", () => {
   let tmpDir: string;
@@ -65,7 +65,7 @@ describe("Preset Namespace Collision", () => {
       ["alpha", "Alpha"],
       ["beta", "Beta"],
       ["gamma", "Gamma"],
-    ] as const) {
+    ]) {
       const dir = path.join(tmpDir, `preset-${ns}`, "lint");
       await ensureDir(dir);
       await outputFile(path.join(dir, "SKILL.md"), `# Lint from ${label}`);
@@ -117,9 +117,24 @@ describe("Preset Namespace Collision", () => {
     const providers = [getToolProvider("cursor")];
     const results = await syncSkills(providers, tmpDir, presetSkills);
 
-    expect(results[0].skillCount).toBe(2);
-    expect(results[0].skills).toContain("deploy");
+    // Cursor reads the project skill natively and generates the preset skill.
+    expect(results[0].skillCount).toBe(1);
     expect(results[0].skills).toContain("company--deploy");
+    expect(
+      await pathExists(
+        path.join(tmpDir, ".agents", "skills", "deploy", "SKILL.md"),
+      ),
+    ).toBe(true);
+    expect(
+      await pathExists(
+        path.join(tmpDir, ".cursor", "skills", "company--deploy", "SKILL.md"),
+      ),
+    ).toBe(true);
+    expect(
+      await pathExists(
+        path.join(tmpDir, ".cursor", "skills", "deploy", "SKILL.md"),
+      ),
+    ).toBe(false);
   });
 
   it("namespace collision in commands: two presets both define commit.md", async () => {
@@ -149,19 +164,19 @@ describe("Preset Namespace Collision", () => {
     expect(results[0].commandCount).toBe(2);
 
     const aContent = await readFile(
-      path.join(tmpDir, ".claude", "commands", "org-a", "commit.md"),
+      path.join(tmpDir, ".claude", "commands", "org-a--commit.md"),
       "utf-8",
     );
     expect(aContent).toContain("Commit A");
 
     const bContent = await readFile(
-      path.join(tmpDir, ".claude", "commands", "org-b", "commit.md"),
+      path.join(tmpDir, ".claude", "commands", "org-b--commit.md"),
       "utf-8",
     );
     expect(bContent).toContain("Commit B");
   });
 
-  it("namespace isolation verified across holdout tools simultaneously", async () => {
+  it("namespace isolation is preserved across generated destinations", async () => {
     const presetX = path.join(tmpDir, "preset-x", "build");
     await ensureDir(presetX);
     await outputFile(path.join(presetX, "SKILL.md"), "# Build X");
@@ -183,7 +198,7 @@ describe("Preset Namespace Collision", () => {
     ]);
     const results = await syncSkills(providers, tmpDir, presetSkills);
 
-    // Only holdout tools (claude, cursor) get 2 skills; native tools get 0
+    // Claude and hybrid Cursor receive preset copies; native-only tools do not.
     const claudeResult = results.find((r) => r.tool === "claude");
     const cursorResult = results.find((r) => r.tool === "cursor");
     expect(claudeResult?.skillCount).toBe(2);
@@ -194,7 +209,7 @@ describe("Preset Namespace Collision", () => {
     expect(roocodeResult?.skillCount).toBe(0);
     expect(geminiResult?.skillCount).toBe(0);
 
-    // Verify correct content in holdout tools (flat namespace separator --)
+    // Verify correct content in generated destinations (flat separator --).
     for (const toolDir of [".claude/skills", ".cursor/skills"]) {
       const xContent = await readFile(
         path.join(tmpDir, toolDir, "x-team--build", "SKILL.md"),

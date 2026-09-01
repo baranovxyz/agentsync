@@ -3,13 +3,32 @@
  * Thin orchestrator: builds a plan, executes it, formats output.
  */
 
-import * as path from "node:path";
-import fg from "fast-glob";
 import ora from "ora";
 import picocolors from "picocolors";
-import { ConfigError, statusToExitCode } from "../core/errors.js";
-import { executeSyncPlan, type SyncResult } from "../sync/execute.js";
+import { AgentSyncError, ExitCode, statusToExitCode } from "../core/errors.js";
+import {
+  executeSyncPlan,
+  previewSharedOutputLifecycle,
+  type SyncResult,
+} from "../sync/execute.js";
+import {
+  extensionWarnings,
+  loadCanonicalRules,
+  previewAgents,
+  previewCommands,
+  previewDocs,
+  previewExtensions,
+  previewManagedMCP,
+  previewRules,
+  previewSkills,
+} from "../sync/index.js";
+import {
+  discoverProviderStateOwners,
+  manifestOwnedToolNames,
+  readManifest,
+} from "../sync/manifest.js";
 import { buildSyncPlan, type SyncPlanOptions } from "../sync/plan.js";
+import { planToolStructuredLifecycle } from "../sync/structured-providers.js";
 import {
   type CliError,
   cliError,
@@ -38,6 +57,7 @@ const SYNC_VALID_FIELDS = [
   "skills",
   "commands",
   "agents",
+  "rules",
   "mcpServers",
   "details",
 ] as const;
@@ -77,8 +97,7 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
 
     // Show active profile in human mode
     if (!isJson && plan.config.profiles) {
-      const profileName =
-        options.profile ?? process.env.AGENTSYNC_PROFILE ?? plan.config.profile;
+      const profileName = options.profile ?? process.env.AGENTSYNC_PROFILE;
       if (profileName && plan.config.profiles[profileName]) {
         console.log(pc.gray(`  Using profile: ${profileName}`));
       }
@@ -106,8 +125,21 @@ export async function sync(options: MainSyncOptions = {}): Promise<void> {
       );
     }
 
+    const previousManifest = await readManifest(cwd);
+    const discoveredStateOwners =
+      options.tool === undefined ? await discoverProviderStateOwners(cwd) : [];
+    const hasPriorLifecycle =
+      options.tool === undefined &&
+      (manifestOwnedToolNames(previousManifest).length > 0 ||
+        discoveredStateOwners.length > 0);
+    if (hasPriorLifecycle && plan.providers.length === 0) {
+      plan.warnings = plan.warnings.filter(
+        (warning) => !warning.startsWith("No tools configured --"),
+      );
+    }
+
     // 2. Execute, dry-run, or no-tools
-    if (!options.dryRun && plan.providers.length > 0) {
+    if (!options.dryRun && (plan.providers.length > 0 || hasPriorLifecycle)) {
       await executeAndDisplay(plan, options, cwd, isJson);
     } else if (options.dryRun) {
       await dryRunDisplay(plan, options, cwd, isJson);
@@ -136,7 +168,11 @@ async function executeAndDisplay(
 
   let result: SyncResult;
   try {
-    result = await executeSyncPlan(plan, { link: options.link, cwd });
+    result = await executeSyncPlan(plan, {
+      link: options.link,
+      cwd,
+      filtered: options.tool !== undefined,
+    });
   } catch (error) {
     syncSpinner?.fail("Sync failed");
     throw error;
@@ -157,6 +193,9 @@ async function executeAndDisplay(
     }
     if (result.totalAgents > 0) {
       console.log(pc.green(`  ✔ Synced ${result.totalAgents} agents`));
+    }
+    if (result.totalRules > 0) {
+      console.log(pc.green(`  ✔ Synced ${result.totalRules} rules`));
     }
     if (result.mcpServerCount > 0) {
       console.log(pc.green(`  ✔ Synced ${result.mcpServerCount} MCP servers`));
@@ -180,6 +219,7 @@ async function executeAndDisplay(
       skills: result.totalSkills,
       commands: result.totalCommands,
       agents: result.totalAgents,
+      rules: result.totalRules,
       mcpServers: result.mcpServerCount,
       details: result.details,
     };
@@ -194,126 +234,204 @@ async function executeAndDisplay(
       warnings: allWarnings.length > 0 ? allWarnings : undefined,
     });
     console.log(jsonStringify(output, options.pretty));
-    if (status === "partial") process.exitCode = statusToExitCode("partial");
+  }
+  if (plan.presetErrors.length > 0) {
+    process.exitCode = statusToExitCode("partial");
   }
 }
 
 // ── Dry-Run Path ─────────────────────────────────────────────
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: dry-run file enumeration with preset traversal
+type ResolvedSyncPlan = Awaited<ReturnType<typeof buildSyncPlan>>;
+
+interface DryRunProjection {
+  details: SyncToolDetail[];
+  mcpServerNames: string[];
+  totals: { skills: number; commands: number; agents: number; rules: number };
+  warnings: string[];
+  hasPriorLifecycle: boolean;
+}
+
+async function previewSyncPlan(
+  plan: ResolvedSyncPlan,
+  cwd: string,
+  mode: "copy" | "link",
+  filtered: boolean,
+): Promise<DryRunProjection> {
+  const previousManifest = await readManifest(cwd);
+  const discoveredStateOwners = filtered
+    ? await discoverProviderStateOwners(cwd, plan.tools)
+    : await discoverProviderStateOwners(cwd);
+  const { rules: canonicalRules } = await loadCanonicalRules(cwd);
+  const structuredLifecycle = await planToolStructuredLifecycle({
+    cwd,
+    providers: plan.providers,
+    previousReceipts: previousManifest?.structured_owners,
+    desired: { extensions: plan.extensions, rules: canonicalRules },
+    preserveUnselected: filtered,
+  });
+  const [
+    skills,
+    commands,
+    agents,
+    rules,
+    extensions,
+    mcp,
+    sharedLifecycleWarnings,
+  ] = await Promise.all([
+    previewSkills(plan.providers, cwd, plan.presetSkills, {
+      mode,
+      globalDirs: plan.hierarchySkillDirs,
+    }),
+    previewCommands(plan.providers, cwd, plan.presetCommands, {
+      mode,
+      globalDirs: plan.hierarchyCommandDirs,
+    }),
+    previewAgents(plan.providers, cwd, plan.presetAgents, {
+      mode,
+      globalDirs: plan.hierarchyAgentDirs,
+    }),
+    previewRules(plan.providers, cwd),
+    previewExtensions(plan.providers, plan.extensions, cwd, {
+      protectedDependencies: structuredLifecycle.protectedDependencies,
+    }),
+    previewManagedMCP(plan.providers, plan.mcpServers, cwd, {
+      previousOwners: previousManifest?.mcp_owners,
+      filtered,
+    }),
+    previewSharedOutputLifecycle(
+      plan,
+      cwd,
+      previousManifest,
+      filtered,
+      structuredLifecycle.protectedDependencies,
+    ),
+    previewDocs(plan.providers, cwd),
+  ]);
+  const byTool = {
+    skills: new Map(skills.map((result) => [result.tool, result.skills])),
+    commands: new Map(commands.map((result) => [result.tool, result.commands])),
+    agents: new Map(agents.map((result) => [result.tool, result.agents])),
+    rules: new Map(rules.map((result) => [result.tool, result.rules])),
+  };
+  const mcpServerNames = Object.keys(plan.mcpServers);
+  const mcpByTool = new Map(
+    mcp.results.map((result) => [result.tool, result.servers]),
+  );
+  const details: SyncToolDetail[] = plan.providers.map((provider) => ({
+    tool: provider.name,
+    skills: byTool.skills.get(provider.name) ?? [],
+    commands: byTool.commands.get(provider.name) ?? [],
+    agents: byTool.agents.get(provider.name) ?? [],
+    rules: byTool.rules.get(provider.name) ?? [],
+    mcp: mcpByTool.get(provider.name) ?? [],
+  }));
+  const warnings = [
+    ...skills.flatMap((result) => result.warnings),
+    ...commands.flatMap((result) => result.warnings),
+    ...agents.flatMap((result) => result.warnings),
+    ...rules.flatMap((result) => result.warnings),
+    ...extensionWarnings(extensions),
+    ...mcp.warnings,
+    ...structuredLifecycle.warnings,
+    ...sharedLifecycleWarnings,
+  ];
+  const totals = details.reduce(
+    (total, detail) => ({
+      skills: total.skills + detail.skills.length,
+      commands: total.commands + detail.commands.length,
+      agents: total.agents + detail.agents.length,
+      rules: total.rules + detail.rules.length,
+    }),
+    { skills: 0, commands: 0, agents: 0, rules: 0 },
+  );
+  return {
+    details,
+    mcpServerNames: plan.providers.some((provider) => provider.mcpFormat)
+      ? mcpServerNames
+      : [],
+    totals,
+    warnings,
+    hasPriorLifecycle:
+      manifestOwnedToolNames(previousManifest).length > 0 ||
+      discoveredStateOwners.length > 0,
+  };
+}
+
+function emitHumanDryRun(projection: DryRunProjection): void {
+  if (projection.warnings.length > 0) {
+    console.log(
+      pc.yellow(
+        `\n⚠ ${projection.warnings.length} warning${projection.warnings.length === 1 ? "" : "s"} during dry run:`,
+      ),
+    );
+    for (const warning of projection.warnings) {
+      console.log(pc.yellow(`  - ${warning}`));
+    }
+    console.log();
+  }
+  const { totals } = projection;
+  console.log(
+    pc.gray(
+      `\n✓ Dry run complete - would sync ${totals.skills} skills, ` +
+        `${totals.commands} commands, ${totals.agents} agents, ` +
+        `${totals.rules} rules, ${projection.mcpServerNames.length} MCP servers\n`,
+    ),
+  );
+}
+
+function emitJsonDryRun(
+  plan: ResolvedSyncPlan,
+  options: MainSyncOptions,
+  projection: DryRunProjection,
+): void {
+  const data: SyncData = {
+    tools: plan.tools,
+    skills: projection.totals.skills,
+    commands: projection.totals.commands,
+    agents: projection.totals.agents,
+    rules: projection.totals.rules,
+    mcpServers: projection.mcpServerNames.length,
+    details: projection.details,
+  };
+  const projected = projectFields(data, options.fields, SYNC_VALID_FIELDS);
+  const noToolsResolved =
+    plan.tools.length === 0 && !projection.hasPriorLifecycle;
+  const status = noToolsResolved
+    ? ("error" as const)
+    : plan.presetErrors.length > 0
+      ? ("partial" as const)
+      : ("success" as const);
+  const warnings = [...plan.warnings, ...projection.warnings];
+  const output = cliResult("sync", projected, {
+    status,
+    errors: plan.presetErrors.length > 0 ? plan.presetErrors : undefined,
+    warnings: warnings.length > 0 ? warnings : undefined,
+  });
+  console.log(jsonStringify(output, options.pretty));
+}
+
 async function dryRunDisplay(
-  plan: Awaited<ReturnType<typeof buildSyncPlan>>,
+  plan: ResolvedSyncPlan,
   options: MainSyncOptions,
   cwd: string,
   isJson: boolean | undefined,
 ): Promise<void> {
-  const { pathExists: exists } = await import("../utils/fs.js");
-  const projectSkillsDir = path.join(cwd, ".agents", "skills");
-  const projectCommandsDir = path.join(cwd, ".agents", "commands");
-  const projectAgentsDir = path.join(cwd, ".agents", "agents");
-
-  const plannedSkills = (await exists(projectSkillsDir))
-    ? (await fg("*/SKILL.md", { cwd: projectSkillsDir })).map((f) =>
-        path.dirname(f),
-      )
-    : [];
-  const plannedCommands = (await exists(projectCommandsDir))
-    ? await fg("**/*.md", { cwd: projectCommandsDir })
-    : [];
-  const plannedAgents = (await exists(projectAgentsDir))
-    ? await fg("**/*.md", { cwd: projectAgentsDir })
-    : [];
-
-  // Add global user content sources (lowest priority — listed first)
-  for (const dir of plan.hierarchySkillDirs) {
-    if (await exists(dir)) {
-      const files = await fg("*/SKILL.md", { cwd: dir });
-      plannedSkills.unshift(...files.map((f) => path.dirname(f)));
-    }
-  }
-  for (const dir of plan.hierarchyCommandDirs) {
-    if (await exists(dir)) {
-      const files = await fg("**/*.md", { cwd: dir });
-      plannedCommands.unshift(...files);
-    }
-  }
-  for (const dir of plan.hierarchyAgentDirs) {
-    if (await exists(dir)) {
-      const files = await fg("**/*.md", { cwd: dir });
-      plannedAgents.unshift(...files);
-    }
-  }
-
-  // Add preset sources
-  if (plan.presetSkills) {
-    for (const [ns, dirs] of plan.presetSkills) {
-      for (const dir of dirs) {
-        if (await exists(dir)) {
-          const files = await fg("*/SKILL.md", { cwd: dir });
-          plannedSkills.push(...files.map((f) => `${ns}--${path.dirname(f)}`));
-        }
-      }
-    }
-  }
-  if (plan.presetCommands) {
-    for (const [ns, dirs] of plan.presetCommands) {
-      for (const dir of dirs) {
-        if (await exists(dir)) {
-          const files = await fg("**/*.md", { cwd: dir });
-          plannedCommands.push(...files.map((f) => path.join(ns, f)));
-        }
-      }
-    }
-  }
-  if (plan.presetAgents) {
-    for (const [ns, dirs] of plan.presetAgents) {
-      for (const dir of dirs) {
-        if (await exists(dir)) {
-          const files = await fg("**/*.md", { cwd: dir });
-          plannedAgents.push(...files.map((f) => path.join(ns, f)));
-        }
-      }
-    }
-  }
-
-  const mcpServerNames = Object.keys(plan.mcpServers);
-
-  // Native tools (readsAgentsDir=true) read .agents/ directly — no files
-  // will be written to them, so show empty arrays in dry-run details.
-  const nativeTools = new Set(
-    plan.providers.filter((p) => p.readsAgentsDir).map((p) => p.name),
+  const projection = await previewSyncPlan(
+    plan,
+    cwd,
+    options.link ? "link" : "copy",
+    options.tool !== undefined,
   );
-  const details: SyncToolDetail[] = plan.tools.map((tool) => ({
-    tool,
-    skills: nativeTools.has(tool) ? [] : plannedSkills,
-    commands: nativeTools.has(tool) ? [] : plannedCommands,
-    agents: nativeTools.has(tool) ? [] : plannedAgents,
-    mcp: mcpServerNames,
-  }));
-
-  if (!isJson) {
-    console.log(
-      pc.gray(
-        `\n✓ Dry run complete - would sync ${plannedSkills.length} skills, ` +
-          `${plannedCommands.length} commands, ${plannedAgents.length} agents, ` +
-          `${mcpServerNames.length} MCP servers\n`,
-      ),
-    );
-  } else {
-    const data: SyncData = {
-      tools: plan.tools,
-      skills: plannedSkills.length,
-      commands: plannedCommands.length,
-      agents: plannedAgents.length,
-      mcpServers: mcpServerNames.length,
-      details,
-    };
-    const projected = projectFields(data, options.fields, SYNC_VALID_FIELDS);
-    const output = cliResult("sync", projected, {
-      warnings: plan.warnings.length > 0 ? plan.warnings : undefined,
-    });
-    console.log(jsonStringify(output, options.pretty));
+  const noToolsResolved =
+    plan.tools.length === 0 && !projection.hasPriorLifecycle;
+  if (noToolsResolved) {
+    process.exitCode = ExitCode.USER_ERROR;
+  } else if (plan.presetErrors.length > 0) {
+    process.exitCode = statusToExitCode("partial");
   }
+  if (isJson) emitJsonDryRun(plan, options, projection);
+  else emitHumanDryRun(projection);
 }
 
 // ── No-Tools Path ─────────────────────────────────────────────
@@ -329,16 +447,19 @@ function emitNoTools(
       skills: 0,
       commands: 0,
       agents: 0,
+      rules: 0,
       mcpServers: 0,
       details: [],
     };
     const output = cliResult("sync", data, {
+      status: "error",
       warnings: warnings.length > 0 ? warnings : undefined,
     });
     console.log(jsonStringify(output, options.pretty));
   } else {
     console.log(pc.gray("\nNo tools configured. Nothing to sync.\n"));
   }
+  process.exitCode = ExitCode.USER_ERROR;
 }
 
 // ── JSON Error Helper ─────────────────────────────────────────
@@ -353,12 +474,16 @@ function emitJsonError(
     skills: 0,
     commands: 0,
     agents: 0,
+    rules: 0,
     mcpServers: 0,
     details: [],
   };
+  const typedError = error instanceof AgentSyncError ? error : undefined;
   const errObj: CliError = {
-    code: error instanceof ConfigError ? "CONFIG_ERROR" : "SYNC_ERROR",
+    code: typedError?.code ?? "SYNC_ERROR",
     message: error instanceof Error ? error.message : String(error),
+    suggestion: typedError?.suggestion,
+    context: typedError?.context,
   };
   const output = cliError(command, data, errObj);
   console.log(jsonStringify(output, options.pretty));

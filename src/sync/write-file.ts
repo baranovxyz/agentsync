@@ -9,11 +9,21 @@
  * lives in `.sync-manifest.json` instead.
  */
 
-import { unlink } from "node:fs/promises";
+import { copyFile, unlink } from "node:fs/promises";
 import * as path from "node:path";
-import { copy, ensureDir, symlink } from "../utils/fs.js";
+import { ensureDir, symlink } from "../utils/fs.js";
+import { assertSafeProjectFileReplacement } from "../utils/project-output.js";
 
 export type SyncMode = "copy" | "link";
+
+async function unlinkDestination(destPath: string): Promise<void> {
+  try {
+    await unlink(destPath);
+  } catch {
+    // Missing paths need no preparation. A directory remains in place so the
+    // subsequent file write fails instead of removing content recursively.
+  }
+}
 
 /**
  * Write a file using copy or symlink depending on mode.
@@ -21,27 +31,26 @@ export type SyncMode = "copy" | "link";
  * @param sourcePath  - Absolute path to the source file
  * @param destPath    - Absolute path to the destination
  * @param mode        - "copy" or "link"
- * @param _sourceLabel - Unused; retained for call-site compatibility
+ * @param projectRoot - Project boundary that the destination must remain inside
  */
 export async function writeFileByMode(
   sourcePath: string,
   destPath: string,
   mode: SyncMode,
-  _sourceLabel?: string,
+  projectRoot: string,
 ): Promise<void> {
+  await assertSafeProjectFileReplacement(projectRoot, destPath, sourcePath);
   await ensureDir(path.dirname(destPath));
+  await unlinkDestination(destPath);
   if (mode === "link") {
     try {
-      try {
-        await unlink(destPath);
-      } catch {
-        // Ignore ENOENT — file doesn't exist yet
-      }
       await symlink(sourcePath, destPath);
       return;
     } catch {
       // Fall back to copy on symlink failure (e.g., Windows without admin)
     }
   }
-  await copy(sourcePath, destPath);
+  // Materialize source bytes. `fs.cp()` preserves a source symlink by default,
+  // which would make copy mode emit another link instead of a durable copy.
+  await copyFile(sourcePath, destPath);
 }

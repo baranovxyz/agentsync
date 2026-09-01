@@ -1,40 +1,54 @@
-/**
- * Init Command Implementation
- * Initializes AgentSync in a project
- */
-
 import { chmod, readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import picocolors from "picocolors";
-import { DEFAULT_TOOLS } from "../constants.js";
-import { FileSystemError, getErrorMessage } from "../core/errors.js";
+import {
+  parseProjectTomlConfig,
+  tomlToInternalConfig,
+} from "../config/toml-loader.js";
+import type { AgentSyncTomlConfig } from "../config/types.js";
+import { DEFAULT_TOOLS, SUPPORTED_TOOLS } from "../constants.js";
+import {
+  ConfigError,
+  FileSystemError,
+  getErrorMessage,
+} from "../core/errors.js";
 import type { InitOptions, ToolName } from "../types/index.js";
 import { cliResult, type InitData, jsonStringify } from "../types/output.js";
+import { ToolNameSchema } from "../types/schemas.js";
+import {
+  ensureProjectConfig,
+  getProjectConfigPath,
+} from "../utils/config-creation.js";
 import { ensureDir, outputFile, pathExists } from "../utils/fs.js";
+import {
+  generateGitignoreContent,
+  hasAgentSyncSection,
+  updateAgentSyncSection,
+} from "../utils/gitignore.js";
+import { assertSafeProjectOutputPath } from "../utils/project-output.js";
 
-// Short alias used throughout this file
 const pc = picocolors;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-/**
- * Find the package root directory by traversing up until we find package.json
- * This works reliably regardless of bundling, distribution, or execution context
- */
-async function findPackageRoot(startDir: string): Promise<string> {
-  let currentDir = startDir;
-  const root = path.parse(currentDir).root;
-
-  while (currentDir !== root) {
-    const packageJsonPath = path.join(currentDir, "package.json");
-    if (await pathExists(packageJsonPath)) {
-      return currentDir;
-    }
-    currentDir = path.dirname(currentDir);
+async function findAncestorContaining(
+  startDir: string,
+  entryName: string,
+): Promise<string | null> {
+  let current = startDir;
+  const root = path.parse(current).root;
+  while (current !== root) {
+    if (await pathExists(path.join(current, entryName))) return current;
+    current = path.dirname(current);
   }
+  return null;
+}
 
+async function findPackageRoot(startDir: string): Promise<string> {
+  const packageRoot = await findAncestorContaining(startDir, "package.json");
+  if (packageRoot) return packageRoot;
   throw new FileSystemError(
     "Could not find package.json in any parent directory",
     startDir,
@@ -42,10 +56,6 @@ async function findPackageRoot(startDir: string): Promise<string> {
   );
 }
 
-/**
- * Get package root using require.resolve as fallback
- * This works well for production npm installs
- */
 function getPackageRootViaRequire(): string | null {
   try {
     const require = createRequire(import.meta.url);
@@ -56,430 +66,318 @@ function getPackageRootViaRequire(): string | null {
   }
 }
 
-// Available templates
-const TEMPLATES = {
-  default: "default.md",
-  "typescript-react": "typescript-react.md",
-  "python-fastapi": "python-fastapi.md",
-};
+const DEFAULT_TEMPLATE = "default.md";
+const AGENTS_SUBDIRECTORIES = ["skills", "commands", "agents", "rules"];
+type Log = (message: string) => void;
 
-export class InitCommand {
-  /**
-   * Show current AgentSync setup status with helpful next steps
-   */
-  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: complex status display logic
-  private async showCurrentStatus(): Promise<void> {
-    console.log(pc.cyan("✓ AgentSync is already initialized\n"));
+function asError(error: unknown): Error {
+  return error instanceof Error ? error : new Error(String(error));
+}
 
-    // Check what's configured
-    const agentsMdPath = path.join(process.cwd(), "AGENTS.md");
-    const agentsMdExists = await pathExists(agentsMdPath);
+/** Command installed by `init` in the repository's post-merge hook. */
+export const POST_MERGE_HOOK_COMMAND = "npx agentsync sync 2>/dev/null || true";
+export const POST_MERGE_HOOK_MARKER =
+  "# AgentSync: auto-sync tool configs after pull";
+const POST_MERGE_HOOK_BLOCK = `${POST_MERGE_HOOK_MARKER}\n${POST_MERGE_HOOK_COMMAND}\n`;
 
-    const mcpConfigPath = await this.getMCPConfigPath();
-    const mcpConfigExists = mcpConfigPath !== null;
+type HookUpdateAction = "created" | "appended" | "unchanged";
 
-    let mcpCount = 0;
-    if (mcpConfigExists && mcpConfigPath) {
-      try {
-        const content = await readFile(mcpConfigPath, "utf-8");
-        if (mcpConfigPath.endsWith(".toml")) {
-          const { parseTomlConfig } = await import("../config/toml-loader.js");
-          const toml = parseTomlConfig(content);
-          if (toml.mcp_servers) {
-            mcpCount = Object.keys(toml.mcp_servers).length;
-          }
-        } else {
-          const { validateLocalConfig } = await import("../types/schemas.js");
-          const config = validateLocalConfig(JSON.parse(content));
-          if (config.mcp && typeof config.mcp === "object") {
-            mcpCount = Object.keys(config.mcp).length;
-          }
-        }
-      } catch {
-        // Ignore parsing errors
-      }
-    }
-
-    const configPath = path.join(process.cwd(), ".agents", "agentsync.toml");
-    let tools: string[] = [];
-    try {
-      const content = await readFile(configPath, "utf-8");
-      const { parseTomlConfig } = await import("../config/toml-loader.js");
-      const toml = parseTomlConfig(content);
-      if (toml.tools) {
-        tools = toml.tools;
-      }
-    } catch {
-      // Ignore parsing errors
-    }
-
-    // Display status
-    console.log(pc.bold("Current setup:"));
-    console.log(
-      pc.gray("  AGENTS.md sync: "),
-      agentsMdExists ? pc.green("✓ Configured") : pc.yellow("✗ Not set up"),
-    );
-    console.log(
-      pc.gray("  MCP servers:    "),
-      mcpConfigExists
-        ? pc.green(
-            `✓ ${mcpCount} server${mcpCount !== 1 ? "s" : ""} configured`,
-          )
-        : pc.yellow("✗ Not configured"),
-    );
-    console.log(
-      pc.gray("  Tools syncing:  "),
-      tools.length > 0 ? pc.green(tools.join(", ")) : pc.gray("None"),
-    );
-
-    // Show next steps
-    console.log();
-    console.log(pc.bold("What you can do:"));
-
-    if (!mcpConfigExists || mcpCount === 0) {
-      console.log(
-        pc.gray("  • Add an MCP server:  ") +
-          pc.cyan(
-            'agentsync config add mcp github --mcp-config \'{"command":"npx","args":["-y","@modelcontextprotocol/server-github"]}\'',
-          ),
-      );
-      console.log(
-        pc.gray("  • List MCP servers:   ") +
-          pc.cyan("agentsync config ls mcp"),
-      );
-    } else {
-      console.log(
-        pc.gray("  • Apply changes:       ") + pc.cyan("agentsync sync"),
-      );
-      console.log(
-        pc.gray("  • List MCP servers:   ") +
-          pc.cyan("agentsync config ls mcp"),
-      );
-    }
-
-    console.log();
+/** Project the current AgentSync command without rewriting prior hook content. */
+export function projectPostMergeHook(existing?: string): {
+  action: HookUpdateAction;
+  content: string;
+} {
+  if (existing === undefined) {
+    return {
+      action: "created",
+      content: `#!/bin/sh\n${POST_MERGE_HOOK_BLOCK}`,
+    };
   }
 
-  /**
-   * Get MCP config file path (checks multiple locations with team config primary)
-   */
-  private async getMCPConfigPath(): Promise<string | null> {
-    const cwd = process.cwd();
-    const paths = [
-      path.join(cwd, ".agents", "agentsync.toml"), // Primary: team config
-      path.join(cwd, "agentsync.local.toml"), // Override: personal config
-    ];
-
-    for (const p of paths) {
-      if (await pathExists(p)) {
-        return p;
-      }
-    }
-
-    return null;
+  if (existing.includes(POST_MERGE_HOOK_COMMAND)) {
+    return { action: "unchanged", content: existing };
   }
 
-  /**
-   * Core init logic — creates files, returns structured result.
-   * When log is omitted (JSON mode), helper methods stay silent.
-   */
-  private async performInit(
-    tools: ToolName[],
-    log?: (msg: string) => void,
-  ): Promise<InitData> {
-    const cfgPath = path.join(process.cwd(), ".agents", "agentsync.toml");
-    const agentsPath = path.join(process.cwd(), "AGENTS.md");
-    const hasExisting = await pathExists(agentsPath);
+  return {
+    action: "appended",
+    content: `${existing}\n${POST_MERGE_HOOK_BLOCK}`,
+  };
+}
 
-    if (!hasExisting) {
-      await this.createAgentsMd("default", log);
-    } else {
-      log?.(pc.green("  ✓ Using existing AGENTS.md"));
-    }
+async function readProjectConfig(
+  configPath: string,
+): Promise<AgentSyncTomlConfig> {
+  return parseProjectTomlConfig(
+    await readFile(configPath, "utf-8"),
+    configPath,
+  );
+}
 
-    await this.createAgentsDir(tools, log);
-    await this.updateGitignore(tools, log);
-    await this.installGitHook(log);
+async function showCurrentStatus(
+  cwd: string,
+  projectConfig: AgentSyncTomlConfig,
+): Promise<void> {
+  console.log(pc.cyan("✓ AgentSync is already initialized\n"));
+  const agentsMdExists = await pathExists(path.join(cwd, "AGENTS.md"));
+  const config = tomlToInternalConfig(projectConfig);
+  const mcpCount = Object.keys(config.mcp ?? {}).length;
+  const tools = config.tools ?? [];
 
-    return { action: "created", configPath: cfgPath, tools };
-  }
+  console.log(pc.bold("Current setup:"));
+  console.log(
+    pc.gray("  AGENTS.md sync: "),
+    agentsMdExists ? pc.green("✓ Configured") : pc.yellow("✗ Not set up"),
+  );
+  console.log(
+    pc.gray("  MCP servers:    "),
+    mcpCount > 0
+      ? pc.green(`✓ ${mcpCount} server${mcpCount !== 1 ? "s" : ""} configured`)
+      : pc.yellow("✗ Not configured"),
+  );
+  console.log(
+    pc.gray("  Tools syncing:  "),
+    tools.length > 0 ? pc.green(tools.join(", ")) : pc.gray("None"),
+  );
 
-  async execute(options: InitOptions): Promise<void> {
-    // JSON mode: structured output, no human-readable text
-    if (options.json) {
-      await this.executeJson(options);
-      return;
-    }
-
-    console.log(pc.blue("🚀 Initializing AgentSync...\n"));
-
-    const configPath = path.join(process.cwd(), ".agents", "agentsync.toml");
-
-    // Check if .agents/agentsync.toml already exists (source of truth)
-    if (await pathExists(configPath)) {
-      // Show helpful status instead of blocking error
-      await this.showCurrentStatus();
-      return;
-    }
-
-    const tools: ToolName[] = options.tools || [...DEFAULT_TOOLS];
-    await this.performInit(tools, console.log);
-
-    // Success message
-    console.log(pc.green("\n✅ AgentSync initialized successfully!\n"));
-    console.log(pc.gray("Next steps:"));
-    console.log(pc.gray("  1. Edit AGENTS.md to match your project"));
+  console.log();
+  console.log(pc.bold("What you can do:"));
+  if (mcpCount === 0) {
     console.log(
-      pc.gray("  2. Run ") +
-        pc.cyan("agentsync sync") +
-        pc.gray(" to generate tool configs"),
+      pc.gray("  • Add an MCP server:  ") +
+        pc.cyan(
+          'agentsync config add mcp github --mcp-config \'{"command":"npx","args":["-y","@modelcontextprotocol/server-github"]}\'',
+        ),
     );
-    console.log(pc.gray("  3. (Optional) Set up MCP servers:"));
+  } else {
     console.log(
-      pc.gray("     - Run ") +
-        pc.cyan("agentsync config add mcp <name> --mcp-config '{...}'") +
-        pc.gray(" to add MCPs"),
+      pc.gray("  • Apply changes:       ") + pc.cyan("agentsync sync"),
     );
   }
+  console.log(
+    pc.gray("  • List MCP servers:   ") + pc.cyan("agentsync config ls mcp"),
+  );
+  console.log();
+}
 
-  /**
-   * JSON mode: non-interactive init with structured output only.
-   * No human-readable text, spinners, or colors are emitted.
-   */
-  private async executeJson(options: InitOptions): Promise<void> {
-    const configPath = path.join(process.cwd(), ".agents", "agentsync.toml");
-
-    if (await pathExists(configPath)) {
-      const data: InitData = {
-        action: "already_initialized",
-        configPath,
-        tools: [],
-      };
-      console.log(jsonStringify(cliResult("init", data), options.pretty));
-      return;
-    }
-
-    const tools: ToolName[] = options.tools || [...DEFAULT_TOOLS];
-    const data = await this.performInit(tools);
-    console.log(jsonStringify(cliResult("init", data), options.pretty));
-  }
-
-  /**
-   * Create AGENTS.md from template
-   */
-  private async createAgentsMd(
-    templateName: string,
-    log?: (msg: string) => void,
-  ): Promise<void> {
-    log?.(pc.gray(`  Creating AGENTS.md from ${templateName} template...`));
-
-    const templateFile =
-      TEMPLATES[templateName as keyof typeof TEMPLATES] || TEMPLATES.default;
-
-    // Find package root using multiple strategies for maximum reliability
-    let packageRoot: string | null = null;
-
-    // Strategy 1: Traverse up from current module location (works in dev and bundled)
-    try {
-      packageRoot = await findPackageRoot(__dirname);
-    } catch (_error) {
-      // Strategy 2: Use require.resolve (works in production npm installs)
-      packageRoot = getPackageRootViaRequire();
-    }
-
-    if (!packageRoot) {
-      throw new FileSystemError(
-        "Could not locate agentsync package root directory",
-        __dirname,
-        new Error("All package root detection strategies failed"),
-      );
-    }
-
-    const templatePath = path.join(packageRoot, "templates", templateFile);
-    const targetPath = path.join(process.cwd(), "AGENTS.md");
-
-    try {
-      // Use native Node.js readFile (fs-extra v11+ removed readFile/writeFile)
-      const templateContent = await readFile(templatePath, "utf-8");
-      // Use fs-extra's outputFile to ensure parent directory exists
-      await outputFile(targetPath, templateContent);
-      log?.(pc.green("  ✓ Created AGENTS.md"));
-    } catch (error) {
-      // Enhanced error message with debugging info
-      const templateError =
-        error instanceof Error ? error : new Error(String(error));
-      const errorMessage = [
-        `Failed to create AGENTS.md from template`,
-        `  Template path: ${templatePath}`,
-        `  Package root: ${packageRoot}`,
-        `  Template exists: ${await pathExists(templatePath)}`,
-        `  Error: ${templateError.message}`,
-      ].join("\n");
-
-      throw new FileSystemError(errorMessage, templatePath, templateError);
-    }
-  }
-
-  /**
-   * Create .agents directory structure
-   */
-  private async createAgentsDir(
-    tools: ToolName[],
-    log?: (msg: string) => void,
-  ): Promise<void> {
-    log?.(pc.gray("  Creating .agents directory..."));
-
-    const agentsDir = path.join(process.cwd(), ".agents");
-    const dirs = [
-      agentsDir,
-      path.join(agentsDir, "skills"),
-      path.join(agentsDir, "commands"),
-      path.join(agentsDir, "agents"),
-      path.join(agentsDir, "backups"),
-    ];
-
-    try {
-      for (const dir of dirs) {
-        await ensureDir(dir);
-      }
-
-      // Create config file using shared utility
-      const { ensureProjectConfig } = await import(
-        "../utils/config-creation.js"
-      );
-      await ensureProjectConfig(undefined, { tools });
-
-      log?.(pc.green("  ✓ Created .agents directory"));
-    } catch (error) {
-      throw new FileSystemError(
-        "Failed to create .agents directory",
-        agentsDir,
-        error instanceof Error ? error : new Error(String(error)),
-      );
-    }
-  }
-
-  /**
-   * Find the .git directory by walking up from CWD.
-   * Returns null if no .git directory is found.
-   */
-  private async findGitDir(): Promise<string | null> {
-    let current = process.cwd();
-    const root = path.parse(current).root;
-
-    while (current !== root) {
-      const gitDir = path.join(current, ".git");
-      if (await pathExists(gitDir)) {
-        return gitDir;
-      }
-      current = path.dirname(current);
-    }
-
-    return null;
-  }
-
-  /**
-   * Install a post-merge git hook that runs `npx agentsync sync --quiet`
-   * after every `git pull`. Non-destructive: appends to existing hooks
-   * or skips if the agentsync line is already present.
-   */
-  private async installGitHook(log?: (msg: string) => void): Promise<void> {
-    log?.(pc.gray("  Installing post-merge git hook..."));
-
-    const HOOK_COMMAND = "npx agentsync sync --quiet 2>/dev/null || true";
-    const MARKER = "# AgentSync:";
-
-    try {
-      const gitDir = await this.findGitDir();
-      if (!gitDir) {
-        log?.(pc.yellow("  ⚠ No .git directory found, skipping git hook"));
-        return;
-      }
-
-      const hooksDir = path.join(gitDir, "hooks");
-      await ensureDir(hooksDir);
-
-      const hookPath = path.join(hooksDir, "post-merge");
-
-      if (await pathExists(hookPath)) {
-        const content = await readFile(hookPath, "utf-8");
-
-        if (content.includes(HOOK_COMMAND)) {
-          log?.(pc.green("  ✓ post-merge hook already has agentsync sync"));
-          return;
-        }
-
-        // Append to existing hook
-        const appendContent = `\n${MARKER} auto-sync tool configs after pull\n${HOOK_COMMAND}\n`;
-        await outputFile(hookPath, content + appendContent);
-        await chmod(hookPath, 0o755);
-        log?.(
-          pc.green("  ✓ Appended agentsync sync to existing post-merge hook"),
-        );
-      } else {
-        // Create new hook
-        const hookContent = [
-          "#!/bin/sh",
-          `${MARKER} auto-sync tool configs after pull`,
-          HOOK_COMMAND,
-          "",
-        ].join("\n");
-        await outputFile(hookPath, hookContent);
-        await chmod(hookPath, 0o755);
-        log?.(pc.green("  ✓ Created post-merge git hook"));
-      }
-    } catch (error) {
-      log?.(
-        pc.yellow(`  ⚠ Could not install git hook: ${getErrorMessage(error)}`),
-      );
-    }
-  }
-
-  /**
-   * Update .gitignore
-   */
-  private async updateGitignore(
-    tools: ToolName[],
-    log?: (msg: string) => void,
-  ): Promise<void> {
-    log?.(pc.gray("  Updating .gitignore..."));
-
-    const gitignorePath = path.join(process.cwd(), ".gitignore");
-
-    try {
-      let content = "";
-      if (await pathExists(gitignorePath)) {
-        content = await readFile(gitignorePath, "utf-8");
-      }
-
-      const {
-        hasAgentSyncSection,
-        updateAgentSyncSection,
-        generateGitignoreContent,
-      } = await import("../utils/gitignore.js");
-
-      if (hasAgentSyncSection(content)) {
-        content = updateAgentSyncSection(content, tools);
-        await outputFile(gitignorePath, content);
-        log?.(pc.green("  ✓ Updated .gitignore (AgentSync section)"));
-      } else {
-        const agentSyncContent = generateGitignoreContent(tools);
-        content += `\n${agentSyncContent}`;
-        await outputFile(gitignorePath, content);
-        log?.(pc.green("  ✓ Updated .gitignore"));
-      }
-    } catch (error) {
-      log?.(
-        pc.yellow(`  ⚠ Could not update .gitignore: ${getErrorMessage(error)}`),
-      );
-    }
+async function resolvePackageRoot(): Promise<string> {
+  try {
+    return await findPackageRoot(__dirname);
+  } catch {
+    const packageRoot = getPackageRootViaRequire();
+    if (packageRoot) return packageRoot;
+    throw new FileSystemError(
+      "Could not locate agentsync package root directory",
+      __dirname,
+      new Error("All package root detection strategies failed"),
+    );
   }
 }
 
-/**
- * Factory function
- */
+async function createAgentsMd(cwd: string, log?: Log): Promise<void> {
+  log?.(pc.gray("  Creating AGENTS.md from default template..."));
+  const packageRoot = await resolvePackageRoot();
+  const templatePath = path.join(packageRoot, "templates", DEFAULT_TEMPLATE);
+  const targetPath = path.join(cwd, "AGENTS.md");
+  await assertSafeProjectOutputPath(cwd, targetPath);
+
+  try {
+    await outputFile(targetPath, await readFile(templatePath, "utf-8"));
+    log?.(pc.green("  ✓ Created AGENTS.md"));
+  } catch (error) {
+    const templateError = asError(error);
+    const message = [
+      "Failed to create AGENTS.md from template",
+      `  Template path: ${templatePath}`,
+      `  Package root: ${packageRoot}`,
+      `  Template exists: ${await pathExists(templatePath)}`,
+      `  Error: ${templateError.message}`,
+    ].join("\n");
+    throw new FileSystemError(message, templatePath, templateError);
+  }
+}
+
+async function createAgentsDir(
+  cwd: string,
+  tools: ToolName[],
+  log?: Log,
+): Promise<void> {
+  log?.(pc.gray("  Creating .agents directory..."));
+  const agentsDir = path.join(cwd, ".agents");
+  await assertSafeProjectOutputPath(cwd, getProjectConfigPath(cwd));
+
+  try {
+    const directories = [
+      agentsDir,
+      ...AGENTS_SUBDIRECTORIES.map((name) => path.join(agentsDir, name)),
+    ];
+    for (const directory of directories) {
+      await ensureDir(directory);
+    }
+    await ensureProjectConfig(cwd, { tools });
+    log?.(pc.green("  ✓ Created .agents directory"));
+  } catch (error) {
+    throw new FileSystemError(
+      "Failed to create .agents directory",
+      agentsDir,
+      asError(error),
+    );
+  }
+}
+
+async function findGitDir(cwd: string): Promise<string | null> {
+  const repositoryRoot = await findAncestorContaining(cwd, ".git");
+  return repositoryRoot ? path.join(repositoryRoot, ".git") : null;
+}
+
+const HOOK_ACTION_VERB: Record<
+  Exclude<HookUpdateAction, "unchanged">,
+  string
+> = {
+  created: "Created",
+  appended: "Appended agentsync sync to existing",
+};
+
+/** Install or update AgentSync's block in the nearest post-merge hook. */
+export async function installGitHook(cwd: string, log?: Log): Promise<void> {
+  log?.(pc.gray("  Installing post-merge git hook..."));
+  try {
+    const gitDir = await findGitDir(cwd);
+    if (!gitDir) {
+      log?.(pc.yellow("  ⚠ No .git directory found, skipping git hook"));
+      return;
+    }
+
+    const hooksDir = path.join(gitDir, "hooks");
+    const hookPath = path.join(hooksDir, "post-merge");
+    await assertSafeProjectOutputPath(gitDir, hooksDir);
+    await ensureDir(hooksDir);
+    await assertSafeProjectOutputPath(gitDir, hookPath);
+
+    const existing = (await pathExists(hookPath))
+      ? await readFile(hookPath, "utf-8")
+      : undefined;
+    const update = projectPostMergeHook(existing);
+    if (update.action === "unchanged") {
+      log?.(pc.green("  ✓ post-merge hook already has agentsync sync"));
+      return;
+    }
+
+    await outputFile(hookPath, update.content);
+    await chmod(hookPath, 0o755);
+    log?.(
+      pc.green(`  ✓ ${HOOK_ACTION_VERB[update.action]} post-merge git hook`),
+    );
+  } catch (error) {
+    log?.(
+      pc.yellow(`  ⚠ Could not install git hook: ${getErrorMessage(error)}`),
+    );
+  }
+}
+
+async function updateGitignore(
+  cwd: string,
+  tools: ToolName[],
+  log?: Log,
+): Promise<void> {
+  log?.(pc.gray("  Updating .gitignore..."));
+  const gitignorePath = path.join(cwd, ".gitignore");
+  try {
+    await assertSafeProjectOutputPath(cwd, gitignorePath);
+    const existing = (await pathExists(gitignorePath))
+      ? await readFile(gitignorePath, "utf-8")
+      : "";
+    const hasSection = hasAgentSyncSection(existing);
+    const content = hasSection
+      ? updateAgentSyncSection(existing, tools)
+      : `${existing}\n${generateGitignoreContent(tools)}`;
+    await outputFile(gitignorePath, content);
+    const suffix = hasSection ? " (AgentSync section)" : "";
+    log?.(pc.green(`  ✓ Updated .gitignore${suffix}`));
+  } catch (error) {
+    log?.(
+      pc.yellow(`  ⚠ Could not update .gitignore: ${getErrorMessage(error)}`),
+    );
+  }
+}
+
+async function performInit(
+  cwd: string,
+  tools: ToolName[],
+  log?: Log,
+): Promise<InitData> {
+  const configPath = getProjectConfigPath(cwd);
+  const agentsPath = path.join(cwd, "AGENTS.md");
+  await assertSafeProjectOutputPath(cwd, configPath);
+
+  if (await pathExists(agentsPath)) {
+    log?.(pc.green("  ✓ Using existing AGENTS.md"));
+  } else {
+    await createAgentsMd(cwd, log);
+  }
+  await createAgentsDir(cwd, tools, log);
+  await updateGitignore(cwd, tools, log);
+  await installGitHook(cwd, log);
+  return { action: "created", configPath, tools };
+}
+
+function selectedTools(options: InitOptions): ToolName[] {
+  const result = ToolNameSchema.array().safeParse(
+    options.tools ?? [...DEFAULT_TOOLS],
+  );
+  if (result.success) return result.data;
+  throw new ConfigError(
+    `Invalid init tool selection: ${result.error.issues.map((issue) => issue.message).join("; ")}`,
+    undefined,
+    `Valid tools: ${SUPPORTED_TOOLS.join(", ")}`,
+  );
+}
+
+async function executeJson(options: InitOptions, cwd: string): Promise<void> {
+  const configPath = getProjectConfigPath(cwd);
+  let data: InitData;
+  if (await pathExists(configPath)) {
+    const config = tomlToInternalConfig(await readProjectConfig(configPath));
+    data = {
+      action: "already_initialized",
+      configPath,
+      tools: config.tools ?? [],
+    };
+  } else {
+    data = await performInit(cwd, selectedTools(options));
+  }
+  console.log(jsonStringify(cliResult("init", data), options.pretty));
+}
+
+async function executeHuman(options: InitOptions, cwd: string): Promise<void> {
+  console.log(pc.blue("🚀 Initializing AgentSync...\n"));
+  const configPath = getProjectConfigPath(cwd);
+  if (await pathExists(configPath)) {
+    await showCurrentStatus(cwd, await readProjectConfig(configPath));
+    return;
+  }
+
+  await performInit(cwd, selectedTools(options), console.log);
+  console.log(pc.green("\n✅ AgentSync initialized successfully!\n"));
+  console.log(pc.gray("Next steps:"));
+  console.log(pc.gray("  1. Edit AGENTS.md to match your project"));
+  console.log(
+    pc.gray("  2. Run ") +
+      pc.cyan("agentsync sync") +
+      pc.gray(" to generate tool configs"),
+  );
+  console.log(pc.gray("  3. (Optional) Set up MCP servers:"));
+  console.log(
+    pc.gray("     - Run ") +
+      pc.cyan("agentsync config add mcp <name> --mcp-config '{...}'") +
+      pc.gray(" to add MCPs"),
+  );
+}
+
+async function executeInit(options: InitOptions): Promise<void> {
+  const cwd = process.cwd();
+  return options.json ? executeJson(options, cwd) : executeHuman(options, cwd);
+}
+
 export async function init(options: InitOptions): Promise<void> {
-  const command = new InitCommand();
-  return command.execute(options);
+  return executeInit(options);
 }

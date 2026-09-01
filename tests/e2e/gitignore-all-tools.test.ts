@@ -4,7 +4,7 @@
  * Verifies patterns match actual output paths.
  */
 import { describe, expect, it } from "vitest";
-import type { ToolName } from "../../src/constants.js";
+import { SUPPORTED_TOOLS, type ToolName } from "../../src/constants.js";
 import {
   BASE_GITIGNORE_PATTERNS,
   generateGitignoreContent,
@@ -14,29 +14,9 @@ import {
 } from "../../src/utils/gitignore.js";
 
 describe("Gitignore All Tools E2E", () => {
-  const ALL_TOOLS: ToolName[] = [
-    "claude",
-    "opencode",
-    "cursor",
-    "roocode",
-    "codex",
-    "copilot",
-    "cline",
-    "gemini",
-    "amp",
-    "goose",
-    "aider",
-    "amazonq",
-    "augment",
-    "kiro",
-    "openhands",
-    "junie",
-    "crush",
-    "kilocode",
-    "qwen",
-  ];
+  const ALL_TOOLS: ToolName[] = [...SUPPORTED_TOOLS];
 
-  it("generates gitignore for all 19 tools combined", () => {
+  it("generates gitignore for every supported tool combined", () => {
     const content = generateGitignoreContent(ALL_TOOLS);
 
     expect(content).toContain("# AgentSync");
@@ -93,6 +73,7 @@ describe("Gitignore All Tools E2E", () => {
     const content = generateGitignoreContent(["codex"]);
 
     expect(content).toContain(".codex/config.toml");
+    expect(content).toContain(".codex/.agentsync-ownership.json");
   });
 
   it("generates correct patterns for copilot tool", () => {
@@ -122,12 +103,8 @@ describe("Gitignore All Tools E2E", () => {
       }
     }
 
-    // Base patterns include these regardless of tool
-    expect(content).toContain(".agents/backups/");
+    // The local overlay is always project-local state.
     expect(content).toContain("agentsync.local.toml");
-    // Old patterns should NOT be present
-    expect(content).not.toContain(".agentsync/backups/");
-    expect(content).not.toContain("agentsync.local.json");
   });
 
   it("generates empty tool section when no tools provided", () => {
@@ -138,7 +115,7 @@ describe("Gitignore All Tools E2E", () => {
   });
 
   it("detects AgentSync section in existing gitignore", () => {
-    const existing = "node_modules/\n\n# AgentSync\n.agents/backups/\n";
+    const existing = "node_modules/\n\n# AgentSync\nagentsync.local.toml\n";
     expect(hasAgentSyncSection(existing)).toBe(true);
   });
 
@@ -149,7 +126,7 @@ describe("Gitignore All Tools E2E", () => {
 
   it("updates existing AgentSync section with new tools", () => {
     const existing =
-      "node_modules/\n\n# AgentSync\n.agents/backups/\nagentsync.local.toml\n\n# Tool MCP configs (regenerated on sync)\n.mcp.json\n";
+      "node_modules/\n\n# AgentSync\nagentsync.local.toml\n\n# Tool MCP configs (regenerated on sync)\n.mcp.json\n";
 
     const updated = updateAgentSyncSection(existing, [
       "claude",
@@ -163,7 +140,7 @@ describe("Gitignore All Tools E2E", () => {
     expect(updated).toContain("GEMINI.md");
   });
 
-  it("TOOL_GITIGNORE_PATTERNS has entries for all 19 tools", () => {
+  it("TOOL_GITIGNORE_PATTERNS has entries for every supported tool", () => {
     for (const tool of ALL_TOOLS) {
       expect(
         TOOL_GITIGNORE_PATTERNS[tool],

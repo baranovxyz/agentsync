@@ -12,7 +12,7 @@ import {
   syncAgents,
   syncCommands,
   syncDocs,
-  syncMCP,
+  syncManagedMCP,
   syncSkills,
 } from "../../../src/sync/index.js";
 import { getToolProvider, getToolProviders } from "../../../src/tools/index.js";
@@ -38,6 +38,9 @@ const ALL_TOOLS: ToolName[] = [
   "crush",
   "kilocode",
   "qwen",
+  "droid",
+  "pi",
+  "vibe",
 ];
 
 describe("Empty Project Sync", () => {
@@ -57,7 +60,7 @@ describe("Empty Project Sync", () => {
     const providers = getToolProviders(ALL_TOOLS);
     const results = await syncSkills(providers, tmpDir);
 
-    expect(results).toHaveLength(19);
+    expect(results).toHaveLength(22);
     for (const result of results) {
       expect(result.skillCount).toBe(0);
       expect(result.skills).toHaveLength(0);
@@ -68,7 +71,7 @@ describe("Empty Project Sync", () => {
     const providers = getToolProviders(ALL_TOOLS);
     const results = await syncCommands(providers, tmpDir);
 
-    expect(results).toHaveLength(19);
+    expect(results).toHaveLength(22);
     for (const result of results) {
       expect(result.commandCount).toBe(0);
       expect(result.commands).toHaveLength(0);
@@ -79,7 +82,7 @@ describe("Empty Project Sync", () => {
     const providers = getToolProviders(ALL_TOOLS);
     const results = await syncAgents(providers, tmpDir);
 
-    expect(results).toHaveLength(19);
+    expect(results).toHaveLength(22);
     for (const result of results) {
       expect(result.agentCount).toBe(0);
       expect(result.agents).toHaveLength(0);
@@ -148,7 +151,7 @@ describe("Empty Project Sync", () => {
     await syncCommands(providers, tmpDir);
     await syncAgents(providers, tmpDir);
     await syncDocs(providers, tmpDir);
-    await syncMCP(providers, mcps, tmpDir);
+    await syncManagedMCP(providers, mcps, tmpDir);
 
     // MCP configs should exist (written even for empty project)
     expect(await pathExists(path.join(tmpDir, ".mcp.json"))).toBe(true);

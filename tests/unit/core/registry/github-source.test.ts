@@ -32,10 +32,32 @@ describe("GitHubSourceParser", () => {
       });
     });
 
-    it("errors on non-main ref", () => {
-      expect(() => parser.parse("github:company/standards@v1.0.0")).toThrow(
-        "not supported",
-      );
+    it("parses a named ref", () => {
+      expect(parser.parse("github:company/standards@v1.0.0")).toEqual({
+        org: "company",
+        repo: "standards",
+        ref: "v1.0.0",
+      });
+    });
+
+    it("parses a slash-containing branch ref", () => {
+      expect(
+        parser.parse("github:company/standards@feature/source-parser"),
+      ).toEqual({
+        org: "company",
+        repo: "standards",
+        ref: "feature/source-parser",
+      });
+    });
+
+    it("preserves punctuation in a ref", () => {
+      expect(
+        parser.parse("github:company/standards@release/2026.08+build-1"),
+      ).toEqual({
+        org: "company",
+        repo: "standards",
+        ref: "release/2026.08+build-1",
+      });
     });
 
     it("errors when missing github: prefix", () => {
@@ -57,41 +79,17 @@ describe("GitHubSourceParser", () => {
     });
 
     it("errors on empty org", () => {
-      expect(() => parser.parse("github:/repo")).toThrow(
-        "Both org and repo required",
-      );
+      expect(() => parser.parse("github:/repo")).toThrow("Format:");
     });
 
     it("errors on empty repo", () => {
-      expect(() => parser.parse("github:company/")).toThrow(
-        "Both org and repo required",
+      expect(() => parser.parse("github:company/")).toThrow("Format:");
+    });
+
+    it("errors on an empty ref", () => {
+      expect(() => parser.parse("github:company/standards@")).toThrow(
+        "Format:",
       );
-    });
-  });
-
-  describe("toString", () => {
-    it("converts source to string", () => {
-      const source = { org: "company", repo: "standards", ref: "main" };
-      expect(parser.toString(source)).toBe("github:company/standards@main");
-    });
-
-    it("handles hyphens in names", () => {
-      const source = { org: "acme-corp", repo: "backend-rules", ref: "main" };
-      expect(parser.toString(source)).toBe(
-        "github:acme-corp/backend-rules@main",
-      );
-    });
-  });
-
-  describe("toCacheKey", () => {
-    it("generates filesystem-safe cache key", () => {
-      const source = { org: "company", repo: "standards", ref: "main" };
-      expect(parser.toCacheKey(source)).toBe("github-company-standards");
-    });
-
-    it("handles hyphens in names", () => {
-      const source = { org: "acme-corp", repo: "backend-rules", ref: "main" };
-      expect(parser.toCacheKey(source)).toBe("github-acme-corp-backend-rules");
     });
   });
 });

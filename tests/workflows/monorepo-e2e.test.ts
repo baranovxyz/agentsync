@@ -3,7 +3,14 @@
  * Tests hierarchy merging, profile selection, and multi-layer sync
  */
 
-import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  access,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -13,10 +20,7 @@ describe("monorepo e2e workflow", () => {
   let root: string;
 
   beforeEach(async () => {
-    // Create a unique temp dir for each test
-    const base = join(tmpdir(), "agentsync-e2e-mono-");
-    root = join(base + Date.now() + Math.random().toString(36).slice(2));
-    await mkdir(root, { recursive: true });
+    root = await mkdtemp(join(tmpdir(), "agentsync-e2e-mono-"));
     // Place .git at root so discoverConfigChain stops here
     await mkdir(join(root, ".git"));
   });
@@ -35,7 +39,7 @@ describe("monorepo e2e workflow", () => {
       [
         'tools = ["cursor"]',
         "",
-        "[mcp_servers.github]",
+        "[mcp.github]",
         'command = "npx"',
         'args = ["-y", "gh-mcp"]',
       ].join("\n"),
@@ -52,11 +56,9 @@ describe("monorepo e2e workflow", () => {
     });
     await writeFile(
       join(frontendDir, ".agents", "agentsync.toml"),
-      [
-        "[mcp_servers.storybook]",
-        'command = "npx"',
-        'args = ["-y", "sb-mcp"]',
-      ].join("\n"),
+      ["[mcp.storybook]", 'command = "npx"', 'args = ["-y", "sb-mcp"]'].join(
+        "\n",
+      ),
     );
     await writeFile(
       join(frontendDir, ".agents", "skills", "react", "SKILL.md"),
@@ -66,15 +68,16 @@ describe("monorepo e2e workflow", () => {
     // Sync from frontend dir — should inherit cursor tool from org
     await sync({ cwd: frontendDir, json: true });
 
-    // Cursor skills dir should exist (cursor inherited from org config)
+    // Cursor reads skills from the hierarchy's .agents/ directories natively.
+    await expect(
+      access(join(root, ".agents", "skills", "security", "SKILL.md")),
+    ).resolves.toBeUndefined();
+    await expect(
+      access(join(frontendDir, ".agents", "skills", "react", "SKILL.md")),
+    ).resolves.toBeUndefined();
     await expect(
       access(join(frontendDir, ".cursor", "skills")),
-    ).resolves.toBeUndefined();
-
-    // The react skill should be synced (from frontend's own .agents/skills/)
-    await expect(
-      access(join(frontendDir, ".cursor", "skills", "react", "SKILL.md")),
-    ).resolves.toBeUndefined();
+    ).rejects.toThrow();
 
     // The MCP config should have both github (from org) and storybook (from frontend)
     const mcpContent = JSON.parse(
@@ -104,13 +107,16 @@ describe("monorepo e2e workflow", () => {
 
     await sync({ cwd: root, profile: "cursor-only", json: true });
 
-    // Cursor should be synced (profile includes it)
-    await expect(access(join(root, ".cursor"))).resolves.toBeUndefined();
-    // Claude should NOT be synced (profile limits to cursor only)
+    // Cursor reads the selected skill natively; it needs no generated copy.
+    await expect(
+      access(join(root, ".agents", "skills", "test-skill", "SKILL.md")),
+    ).resolves.toBeUndefined();
+    await expect(access(join(root, ".cursor"))).rejects.toThrow();
+    // Claude is excluded by the profile, so it also receives no copy.
     await expect(access(join(root, ".claude"))).rejects.toThrow();
   });
 
-  it("backward compat: single-root project works unchanged", async () => {
+  it("single-root current-format project syncs natively", async () => {
     await mkdir(join(root, ".agents", "skills", "test"), { recursive: true });
     await writeFile(
       join(root, ".agents", "agentsync.toml"),
@@ -123,13 +129,13 @@ describe("monorepo e2e workflow", () => {
 
     await sync({ cwd: root, json: true });
 
-    // Cursor skills should be created
+    // Cursor consumes the canonical source directly, without a generated copy.
     await expect(
-      access(join(root, ".cursor", "skills")),
+      access(join(root, ".agents", "skills", "test", "SKILL.md")),
     ).resolves.toBeUndefined();
     await expect(
       access(join(root, ".cursor", "skills", "test", "SKILL.md")),
-    ).resolves.toBeUndefined();
+    ).rejects.toThrow();
   });
 
   it("three-level hierarchy merges correctly", async () => {
@@ -140,7 +146,7 @@ describe("monorepo e2e workflow", () => {
       [
         'tools = ["cursor"]',
         "",
-        "[mcp_servers.github]",
+        "[mcp.github]",
         'command = "npx"',
         'args = ["-y", "gh-mcp"]',
       ].join("\n"),
@@ -151,11 +157,9 @@ describe("monorepo e2e workflow", () => {
     await mkdir(join(teamDir, ".agents"), { recursive: true });
     await writeFile(
       join(teamDir, ".agents", "agentsync.toml"),
-      [
-        "[mcp_servers.storybook]",
-        'command = "npx"',
-        'args = ["-y", "sb-mcp"]',
-      ].join("\n"),
+      ["[mcp.storybook]", 'command = "npx"', 'args = ["-y", "sb-mcp"]'].join(
+        "\n",
+      ),
     );
 
     // Service level: adds stripe MCP
@@ -163,11 +167,9 @@ describe("monorepo e2e workflow", () => {
     await mkdir(join(serviceDir, ".agents"), { recursive: true });
     await writeFile(
       join(serviceDir, ".agents", "agentsync.toml"),
-      [
-        "[mcp_servers.stripe]",
-        'command = "npx"',
-        'args = ["-y", "stripe-mcp"]',
-      ].join("\n"),
+      ["[mcp.stripe]", 'command = "npx"', 'args = ["-y", "stripe-mcp"]'].join(
+        "\n",
+      ),
     );
 
     // Sync from service level — should merge all three layers

@@ -27,6 +27,9 @@ export const SUPPORTED_TOOLS = [
   "crush",
   "kilocode",
   "qwen",
+  "droid",
+  "pi",
+  "vibe",
 ] as const;
 
 /**
@@ -40,6 +43,7 @@ export type ToolName = (typeof SUPPORTED_TOOLS)[number];
 export const VALIDATED_CLI_TOOLS = [
   "claude",
   "opencode",
+  "cursor",
   "codex",
   "gemini",
   "amp",

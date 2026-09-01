@@ -1,44 +1,24 @@
 /**
  * Concurrent Tool Sync Tests
- * Verifies syncing to all 19 tools simultaneously produces correct outputs
+ * Verifies syncing to every supported tool simultaneously produces correct outputs
  * with no file corruption and consistent content across tools
  */
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { ToolName } from "../../../src/constants.js";
+import { SUPPORTED_TOOLS, type ToolName } from "../../../src/constants.js";
 import {
   syncAgents,
   syncCommands,
   syncDocs,
-  syncMCP,
+  syncManagedMCP,
   syncSkills,
 } from "../../../src/sync/index.js";
 import { getToolProviders } from "../../../src/tools/index.js";
 import { ensureDir, outputFile, pathExists } from "../../../src/utils/fs.js";
 
-const ALL_TOOLS: ToolName[] = [
-  "claude",
-  "opencode",
-  "cursor",
-  "roocode",
-  "codex",
-  "copilot",
-  "cline",
-  "gemini",
-  "amp",
-  "goose",
-  "aider",
-  "amazonq",
-  "augment",
-  "kiro",
-  "openhands",
-  "junie",
-  "crush",
-  "kilocode",
-  "qwen",
-];
+const ALL_TOOLS: ToolName[] = [...SUPPORTED_TOOLS];
 
 describe("Concurrent Tool Sync", () => {
   let tmpDir: string;
@@ -71,28 +51,22 @@ describe("Concurrent Tool Sync", () => {
     await ensureDir(path.join(tmpDir, ".agents", "agents"));
     await outputFile(
       path.join(tmpDir, ".agents", "agents", "architect.md"),
-      "---\nname: architect\n---\n# Architect Agent",
+      "---\nname: architect\ndescription: Designs application architecture\n---\n# Architect Agent",
     );
 
     // Docs
-    await ensureDir(path.join(tmpDir, ".agents"));
     await outputFile(
-      path.join(tmpDir, ".agents", "AGENTS.md"),
+      path.join(tmpDir, "AGENTS.md"),
       "# Concurrent Test Project",
     );
   }
 
-  it("creates holdout tool output directories when syncing skills", async () => {
+  it("copies project skills only to generated-output providers", async () => {
     await setupFullProject();
     const providers = getToolProviders(ALL_TOOLS);
     await syncSkills(providers, tmpDir);
 
-    // Holdout tools (readsAgentsDir=false) get skills copied
-    const holdoutDirs = [
-      ".claude/skills",
-      ".cursor/skills",
-      ".github/skills", // copilot
-    ];
+    const holdoutDirs = [".claude/skills", ".github/skills"];
 
     for (const dir of holdoutDirs) {
       expect(
@@ -100,19 +74,22 @@ describe("Concurrent Tool Sync", () => {
       ).toBe(true);
     }
 
-    // Native tools (readsAgentsDir=true) skip skill copy
-    // They read from .agents/skills/ directly (which already has the files)
+    // Cursor reads project skills from .agents/skills natively. Generated
+    // preset skills use .cursor/skills and are covered by preset tests.
+    expect(
+      await pathExists(
+        path.join(tmpDir, ".cursor", "skills", "deploy", "SKILL.md"),
+      ),
+    ).toBe(false);
   });
 
-  it("syncs skills with identical content across holdout tools", async () => {
+  it("keeps generated-output project skill copies byte-identical", async () => {
     await setupFullProject();
     const providers = getToolProviders(ALL_TOOLS);
     await syncSkills(providers, tmpDir);
 
-    // Only holdout tools (readsAgentsDir=false) get copies
     const skillPaths = [
       ".claude/skills/deploy/SKILL.md",
-      ".cursor/skills/deploy/SKILL.md",
       ".github/skills/deploy/SKILL.md", // copilot
     ];
 
@@ -128,7 +105,7 @@ describe("Concurrent Tool Sync", () => {
     }
   });
 
-  it("commands only written to claude, opencode, roocode, amp, and augment", async () => {
+  it("writes commands only to providers with a command projection", async () => {
     await setupFullProject();
     const providers = getToolProviders(ALL_TOOLS);
     const results = await syncCommands(providers, tmpDir);
@@ -136,22 +113,38 @@ describe("Concurrent Tool Sync", () => {
     const commandTools = results.filter((r) => r.commandCount > 0);
     const noCommandTools = results.filter((r) => r.commandCount === 0);
 
-    expect(commandTools).toHaveLength(5);
+    expect(commandTools).toHaveLength(7);
     expect(commandTools.map((r) => r.tool).sort()).toEqual(
-      ["amp", "augment", "claude", "opencode", "roocode"].sort(),
+      [
+        "augment",
+        "claude",
+        "cursor",
+        "droid",
+        "opencode",
+        "pi",
+        "roocode",
+      ].sort(),
     );
-    expect(noCommandTools).toHaveLength(14);
+    expect(noCommandTools).toHaveLength(15);
   });
 
-  it("agents written to claude, codex, opencode, copilot, and amazonq", async () => {
+  it("writes agents only to providers with an agent projection", async () => {
     await setupFullProject();
     const providers = getToolProviders(ALL_TOOLS);
     const results = await syncAgents(providers, tmpDir);
 
     const agentTools = results.filter((r) => r.agentCount > 0);
-    expect(agentTools).toHaveLength(5);
+    expect(agentTools).toHaveLength(7);
     expect(agentTools.map((r) => r.tool).sort()).toEqual(
-      ["amazonq", "claude", "codex", "copilot", "opencode"].sort(),
+      [
+        "amazonq",
+        "claude",
+        "codex",
+        "copilot",
+        "cursor",
+        "droid",
+        "opencode",
+      ].sort(),
     );
   });
 
@@ -166,10 +159,14 @@ describe("Concurrent Tool Sync", () => {
       },
     };
 
-    const results = await syncMCP(providers, mcps, tmpDir);
+    const results = await syncManagedMCP(providers, mcps, tmpDir);
 
-    // All MCP-capable tools (17 of 19 — Aider and Cline have no MCP) should have MCP
-    expect(results.filter((r) => r.serverCount > 0)).toHaveLength(17);
+    const mcpCapableCount = providers.filter(
+      (provider) => provider.mcpFormat && provider.paths.mcpConfigPath,
+    ).length;
+    expect(
+      results.results.filter((result) => result.serverCount > 0),
+    ).toHaveLength(mcpCapableCount);
 
     // OpenCode uses special format
     const oc = JSON.parse(
@@ -207,7 +204,7 @@ describe("Concurrent Tool Sync", () => {
     );
     expect(claudeContent).toBe("@AGENTS.md\n");
 
-    // GEMINI.md should exist with @AGENTS.md directive
+    // GEMINI.md should exist with the same include directive
     const geminiResult = results.find((r) => r.tool === "gemini");
     expect(geminiResult?.created).toBe(true);
     expect(geminiResult?.docsFile).toBe("GEMINI.md");
@@ -221,6 +218,10 @@ describe("Concurrent Tool Sync", () => {
     // Other tools use AGENTS.md natively (docsFormat=null)
     const nativeTools = results.filter((r) => r.docsFile === "AGENTS.md");
     expect(nativeTools.length).toBeGreaterThanOrEqual(5);
+
+    for (const native of nativeTools) {
+      expect(native.created).toBe(true);
+    }
   });
 
   it("full pipeline with multiple skills/commands/agents has no cross-contamination", async () => {
@@ -251,12 +252,15 @@ describe("Concurrent Tool Sync", () => {
     const cmdResults = await syncCommands(providers, tmpDir);
     const agentResults = await syncAgents(providers, tmpDir);
 
-    // Holdout tools (readsAgentsDir=false) with a skillsDir get skills copied (3 skills)
-    // Native tools (readsAgentsDir=true) skip skill copy (0 skills)
+    // Holdout tools (nativeSkillsDiscovery=false) with a skillsDir get skills copied (3 skills)
+    // Native tools (nativeSkillsDiscovery=true) skip skill copy (0 skills)
     // Tools with no skillsDir (aider) also return 0 skills
     for (const r of skillResults) {
       const provider = providers.find((p) => p.name === r.tool)!;
-      if (provider.readsAgentsDir || !provider.paths.skillsDir) {
+      if (
+        provider.capabilities.nativeSkillsDiscovery ||
+        !provider.paths.skillsDir
+      ) {
         expect(r.skillCount).toBe(0);
       } else {
         expect(r.skillCount).toBe(3);
@@ -284,9 +288,9 @@ describe("Concurrent Tool Sync", () => {
     const cmdResults = await syncCommands(providers, tmpDir);
     const agentResults = await syncAgents(providers, tmpDir);
 
-    expect(skillResults).toHaveLength(19);
-    expect(cmdResults).toHaveLength(19);
-    expect(agentResults).toHaveLength(19);
+    expect(skillResults).toHaveLength(ALL_TOOLS.length);
+    expect(cmdResults).toHaveLength(ALL_TOOLS.length);
+    expect(agentResults).toHaveLength(ALL_TOOLS.length);
 
     // Order matches provider order
     for (let i = 0; i < ALL_TOOLS.length; i++) {

@@ -1,7 +1,10 @@
 import { isAbsolute, resolve, win32 } from "node:path";
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
+  test: {
+    globalSetup: resolve(__dirname, "tests/setup/isolated-home.ts"),
+  },
   build: {
     lib: {
       entry: resolve(__dirname, "src/cli.ts"),

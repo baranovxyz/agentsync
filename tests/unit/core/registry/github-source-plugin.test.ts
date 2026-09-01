@@ -19,7 +19,6 @@ interface MockResolver {
 
 interface MockParser {
   parse: MockFunction;
-  toCacheKey: MockFunction<string>;
 }
 
 describe("GitHubSourcePlugin", () => {
@@ -36,7 +35,6 @@ describe("GitHubSourcePlugin", () => {
 
     mockParser = {
       parse: vi.fn(),
-      toCacheKey: vi.fn(),
     } as unknown as MockParser;
 
     plugin = new GitHubSourcePlugin(
@@ -115,23 +113,6 @@ describe("GitHubSourcePlugin", () => {
       await plugin.resolve(source, { cwd: "/some/dir" });
 
       expect(mockResolver.resolve).toHaveBeenCalledWith(source);
-    });
-  });
-
-  describe("getCacheKey", () => {
-    it("generates cache key using parser", () => {
-      const source = "github:company/repo";
-      const parsed = { org: "company", repo: "repo", ref: "main" };
-      (mockParser.parse as unknown as MockFunction).mockReturnValue(parsed);
-      (mockParser.toCacheKey as unknown as MockFunction).mockReturnValue(
-        "github-company-repo",
-      );
-
-      const cacheKey = plugin.getCacheKey(source);
-
-      expect(cacheKey).toBe("github-company-repo");
-      expect(mockParser.parse).toHaveBeenCalledWith(source);
-      expect(mockParser.toCacheKey).toHaveBeenCalledWith(parsed);
     });
   });
 });

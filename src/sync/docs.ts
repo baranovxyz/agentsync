@@ -1,18 +1,75 @@
 /**
  * Docs Sync Module
- * Generates tool-specific docs files using @AGENTS.md directive
+ * Generates tool-specific docs files using an @AGENTS.md-style include directive
  * Tools with docsFormat=null read AGENTS.md natively (no action needed)
+ *
+ * The only canonical project instruction source is root AGENTS.md.
  */
 
 import * as path from "node:path";
 import type { ToolProvider } from "../tools/types.js";
 import { pathExists } from "../utils/fs.js";
+import { assertSafeProjectOutputFile } from "../utils/project-output.js";
 
 /** Result of syncing docs (AGENTS.md directives) to a single tool */
 export interface DocsSyncResult {
   tool: string;
   docsFile: string;
   created: boolean;
+}
+
+interface DocsSource {
+  exists: boolean;
+  path: string;
+}
+
+async function resolveDocsSource(cwd: string): Promise<DocsSource> {
+  const agentsMd = path.join(cwd, "AGENTS.md");
+  return {
+    exists: await pathExists(agentsMd),
+    path: agentsMd,
+  };
+}
+
+function projectDocsResult(
+  provider: ToolProvider,
+  source: DocsSource,
+): DocsSyncResult {
+  return {
+    tool: provider.name,
+    docsFile: provider.paths.docsFile,
+    created: source.exists,
+  };
+}
+
+async function preflightDocsTargets(
+  providers: readonly ToolProvider[],
+  source: DocsSource,
+  cwd: string,
+): Promise<void> {
+  if (!source.exists) return;
+  await Promise.all(
+    providers.flatMap((provider) =>
+      provider.docsFormat
+        ? [
+            assertSafeProjectOutputFile(
+              cwd,
+              path.join(cwd, provider.paths.docsFile),
+            ),
+          ]
+        : [],
+    ),
+  );
+}
+
+/** Read-only docs projection used by dry-run. */
+export async function previewDocs(
+  providers: ToolProvider[],
+  cwd: string,
+): Promise<DocsSyncResult[]> {
+  const source = await resolveDocsSource(cwd);
+  await preflightDocsTargets(providers, source, cwd);
+  return providers.map((provider) => projectDocsResult(provider, source));
 }
 
 /**
@@ -24,32 +81,16 @@ export async function syncDocs(
   providers: ToolProvider[],
   cwd: string,
 ): Promise<DocsSyncResult[]> {
+  const source = await resolveDocsSource(cwd);
+  await preflightDocsTargets(providers, source, cwd);
   const results: DocsSyncResult[] = [];
-  const agentsMdPath = path.join(cwd, ".agents", "AGENTS.md");
-  const rootAgentsMd = path.join(cwd, "AGENTS.md");
-
-  // Resolve which AGENTS.md path actually exists
-  const agentsDirExists = await pathExists(agentsMdPath);
-  const rootExists = await pathExists(rootAgentsMd);
-  const hasAgentsMd = agentsDirExists || rootExists;
-  const resolvedPath = agentsDirExists ? agentsMdPath : rootAgentsMd;
 
   for (const provider of providers) {
-    const docsFile = provider.paths.docsFile;
-
-    if (!provider.docsFormat) {
-      // Tool reads AGENTS.md natively — no action needed
-      results.push({ tool: provider.name, docsFile, created: hasAgentsMd });
-      continue;
+    if (provider.docsFormat && source.exists) {
+      // Delegate to tool-specific docs format (writes the include directive)
+      await provider.docsFormat.writeDocs(source.path, cwd);
     }
-
-    if (hasAgentsMd) {
-      // Delegate to tool-specific docs format (writes @AGENTS.md directive)
-      await provider.docsFormat.writeDocs(resolvedPath, cwd);
-      results.push({ tool: provider.name, docsFile, created: true });
-    } else {
-      results.push({ tool: provider.name, docsFile, created: false });
-    }
+    results.push(projectDocsResult(provider, source));
   }
 
   return results;

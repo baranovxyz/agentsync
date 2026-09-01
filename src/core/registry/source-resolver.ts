@@ -15,10 +15,6 @@ import { GitHubSourcePlugin } from "./github-source-plugin.js";
 import type { ResolveOptions, SourceType } from "./source-plugin.js";
 import { SourcePluginRegistry } from "./source-plugin-registry.js";
 
-// Legacy export for backward compatibility
-export type { SourceType };
-export type SourceResolveOptions = ResolveOptions;
-
 /**
  * Unified source resolver that uses plugins to handle different source types
  * Supports GitHub repositories and local filesystem paths out of the box
@@ -40,10 +36,7 @@ export class SourceResolver {
    * @param options - Resolution options
    * @returns Resolved local path
    */
-  async resolve(
-    source: string,
-    options?: SourceResolveOptions,
-  ): Promise<string> {
+  async resolve(source: string, options?: ResolveOptions): Promise<string> {
     try {
       // Intentional: validateSource checks format, then getPlugin resolves — separate concerns
       this.validateSource(source);

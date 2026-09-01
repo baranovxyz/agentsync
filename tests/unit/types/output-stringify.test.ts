@@ -87,6 +87,7 @@ describe("Per-command Zod data schemas", () => {
       skills: 2,
       commands: 1,
       agents: 0,
+      rules: 1,
       mcpServers: 1,
       details: [
         {
@@ -94,6 +95,7 @@ describe("Per-command Zod data schemas", () => {
           skills: ["my-skill"],
           commands: ["my-cmd"],
           agents: [],
+          rules: ["security.md"],
           mcp: ["github"],
         },
       ],
@@ -103,6 +105,35 @@ describe("Per-command Zod data schemas", () => {
 
   it("SyncDataSchema rejects missing fields", () => {
     expect(() => SyncDataSchema.parse({ tools: ["cursor"] })).toThrow();
+  });
+
+  it("requires current rules counts and per-tool receipts", () => {
+    const base = {
+      tools: ["cursor"],
+      skills: 0,
+      commands: 0,
+      agents: 0,
+      rules: 0,
+      mcpServers: 0,
+      details: [
+        {
+          tool: "cursor",
+          skills: [],
+          commands: [],
+          agents: [],
+          rules: [],
+          mcp: [],
+        },
+      ],
+    };
+    const { rules: _count, ...withoutCount } = base;
+    const { rules: _receipt, ...detailWithoutRules } = base.details[0];
+
+    expect(SyncDataSchema.safeParse(withoutCount).success).toBe(false);
+    expect(
+      SyncDataSchema.safeParse({ ...base, details: [detailWithoutRules] })
+        .success,
+    ).toBe(false);
   });
 
   it("InitDataSchema validates correct init data", () => {
@@ -130,8 +161,23 @@ describe("Per-command Zod data schemas", () => {
   it("CleanDataSchema validates correct clean data", () => {
     const data = {
       dryRun: false,
-      results: [{ tool: "cursor", removedFiles: ["a.md"], removedDirs: [] }],
-      summary: { files: 1, directories: 0 },
+      results: [
+        {
+          tool: "cursor",
+          removedFiles: ["a.md"],
+          removedDirs: [],
+          modifiedFiles: [],
+          warnings: [],
+        },
+        {
+          tool: "goose",
+          removedFiles: [],
+          removedDirs: [],
+          modifiedFiles: [".goose/config.yaml"],
+          warnings: ["preserved modified MCP state"],
+        },
+      ],
+      summary: { files: 1, directories: 0, modified: 1 },
     };
     expect(CleanDataSchema.parse(data)).toEqual(data);
   });
@@ -184,6 +230,7 @@ describe("Per-command Zod data schemas", () => {
       skills: 1,
       commands: 0,
       agents: 0,
+      rules: 0,
       mcpServers: 0,
       details: [],
       bonus: "unexpected",

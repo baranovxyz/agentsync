@@ -43,9 +43,7 @@ describe("SourceResolver", () => {
         } as MockStats);
         vi.mocked(fsUtils.pathExists).mockResolvedValue(true);
 
-        const result = await sourceResolver.resolve(source, {
-          noToolDetection: true,
-        });
+        const result = await sourceResolver.resolve(source);
 
         expect(result).toBe(expectedPath);
       });
@@ -59,9 +57,7 @@ describe("SourceResolver", () => {
         } as MockStats);
         vi.mocked(fsUtils.pathExists).mockResolvedValue(true);
 
-        const result = await sourceResolver.resolve(source, {
-          noToolDetection: true,
-        });
+        const result = await sourceResolver.resolve(source);
 
         expect(result).toBe(source);
       });
@@ -76,9 +72,7 @@ describe("SourceResolver", () => {
         } as MockStats);
         vi.mocked(fsUtils.pathExists).mockResolvedValue(true);
 
-        const result = await sourceResolver.resolve(source, {
-          noToolDetection: true,
-        });
+        const result = await sourceResolver.resolve(source);
 
         expect(result).toBe(expectedPath);
       });
@@ -95,10 +89,9 @@ describe("SourceResolver", () => {
         sourceResolver.validateSource("github:org/repo@main");
       }).not.toThrow();
 
-      // v0.3.0-beta only supports @main
       expect(() => {
         sourceResolver.validateSource("github:org/repo@v1.0.0");
-      }).toThrow(/not supported in v0.3.0-beta/);
+      }).not.toThrow();
     });
 
     it("validates filesystem sources", () => {

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   toPosixPath,
   validateSyncNamespace,
+  withFlatNamespace,
 } from "../../../src/utils/path-normalization.js";
 
 describe("toPosixPath", () => {
@@ -24,6 +25,24 @@ describe("toPosixPath", () => {
 
   it("preserves an existing POSIX path", () => {
     expect(toPosixPath("agents/reviewer.toml")).toBe("agents/reviewer.toml");
+  });
+});
+
+describe("withFlatNamespace", () => {
+  it("prefixes a top-level artifact with the flat separator", () => {
+    expect(withFlatNamespace("review.md", "company")).toBe(
+      "company--review.md",
+    );
+  });
+
+  it("preserves hierarchy below the prefixed first segment", () => {
+    expect(withFlatNamespace("nested/review.md", "company")).toBe(
+      "company--nested/review.md",
+    );
+  });
+
+  it("preserves an unnamespaced artifact path", () => {
+    expect(withFlatNamespace("nested/review.md")).toBe("nested/review.md");
   });
 });
 
