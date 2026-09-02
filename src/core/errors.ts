@@ -198,6 +198,29 @@ export class SourceResolutionError extends AgentSyncError {
   }
 }
 
+/**
+ * A preset ref that does not exist on its remote.
+ *
+ * Distinct from `SourceResolutionError`: the remote answered — for GitHub
+ * sources, `git ls-remote --exit-code` returned exit code 2 — so retrying
+ * without changing the ref will fail identically. Not retryable.
+ */
+export class PresetRefNotFoundError extends AgentSyncError {
+  constructor(source: string, ref: string) {
+    super(
+      `Ref "${ref}" not found for preset "${source}"`,
+      ErrorCategory.NETWORK,
+      {
+        code: "PRESET_REF_NOT_FOUND",
+        suggestion:
+          `Check that ref "${ref}" exists on "${source}", correct the @ref, ` +
+          `or remove with: agentsync config rm preset ${source}`,
+        context: { source, ref },
+      },
+    );
+  }
+}
+
 /** Extract a human-readable message from an unknown caught value. */
 export function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -271,6 +294,7 @@ export function statusToExitCode(
   if (error instanceof ConfigError) return ExitCode.USER_ERROR;
   if (error instanceof ValidationError) return ExitCode.USER_ERROR;
   if (error instanceof ParseError) return ExitCode.USER_ERROR;
+  if (error instanceof PresetRefNotFoundError) return ExitCode.USER_ERROR;
   if (error instanceof SyncError) return ExitCode.TRANSIENT_ERROR;
   if (error instanceof SourceResolutionError) return ExitCode.TRANSIENT_ERROR;
   return ExitCode.SYSTEM_ERROR;

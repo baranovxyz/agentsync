@@ -26,13 +26,27 @@ import { pathExists } from "../../utils/fs.js";
 import { getGlobalConfigDir } from "../../utils/global-config.js";
 import type { ConfigCheckResult, DoctorResult } from "./types.js";
 
-const HOLDOUT_PATHS: Record<string, string> = {
-  cursor: ".cursor/rules",
-  claude: ".claude/rules",
-  roocode: ".roo/rules",
-  cline: ".clinerules",
-  copilot: ".github/copilot-instructions.md",
-};
+/**
+ * Project-relative directory a tool's rules writer actually produces, for
+ * tools that have one. Derived from `ToolProvider.rulesFormat.fileOutput.root`
+ * — the same field `src/sync/rules.ts` writes to — instead of a
+ * hand-maintained duplicate map. A hand-maintained map is exactly what drifted
+ * before: RooCode and Copilot were both listed with a "rules" directory
+ * (`.roo/rules`, `.github/copilot-instructions.md`) even though neither
+ * provider defines `rulesFormat` at all — `syncRules` falls back to a
+ * warning for them (see `unsupportedRuleResult` in `src/sync/rules.ts`) and
+ * never writes those paths, so the drift check reported them "missing"
+ * forever, even right after a clean sync. Any tool without a file-backed
+ * `rulesFormat` (including Cline, whose `.clinerules` directory is its
+ * *skills* destination, not a rules writer) is correctly excluded here.
+ */
+function rulesHoldoutPath(tool: ToolName): string | null {
+  try {
+    return getToolProvider(tool).rulesFormat?.fileOutput?.root ?? null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Collect {TOKEN_NAME} references from a string or record.
@@ -134,7 +148,20 @@ function checkTools(tools: ToolName[]): DoctorResult["tools"] {
 }
 
 /**
- * Check skills count and whether holdout tools have synced output.
+ * Check skills count and whether any configured tool has synced output.
+ *
+ * The probe path is each tool's real skills destination —
+ * `ToolProvider.paths.skillsDir`, the same field `src/sync/skills.ts`
+ * (`syncSkillsToTool`) writes copies to — not a hand-maintained duplicate
+ * map. (The old map here was actually `HOLDOUT_PATHS`, a *rules* holdout
+ * map borrowed for this unrelated purpose, so it reported `synced: false`
+ * whenever no tool had rules output, even with skills freshly copied.)
+ *
+ * A tool with `capabilities.nativeSkillsDiscovery` reads `.agents/skills`
+ * directly and never receives a copy — for those, "synced" means canonical
+ * skills exist for it to read (`count > 0`), not that a copy landed
+ * somewhere. If every configured tool is native-only, `synced` therefore
+ * tracks `count > 0` exactly.
  */
 async function checkSkills(
   cwd: string,
@@ -145,8 +172,26 @@ async function checkSkills(
 
   let synced = false;
   for (const tool of tools) {
-    const holdoutDir = HOLDOUT_PATHS[tool];
-    if (holdoutDir && (await pathExists(path.join(cwd, holdoutDir)))) {
+    let provider: ReturnType<typeof getToolProvider>;
+    try {
+      provider = getToolProvider(tool);
+    } catch {
+      continue;
+    }
+
+    if (provider.capabilities.nativeSkillsDiscovery) {
+      if (count > 0) {
+        synced = true;
+        break;
+      }
+      continue;
+    }
+
+    const skillsOutputDir = provider.paths.skillsDir;
+    if (
+      skillsOutputDir &&
+      (await pathExists(path.join(cwd, skillsOutputDir)))
+    ) {
       synced = true;
       break;
     }
@@ -212,9 +257,10 @@ async function checkFsPreset(
 }
 
 /**
- * Detect drift between config and synced tool outputs.
- * Compares config file mtime against holdout tool output directories.
- * If the config is newer, the sync is stale and should be re-run.
+ * Detect drift between config and synced rules output.
+ * Compares config file mtime against each tool's rules holdout directory
+ * (see `rulesHoldoutPath`). If the config is newer, the sync is stale and
+ * should be re-run.
  */
 async function checkDrift(
   cwd: string,
@@ -230,8 +276,8 @@ async function checkDrift(
 
   const results: DoctorResult["drift"] = [];
   for (const tool of tools) {
-    const toolDir = HOLDOUT_PATHS[tool];
-    if (!toolDir) continue; // Native tools don't have holdout dirs
+    const toolDir = rulesHoldoutPath(tool);
+    if (!toolDir) continue; // No rules writer for this tool — nothing to check.
 
     const toolPath = path.join(cwd, toolDir);
     if (!(await pathExists(toolPath))) {

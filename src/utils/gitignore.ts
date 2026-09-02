@@ -38,6 +38,31 @@ export const BASE_GITIGNORE_PATTERNS = [
 ];
 
 /**
+ * Comment line AgentSync writes right before the per-tool entries. Part of
+ * the managed block, not a foreign section — `findAgentSyncSectionEnd`'s
+ * legacy fallback must recognize it as ours (see `OWN_COMMENT_LINES`).
+ */
+const TOOL_PATTERNS_HEADER = "# Tool MCP configs (regenerated on sync)";
+
+/**
+ * Literal line every block written by this version ends with. Its presence
+ * makes the section boundary an exact string match, independent of what any
+ * entry inside the block looks like — see `findAgentSyncSectionEnd`.
+ */
+const SECTION_END_MARKER = "# End AgentSync managed block";
+
+/**
+ * Comment lines AgentSync itself writes inside the managed block. Used only
+ * by the legacy (no end-marker) fallback to tell "our" sub-headers apart
+ * from a genuinely foreign section — never to infer anything about an
+ * entry's syntax.
+ */
+const OWN_COMMENT_LINES = new Set<string>([
+  "# AgentSync",
+  TOOL_PATTERNS_HEADER,
+]);
+
+/**
  * Generate .gitignore content for selected tools
  */
 export function generateGitignoreContent(tools: ToolName[]): string {
@@ -45,7 +70,7 @@ export function generateGitignoreContent(tools: ToolName[]): string {
 
   if (tools.length > 0) {
     lines.push("");
-    lines.push("# Tool MCP configs (regenerated on sync)");
+    lines.push(TOOL_PATTERNS_HEADER);
 
     for (const tool of tools) {
       const patterns = TOOL_GITIGNORE_PATTERNS[tool];
@@ -54,6 +79,8 @@ export function generateGitignoreContent(tools: ToolName[]): string {
       }
     }
   }
+
+  lines.push(SECTION_END_MARKER);
 
   return `${lines.join("\n")}\n`;
 }
@@ -66,40 +93,60 @@ export function hasAgentSyncSection(content: string): boolean {
 }
 
 /**
- * Find the end of AgentSync section in gitignore.
- * Section ends at next comment line or EOF — fragile but sufficient for our controlled output.
+ * Find the end of the AgentSync-managed section in an existing .gitignore.
+ *
+ * The block's own entries are arbitrary tool-owned filenames, several of
+ * them bare (`CLAUDE.md`, `agentsync.local.toml`, `opencode.json`, ...), and
+ * the block's own sub-header (`TOOL_PATTERNS_HEADER`) is itself a `# `
+ * comment line. A boundary rule that infers anything from an entry's syntax
+ * — a leading `.`, `!`, `*`, or `#` — is therefore wrong by construction:
+ * it stops on the first bare filename, or on the block's own sub-header,
+ * long before the block actually ends. That was the bug (no
+ * fragile guards over a shape we don't need to guess at).
+ *
+ * Two-tier rule instead:
+ *
+ * 1. Primary — every block this version writes ends with the literal
+ *    `SECTION_END_MARKER` line. When present, that line alone defines the
+ *    boundary exactly, regardless of what the entries above it look like.
+ * 2. Fallback (migration only) — a block written before the marker existed
+ *    has none. We bound it structurally, using only the comment literals
+ *    AgentSync itself writes (`OWN_COMMENT_LINES`: the section header and
+ *    the tool-patterns sub-header) plus blank-line structure: the boundary
+ *    is the next `# ` comment line that is not one of ours, or a blank line
+ *    whose following non-blank content is not one of ours either. This
+ *    mirrors ordinary .gitignore hygiene (sections separated by a blank
+ *    line and/or a comment) and never inspects an entry's own syntax. Once
+ *    a repo goes through one `init`/`sync` under this version, its block
+ *    carries the marker and this fallback never runs for it again.
  */
 function findAgentSyncSectionEnd(
   lines: string[],
   startLineIdx: number,
 ): number {
-  let endLineIdx = lines.length;
+  for (let i = startLineIdx + 1; i < lines.length; i++) {
+    if (lines[i].trim() === SECTION_END_MARKER) {
+      return i + 1;
+    }
+  }
+
   for (let i = startLineIdx + 1; i < lines.length; i++) {
     const line = lines[i].trim();
 
     if (!line) {
+      const next = lines.slice(i + 1).find((l) => l.trim().length > 0);
+      if (next === undefined || !OWN_COMMENT_LINES.has(next.trim())) {
+        return i;
+      }
       continue;
     }
 
-    if (line.startsWith("# ") && !line.startsWith("# AgentSync")) {
-      endLineIdx = i;
-      break;
-    }
-
-    if (
-      !(
-        line.startsWith("#") ||
-        line.startsWith("!") ||
-        line.startsWith(".") ||
-        line.startsWith("*")
-      )
-    ) {
-      endLineIdx = i;
-      break;
+    if (line.startsWith("# ") && !OWN_COMMENT_LINES.has(line)) {
+      return i;
     }
   }
 
-  return endLineIdx;
+  return lines.length;
 }
 
 /**
@@ -122,24 +169,48 @@ export function updateAgentSyncSection(
   }
 
   if (startLineIdx === -1) {
-    return `${existingContent}\n${agentSyncContent}`;
+    return joinAroundBlock(lines, agentSyncContent, []);
   }
 
   const endLineIdx = findAgentSyncSectionEnd(lines, startLineIdx);
 
-  const beforeLines = lines.slice(0, startLineIdx);
-  const afterLines = lines.slice(endLineIdx);
+  return joinAroundBlock(
+    lines.slice(0, startLineIdx),
+    agentSyncContent,
+    lines.slice(endLineIdx),
+  );
+}
 
-  let result = beforeLines.join("\n");
-  if (beforeLines.length > 0) {
+/**
+ * Assemble `before` + managed block + `after` so that repeated applications
+ * are byte-identical. The block owns its leading blank line (the first entry
+ * of `BASE_GITIGNORE_PATTERNS`), so any blank lines the previous write left
+ * directly above it are the same separator and are folded into it — that is
+ * the only edit ever made to user content. Everything after the block is
+ * kept verbatim; the block already ends with a newline.
+ */
+function joinAroundBlock(
+  before: string[],
+  agentSyncContent: string,
+  after: string[],
+): string {
+  let end = before.length;
+  while (end > 0 && before[end - 1].trim() === "") {
+    end--;
+  }
+  const userBefore = before.slice(0, end);
+
+  const block =
+    userBefore.length > 0
+      ? agentSyncContent
+      : agentSyncContent.replace(/^\n/, "");
+
+  let result = userBefore.join("\n");
+  if (userBefore.length > 0) {
     result += "\n";
   }
-  result += agentSyncContent;
-  if (afterLines.length > 0 && afterLines[0].trim()) {
-    result += afterLines.join("\n");
-  } else if (afterLines.length > 1) {
-    result += afterLines.slice(1).join("\n");
-  }
+  result += block;
+  result += after.join("\n");
 
   return result;
 }

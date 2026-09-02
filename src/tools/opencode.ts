@@ -13,6 +13,7 @@ import { z } from "zod";
 import { ConfigError } from "../core/errors.js";
 import type { MCP } from "../core/mcp/tokens.js";
 import type { StructuredStateClaim } from "../sync/structured-state.js";
+import type { SyncMode } from "../sync/write-file.js";
 import type { PermissionsConfigSchema } from "../types/schemas.js";
 import { splitFrontmatter } from "../utils/frontmatter.js";
 import { toPosixPath } from "../utils/path-normalization.js";
@@ -525,6 +526,7 @@ export function projectOpenCodeRules(rules: readonly CanonicalRule[]): {
 async function writeOpenCodeRules(
   rules: CanonicalRule[],
   _cwd: string,
+  _mode: SyncMode,
 ): Promise<{ written: string[]; warnings: string[] }> {
   return projectOpenCodeRules(rules);
 }

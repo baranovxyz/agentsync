@@ -7,6 +7,7 @@ import { readFile, rm } from "node:fs/promises";
 import * as path from "node:path";
 import fg from "fast-glob";
 import type { ContentTransformResult, ToolProvider } from "../tools/types.js";
+import { splitFrontmatter } from "../utils/frontmatter.js";
 import { outputFile, pathExists } from "../utils/fs.js";
 import {
   toPosixPath,
@@ -52,6 +53,29 @@ async function unsupportedCommandsResult(
 
 function projectedCommandIdentity(destination: string): string {
   return toPosixPath(destination).replace(/\.md$/u, "").replaceAll("/", "--");
+}
+
+/**
+ * A command's `description` is required by `docs/configuration.md`'s
+ * Validation section and AGENTS.md's frontmatter convention. Scoped to plain
+ * project/global commands — presets are a separate, differently-owned
+ * content source with no default-value synthesis of their own yet.
+ */
+function hasNonEmptyCommandDescription(content: string): boolean {
+  const { fm } = splitFrontmatter(content);
+  const description = fm?.description;
+  return typeof description === "string" && description.trim().length > 0;
+}
+
+function missingCommandDescriptionWarning(
+  provider: ToolProvider,
+  cwd: string,
+  sourcePath: string,
+): string {
+  return (
+    `[${provider.name}] ${path.relative(cwd, sourcePath)} — missing frontmatter ` +
+    "'description'; syncing with default values"
+  );
 }
 
 async function projectCommandContent(
@@ -129,6 +153,15 @@ async function syncCommandsToTool(
       if (path.resolve(sourcePath) === path.resolve(destPath)) {
         commands.push(destName);
         continue;
+      }
+
+      if (!namespace) {
+        const content = await readFile(sourcePath, "utf-8");
+        if (!hasNonEmptyCommandDescription(content)) {
+          warnings.push(
+            missingCommandDescriptionWarning(provider, cwd, sourcePath),
+          );
+        }
       }
 
       const projection = await projectCommandContent(

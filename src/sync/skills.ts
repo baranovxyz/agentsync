@@ -55,6 +55,37 @@ export function projectPresetSkillNames(
 
 // writeFileByMode imported from ./write-file.js
 
+/** Builds the warning for a skill excluded by name collision, or `null` to skip it silently. */
+type ExcludedNameReason = (destName: string) => string | null;
+
+function defaultExcludedNameReason(destName: string): string {
+  return `skipped preset skill ${destName} — a native skill with the same name already exists; rename one definition to remove the ambiguity`;
+}
+
+/**
+ * A skill's `description` is required by `docs/configuration.md`'s Validation
+ * section and AGENTS.md's frontmatter convention. Presets already synthesize
+ * a default (see `projectPresetSkillContent`) so they're excluded here —
+ * this covers plain project/global skills, which are copied byte-for-byte
+ * with no synthesis step of their own.
+ */
+function hasNonEmptyDescription(content: string): boolean {
+  const { fm } = splitFrontmatter(content);
+  const description = fm?.description;
+  return typeof description === "string" && description.trim().length > 0;
+}
+
+function missingDescriptionWarning(
+  tool: string,
+  cwd: string,
+  sourcePath: string,
+): string {
+  return (
+    `[${tool}] ${path.relative(cwd, sourcePath)} — missing frontmatter ` +
+    "'description'; syncing with default values"
+  );
+}
+
 function projectPresetSkillContent(
   content: string,
   namespacedName: string,
@@ -133,13 +164,19 @@ async function syncSingleSkill(
         encoding: "utf-8",
       });
     }
-  } else if (write) {
-    await writeFileByMode(
-      sourcePath,
-      path.join(destDir, "SKILL.md"),
-      mode,
-      cwd,
-    );
+  } else {
+    const content = await readFile(sourcePath, "utf-8");
+    if (!hasNonEmptyDescription(content)) {
+      warnings.push(missingDescriptionWarning(tool, cwd, sourcePath));
+    }
+    if (write) {
+      await writeFileByMode(
+        sourcePath,
+        path.join(destDir, "SKILL.md"),
+        mode,
+        cwd,
+      );
+    }
   }
 
   // Copy any additional files in the skill directory (including subdirectories)
@@ -205,6 +242,69 @@ async function flatSkillWarnings(
     });
 }
 
+/**
+ * Flat-file warnings describe the source directory, not any one tool — the
+ * same directory is re-scanned once per provider (and once per preset
+ * namespace), so warn only the first time this run sees it (see also
+ * rules.ts's attachLoadWarnings, which hoists a similarly source-level
+ * warning out of the per-tool loop). The directory is claimed synchronously
+ * (no `await` between the check and the add) so concurrent providers racing
+ * on the same directory can't both observe "not seen yet" before either has
+ * recorded its claim.
+ */
+function flatWarningsOnce(
+  skillDir: string,
+  cwd: string,
+  seenFlatWarningDirs: Set<string>,
+): Promise<string[]> {
+  const resolvedSkillDir = path.resolve(skillDir);
+  const alreadyWarned = seenFlatWarningDirs.has(resolvedSkillDir);
+  seenFlatWarningDirs.add(resolvedSkillDir);
+  return alreadyWarned ? Promise.resolve([]) : flatSkillWarnings(skillDir, cwd);
+}
+
+async function projectSkillFile(
+  skillDir: string,
+  relPath: string,
+  provider: ToolProvider,
+  targetDir: string,
+  namespace: string | undefined,
+  options: SyncOptions | undefined,
+  excludedNames: ReadonlySet<string> | undefined,
+  excludedNameReason: ExcludedNameReason,
+  warnings: string[],
+  cwd: string,
+  write: boolean,
+): Promise<string | null> {
+  const sourceName = path.dirname(relPath);
+  const destName = namespace ? `${namespace}--${sourceName}` : sourceName;
+  const invalidReason = namespace
+    ? provider.validateGeneratedPresetSkillName?.(destName)
+    : undefined;
+  if (invalidReason) {
+    warnings.push(
+      `[${provider.name}] skipped preset skill ${destName} — ${invalidReason}`,
+    );
+    return null;
+  }
+  if (excludedNames?.has(destName)) {
+    const reason = excludedNameReason(destName);
+    if (reason) warnings.push(`[${provider.name}] ${reason}`);
+    return null;
+  }
+  return syncSingleSkill(
+    skillDir,
+    relPath,
+    targetDir,
+    namespace,
+    options?.mode ?? "copy",
+    warnings,
+    cwd,
+    write,
+    provider.name,
+  );
+}
+
 async function projectSkillDirectory(
   skillDir: string,
   provider: ToolProvider,
@@ -214,42 +314,29 @@ async function projectSkillDirectory(
   options: SyncOptions | undefined,
   excludedNames: ReadonlySet<string> | undefined,
   write: boolean,
+  seenFlatWarningDirs: Set<string>,
+  excludedNameReason: ExcludedNameReason = defaultExcludedNameReason,
 ): Promise<SkillSyncResult> {
   if (!(await pathExists(skillDir))) {
     return { tool: provider.name, skillCount: 0, skills: [], warnings: [] };
   }
 
   const skillFiles = await fg("*/SKILL.md", { cwd: skillDir, absolute: false });
-  const warnings = await flatSkillWarnings(skillDir, cwd);
+  const warnings = await flatWarningsOnce(skillDir, cwd, seenFlatWarningDirs);
   const skills: string[] = [];
   for (const relPath of skillFiles) {
-    const sourceName = path.dirname(relPath);
-    const destName = namespace ? `${namespace}--${sourceName}` : sourceName;
-    const invalidReason = namespace
-      ? provider.validateGeneratedPresetSkillName?.(destName)
-      : undefined;
-    if (invalidReason) {
-      warnings.push(
-        `[${provider.name}] skipped preset skill ${destName} — ${invalidReason}`,
-      );
-      continue;
-    }
-    if (excludedNames?.has(destName)) {
-      warnings.push(
-        `[${provider.name}] skipped preset skill ${destName} — a native skill with the same name already exists; rename one definition to remove the ambiguity`,
-      );
-      continue;
-    }
-    const synced = await syncSingleSkill(
+    const synced = await projectSkillFile(
       skillDir,
       relPath,
+      provider,
       targetDir,
       namespace,
-      options?.mode ?? "copy",
+      options,
+      excludedNames,
+      excludedNameReason,
       warnings,
       cwd,
       write,
-      provider.name,
     );
     if (synced) skills.push(synced);
   }
@@ -268,11 +355,13 @@ async function syncSkillsToTool(
   skillDirs: string[],
   provider: ToolProvider,
   cwd: string,
-  namespace?: string,
-  options?: SyncOptions,
+  namespace: string | undefined,
+  options: SyncOptions | undefined,
   targetSkillsDir: string | null = provider.paths.skillsDir,
   write = true,
-  excludedNames?: ReadonlySet<string>,
+  excludedNames: ReadonlySet<string> | undefined,
+  seenFlatWarningDirs: Set<string>,
+  excludedNameReason: ExcludedNameReason = defaultExcludedNameReason,
 ): Promise<SkillSyncResult> {
   if (!targetSkillsDir) {
     return { tool: provider.name, skillCount: 0, skills: [], warnings: [] };
@@ -291,6 +380,8 @@ async function syncSkillsToTool(
         options,
         excludedNames,
         write,
+        seenFlatWarningDirs,
+        excludedNameReason,
       ),
     );
   }
@@ -329,7 +420,8 @@ async function syncPresetSkills(
   options: SyncOptions | undefined,
   targetSkillsDir: string | null,
   write: boolean,
-  excludedNames?: ReadonlySet<string>,
+  excludedNames: ReadonlySet<string> | undefined,
+  seenFlatWarningDirs: Set<string>,
 ): Promise<SkillSyncResult> {
   const aggregate: SkillSyncResult = {
     tool: provider.name,
@@ -348,6 +440,7 @@ async function syncPresetSkills(
       targetSkillsDir,
       write,
       excludedNames,
+      seenFlatWarningDirs,
     );
     aggregate.skillCount += result.skillCount;
     aggregate.skills.push(...result.skills);
@@ -446,6 +539,7 @@ async function syncNativeProviderSkills(
   presetNames: string[],
   options: SyncOptions & { globalDirs?: string[] },
   write: boolean,
+  seenFlatWarningDirs: Set<string>,
 ): Promise<SkillSyncResult> {
   const native = await buildNativeReaderResult(provider, cwd, options);
   const nativeResult = native.result;
@@ -474,8 +568,77 @@ async function syncNativeProviderSkills(
     target,
     write,
     native.names,
+    seenFlatWarningDirs,
   );
   return mergeSkillResults(provider.name, [nativeResult, presetResult]);
+}
+
+/**
+ * Names present in both a global skills directory and the project skills
+ * directory. Both map to the same per-tool destination, so only the project
+ * copy (synced last, see `syncGeneratedProviderSkills`) should actually
+ * reach disk or be counted — this is computed up front so the global pass
+ * can skip writing (and reporting) them, deduplicated by final destination
+ * with project content taking precedence.
+ */
+async function shadowedGlobalSkillNames(
+  globalDirs: string[],
+  projectSkillsDir: string,
+): Promise<Map<string, string[]>> {
+  const [globalOccurrences, projectNames] = await Promise.all([
+    listSkillOccurrences(globalDirs),
+    listSkillNames([projectSkillsDir]),
+  ]);
+  const projectNameSet = new Set(projectNames);
+  const shadowed = new Map<string, string[]>();
+  for (const [name, dirs] of globalOccurrences) {
+    if (projectNameSet.has(name)) shadowed.set(name, dirs);
+  }
+  return shadowed;
+}
+
+function shadowedGlobalSkillWarning(
+  provider: ToolProvider,
+  name: string,
+  dirs: string[],
+  cwd: string,
+): string {
+  const sources = dirs.map(
+    (dir) => path.relative(cwd, path.join(dir, name, "SKILL.md")) || ".",
+  );
+  return (
+    `[${provider.name}] skill ${name} is defined in both the project and global skills; the ` +
+    `project copy wins and the global source (${sources.join(", ")}) is not synced for this ` +
+    "destination"
+  );
+}
+
+async function syncGlobalSkills(
+  provider: ToolProvider,
+  cwd: string,
+  globalDirs: string[],
+  projectSkillsDir: string,
+  options: SyncOptions | undefined,
+  write: boolean,
+  seenFlatWarningDirs: Set<string>,
+): Promise<SkillSyncResult> {
+  const shadowed = await shadowedGlobalSkillNames(globalDirs, projectSkillsDir);
+  const shadowWarnings = [...shadowed].map(([name, dirs]) =>
+    shadowedGlobalSkillWarning(provider, name, dirs, cwd),
+  );
+  const result = await syncSkillsToTool(
+    globalDirs,
+    provider,
+    cwd,
+    undefined,
+    options,
+    provider.paths.skillsDir,
+    write,
+    new Set(shadowed.keys()),
+    seenFlatWarningDirs,
+    () => null, // shadowed collision already gets its own warning above
+  );
+  return { ...result, warnings: [...shadowWarnings, ...result.warnings] };
 }
 
 async function syncGeneratedProviderSkills(
@@ -485,20 +648,21 @@ async function syncGeneratedProviderSkills(
   presetSkills: Map<string, string[]> | undefined,
   options: SyncOptions & { globalDirs?: string[] },
   write: boolean,
+  seenFlatWarningDirs: Set<string>,
 ): Promise<SkillSyncResult> {
   const results: SkillSyncResult[] = [];
 
   // Global user skills first (lowest priority — presets/project may overwrite).
   if (options.globalDirs?.length) {
     results.push(
-      await syncSkillsToTool(
-        options.globalDirs,
+      await syncGlobalSkills(
         provider,
         cwd,
-        undefined,
+        options.globalDirs,
+        projectSkillsDir,
         options,
-        provider.paths.skillsDir,
         write,
+        seenFlatWarningDirs,
       ),
     );
   }
@@ -511,6 +675,8 @@ async function syncGeneratedProviderSkills(
         options,
         provider.paths.skillsDir,
         write,
+        undefined,
+        seenFlatWarningDirs,
       ),
     );
   }
@@ -524,6 +690,8 @@ async function syncGeneratedProviderSkills(
       options,
       provider.paths.skillsDir,
       write,
+      undefined,
+      seenFlatWarningDirs,
     ),
   );
   return mergeSkillResults(provider.name, results);
@@ -547,6 +715,10 @@ async function projectSkills(
   const presetNames = presetSkills?.size
     ? await listPresetSkillNames(presetSkills)
     : [];
+  // Shared across every provider in this run so a directory scanned by
+  // multiple tools (or multiple passes of the same tool) only reports its
+  // flat-file warning once — see projectSkillDirectory.
+  const seenFlatWarningDirs = new Set<string>();
 
   return Promise.all(
     providers.map((provider) =>
@@ -558,6 +730,7 @@ async function projectSkills(
             presetNames,
             resolvedOptions,
             write,
+            seenFlatWarningDirs,
           )
         : syncGeneratedProviderSkills(
             provider,
@@ -566,6 +739,7 @@ async function projectSkills(
             presetSkills,
             resolvedOptions,
             write,
+            seenFlatWarningDirs,
           ),
     ),
   );

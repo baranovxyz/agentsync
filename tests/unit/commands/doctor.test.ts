@@ -201,6 +201,92 @@ tools = ["cursor"]
 
       expect(result.skills.count).toBe(0);
     });
+
+    it("reports skills synced once they are copied to a holdout tool's skills directory", async () => {
+      await writeTomlConfig(`tools = ["claude"]\n`);
+
+      await outputFile(
+        path.join(tmpDir, ".agents", "skills", "typescript", "SKILL.md"),
+        "---\ndescription: TS rules\n---\n# TS",
+      );
+      await outputFile(
+        path.join(tmpDir, ".claude", "skills", "typescript", "SKILL.md"),
+        "---\ndescription: TS rules\n---\n# TS",
+      );
+
+      const result = await runDiagnostics(tmpDir);
+
+      // Regression: this used to be derived from a rules-only holdout map
+      // (`.claude/rules`), so a skills-only sync was reported unsynced even
+      // though `.claude/skills/` was freshly written.
+      expect(result.skills.synced).toBe(true);
+    });
+
+    it("reports skills not synced before any sync has copied them", async () => {
+      await writeTomlConfig(`tools = ["claude"]\n`);
+
+      await outputFile(
+        path.join(tmpDir, ".agents", "skills", "typescript", "SKILL.md"),
+        "---\ndescription: TS rules\n---\n# TS",
+      );
+
+      const result = await runDiagnostics(tmpDir);
+
+      expect(result.skills.synced).toBe(false);
+    });
+
+    it("treats a native-only tool set as synced once canonical skills exist (native readers get no copy)", async () => {
+      await writeTomlConfig(`tools = ["opencode"]\n`);
+
+      await outputFile(
+        path.join(tmpDir, ".agents", "skills", "typescript", "SKILL.md"),
+        "---\ndescription: TS rules\n---\n# TS",
+      );
+
+      const result = await runDiagnostics(tmpDir);
+
+      expect(result.skills.synced).toBe(true);
+    });
+
+    it("reports a native-only tool set as not synced when no skills exist yet", async () => {
+      await writeTomlConfig(`tools = ["opencode"]\n`);
+
+      const result = await runDiagnostics(tmpDir);
+
+      expect(result.skills.synced).toBe(false);
+    });
+  });
+
+  describe("Drift check (rules holdout)", () => {
+    it("never reports RooCode or Copilot — neither has a rules writer to check", async () => {
+      await writeTomlConfig(`tools = ["roocode", "copilot"]\n`);
+
+      const result = await runDiagnostics(tmpDir);
+
+      expect(result.drift).toEqual([]);
+    });
+
+    it("reports claude and cursor rules directories once they exist", async () => {
+      await writeTomlConfig(`tools = ["claude", "cursor"]\n`);
+      await ensureDir(path.join(tmpDir, ".claude", "rules"));
+      await ensureDir(path.join(tmpDir, ".cursor", "rules"));
+
+      const result = await runDiagnostics(tmpDir);
+
+      expect(result.drift.map((d) => d.tool).sort()).toEqual([
+        "claude",
+        "cursor",
+      ]);
+      expect(result.drift.every((d) => d.status !== "missing")).toBe(true);
+    });
+
+    it("reports claude rules as missing before any sync has produced them", async () => {
+      await writeTomlConfig(`tools = ["claude"]\n`);
+
+      const result = await runDiagnostics(tmpDir);
+
+      expect(result.drift).toEqual([{ tool: "claude", status: "missing" }]);
+    });
   });
 
   describe("MCP check", () => {

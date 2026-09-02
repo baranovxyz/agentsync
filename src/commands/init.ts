@@ -23,7 +23,6 @@ import {
 } from "../utils/config-creation.js";
 import { ensureDir, outputFile, pathExists } from "../utils/fs.js";
 import {
-  generateGitignoreContent,
   hasAgentSyncSection,
   updateAgentSyncSection,
 } from "../utils/gitignore.js";
@@ -286,10 +285,11 @@ async function updateGitignore(
     const existing = (await pathExists(gitignorePath))
       ? await readFile(gitignorePath, "utf-8")
       : "";
+    // Always go through the shared merge function — it already handles both
+    // "no section yet" (append) and "section exists" (replace in place), so
+    // init and sync can never disagree on what the managed block looks like.
     const hasSection = hasAgentSyncSection(existing);
-    const content = hasSection
-      ? updateAgentSyncSection(existing, tools)
-      : `${existing}\n${generateGitignoreContent(tools)}`;
+    const content = updateAgentSyncSection(existing, tools);
     await outputFile(gitignorePath, content);
     const suffix = hasSection ? " (AgentSync section)" : "";
     log?.(pc.green(`  ✓ Updated .gitignore${suffix}`));

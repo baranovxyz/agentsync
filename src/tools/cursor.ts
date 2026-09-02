@@ -4,6 +4,7 @@ import * as path from "node:path";
 import yaml from "js-yaml";
 import type { MCP } from "../core/mcp/tokens.js";
 import type { StructuredStateClaim } from "../sync/structured-state.js";
+import type { SyncMode } from "../sync/write-file.js";
 import { outputFile } from "../utils/fs.js";
 import { assertSafeProjectOutputPath } from "../utils/project-output.js";
 import { cursorAgentContentTransform } from "./cursor/agents.js";
@@ -40,7 +41,10 @@ export function toCursorMdc(rule: CanonicalRule): string {
 async function writeCursorRules(
   rules: CanonicalRule[],
   cwd: string,
+  _mode: SyncMode,
 ): Promise<{ written: string[]; warnings: string[] }> {
+  // Cursor's `.mdc` is a translation, never byte-identical to the canonical
+  // source — it always materializes real content, regardless of sync mode.
   const written: string[] = [];
   for (const rule of rules) {
     const destination = path.join(

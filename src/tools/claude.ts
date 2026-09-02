@@ -1,9 +1,10 @@
 /** Claude Code tool provider. */
 
-import { realpath } from "node:fs/promises";
+import { lstat, realpath } from "node:fs/promises";
 import * as path from "node:path";
 import type { MCP } from "../core/mcp/tokens.js";
 import type { StructuredStateClaim } from "../sync/structured-state.js";
+import { type SyncMode, writeFileByMode } from "../sync/write-file.js";
 import { outputFile } from "../utils/fs.js";
 import { toPosixPath } from "../utils/path-normalization.js";
 import { assertSafeProjectOutputPath } from "../utils/project-output.js";
@@ -31,24 +32,49 @@ import { writeMcpJson } from "./mcp-helpers.js";
 import type { CanonicalRule, ToolProvider } from "./types.js";
 
 /**
- * Claude Code's rules format is canonical, so each rule is written verbatim.
- * The realpath check avoids rewriting a source through a `.claude/rules`
- * symlink that already points at `.agents/rules`.
+ * Claude Code's rules format is canonical, so each rule is written verbatim —
+ * a symlink to the canonical source under link mode, a byte-identical copy
+ * otherwise.
  */
 async function writeClaudeRules(
   rules: CanonicalRule[],
   cwd: string,
+  mode: SyncMode,
 ): Promise<{ written: string[]; warnings: string[] }> {
   const written: string[] = [];
   for (const rule of rules) {
     const destination = path.join(cwd, ".claude", "rules", rule.relPath);
-    if (!(await isSameFile(rule.sourcePath, destination))) {
-      await assertSafeProjectOutputPath(cwd, destination);
-      await outputFile(destination, rule.raw, { encoding: "utf-8" });
+    if (
+      !(await reachesSourceThroughSymlinkedAncestor(
+        rule.sourcePath,
+        destination,
+      ))
+    ) {
+      await writeFileByMode(rule.sourcePath, destination, mode, cwd);
     }
     written.push(rule.name);
   }
   return { written, warnings: [] };
+}
+
+/**
+ * True only when `destination` reaches `source` through a symlinked ANCESTOR
+ * directory — the converged layout `.claude/rules -> ../.agents/rules` — so
+ * unlinking through that path would delete the canonical source itself. A
+ * symlink AT the destination path (our own `--link` output) is excluded: it
+ * is always safe for `writeFileByMode` to replace, since unlinking it never
+ * touches the source.
+ */
+async function reachesSourceThroughSymlinkedAncestor(
+  source: string,
+  destination: string,
+): Promise<boolean> {
+  try {
+    if ((await lstat(destination)).isSymbolicLink()) return false;
+  } catch {
+    return false;
+  }
+  return isSameFile(source, destination);
 }
 
 async function isSameFile(left: string, right: string): Promise<boolean> {
