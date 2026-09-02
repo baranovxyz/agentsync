@@ -110,84 +110,86 @@ describe("sync cross-surface preflight atomicity", () => {
     expect(await pathExists(getManifestPath(project))).toBe(true);
   });
 
-  it.each([
-    "opencode",
-    "codex",
-  ] as const)("rejects malformed %s shared config before any content surface write", async (malformedTool) => {
-    await outputFile(
-      path.join(project, ".agents", "agentsync.toml"),
-      [
-        `tools = ["claude", "cursor", "${malformedTool}"]`,
-        "",
-        "[mcp.tracker]",
-        'command = "node"',
-        'args = ["tracker.js"]',
-        "",
-        "[[hooks.PreToolUse]]",
-        'id = "audit"',
-        'matcher = "Bash"',
-        'command = ".agents/hooks/scripts/audit.sh"',
-        "",
-        "[permissions]",
-        'default = "ask"',
-        "",
-        "[statusline]",
-        'items = ["model"]',
-        "",
-      ].join("\n"),
-    );
-    await outputFile(path.join(project, "AGENTS.md"), "# Instructions\n");
-    await outputFile(
-      path.join(project, ".agents", "skills", "review", "SKILL.md"),
-      "---\nname: review\ndescription: Review\n---\n# Review\n",
-    );
-    await writeCanonicalCommand();
-    await outputFile(
-      path.join(project, ".agents", "agents", "reviewer.md"),
-      "---\ndescription: Review agent\n---\n# Reviewer\n",
-    );
-    await outputFile(
-      path.join(project, ".agents", "rules", "safety.md"),
-      "Keep changes safe.\n",
-    );
-    await outputFile(
-      path.join(project, ".agents", "hooks", "scripts", "audit.sh"),
-      "#!/bin/sh\nexit 0\n",
-    );
-    const malformedPath =
-      malformedTool === "opencode"
-        ? path.join(project, "opencode.json")
-        : path.join(project, ".codex", "config.toml");
-    await outputFile(
-      malformedPath,
-      malformedTool === "opencode" ? "{invalid json" : "[mcp_servers\n",
-    );
-    await writeOwnedManifest(project, new Map(), {
-      preserveUnselected: false,
-    });
-    const manifestBefore = await readFile(getManifestPath(project), "utf-8");
-    const plan = await buildSyncPlan({ cwd: project });
+  it.each(["opencode", "codex"] as const)(
+    "rejects malformed %s shared config before any content surface write",
+    async (malformedTool) => {
+      await outputFile(
+        path.join(project, ".agents", "agentsync.toml"),
+        [
+          `tools = ["claude", "cursor", "${malformedTool}"]`,
+          "",
+          "[mcp.tracker]",
+          'command = "node"',
+          'args = ["tracker.js"]',
+          "",
+          "[[hooks.PreToolUse]]",
+          'id = "audit"',
+          'matcher = "Bash"',
+          'command = ".agents/hooks/scripts/audit.sh"',
+          "",
+          "[permissions]",
+          'default = "ask"',
+          "",
+          "[statusline]",
+          'items = ["model"]',
+          "",
+        ].join("\n"),
+      );
+      await outputFile(path.join(project, "AGENTS.md"), "# Instructions\n");
+      await outputFile(
+        path.join(project, ".agents", "skills", "review", "SKILL.md"),
+        "---\nname: review\ndescription: Review\n---\n# Review\n",
+      );
+      await writeCanonicalCommand();
+      await outputFile(
+        path.join(project, ".agents", "agents", "reviewer.md"),
+        "---\ndescription: Review agent\n---\n# Reviewer\n",
+      );
+      await outputFile(
+        path.join(project, ".agents", "rules", "safety.md"),
+        "Keep changes safe.\n",
+      );
+      await outputFile(
+        path.join(project, ".agents", "hooks", "scripts", "audit.sh"),
+        "#!/bin/sh\nexit 0\n",
+      );
+      const malformedPath =
+        malformedTool === "opencode"
+          ? path.join(project, "opencode.json")
+          : path.join(project, ".codex", "config.toml");
+      await outputFile(
+        malformedPath,
+        malformedTool === "opencode" ? "{invalid json" : "[mcp_servers\n",
+      );
+      await writeOwnedManifest(project, new Map(), {
+        preserveUnselected: false,
+      });
+      const manifestBefore = await readFile(getManifestPath(project), "utf-8");
+      const plan = await buildSyncPlan({ cwd: project });
 
-    await expect(executeSyncPlan(plan, { cwd: project })).rejects.toMatchObject(
-      { code: "CONFIG_ERROR" },
-    );
+      await expect(
+        executeSyncPlan(plan, { cwd: project }),
+      ).rejects.toMatchObject({ code: "CONFIG_ERROR" });
 
-    for (const output of [
-      ".claude/skills/review/SKILL.md",
-      ".claude/commands/review.md",
-      ".claude/agents/reviewer.md",
-      ".claude/rules/safety.md",
-      ".claude/settings.json",
-      ".cursor/commands/review.md",
-      ".cursor/agents/reviewer.md",
-      ".cursor/rules/safety.mdc",
-      ".cursor/hooks.json",
-      "CLAUDE.md",
-    ]) {
-      expect(await pathExists(path.join(project, output)), output).toBe(false);
-    }
-    expect(await readFile(getManifestPath(project), "utf-8")).toBe(
-      manifestBefore,
-    );
-  });
+      for (const output of [
+        ".claude/skills/review/SKILL.md",
+        ".claude/commands/review.md",
+        ".claude/agents/reviewer.md",
+        ".claude/rules/safety.md",
+        ".claude/settings.json",
+        ".cursor/commands/review.md",
+        ".cursor/agents/reviewer.md",
+        ".cursor/rules/safety.mdc",
+        ".cursor/hooks.json",
+        "CLAUDE.md",
+      ]) {
+        expect(await pathExists(path.join(project, output)), output).toBe(
+          false,
+        );
+      }
+      expect(await readFile(getManifestPath(project), "utf-8")).toBe(
+        manifestBefore,
+      );
+    },
+  );
 });

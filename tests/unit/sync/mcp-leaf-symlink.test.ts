@@ -31,34 +31,32 @@ describe.runIf(process.platform !== "win32")(
       await rm(project, { recursive: true, force: true });
     });
 
-    it.each(
-      cases,
-    )("preserves a receipt-owned $tool config redirected to another project file", async ({
-      tool,
-      config,
-    }) => {
-      const provider = getToolProvider(tool);
-      const written = await syncManagedMCP([provider], server, project);
-      const configPath = path.join(project, config);
-      const original = await readFile(configPath, "utf-8");
-      const targetPath = path.join(project, ".manual", `${tool}.config`);
-      await outputFile(targetPath, original);
-      await rm(configPath);
-      await symlink(targetPath, configPath);
+    it.each(cases)(
+      "preserves a receipt-owned $tool config redirected to another project file",
+      async ({ tool, config }) => {
+        const provider = getToolProvider(tool);
+        const written = await syncManagedMCP([provider], server, project);
+        const configPath = path.join(project, config);
+        const original = await readFile(configPath, "utf-8");
+        const targetPath = path.join(project, ".manual", `${tool}.config`);
+        await outputFile(targetPath, original);
+        await rm(configPath);
+        await symlink(targetPath, configPath);
 
-      const withdrawn = await syncManagedMCP([provider], {}, project, {
-        previousOwners: written.owners,
-      });
+        const withdrawn = await syncManagedMCP([provider], {}, project, {
+          previousOwners: written.owners,
+        });
 
-      expect(withdrawn.warnings).toEqual([
-        expect.stringContaining("destination is not a regular file"),
-      ]);
-      expect(withdrawn.relinquishedTools).toEqual([tool]);
-      expect(withdrawn.removedFiles).toEqual([]);
-      expect(withdrawn.modifiedFiles).toEqual([]);
-      expect((await lstat(configPath)).isSymbolicLink()).toBe(true);
-      expect(await readFile(targetPath, "utf-8")).toBe(original);
-    });
+        expect(withdrawn.warnings).toEqual([
+          expect.stringContaining("destination is not a regular file"),
+        ]);
+        expect(withdrawn.relinquishedTools).toEqual([tool]);
+        expect(withdrawn.removedFiles).toEqual([]);
+        expect(withdrawn.modifiedFiles).toEqual([]);
+        expect((await lstat(configPath)).isSymbolicLink()).toBe(true);
+        expect(await readFile(targetPath, "utf-8")).toBe(original);
+      },
+    );
 
     it("rejects an in-project OpenCode leaf symlink at the mutation boundary", async () => {
       const provider = getToolProvider("opencode");

@@ -208,35 +208,32 @@ describe("structured-state record kernel", () => {
       configChanged: false,
       protectedDependencies: ["hook-files"],
     },
-  ])("withdraws $name whole-key ownership with dependency metadata", ({
-    existing,
-    reason,
-    next,
-    configChanged,
-    protectedDependencies,
-  }) => {
-    const plan = planStructuredRecord({
-      declaration: settingsDeclaration,
-      existing,
-      claims: [],
-      previousReceipt: keyReceipt("hooks", ["generated"]),
-    });
+  ])(
+    "withdraws $name whole-key ownership with dependency metadata",
+    ({ existing, reason, next, configChanged, protectedDependencies }) => {
+      const plan = planStructuredRecord({
+        declaration: settingsDeclaration,
+        existing,
+        claims: [],
+        previousReceipt: keyReceipt("hooks", ["generated"]),
+      });
 
-    expect(plan.nextConfig).toEqual(next);
-    expect(plan.nextReceipt).toBeUndefined();
-    expect(plan.configChanged).toBe(configChanged);
-    expect(plan.receiptChanged).toBe(true);
-    expect(plan.relinquishments).toEqual([
-      {
-        path: settingsDeclaration.path,
-        kind: "key",
-        key: "hooks",
-        reason,
-        dependencies: ["hook-files"],
-      },
-    ]);
-    expect(plan.protectedDependencies).toEqual(protectedDependencies);
-  });
+      expect(plan.nextConfig).toEqual(next);
+      expect(plan.nextReceipt).toBeUndefined();
+      expect(plan.configChanged).toBe(configChanged);
+      expect(plan.receiptChanged).toBe(true);
+      expect(plan.relinquishments).toEqual([
+        {
+          path: settingsDeclaration.path,
+          kind: "key",
+          key: "hooks",
+          reason,
+          dependencies: ["hook-files"],
+        },
+      ]);
+      expect(plan.protectedDependencies).toEqual(protectedDependencies);
+    },
+  );
 
   it("preserves a modified withdrawn slice and protects its dependencies", () => {
     const current = ["README.md", ".agents/rules/manual.md"];

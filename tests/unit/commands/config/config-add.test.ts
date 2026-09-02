@@ -85,26 +85,26 @@ describe("Config Add Command", () => {
       expect(await readFile(configPath, "utf-8")).toBe(original);
     });
 
-    it.each([
-      "skill",
-      "command",
-    ] as const)("refuses to add a %s beside a foreign config", async (type) => {
-      const configPath = path.join(tmpDir, ".agents", "agentsync.toml");
-      const original = 'default_agents = ["claude"]\n';
-      await outputFile(configPath, original);
+    it.each(["skill", "command"] as const)(
+      "refuses to add a %s beside a foreign config",
+      async (type) => {
+        const configPath = path.join(tmpDir, ".agents", "agentsync.toml");
+        const original = 'default_agents = ["claude"]\n';
+        await outputFile(configPath, original);
 
-      await expect(
-        configAdd(type, "audit", { cwd: tmpDir }),
-      ).rejects.toBeInstanceOf(ConfigError);
-      expect(await readFile(configPath, "utf-8")).toBe(original);
-      expect(
-        await pathExists(
-          type === "skill"
-            ? path.join(tmpDir, ".agents", "skills", "audit", "SKILL.md")
-            : path.join(tmpDir, ".agents", "commands", "audit.md"),
-        ),
-      ).toBe(false);
-    });
+        await expect(
+          configAdd(type, "audit", { cwd: tmpDir }),
+        ).rejects.toBeInstanceOf(ConfigError);
+        expect(await readFile(configPath, "utf-8")).toBe(original);
+        expect(
+          await pathExists(
+            type === "skill"
+              ? path.join(tmpDir, ".agents", "skills", "audit", "SKILL.md")
+              : path.join(tmpDir, ".agents", "commands", "audit.md"),
+          ),
+        ).toBe(false);
+      },
+    );
   });
 
   describe.runIf(process.platform !== "win32")("config path safety", () => {
@@ -267,15 +267,18 @@ describe("Config Add Command", () => {
     it.each([
       ["inline table", 'tools = { selected = "claude" }\n'],
       ["table", '[tools]\nselected = "claude"\n'],
-    ])("rejects an unsupported %s without changing it", async (_shape, original) => {
-      const configPath = path.join(tmpDir, ".agents", "agentsync.toml");
-      await outputFile(configPath, original);
+    ])(
+      "rejects an unsupported %s without changing it",
+      async (_shape, original) => {
+        const configPath = path.join(tmpDir, ".agents", "agentsync.toml");
+        await outputFile(configPath, original);
 
-      await expect(
-        configAdd("tool", "cursor", { cwd: tmpDir }),
-      ).rejects.toBeInstanceOf(ConfigError);
-      expect(await readFile(configPath, "utf-8")).toBe(original);
-    });
+        await expect(
+          configAdd("tool", "cursor", { cwd: tmpDir }),
+        ).rejects.toBeInstanceOf(ConfigError);
+        expect(await readFile(configPath, "utf-8")).toBe(original);
+      },
+    );
 
     it("rejects a duplicate key without changing it", async () => {
       const configPath = path.join(tmpDir, ".agents", "agentsync.toml");

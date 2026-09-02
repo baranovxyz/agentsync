@@ -283,17 +283,20 @@ describe("Sync JSON Output & CI Mode", () => {
   it.each([
     ["sync", {}],
     ["dry run", { dryRun: true }],
-  ])("sets a partial exit code for human %s preset failures", async (_, mode) => {
-    await ensureDir(path.join(tmpDir, ".agents"));
-    await outputFile(
-      path.join(tmpDir, ".agents", "agentsync.toml"),
-      'tools = ["claude"]\nextends = ["fs:./missing-preset"]\n',
-    );
+  ])(
+    "sets a partial exit code for human %s preset failures",
+    async (_, mode) => {
+      await ensureDir(path.join(tmpDir, ".agents"));
+      await outputFile(
+        path.join(tmpDir, ".agents", "agentsync.toml"),
+        'tools = ["claude"]\nextends = ["fs:./missing-preset"]\n',
+      );
 
-    await sync({ cwd: tmpDir, ...mode });
+      await sync({ cwd: tmpDir, ...mode });
 
-    expect(process.exitCode).toBe(1);
-  });
+      expect(process.exitCode).toBe(1);
+    },
+  );
 
   describe("--tool filter", () => {
     it("syncs only to specified tool", async () => {

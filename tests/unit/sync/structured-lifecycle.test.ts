@@ -360,36 +360,36 @@ describe("structured lifecycle", () => {
       receiptPath: ".claude/settings.json",
       receiptFormat: "toml",
     },
-  ])("conservatively protects every provider artifact for an $name receipt", async ({
-    receiptPath,
-    receiptFormat,
-  }) => {
-    const configPath = ".claude/settings.json";
-    const plan = await planStructuredLifecycle({
-      cwd: project,
-      providers: [
-        projection(
-          "claude",
-          declaration(configPath, "hooks", ["hook-files"]),
-          undefined,
-          ["hook-files", "script-files"],
-        ),
-      ],
-      previousReceipts: {
-        claude: {
-          [receiptPath]: keyReceipt("hooks", ["generated"], receiptFormat),
+  ])(
+    "conservatively protects every provider artifact for an $name receipt",
+    async ({ receiptPath, receiptFormat }) => {
+      const configPath = ".claude/settings.json";
+      const plan = await planStructuredLifecycle({
+        cwd: project,
+        providers: [
+          projection(
+            "claude",
+            declaration(configPath, "hooks", ["hook-files"]),
+            undefined,
+            ["hook-files", "script-files"],
+          ),
+        ],
+        previousReceipts: {
+          claude: {
+            [receiptPath]: keyReceipt("hooks", ["generated"], receiptFormat),
+          },
         },
-      },
-      preserveUnselected: false,
-    });
+        preserveUnselected: false,
+      });
 
-    expect(plan.protectedDependencies).toEqual({
-      claude: ["hook-files", "script-files"],
-    });
-    expect(providerPlan(plan, "claude").relinquishments).toEqual([
-      expect.objectContaining({ reason: "incompatible" }),
-    ]);
-  });
+      expect(plan.protectedDependencies).toEqual({
+        claude: ["hook-files", "script-files"],
+      });
+      expect(providerPlan(plan, "claude").relinquishments).toEqual([
+        expect.objectContaining({ reason: "incompatible" }),
+      ]);
+    },
+  );
 
   it("publishes refreshed receipt and protection partitions after apply", async () => {
     const configPath = ".claude/settings.json";

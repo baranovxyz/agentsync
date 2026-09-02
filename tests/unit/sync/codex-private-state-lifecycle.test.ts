@@ -74,25 +74,25 @@ describe("Codex provider-private state lifecycle", () => {
     ]);
   });
 
-  it.each([
-    "role",
-    "extension",
-  ])("records %s-only state without generic Codex agent ownership", async (surface) => {
-    await configure(
-      ["codex"],
-      surface === "extension" ? '\n[permissions]\ndefault = "ask"\n' : "",
-    );
-    if (surface === "role") await writeRole();
+  it.each(["role", "extension"])(
+    "records %s-only state without generic Codex agent ownership",
+    async (surface) => {
+      await configure(
+        ["codex"],
+        surface === "extension" ? '\n[permissions]\ndefault = "ask"\n' : "",
+      );
+      if (surface === "role") await writeRole();
 
-    await run();
+      await run();
 
-    const manifest = await readManifest(project);
-    expect(manifest?.provider_state_owners).toEqual(["codex"]);
-    expect(manifest?.owners?.codex).toBeUndefined();
-    if (surface === "role") {
-      expect(manifest?.files).toHaveProperty(ROLE_MARKDOWN);
-    }
-  });
+      const manifest = await readManifest(project);
+      expect(manifest?.provider_state_owners).toEqual(["codex"]);
+      expect(manifest?.owners?.codex).toBeUndefined();
+      if (surface === "role") {
+        expect(manifest?.files).toHaveProperty(ROLE_MARKDOWN);
+      }
+    },
+  );
 
   it("drops the selected Codex marker when no private state remains", async () => {
     await configure(["codex"], '\n[permissions]\ndefault = "ask"\n');
