@@ -1,6 +1,6 @@
 {
   "name": "agentsync",
-  "version": "1.0.0-beta.0",
+  "version": "1.0.0",
   "description": "The missing infrastructure layer for AI coding agent configuration management",
   "type": "module",
   "bin": {
@@ -85,7 +85,7 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.2",
+    "@biomejs/biome": "2.5.8",
     "@commitlint/cli": "19.8.1",
     "@commitlint/config-conventional": "19.8.1",
     "@types/js-yaml": "4.0.9",

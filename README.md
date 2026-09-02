@@ -14,11 +14,6 @@
   <a href="https://www.npmjs.com/package/agentsync"><img src="https://img.shields.io/node/v/agentsync?style=flat-square" alt="Node version" /></a>
 </p>
 
-> Beta release: `1.0.0-beta.0` is a prerelease for validating the v1 CLI,
-> `.agents/` config format, and maintainer-validated adapters before the stable
-> 1.0 release. Optional adapters remain available when explicitly configured.
-> Install with `npm install -g agentsync@beta`.
-
 ---
 
 ## The Problem
@@ -51,7 +46,7 @@ Tools that read `.agents/` natively (OpenCode, Codex, Gemini, Amp, Goose, and ot
 ## Install
 
 ```bash
-npm install -g agentsync@beta
+npm install -g agentsync
 ```
 
 ## Quick Start
