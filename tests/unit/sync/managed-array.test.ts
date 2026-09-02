@@ -56,18 +56,21 @@ describe("managed array slices", () => {
   it.each([
     ["identical", [".agents/rules/generated.md"]],
     ["different", [".agents/manual.md"]],
-  ])("rejects an unowned occupied slice even when %s", (_case, currentOwned) => {
-    expect(() =>
-      reconcile({ present: true, value: ["README.md", ...currentOwned] }, [
-        ".agents/rules/generated.md",
-      ]),
-    ).toThrowError(ConfigError);
-    expect(() =>
-      reconcile({ present: true, value: ["README.md", ...currentOwned] }, [
-        ".agents/rules/generated.md",
-      ]),
-    ).toThrow(/no prior AgentSync ownership receipt/);
-  });
+  ])(
+    "rejects an unowned occupied slice even when %s",
+    (_case, currentOwned) => {
+      expect(() =>
+        reconcile({ present: true, value: ["README.md", ...currentOwned] }, [
+          ".agents/rules/generated.md",
+        ]),
+      ).toThrowError(ConfigError);
+      expect(() =>
+        reconcile({ present: true, value: ["README.md", ...currentOwned] }, [
+          ".agents/rules/generated.md",
+        ]),
+      ).toThrow(/no prior AgentSync ownership receipt/);
+    },
+  );
 
   it("retains an unchanged owned slice and its interspersed array layout", () => {
     const existing = [
@@ -133,19 +136,22 @@ describe("managed array slices", () => {
       { present: true, value: ["README.md"] },
       ["README.md", ".agents/rules/generated.md"],
     ],
-  ])("recreates a %s covered by a valid receipt", (_case, existing, expected) => {
-    const desired = [".agents/rules/generated.md"];
-    const result = reconcile(
-      existing,
-      desired,
-      hashSemanticValue([".agents/old.md"]),
-    );
+  ])(
+    "recreates a %s covered by a valid receipt",
+    (_case, existing, expected) => {
+      const desired = [".agents/rules/generated.md"];
+      const result = reconcile(
+        existing,
+        desired,
+        hashSemanticValue([".agents/old.md"]),
+      );
 
-    expect(result.next).toEqual({ present: true, value: expected });
-    expect(result.nextReceipt).toBe(hashSemanticValue(desired));
-    expect(result.warnings).toEqual([]);
-    expect(result.changed).toBe(true);
-  });
+      expect(result.next).toEqual({ present: true, value: expected });
+      expect(result.nextReceipt).toBe(hashSemanticValue(desired));
+      expect(result.warnings).toEqual([]);
+      expect(result.changed).toBe(true);
+    },
+  );
 
   it("rejects a modified receipt-owned slice when a write is desired", () => {
     expect(() =>
@@ -208,16 +214,19 @@ describe("managed array slices", () => {
     ["a missing key", missing],
     ["an absent slice", { present: true, value: ["README.md"] }],
     ["an empty array", { present: true, value: [] }],
-  ])("relinquishes %s covered by a receipt without changing content", (_case, existing) => {
-    expect(
-      reconcile(existing, [], hashSemanticValue([".agents/old.md"])),
-    ).toEqual({
-      next: existing,
-      warnings: [],
-      changed: false,
-      relinquished: true,
-    });
-  });
+  ])(
+    "relinquishes %s covered by a receipt without changing content",
+    (_case, existing) => {
+      expect(
+        reconcile(existing, [], hashSemanticValue([".agents/old.md"])),
+      ).toEqual({
+        next: existing,
+        warnings: [],
+        changed: false,
+        relinquished: true,
+      });
+    },
+  );
 
   it("preserves a modified withdrawal with an actionable warning", () => {
     const existing = ["README.md", ".agents/manually-edited.md"];

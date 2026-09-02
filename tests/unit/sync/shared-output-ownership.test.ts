@@ -507,19 +507,22 @@ ${includePreset ? 'extends = ["fs:./preset"]' : ""}
   it.each([
     ["claude", ".claude/rules/review.md"],
     ["cursor", ".cursor/rules/review.mdc"],
-  ] as const)("refuses to overwrite a hand-authored %s rule", async (tool, relativeOutput) => {
-    await configure([tool], false);
-    await outputFile(
-      path.join(tmpDir, ".agents", "rules", "review.md"),
-      "# Canonical review rule\n",
-    );
-    const output = path.join(tmpDir, relativeOutput);
-    await outputFile(output, "# Manual provider rule\n");
+  ] as const)(
+    "refuses to overwrite a hand-authored %s rule",
+    async (tool, relativeOutput) => {
+      await configure([tool], false);
+      await outputFile(
+        path.join(tmpDir, ".agents", "rules", "review.md"),
+        "# Canonical review rule\n",
+      );
+      const output = path.join(tmpDir, relativeOutput);
+      await outputFile(output, "# Manual provider rule\n");
 
-    await expect(run()).rejects.toThrow("Refusing to overwrite unowned");
+      await expect(run()).rejects.toThrow("Refusing to overwrite unowned");
 
-    expect(await readFile(output, "utf-8")).toBe("# Manual provider rule\n");
-  });
+      expect(await readFile(output, "utf-8")).toBe("# Manual provider rule\n");
+    },
+  );
 
   it("records and withdraws unchanged generated docs and file rules exactly", async () => {
     await configure(["claude", "cursor"], false);
@@ -694,49 +697,43 @@ ${includePreset ? 'extends = ["fs:./preset"]' : ""}
     expect((await readManifest(tmpDir))?.owners?.gemini).toEqual(["GEMINI.md"]);
   });
 
-  it.each(
-    NON_RELEASE_FILE_LIFECYCLES,
-  )("$tool withdraws every unchanged generated file and preserves user neighbors", async ({
-    tool,
-    generatedFiles,
-    userFiles,
-  }) => {
-    await configure([tool], false);
-    await createCanonicalFiles();
-    await writeUserFiles(userFiles);
+  it.each(NON_RELEASE_FILE_LIFECYCLES)(
+    "$tool withdraws every unchanged generated file and preserves user neighbors",
+    async ({ tool, generatedFiles, userFiles }) => {
+      await configure([tool], false);
+      await createCanonicalFiles();
+      await writeUserFiles(userFiles);
 
-    await run();
+      await run();
 
-    expect((await readManifest(tmpDir))?.owners?.[tool]).toEqual(
-      [...generatedFiles].sort(),
-    );
-    await expectFiles(generatedFiles, true);
-    await configure([], false);
-    await run();
+      expect((await readManifest(tmpDir))?.owners?.[tool]).toEqual(
+        [...generatedFiles].sort(),
+      );
+      await expectFiles(generatedFiles, true);
+      await configure([], false);
+      await run();
 
-    await expectFiles(generatedFiles, false);
-    await expectFiles(userFiles, true);
-    await expectFiles(CANONICAL_FILES, true);
-    expect((await readManifest(tmpDir))?.owners?.[tool]).toBeUndefined();
-  });
+      await expectFiles(generatedFiles, false);
+      await expectFiles(userFiles, true);
+      await expectFiles(CANONICAL_FILES, true);
+      expect((await readManifest(tmpDir))?.owners?.[tool]).toBeUndefined();
+    },
+  );
 
-  it.each(
-    NON_RELEASE_FILE_LIFECYCLES,
-  )("$tool clean removes exact generated files and preserves user neighbors", async ({
-    tool,
-    generatedFiles,
-    userFiles,
-  }) => {
-    await configure([tool], false);
-    await createCanonicalFiles();
-    await writeUserFiles(userFiles);
-    await run();
+  it.each(NON_RELEASE_FILE_LIFECYCLES)(
+    "$tool clean removes exact generated files and preserves user neighbors",
+    async ({ tool, generatedFiles, userFiles }) => {
+      await configure([tool], false);
+      await createCanonicalFiles();
+      await writeUserFiles(userFiles);
+      await run();
 
-    await cleanCommand({ cwd: tmpDir });
+      await cleanCommand({ cwd: tmpDir });
 
-    await expectFiles(generatedFiles, false);
-    await expectFiles(userFiles, true);
-    await expectFiles(CANONICAL_FILES, true);
-    expect((await readManifest(tmpDir))?.owners?.[tool]).toBeUndefined();
-  });
+      await expectFiles(generatedFiles, false);
+      await expectFiles(userFiles, true);
+      await expectFiles(CANONICAL_FILES, true);
+      expect((await readManifest(tmpDir))?.owners?.[tool]).toBeUndefined();
+    },
+  );
 });

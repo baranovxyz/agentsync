@@ -77,25 +77,25 @@ describe("Config Remove Command", () => {
       expect(await readFile(configPath, "utf-8")).toBe(original);
     });
 
-    it.each([
-      "skill",
-      "command",
-    ] as const)("refuses to remove a %s beside a foreign config", async (type) => {
-      const configPath = path.join(tmpDir, ".agents", "agentsync.toml");
-      const original = 'default_agents = ["claude"]\n';
-      const itemPath =
-        type === "skill"
-          ? path.join(tmpDir, ".agents", "skills", "audit", "SKILL.md")
-          : path.join(tmpDir, ".agents", "commands", "audit.md");
-      await outputFile(configPath, original);
-      await outputFile(itemPath, "keep me\n");
+    it.each(["skill", "command"] as const)(
+      "refuses to remove a %s beside a foreign config",
+      async (type) => {
+        const configPath = path.join(tmpDir, ".agents", "agentsync.toml");
+        const original = 'default_agents = ["claude"]\n';
+        const itemPath =
+          type === "skill"
+            ? path.join(tmpDir, ".agents", "skills", "audit", "SKILL.md")
+            : path.join(tmpDir, ".agents", "commands", "audit.md");
+        await outputFile(configPath, original);
+        await outputFile(itemPath, "keep me\n");
 
-      await expect(
-        configRm(type, "audit", { cwd: tmpDir }),
-      ).rejects.toBeInstanceOf(ConfigError);
-      expect(await readFile(configPath, "utf-8")).toBe(original);
-      expect(await readFile(itemPath, "utf-8")).toBe("keep me\n");
-    });
+        await expect(
+          configRm(type, "audit", { cwd: tmpDir }),
+        ).rejects.toBeInstanceOf(ConfigError);
+        expect(await readFile(configPath, "utf-8")).toBe(original);
+        expect(await readFile(itemPath, "utf-8")).toBe("keep me\n");
+      },
+    );
   });
 
   describe.runIf(process.platform !== "win32")("config path safety", () => {
@@ -332,22 +332,22 @@ describe("Config Remove Command", () => {
       expect(parseToml(content).mcp).toEqual({ kept: { command: "keep" } });
     });
 
-    it.each([
-      'mcp.foo = { command = "npx" }\n',
-      'mcp.foo.command = "npx"\n',
-    ])("removes a server encoded with dotted keys: %s", async (encoded) => {
-      const configPath = path.join(tmpDir, ".agents", "agentsync.toml");
-      await outputFile(
-        configPath,
-        `tools = ["claude"]\n${encoded}mcp.kept.command = "keep"\n`,
-      );
+    it.each(['mcp.foo = { command = "npx" }\n', 'mcp.foo.command = "npx"\n'])(
+      "removes a server encoded with dotted keys: %s",
+      async (encoded) => {
+        const configPath = path.join(tmpDir, ".agents", "agentsync.toml");
+        await outputFile(
+          configPath,
+          `tools = ["claude"]\n${encoded}mcp.kept.command = "keep"\n`,
+        );
 
-      const result = await configRm("mcp", "foo", { cwd: tmpDir });
+        const result = await configRm("mcp", "foo", { cwd: tmpDir });
 
-      expect(result.action).toBe("removed");
-      const content = await readFile(configPath, "utf-8");
-      expect(parseToml(content).mcp).toEqual({ kept: { command: "keep" } });
-    });
+        expect(result.action).toBe("removed");
+        const content = await readFile(configPath, "utf-8");
+        expect(parseToml(content).mcp).toEqual({ kept: { command: "keep" } });
+      },
+    );
 
     it("removes an inline server beneath an explicit mcp table", async () => {
       const configPath = path.join(tmpDir, ".agents", "agentsync.toml");

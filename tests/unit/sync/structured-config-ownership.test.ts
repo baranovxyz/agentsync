@@ -119,42 +119,35 @@ describe("provider structured config ownership", () => {
     );
   }
 
-  it.each(
-    PERMISSION_CASES,
-  )("$tool rejects an occupied desired key even when its value is identical", async ({
-    tool,
-    configPath,
-    key,
-    projected,
-  }) => {
-    await configure(configToml([tool], { permissions: true }));
-    await writeConfig(configPath, { manual: true, [key]: projected });
+  it.each(PERMISSION_CASES)(
+    "$tool rejects an occupied desired key even when its value is identical",
+    async ({ tool, configPath, key, projected }) => {
+      await configure(configToml([tool], { permissions: true }));
+      await writeConfig(configPath, { manual: true, [key]: projected });
 
-    await expect(run()).rejects.toThrow(/occupied key has no prior/);
+      await expect(run()).rejects.toThrow(/occupied key has no prior/);
 
-    expect((await readConfig(configPath))[key]).toEqual(projected);
-    expect(await readManifest(project)).toBeUndefined();
-  });
+      expect((await readConfig(configPath))[key]).toEqual(projected);
+      expect(await readManifest(project)).toBeUndefined();
+    },
+  );
 
-  it.each(
-    PERMISSION_CASES,
-  )("$tool permits unchanged resync and rejects a modified desired key", async ({
-    tool,
-    configPath,
-    key,
-  }) => {
-    await configure(configToml([tool], { permissions: true }));
-    await writeConfig(configPath, { manual: true });
+  it.each(PERMISSION_CASES)(
+    "$tool permits unchanged resync and rejects a modified desired key",
+    async ({ tool, configPath, key }) => {
+      await configure(configToml([tool], { permissions: true }));
+      await writeConfig(configPath, { manual: true });
 
-    await run();
-    await expect(run()).resolves.toBeDefined();
-    const modified = await readConfig(configPath);
-    modified[key] = { user: "edit" };
-    await writeConfig(configPath, modified);
+      await run();
+      await expect(run()).resolves.toBeDefined();
+      const modified = await readConfig(configPath);
+      modified[key] = { user: "edit" };
+      await writeConfig(configPath, modified);
 
-    await expect(run()).rejects.toThrow(/modified after the last successful/);
-    expect((await readConfig(configPath))[key]).toEqual({ user: "edit" });
-  });
+      await expect(run()).rejects.toThrow(/modified after the last successful/);
+      expect((await readConfig(configPath))[key]).toEqual({ user: "edit" });
+    },
+  );
 
   it.each([
     {
@@ -228,42 +221,40 @@ describe("provider structured config ownership", () => {
         state,
       })),
     ),
-  )("$tool withdraws $state prior ownership safely", async ({
-    tool,
-    configPath,
-    key,
-    state,
-  }) => {
-    await configure(configToml([tool], { permissions: true }));
-    await writeConfig(configPath, { manual: true });
-    await run();
+  )(
+    "$tool withdraws $state prior ownership safely",
+    async ({ tool, configPath, key, state }) => {
+      await configure(configToml([tool], { permissions: true }));
+      await writeConfig(configPath, { manual: true });
+      await run();
 
-    if (state !== "unchanged") {
-      const current = await readConfig(configPath);
-      if (state === "missing") delete current[key];
-      else current[key] = { user: "edit" };
-      await writeConfig(configPath, current);
-    }
-    await configure(configToml([tool]));
+      if (state !== "unchanged") {
+        const current = await readConfig(configPath);
+        if (state === "missing") delete current[key];
+        else current[key] = { user: "edit" };
+        await writeConfig(configPath, current);
+      }
+      await configure(configToml([tool]));
 
-    const result = await run();
-    const config = await readConfig(configPath);
-    if (state === "modified") {
-      expect(config[key]).toEqual({ user: "edit" });
-      expect(result.warnings).toEqual(
-        expect.arrayContaining([
-          expect.stringContaining(`preserved modified key "${key}"`),
-        ]),
-      );
-    } else {
-      expect(config).not.toHaveProperty(key);
-      expect(result.warnings).toEqual([]);
-    }
-    expect(config.manual).toBe(true);
-    expect(
-      (await readManifest(project))?.structured_owners?.[tool],
-    ).toBeUndefined();
-  });
+      const result = await run();
+      const config = await readConfig(configPath);
+      if (state === "modified") {
+        expect(config[key]).toEqual({ user: "edit" });
+        expect(result.warnings).toEqual(
+          expect.arrayContaining([
+            expect.stringContaining(`preserved modified key "${key}"`),
+          ]),
+        );
+      } else {
+        expect(config).not.toHaveProperty(key);
+        expect(result.warnings).toEqual([]);
+      }
+      expect(config.manual).toBe(true);
+      expect(
+        (await readManifest(project))?.structured_owners?.[tool],
+      ).toBeUndefined();
+    },
+  );
 
   it("preserves unselected receipts, then full and zero-tool sync withdraw prior owners", async () => {
     const tools: StructuredTool[] = ["claude", "cursor", "opencode"];
@@ -399,39 +390,38 @@ describe("provider structured config ownership", () => {
       configPath: ".cursor/hooks.json",
       artifact: ".cursor/hooks/audit.sh",
     },
-  ])("$tool preserves dependent hook artifacts when a withdrawn key was modified", async ({
-    tool,
-    configPath,
-    artifact,
-  }) => {
-    await configure(configToml([tool], { hook: true }));
-    await outputFile(
-      path.join(project, ".agents/hooks/scripts/audit.sh"),
-      "#!/bin/sh\nexit 0\n",
-    );
-    await run();
-    const current = await readConfig(configPath);
-    current.hooks = { user: "edit" };
-    await writeConfig(configPath, current);
-    await configure(configToml([tool]));
+  ])(
+    "$tool preserves dependent hook artifacts when a withdrawn key was modified",
+    async ({ tool, configPath, artifact }) => {
+      await configure(configToml([tool], { hook: true }));
+      await outputFile(
+        path.join(project, ".agents/hooks/scripts/audit.sh"),
+        "#!/bin/sh\nexit 0\n",
+      );
+      await run();
+      const current = await readConfig(configPath);
+      current.hooks = { user: "edit" };
+      await writeConfig(configPath, current);
+      await configure(configToml([tool]));
 
-    const result = await run();
+      const result = await run();
 
-    const preservedConfig = await readConfig(configPath);
-    expect(preservedConfig.hooks).toEqual({ user: "edit" });
-    if (tool === "cursor") expect(preservedConfig.version).toBe(1);
-    expect(await pathExists(path.join(project, artifact))).toBe(true);
-    expect((await readManifest(project))?.owners?.[tool]).toBeUndefined();
-    expect(
-      (await readManifest(project))?.structured_owners?.[tool],
-    ).toBeUndefined();
-    expect(result.warnings).toEqual(
-      expect.arrayContaining([
-        expect.stringContaining('preserved modified key "hooks"'),
-        expect.stringContaining(`preserved dependent output ${artifact}`),
-      ]),
-    );
-  });
+      const preservedConfig = await readConfig(configPath);
+      expect(preservedConfig.hooks).toEqual({ user: "edit" });
+      if (tool === "cursor") expect(preservedConfig.version).toBe(1);
+      expect(await pathExists(path.join(project, artifact))).toBe(true);
+      expect((await readManifest(project))?.owners?.[tool]).toBeUndefined();
+      expect(
+        (await readManifest(project))?.structured_owners?.[tool],
+      ).toBeUndefined();
+      expect(result.warnings).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining('preserved modified key "hooks"'),
+          expect.stringContaining(`preserved dependent output ${artifact}`),
+        ]),
+      );
+    },
+  );
 
   it("preserves the whole Cursor hooks config when only version was modified", async () => {
     await configure(configToml(["cursor"], { hook: true }));

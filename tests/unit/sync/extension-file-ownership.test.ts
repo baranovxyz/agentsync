@@ -97,147 +97,135 @@ describe("extension file ownership", () => {
     });
   }
 
-  it.each(
-    HOOK_CASES,
-  )("$tool records the exact hook artifact and permits unchanged resync", async ({
-    tool,
-    destination,
-  }) => {
-    await configure([tool], true);
-    await writeHookSource();
+  it.each(HOOK_CASES)(
+    "$tool records the exact hook artifact and permits unchanged resync",
+    async ({ tool, destination }) => {
+      await configure([tool], true);
+      await writeHookSource();
 
-    await run();
-    await expect(run()).resolves.toBeDefined();
-    await rm(path.join(project, destination));
-    await expect(run()).resolves.toBeDefined();
+      await run();
+      await expect(run()).resolves.toBeDefined();
+      await rm(path.join(project, destination));
+      await expect(run()).resolves.toBeDefined();
 
-    expect((await readManifest(project))?.owners?.[tool]).toContain(
-      destination,
-    );
-    expect(await pathExists(path.join(project, destination))).toBe(true);
-  });
+      expect((await readManifest(project))?.owners?.[tool]).toContain(
+        destination,
+      );
+      expect(await pathExists(path.join(project, destination))).toBe(true);
+    },
+  );
 
-  it.each(
-    HOOK_CASES,
-  )("$tool refuses an occupied unowned hook artifact even with identical bytes", async ({
-    tool,
-    destination,
-  }) => {
-    await configure([tool], true);
-    await writeHookSource();
-    await outputFile(path.join(project, destination), HOOK_BODY);
+  it.each(HOOK_CASES)(
+    "$tool refuses an occupied unowned hook artifact even with identical bytes",
+    async ({ tool, destination }) => {
+      await configure([tool], true);
+      await writeHookSource();
+      await outputFile(path.join(project, destination), HOOK_BODY);
 
-    await expect(run()).rejects.toThrow("Refusing to overwrite unowned");
+      await expect(run()).rejects.toThrow("Refusing to overwrite unowned");
 
-    expect(await readFile(path.join(project, destination), "utf-8")).toBe(
-      HOOK_BODY,
-    );
-  });
+      expect(await readFile(path.join(project, destination), "utf-8")).toBe(
+        HOOK_BODY,
+      );
+    },
+  );
 
-  it.each(
-    HOOK_CASES,
-  )("$tool rejects ambiguous hook destinations before writing", async ({
-    tool,
-    destination,
-    settings,
-  }) => {
-    await outputFile(
-      path.join(project, ".agents", "agentsync.toml"),
-      [
-        `tools = ["${tool}"]`,
-        "",
-        "[[hooks.PreToolUse]]",
-        'id = "canonical"',
-        'command = ".agents/hooks/scripts/scripts/audit.sh"',
-        "",
-        "[[hooks.PostToolUse]]",
-        'id = "project"',
-        'command = "scripts/audit.sh"',
-      ].join("\n"),
-    );
-    await outputFile(
-      path.join(project, ".agents/hooks/scripts/scripts/audit.sh"),
-      "#!/bin/sh\necho canonical\n",
-    );
-    await outputFile(
-      path.join(project, "scripts/audit.sh"),
-      "#!/bin/sh\necho project\n",
-    );
+  it.each(HOOK_CASES)(
+    "$tool rejects ambiguous hook destinations before writing",
+    async ({ tool, destination, settings }) => {
+      await outputFile(
+        path.join(project, ".agents", "agentsync.toml"),
+        [
+          `tools = ["${tool}"]`,
+          "",
+          "[[hooks.PreToolUse]]",
+          'id = "canonical"',
+          'command = ".agents/hooks/scripts/scripts/audit.sh"',
+          "",
+          "[[hooks.PostToolUse]]",
+          'id = "project"',
+          'command = "scripts/audit.sh"',
+        ].join("\n"),
+      );
+      await outputFile(
+        path.join(project, ".agents/hooks/scripts/scripts/audit.sh"),
+        "#!/bin/sh\necho canonical\n",
+      );
+      await outputFile(
+        path.join(project, "scripts/audit.sh"),
+        "#!/bin/sh\necho project\n",
+      );
 
-    await expect(run()).rejects.toThrow(
-      "resolve to the same generated destination",
-    );
+      await expect(run()).rejects.toThrow(
+        "resolve to the same generated destination",
+      );
 
-    expect(
-      await pathExists(
-        path.join(project, path.dirname(destination), "scripts/audit.sh"),
-      ),
-    ).toBe(false);
-    expect(await pathExists(path.join(project, settings))).toBe(false);
-    expect(await readManifest(project)).toBeUndefined();
-  });
+      expect(
+        await pathExists(
+          path.join(project, path.dirname(destination), "scripts/audit.sh"),
+        ),
+      ).toBe(false);
+      expect(await pathExists(path.join(project, settings))).toBe(false);
+      expect(await readManifest(project)).toBeUndefined();
+    },
+  );
 
-  it.each(
-    HOOK_CASES,
-  )("$tool refuses to overwrite a modified receipt-owned hook artifact", async ({
-    tool,
-    destination,
-  }) => {
-    await configure([tool], true);
-    await writeHookSource();
-    await run();
-    await outputFile(path.join(project, destination), "# user edit\n");
+  it.each(HOOK_CASES)(
+    "$tool refuses to overwrite a modified receipt-owned hook artifact",
+    async ({ tool, destination }) => {
+      await configure([tool], true);
+      await writeHookSource();
+      await run();
+      await outputFile(path.join(project, destination), "# user edit\n");
 
-    await expect(run()).rejects.toThrow("Refusing to overwrite modified");
+      await expect(run()).rejects.toThrow("Refusing to overwrite modified");
 
-    expect(await readFile(path.join(project, destination), "utf-8")).toBe(
-      "# user edit\n",
-    );
-  });
+      expect(await readFile(path.join(project, destination), "utf-8")).toBe(
+        "# user edit\n",
+      );
+    },
+  );
 
-  it.each(
-    HOOK_CASES,
-  )("$tool removes an unchanged stale artifact and keeps manual siblings", async ({
-    tool,
-    destination,
-    manualSibling,
-  }) => {
-    await configure([tool], true);
-    await writeHookSource();
-    await run();
-    await outputFile(path.join(project, manualSibling), "# manual\n");
-    await configure([tool], false);
+  it.each(HOOK_CASES)(
+    "$tool removes an unchanged stale artifact and keeps manual siblings",
+    async ({ tool, destination, manualSibling }) => {
+      await configure([tool], true);
+      await writeHookSource();
+      await run();
+      await outputFile(path.join(project, manualSibling), "# manual\n");
+      await configure([tool], false);
 
-    await run();
+      await run();
 
-    expect(await pathExists(path.join(project, destination))).toBe(false);
-    expect(await readFile(path.join(project, manualSibling), "utf-8")).toBe(
-      "# manual\n",
-    );
-  });
+      expect(await pathExists(path.join(project, destination))).toBe(false);
+      expect(await readFile(path.join(project, manualSibling), "utf-8")).toBe(
+        "# manual\n",
+      );
+    },
+  );
 
-  it.each(
-    HOOK_CASES,
-  )("$tool preserves and relinquishes a modified stale artifact", async ({
-    tool,
-    destination,
-  }) => {
-    await configure([tool], true);
-    await writeHookSource();
-    await run();
-    await outputFile(path.join(project, destination), "# user edit\n");
-    await configure([tool], false);
+  it.each(HOOK_CASES)(
+    "$tool preserves and relinquishes a modified stale artifact",
+    async ({ tool, destination }) => {
+      await configure([tool], true);
+      await writeHookSource();
+      await run();
+      await outputFile(path.join(project, destination), "# user edit\n");
+      await configure([tool], false);
 
-    const result = await run();
+      const result = await run();
 
-    expect(await readFile(path.join(project, destination), "utf-8")).toBe(
-      "# user edit\n",
-    );
-    expect(result.warnings).toEqual([
-      expect.stringContaining(`preserved stale modified output ${destination}`),
-    ]);
-    expect((await readManifest(project))?.owners?.[tool]).toBeUndefined();
-  });
+      expect(await readFile(path.join(project, destination), "utf-8")).toBe(
+        "# user edit\n",
+      );
+      expect(result.warnings).toEqual([
+        expect.stringContaining(
+          `preserved stale modified output ${destination}`,
+        ),
+      ]);
+      expect((await readManifest(project))?.owners?.[tool]).toBeUndefined();
+    },
+  );
 
   it("reports only existing-source Claude artifacts in preview and real results", async () => {
     const existingHook = path.join(project, HOOK_SOURCE);
@@ -386,38 +374,36 @@ describe("extension file ownership", () => {
     );
   });
 
-  it.each(
-    HOOK_CASES,
-  )("$tool dry-run reports modified stale artifacts without mutation", async ({
-    tool,
-    destination,
-  }) => {
-    await configure([tool], true);
-    await writeHookSource();
-    await run();
-    await outputFile(path.join(project, destination), "# user edit\n");
-    await configure([tool], false);
-    const manifestPath = getManifestPath(project);
-    const manifestBefore = await readFile(manifestPath, "utf-8");
-    const plan = await buildSyncPlan({ cwd: project });
+  it.each(HOOK_CASES)(
+    "$tool dry-run reports modified stale artifacts without mutation",
+    async ({ tool, destination }) => {
+      await configure([tool], true);
+      await writeHookSource();
+      await run();
+      await outputFile(path.join(project, destination), "# user edit\n");
+      await configure([tool], false);
+      const manifestPath = getManifestPath(project);
+      const manifestBefore = await readFile(manifestPath, "utf-8");
+      const plan = await buildSyncPlan({ cwd: project });
 
-    const warnings = await previewSharedOutputLifecycle(
-      plan,
-      project,
-      await readManifest(project),
-      false,
-    );
+      const warnings = await previewSharedOutputLifecycle(
+        plan,
+        project,
+        await readManifest(project),
+        false,
+      );
 
-    expect(warnings).toEqual([
-      expect.stringContaining(
-        `would preserve stale modified output ${destination}`,
-      ),
-    ]);
-    expect(await readFile(path.join(project, destination), "utf-8")).toBe(
-      "# user edit\n",
-    );
-    expect(await readFile(manifestPath, "utf-8")).toBe(manifestBefore);
-  });
+      expect(warnings).toEqual([
+        expect.stringContaining(
+          `would preserve stale modified output ${destination}`,
+        ),
+      ]);
+      expect(await readFile(path.join(project, destination), "utf-8")).toBe(
+        "# user edit\n",
+      );
+      expect(await readFile(manifestPath, "utf-8")).toBe(manifestBefore);
+    },
+  );
 
   it("clean removes unchanged extension artifacts without touching siblings", async () => {
     await configure(["claude", "cursor"], true);

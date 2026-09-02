@@ -36,14 +36,17 @@ describe("managed top-level config keys", () => {
   it.each([
     ["identical", { permission: { Bash: "ask" } }],
     ["different", { permission: { Bash: "allow" } }],
-  ])("rejects an unowned occupied desired key even when %s", (_case, existing) => {
-    expect(() =>
-      reconcile(existing, { permission: { Bash: "ask" } }),
-    ).toThrowError(ConfigError);
-    expect(() => reconcile(existing, { permission: { Bash: "ask" } })).toThrow(
-      /no prior AgentSync ownership receipt/,
-    );
-  });
+  ])(
+    "rejects an unowned occupied desired key even when %s",
+    (_case, existing) => {
+      expect(() =>
+        reconcile(existing, { permission: { Bash: "ask" } }),
+      ).toThrowError(ConfigError);
+      expect(() =>
+        reconcile(existing, { permission: { Bash: "ask" } }),
+      ).toThrow(/no prior AgentSync ownership receipt/);
+    },
+  );
 
   it("retains an unchanged owned value without reporting a change", () => {
     const permission = { Bash: "ask", Read: "allow" };
@@ -169,17 +172,20 @@ describe("managed top-level config keys", () => {
   it.each([
     ["desired", { unknown: true }, {}],
     ["receipt", {}, { unknown: hashSemanticValue(true) }],
-  ])("rejects an undeclared %s key before reconciliation", (_case, desired, receipt) => {
-    expect(() =>
-      reconcileManagedKeys({
-        context: "Example settings",
-        declaredKeys,
-        existing: {},
-        desired,
-        previousReceipt: receipt,
-      }),
-    ).toThrow(/key "unknown": the .* key is not declared/);
-  });
+  ])(
+    "rejects an undeclared %s key before reconciliation",
+    (_case, desired, receipt) => {
+      expect(() =>
+        reconcileManagedKeys({
+          context: "Example settings",
+          declaredKeys,
+          existing: {},
+          desired,
+          previousReceipt: receipt,
+        }),
+      ).toThrow(/key "unknown": the .* key is not declared/);
+    },
+  );
 
   it("rejects a malformed receipt hash", () => {
     expect(() => reconcile({}, {}, { permission: "not-a-hash" })).toThrow(

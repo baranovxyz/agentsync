@@ -47,20 +47,23 @@ describe("init current status", () => {
   it.each([
     ["current", 'tools = ["claude", "codex"]\n', ["claude", "codex"]],
     ["foreign", 'default_agents = ["cursor"]\n', ["cursor"]],
-  ])("returns %s existing tools in JSON status", async (_kind, config, tools) => {
-    project = await mkdtemp(path.join(tmpdir(), "agentsync-init-status-"));
-    await outputFile(path.join(project, ".agents", "agentsync.toml"), config);
-    vi.spyOn(process, "cwd").mockReturnValue(project);
-    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+  ])(
+    "returns %s existing tools in JSON status",
+    async (_kind, config, tools) => {
+      project = await mkdtemp(path.join(tmpdir(), "agentsync-init-status-"));
+      await outputFile(path.join(project, ".agents", "agentsync.toml"), config);
+      vi.spyOn(process, "cwd").mockReturnValue(project);
+      const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
 
-    await init({ json: true });
+      await init({ json: true });
 
-    const output = log.mock.calls
-      .flat()
-      .find((value) => String(value).startsWith("{"));
-    const envelope = parseJsonValidated(String(output), CliResultSchema);
-    expect(InitDataSchema.parse(envelope.data).tools).toEqual(tools);
-  });
+      const output = log.mock.calls
+        .flat()
+        .find((value) => String(value).startsWith("{"));
+      const envelope = parseJsonValidated(String(output), CliResultSchema);
+      expect(InitDataSchema.parse(envelope.data).tools).toEqual(tools);
+    },
+  );
 
   it.each([
     ["human", {}],

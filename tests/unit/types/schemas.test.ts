@@ -73,12 +73,12 @@ describe("ExtendsEntry type", () => {
       );
     });
 
-    it.each([
-      "gitlab:company/standards",
-      "nonsense:thing",
-    ])("rejects unsupported source scheme %s at the schema boundary", (source) => {
-      expect(() => normalizeExtends([source])).toThrow(/Source must be/);
-    });
+    it.each(["gitlab:company/standards", "nonsense:thing"])(
+      "rejects unsupported source scheme %s at the schema boundary",
+      (source) => {
+        expect(() => normalizeExtends([source])).toThrow(/Source must be/);
+      },
+    );
   });
 
   describe("validateNamespace function", () => {

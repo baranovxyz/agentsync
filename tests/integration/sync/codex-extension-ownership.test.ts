@@ -52,34 +52,36 @@ describe("Codex extension ownership", () => {
     await rm(project, { recursive: true, force: true });
   });
 
-  it.each(
-    cases,
-  )("rejects occupied unowned $name even when the value is identical", async (testCase) => {
-    await outputFile(configPath, testCase.identical);
+  it.each(cases)(
+    "rejects occupied unowned $name even when the value is identical",
+    async (testCase) => {
+      await outputFile(configPath, testCase.identical);
 
-    await expect(
-      previewExtensions([provider], testCase.input, project),
-    ).rejects.toThrow("unowned Codex extension value");
-    await expect(
-      syncExtensions([provider], testCase.input, project),
-    ).rejects.toThrow("unowned Codex extension value");
+      await expect(
+        previewExtensions([provider], testCase.input, project),
+      ).rejects.toThrow("unowned Codex extension value");
+      await expect(
+        syncExtensions([provider], testCase.input, project),
+      ).rejects.toThrow("unowned Codex extension value");
 
-    expect(await readFile(configPath, "utf-8")).toBe(testCase.identical);
-  });
+      expect(await readFile(configPath, "utf-8")).toBe(testCase.identical);
+    },
+  );
 
-  it.each(
-    cases,
-  )("rejects a modified receipt-owned $name in preview and execution", async (testCase) => {
-    await syncExtensions([provider], testCase.input, project);
-    await outputFile(configPath, testCase.modified);
+  it.each(cases)(
+    "rejects a modified receipt-owned $name in preview and execution",
+    async (testCase) => {
+      await syncExtensions([provider], testCase.input, project);
+      await outputFile(configPath, testCase.modified);
 
-    await expect(
-      previewExtensions([provider], testCase.input, project),
-    ).rejects.toThrow("modified Codex extension value");
-    await expect(
-      syncExtensions([provider], testCase.input, project),
-    ).rejects.toThrow("modified Codex extension value");
+      await expect(
+        previewExtensions([provider], testCase.input, project),
+      ).rejects.toThrow("modified Codex extension value");
+      await expect(
+        syncExtensions([provider], testCase.input, project),
+      ).rejects.toThrow("modified Codex extension value");
 
-    expect(await readFile(configPath, "utf-8")).toBe(testCase.modified);
-  });
+      expect(await readFile(configPath, "utf-8")).toBe(testCase.modified);
+    },
+  );
 });

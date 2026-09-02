@@ -378,175 +378,185 @@ describe("built CLI release lifecycle", () => {
     await rm(testRoot, { recursive: true, force: true });
   });
 
-  it.each(
-    TARGETS,
-  )("$tool is deterministic, dry-run safe, and withdraws stale agents", async (target) => {
-    const userOwnedAgent = await seedProject(projectRoot, target);
+  it.each(TARGETS)(
+    "$tool is deterministic, dry-run safe, and withdraws stale agents",
+    async (target) => {
+      const userOwnedAgent = await seedProject(projectRoot, target);
 
-    const first = runBuiltCommand(
-      projectRoot,
-      homeRoot,
-      ["sync", "--json"],
-      SyncCliResultSchema,
-    );
-    expect(first.status).toBe("success");
-    const firstProjection = await snapshotSandbox(projectRoot, homeRoot, true);
-    expect(
-      Number.isNaN(Date.parse((await readManifest(projectRoot)).timestamp)),
-    ).toBe(false);
-
-    const repeated = runBuiltCommand(
-      projectRoot,
-      homeRoot,
-      ["sync", "--json"],
-      SyncCliResultSchema,
-    );
-    expect(repeated.status).toBe("success");
-    expect(await snapshotSandbox(projectRoot, homeRoot, true)).toEqual(
-      firstProjection,
-    );
-
-    const beforePreview = await snapshotSandbox(projectRoot, homeRoot);
-    const preview = runBuiltCommand(
-      projectRoot,
-      homeRoot,
-      ["sync", "--dry-run", "--json"],
-      SyncCliResultSchema,
-    );
-    expect(preview.status).toBe("success");
-    expect(preview.data).toEqual(repeated.data);
-    expect(preview.warnings ?? []).toEqual(repeated.warnings ?? []);
-    expect(await snapshotSandbox(projectRoot, homeRoot)).toEqual(beforePreview);
-
-    await rm(path.join(projectRoot, ".agents/agents/reviewer.md"));
-    const withdrawn = runBuiltCommand(
-      projectRoot,
-      homeRoot,
-      ["sync", "--json"],
-      SyncCliResultSchema,
-    );
-    expect(withdrawn.status).toBe("success");
-    expect(
-      await pathExists(path.join(projectRoot, target.generatedAgent)),
-    ).toBe(false);
-    if (target.generatedAgentCompanion) {
-      expect(
-        await pathExists(
-          path.join(projectRoot, target.generatedAgentCompanion),
-        ),
-      ).toBe(false);
-    }
-    expect(await readFile(userOwnedAgent, "utf-8")).toBe(
-      "# User-owned agent\n",
-    );
-  }, 20_000);
-
-  it.each(
-    TARGETS,
-  )("$tool clean removes unchanged ownership and relinquishes edited outputs", async (target) => {
-    const userOwnedAgent = await seedProject(projectRoot, target, ["edited"]);
-    const initial = runBuiltCommand(
-      projectRoot,
-      homeRoot,
-      ["sync", "--json"],
-      SyncCliResultSchema,
-    );
-    expect(initial.status).toBe("success");
-
-    const editedAgent = path.join(
-      projectRoot,
-      generatedAgentPath(target, "edited"),
-    );
-    const editedContent = "# User-edited generated agent\n";
-    await writeFile(editedAgent, editedContent);
-
-    const beforeCleanPreview = await snapshotSandbox(projectRoot, homeRoot);
-    const cleanPreview = runBuiltCommand(
-      projectRoot,
-      homeRoot,
-      ["clean", "--dry-run", "--json"],
-      CleanCliResultSchema,
-    );
-    expect(cleanPreview.status).toBe("success");
-    expect(cleanPreview.data.dryRun).toBe(true);
-    expect(await snapshotSandbox(projectRoot, homeRoot)).toEqual(
-      beforeCleanPreview,
-    );
-    const previewResult = cleanPreview.data.results.find(
-      (result) => result.tool === target.tool,
-    );
-    expect(previewResult?.removedFiles).toContain(
-      path.join(projectRoot, target.generatedAgent),
-    );
-    expect(previewResult?.removedFiles).not.toContain(editedAgent);
-    expectRelinquishWarning(previewResult?.warnings, target, "edited");
-
-    const cleaned = runBuiltCommand(
-      projectRoot,
-      homeRoot,
-      ["clean", "--json"],
-      CleanCliResultSchema,
-    );
-    expect(cleaned.status).toBe("success");
-    expect(cleaned.data.summary).toEqual(cleanPreview.data.summary);
-    const cleanedResult = cleaned.data.results.find(
-      (result) => result.tool === target.tool,
-    );
-    expect(cleanedResult?.removedFiles).toContain(
-      path.join(projectRoot, target.generatedAgent),
-    );
-    expect(cleanedResult?.removedFiles).not.toContain(editedAgent);
-    expectRelinquishWarning(cleanedResult?.warnings, target, "edited");
-    expect(
-      await pathExists(path.join(projectRoot, target.generatedAgent)),
-    ).toBe(false);
-    expect(await readFile(editedAgent, "utf-8")).toBe(editedContent);
-    if (target.generatedAgentCompanion) {
-      expect(
-        await pathExists(
-          path.join(projectRoot, target.generatedAgentCompanion),
-        ),
-      ).toBe(false);
-    }
-    const editedCompanion = generatedCompanionPath(target, "edited");
-    if (editedCompanion) {
-      expect(await pathExists(path.join(projectRoot, editedCompanion))).toBe(
+      const first = runBuiltCommand(
+        projectRoot,
+        homeRoot,
+        ["sync", "--json"],
+        SyncCliResultSchema,
+      );
+      expect(first.status).toBe("success");
+      const firstProjection = await snapshotSandbox(
+        projectRoot,
+        homeRoot,
         true,
       );
-    }
-    expect(await readFile(userOwnedAgent, "utf-8")).toBe(
-      "# User-owned agent\n",
-    );
-
-    const configExists = await pathExists(
-      path.join(projectRoot, target.configPath),
-    );
-    if (target.retainedConfigFragment) {
-      expect(configExists).toBe(true);
-      const retainedConfig = await readFile(
-        path.join(projectRoot, target.configPath),
-        "utf-8",
-      );
-      expect(retainedConfig).toContain(target.retainedConfigFragment);
-      expect(retainedConfig).not.toContain("release");
-    } else {
-      expect(configExists).toBe(false);
-    }
-
-    const manifest = await readManifest(projectRoot);
-    expect(manifest.files).toEqual({});
-    expect(manifest.owners).toEqual({});
-    expect(manifest.mcp_owners ?? {}).toEqual({});
-    expect(manifest.provider_state_owners ?? []).toEqual([]);
-    expect(manifest.structured_owners ?? {}).toEqual({});
-    if (target.tool === "codex") {
       expect(
-        await pathExists(
-          path.join(projectRoot, ".codex/.agentsync-ownership.json"),
-        ),
+        Number.isNaN(Date.parse((await readManifest(projectRoot)).timestamp)),
       ).toBe(false);
-    }
-  }, 20_000);
+
+      const repeated = runBuiltCommand(
+        projectRoot,
+        homeRoot,
+        ["sync", "--json"],
+        SyncCliResultSchema,
+      );
+      expect(repeated.status).toBe("success");
+      expect(await snapshotSandbox(projectRoot, homeRoot, true)).toEqual(
+        firstProjection,
+      );
+
+      const beforePreview = await snapshotSandbox(projectRoot, homeRoot);
+      const preview = runBuiltCommand(
+        projectRoot,
+        homeRoot,
+        ["sync", "--dry-run", "--json"],
+        SyncCliResultSchema,
+      );
+      expect(preview.status).toBe("success");
+      expect(preview.data).toEqual(repeated.data);
+      expect(preview.warnings ?? []).toEqual(repeated.warnings ?? []);
+      expect(await snapshotSandbox(projectRoot, homeRoot)).toEqual(
+        beforePreview,
+      );
+
+      await rm(path.join(projectRoot, ".agents/agents/reviewer.md"));
+      const withdrawn = runBuiltCommand(
+        projectRoot,
+        homeRoot,
+        ["sync", "--json"],
+        SyncCliResultSchema,
+      );
+      expect(withdrawn.status).toBe("success");
+      expect(
+        await pathExists(path.join(projectRoot, target.generatedAgent)),
+      ).toBe(false);
+      if (target.generatedAgentCompanion) {
+        expect(
+          await pathExists(
+            path.join(projectRoot, target.generatedAgentCompanion),
+          ),
+        ).toBe(false);
+      }
+      expect(await readFile(userOwnedAgent, "utf-8")).toBe(
+        "# User-owned agent\n",
+      );
+    },
+    20_000,
+  );
+
+  it.each(TARGETS)(
+    "$tool clean removes unchanged ownership and relinquishes edited outputs",
+    async (target) => {
+      const userOwnedAgent = await seedProject(projectRoot, target, ["edited"]);
+      const initial = runBuiltCommand(
+        projectRoot,
+        homeRoot,
+        ["sync", "--json"],
+        SyncCliResultSchema,
+      );
+      expect(initial.status).toBe("success");
+
+      const editedAgent = path.join(
+        projectRoot,
+        generatedAgentPath(target, "edited"),
+      );
+      const editedContent = "# User-edited generated agent\n";
+      await writeFile(editedAgent, editedContent);
+
+      const beforeCleanPreview = await snapshotSandbox(projectRoot, homeRoot);
+      const cleanPreview = runBuiltCommand(
+        projectRoot,
+        homeRoot,
+        ["clean", "--dry-run", "--json"],
+        CleanCliResultSchema,
+      );
+      expect(cleanPreview.status).toBe("success");
+      expect(cleanPreview.data.dryRun).toBe(true);
+      expect(await snapshotSandbox(projectRoot, homeRoot)).toEqual(
+        beforeCleanPreview,
+      );
+      const previewResult = cleanPreview.data.results.find(
+        (result) => result.tool === target.tool,
+      );
+      expect(previewResult?.removedFiles).toContain(
+        path.join(projectRoot, target.generatedAgent),
+      );
+      expect(previewResult?.removedFiles).not.toContain(editedAgent);
+      expectRelinquishWarning(previewResult?.warnings, target, "edited");
+
+      const cleaned = runBuiltCommand(
+        projectRoot,
+        homeRoot,
+        ["clean", "--json"],
+        CleanCliResultSchema,
+      );
+      expect(cleaned.status).toBe("success");
+      expect(cleaned.data.summary).toEqual(cleanPreview.data.summary);
+      const cleanedResult = cleaned.data.results.find(
+        (result) => result.tool === target.tool,
+      );
+      expect(cleanedResult?.removedFiles).toContain(
+        path.join(projectRoot, target.generatedAgent),
+      );
+      expect(cleanedResult?.removedFiles).not.toContain(editedAgent);
+      expectRelinquishWarning(cleanedResult?.warnings, target, "edited");
+      expect(
+        await pathExists(path.join(projectRoot, target.generatedAgent)),
+      ).toBe(false);
+      expect(await readFile(editedAgent, "utf-8")).toBe(editedContent);
+      if (target.generatedAgentCompanion) {
+        expect(
+          await pathExists(
+            path.join(projectRoot, target.generatedAgentCompanion),
+          ),
+        ).toBe(false);
+      }
+      const editedCompanion = generatedCompanionPath(target, "edited");
+      if (editedCompanion) {
+        expect(await pathExists(path.join(projectRoot, editedCompanion))).toBe(
+          true,
+        );
+      }
+      expect(await readFile(userOwnedAgent, "utf-8")).toBe(
+        "# User-owned agent\n",
+      );
+
+      const configExists = await pathExists(
+        path.join(projectRoot, target.configPath),
+      );
+      if (target.retainedConfigFragment) {
+        expect(configExists).toBe(true);
+        const retainedConfig = await readFile(
+          path.join(projectRoot, target.configPath),
+          "utf-8",
+        );
+        expect(retainedConfig).toContain(target.retainedConfigFragment);
+        expect(retainedConfig).not.toContain("release");
+      } else {
+        expect(configExists).toBe(false);
+      }
+
+      const manifest = await readManifest(projectRoot);
+      expect(manifest.files).toEqual({});
+      expect(manifest.owners).toEqual({});
+      expect(manifest.mcp_owners ?? {}).toEqual({});
+      expect(manifest.provider_state_owners ?? []).toEqual([]);
+      expect(manifest.structured_owners ?? {}).toEqual({});
+      if (target.tool === "codex") {
+        expect(
+          await pathExists(
+            path.join(projectRoot, ".codex/.agentsync-ownership.json"),
+          ),
+        ).toBe(false);
+      }
+    },
+    20_000,
+  );
 
   it("preserves unselected provider authority during built filtered sync", async () => {
     const userOwnedAgent = await seedProject(projectRoot, TARGETS[0]);

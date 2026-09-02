@@ -110,81 +110,79 @@ describe("managed MCP ownership", () => {
     await outputFile(configPath, content);
   }
 
-  it.each([
-    "claude",
-    "cursor",
-    "opencode",
-    "codex",
-  ])("guards every configured %s MCP write with exact prior ownership", async (tool) => {
-    const provider = getToolProvider(tool);
-    const roots = Object.fromEntries(
-      await Promise.all(
-        ["absent", "unowned-identical", "unowned-different", "owned"].map(
-          async (name) => {
-            const root = path.join(projectDir, `${tool}-${name}`);
-            await ensureDir(root);
-            return [name, root] as const;
-          },
+  it.each(["claude", "cursor", "opencode", "codex"])(
+    "guards every configured %s MCP write with exact prior ownership",
+    async (tool) => {
+      const provider = getToolProvider(tool);
+      const roots = Object.fromEntries(
+        await Promise.all(
+          ["absent", "unowned-identical", "unowned-different", "owned"].map(
+            async (name) => {
+              const root = path.join(projectDir, `${tool}-${name}`);
+              await ensureDir(root);
+              return [name, root] as const;
+            },
+          ),
         ),
-      ),
-    );
+      );
 
-    const absent = await syncManagedMCP([provider], trackerMcp, roots.absent);
-    expect(absent.owners[tool]).toBeDefined();
+      const absent = await syncManagedMCP([provider], trackerMcp, roots.absent);
+      expect(absent.owners[tool]).toBeDefined();
 
-    await outputFile(
-      projectMcpPath(tool, roots["unowned-identical"]),
-      await readFile(projectMcpPath(tool, roots.absent), "utf-8"),
-    );
-    await expect(
-      syncManagedMCP([provider], trackerMcp, roots["unowned-identical"]),
-    ).rejects.toMatchObject({
-      code: "CONFIG_ERROR",
-      context: {
-        configPath: projectMcpPath(tool, roots["unowned-identical"]),
-      },
-    });
+      await outputFile(
+        projectMcpPath(tool, roots["unowned-identical"]),
+        await readFile(projectMcpPath(tool, roots.absent), "utf-8"),
+      );
+      await expect(
+        syncManagedMCP([provider], trackerMcp, roots["unowned-identical"]),
+      ).rejects.toMatchObject({
+        code: "CONFIG_ERROR",
+        context: {
+          configPath: projectMcpPath(tool, roots["unowned-identical"]),
+        },
+      });
 
-    await writeDifferentMcpState(tool, roots["unowned-different"]);
-    await expect(
-      syncManagedMCP([provider], trackerMcp, roots["unowned-different"]),
-    ).rejects.toMatchObject({
-      code: "CONFIG_ERROR",
-      context: {
-        configPath: projectMcpPath(tool, roots["unowned-different"]),
-      },
-    });
+      await writeDifferentMcpState(tool, roots["unowned-different"]);
+      await expect(
+        syncManagedMCP([provider], trackerMcp, roots["unowned-different"]),
+      ).rejects.toMatchObject({
+        code: "CONFIG_ERROR",
+        context: {
+          configPath: projectMcpPath(tool, roots["unowned-different"]),
+        },
+      });
 
-    const firstOwned = await syncManagedMCP(
-      [provider],
-      trackerMcp,
-      roots.owned,
-    );
-    const updated = await syncManagedMCP(
-      [provider],
-      updatedTrackerMcp,
-      roots.owned,
-      { previousOwners: firstOwned.owners },
-    );
-    expect(updated.owners[tool]).toBeDefined();
+      const firstOwned = await syncManagedMCP(
+        [provider],
+        trackerMcp,
+        roots.owned,
+      );
+      const updated = await syncManagedMCP(
+        [provider],
+        updatedTrackerMcp,
+        roots.owned,
+        { previousOwners: firstOwned.owners },
+      );
+      expect(updated.owners[tool]).toBeDefined();
 
-    await writeDifferentMcpState(tool, roots.owned);
-    const modifiedBefore = await readFile(
-      projectMcpPath(tool, roots.owned),
-      "utf-8",
-    );
-    await expect(
-      syncManagedMCP([provider], trackerMcp, roots.owned, {
-        previousOwners: updated.owners,
-      }),
-    ).rejects.toMatchObject({
-      code: "CONFIG_ERROR",
-      context: { configPath: projectMcpPath(tool, roots.owned) },
-    });
-    expect(await readFile(projectMcpPath(tool, roots.owned), "utf-8")).toBe(
-      modifiedBefore,
-    );
-  });
+      await writeDifferentMcpState(tool, roots.owned);
+      const modifiedBefore = await readFile(
+        projectMcpPath(tool, roots.owned),
+        "utf-8",
+      );
+      await expect(
+        syncManagedMCP([provider], trackerMcp, roots.owned, {
+          previousOwners: updated.owners,
+        }),
+      ).rejects.toMatchObject({
+        code: "CONFIG_ERROR",
+        context: { configPath: projectMcpPath(tool, roots.owned) },
+      });
+      expect(await readFile(projectMcpPath(tool, roots.owned), "utf-8")).toBe(
+        modifiedBefore,
+      );
+    },
+  );
 
   it("rejects one occupied MCP target before writing any other provider", async () => {
     const cursorPath = projectMcpPath("cursor", projectDir);

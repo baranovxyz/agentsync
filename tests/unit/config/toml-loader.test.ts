@@ -109,35 +109,33 @@ skills = ["deploy"]
       expect(error.message).toContain("Unrecognized key");
     });
 
-    it.each([
-      "skills_dirs",
-      "presets",
-      "typo",
-    ])("rejects unknown profile field %s", (field) => {
-      const error = captureConfigError(`
+    it.each(["skills_dirs", "presets", "typo"])(
+      "rejects unknown profile field %s",
+      (field) => {
+        const error = captureConfigError(`
 tools = ["claude"]
 
 [profiles.release]
 ${field} = ["unused"]
 `);
 
-      expect(error.message).toContain("profiles.release");
-      expect(error.message).toContain("Unrecognized key");
-    });
+        expect(error.message).toContain("profiles.release");
+        expect(error.message).toContain("Unrecognized key");
+      },
+    );
 
-    it.each([
-      "toolz",
-      "skills_dirs",
-      "workerHints",
-    ])("rejects unknown current root field %s", (field) => {
-      const error = captureConfigError(`
+    it.each(["toolz", "skills_dirs", "workerHints"])(
+      "rejects unknown current root field %s",
+      (field) => {
+        const error = captureConfigError(`
 tools = ["claude"]
 ${field} = "unused"
 `);
 
-      expect(error.message).toContain("Unrecognized key");
-      expect(error.message).toContain(field);
-    });
+        expect(error.message).toContain("Unrecognized key");
+        expect(error.message).toContain(field);
+      },
+    );
 
     it("rejects an unknown current root table", () => {
       const error = captureConfigError(`

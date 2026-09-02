@@ -1153,18 +1153,19 @@ describe("syncExtensions", () => {
       expect(config.personality).toBe("pragmatic");
     });
 
-    it.each(
-      UNMAPPED_CLAUDE_TONES,
-    )("warns when cc tone='%s' has no built-in mapping", async (tone) => {
-      const result = await syncToolExtensions(
-        "claude",
-        { outputStyle: { tone } },
-        tmpDir,
-      );
-      expect(result.warnings).toEqual([
-        expect.stringContaining(`tone="${tone}"`),
-      ]);
-    });
+    it.each(UNMAPPED_CLAUDE_TONES)(
+      "warns when cc tone='%s' has no built-in mapping",
+      async (tone) => {
+        const result = await syncToolExtensions(
+          "claude",
+          { outputStyle: { tone } },
+          tmpDir,
+        );
+        expect(result.warnings).toEqual([
+          expect.stringContaining(`tone="${tone}"`),
+        ]);
+      },
+    );
 
     it("warns once for unsupported extension surfaces and stays quiet when unconfigured", async () => {
       const input: ExtensionsInput = {

@@ -287,36 +287,36 @@ describe("Codex agentsPostHook", () => {
     { candidates: ["Iris", " Iris "], reason: "duplicates" },
     { candidates: ["Iris!"], reason: "ASCII" },
     { candidates: ["Íris"], reason: "ASCII" },
-  ])("drops invalid nickname candidates %# with the upstream reason", async ({
-    candidates,
-    reason,
-  }) => {
-    await outputFile(
-      path.join(tmpDir, ".agents", "agents", "reviewer.md"),
-      [
-        "---",
-        "description: Managed reviewer",
-        "codex:",
-        `  nickname_candidates: ${JSON.stringify(candidates)}`,
-        "---",
-        "# Reviewer",
-      ].join("\n"),
-    );
+  ])(
+    "drops invalid nickname candidates %# with the upstream reason",
+    async ({ candidates, reason }) => {
+      await outputFile(
+        path.join(tmpDir, ".agents", "agents", "reviewer.md"),
+        [
+          "---",
+          "description: Managed reviewer",
+          "codex:",
+          `  nickname_candidates: ${JSON.stringify(candidates)}`,
+          "---",
+          "# Reviewer",
+        ].join("\n"),
+      );
 
-    const [preview] = await previewAgents([getToolProvider("codex")], tmpDir);
-    const [written] = await syncAgents([getToolProvider("codex")], tmpDir);
-    const config = parseSettings(
-      await readFile(path.join(tmpDir, ".codex", "config.toml"), "utf-8"),
-    );
-    const agents = CodexAgentEntriesSchema.parse(config.agents);
+      const [preview] = await previewAgents([getToolProvider("codex")], tmpDir);
+      const [written] = await syncAgents([getToolProvider("codex")], tmpDir);
+      const config = parseSettings(
+        await readFile(path.join(tmpDir, ".codex", "config.toml"), "utf-8"),
+      );
+      const agents = CodexAgentEntriesSchema.parse(config.agents);
 
-    expect(agents.reviewer.nickname_candidates).toBeUndefined();
-    expect(written.warnings).toEqual(preview.warnings);
-    expect(written.warnings).toEqual([
-      expect.stringContaining("nickname_candidates dropped"),
-    ]);
-    expect(written.warnings[0]).toContain(reason);
-  });
+      expect(agents.reviewer.nickname_candidates).toBeUndefined();
+      expect(written.warnings).toEqual(preview.warnings);
+      expect(written.warnings).toEqual([
+        expect.stringContaining("nickname_candidates dropped"),
+      ]);
+      expect(written.warnings[0]).toContain(reason);
+    },
+  );
 
   it("skips roles without a description in real and preview projections", async () => {
     const agentsDir = path.join(tmpDir, ".agents", "agents");
@@ -590,32 +590,33 @@ describe("Codex agentsPostHook", () => {
         return { artifactPath, content };
       },
     },
-  ])("fails closed before overwriting a modified desired $surface", async ({
-    modify,
-  }) => {
-    await writeReviewerSource();
-    await syncAgents([getToolProvider("codex")], tmpDir);
-    const { artifactPath, content } = await modify(tmpDir);
-    await outputFile(
-      path.join(tmpDir, ".agents", "agents", "fresh.md"),
-      "---\ndescription: Fresh role\n---\n# Fresh",
-    );
+  ])(
+    "fails closed before overwriting a modified desired $surface",
+    async ({ modify }) => {
+      await writeReviewerSource();
+      await syncAgents([getToolProvider("codex")], tmpDir);
+      const { artifactPath, content } = await modify(tmpDir);
+      await outputFile(
+        path.join(tmpDir, ".agents", "agents", "fresh.md"),
+        "---\ndescription: Fresh role\n---\n# Fresh",
+      );
 
-    await expect(
-      previewAgents([getToolProvider("codex")], tmpDir),
-    ).rejects.toMatchObject({ code: "CONFIG_ERROR" });
-    await expect(
-      syncAgents([getToolProvider("codex")], tmpDir),
-    ).rejects.toMatchObject({
-      code: "CONFIG_ERROR",
-      suggestion: expect.any(String),
-    });
+      await expect(
+        previewAgents([getToolProvider("codex")], tmpDir),
+      ).rejects.toMatchObject({ code: "CONFIG_ERROR" });
+      await expect(
+        syncAgents([getToolProvider("codex")], tmpDir),
+      ).rejects.toMatchObject({
+        code: "CONFIG_ERROR",
+        suggestion: expect.any(String),
+      });
 
-    expect(await readFile(artifactPath, "utf-8")).toBe(content);
-    expect(
-      await pathExists(path.join(tmpDir, ".codex", "agents", "fresh.md")),
-    ).toBe(false);
-  });
+      expect(await readFile(artifactPath, "utf-8")).toBe(content);
+      expect(
+        await pathExists(path.join(tmpDir, ".codex", "agents", "fresh.md")),
+      ).toBe(false);
+    },
+  );
 
   it("deduplicates global and project agents by final destination", async () => {
     const globalDir = path.join(tmpDir, "global-agents");
