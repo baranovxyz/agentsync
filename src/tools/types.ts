@@ -10,6 +10,7 @@ import type {
   StructuredConfigDeclaration,
   StructuredStateClaim,
 } from "../sync/structured-state.js";
+import type { SyncMode } from "../sync/write-file.js";
 import type {
   HookSpec,
   OutputStyleConfigSchema,
@@ -129,11 +130,17 @@ export interface RulesFormat {
    * @param rules  every canonical rule, conditional and unconditional alike.
    *               A writer that cannot honor a rule's load condition MUST
    *               skip it and warn — never widen its scope.
+   * @param mode   "copy" or "link". A writer whose output is byte-identical
+   *               to the canonical source (e.g. Claude Code) should honor
+   *               `writeFileByMode`; a writer that transforms content (e.g.
+   *               Cursor's `.mdc`) always materializes real bytes and may
+   *               ignore this parameter.
    * @returns the rule names actually written, plus lossy-translation warnings
    */
   writeRules(
     rules: CanonicalRule[],
     cwd: string,
+    mode: SyncMode,
   ): Promise<{ written: string[]; warnings: string[] }>;
 }
 

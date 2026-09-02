@@ -14,6 +14,12 @@ import fg from "fast-glob";
 import type { CanonicalRule, ToolProvider } from "../tools/types.js";
 import { splitFrontmatter } from "../utils/frontmatter.js";
 import { pathExists, readFile } from "../utils/fs.js";
+import type { SyncMode } from "./write-file.js";
+
+/** Options for rule sync behavior */
+export interface RulesSyncOptions {
+  mode?: SyncMode;
+}
 
 /** Result of syncing rules to a single tool */
 export interface RuleSyncResult {
@@ -140,7 +146,9 @@ export async function loadCanonicalRules(cwd: string): Promise<{
 export async function syncRules(
   providers: ToolProvider[],
   cwd: string,
+  options?: RulesSyncOptions,
 ): Promise<RuleSyncResult[]> {
+  const mode = options?.mode ?? "copy";
   const { rules, warnings: loadWarnings } = await loadCanonicalRules(cwd);
   const results: RuleSyncResult[] = [];
 
@@ -157,6 +165,7 @@ export async function syncRules(
     const { written, warnings } = await provider.rulesFormat.writeRules(
       rules,
       cwd,
+      mode,
     );
 
     results.push({

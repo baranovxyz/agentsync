@@ -91,6 +91,35 @@ describe("Commands Sync", () => {
     expect(results[0].warnings).toEqual([]);
   });
 
+  it("warns when a project command's frontmatter has no description", async () => {
+    const cmdsDir = path.join(tmpDir, ".agents", "commands");
+    await outputFile(path.join(cmdsDir, "no-desc.md"), "# No Description");
+
+    const providers = [getToolProvider("claude")];
+    const results = await syncCommands(providers, tmpDir);
+
+    expect(results[0].commands).toEqual(["no-desc.md"]);
+    const warning = results[0].warnings.find((w) => w.includes("no-desc.md"));
+    expect(warning).toBeDefined();
+    expect(warning).toContain("description");
+    expect(
+      await pathExists(path.join(tmpDir, ".claude", "commands", "no-desc.md")),
+    ).toBe(true);
+  });
+
+  it("does not warn when a project command's description is present", async () => {
+    const cmdsDir = path.join(tmpDir, ".agents", "commands");
+    await outputFile(
+      path.join(cmdsDir, "has-desc.md"),
+      "---\ndescription: has a description\n---\n# Has Description",
+    );
+
+    const providers = [getToolProvider("claude")];
+    const results = await syncCommands(providers, tmpDir);
+
+    expect(results[0].warnings).toEqual([]);
+  });
+
   it("uses current Amp and Augment command contracts without mutating canonical input", async () => {
     const canonical = path.join(tmpDir, ".agents", "commands", "local.md");
     const globalDir = path.join(tmpDir, "global-commands");
@@ -116,7 +145,12 @@ describe("Commands Sync", () => {
       tool: "augment",
       commandCount: 3,
       commands: ["global.md", "company--preset.md", "local.md"],
-      warnings: [],
+      warnings: [
+        expect.stringContaining(
+          "global.md — missing frontmatter 'description'",
+        ),
+        expect.stringContaining("local.md — missing frontmatter 'description'"),
+      ],
     });
     expect(await readFile(canonical, "utf-8")).toBe("# Local\n");
     expect(

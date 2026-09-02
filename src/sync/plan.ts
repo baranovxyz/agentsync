@@ -16,7 +16,11 @@ import {
 import { isToolName, SUPPORTED_TOOLS, type ToolName } from "../constants.js";
 import type { MergedConfig } from "../core/config/hierarchy.js";
 import { resolveConfig } from "../core/config/resolve.js";
-import { ConfigError, getErrorMessage } from "../core/errors.js";
+import {
+  AgentSyncError,
+  ConfigError,
+  getErrorMessage,
+} from "../core/errors.js";
 import { loadEnv } from "../core/mcp/env.js";
 import type { MCP } from "../core/mcp/tokens.js";
 import { substituteAllMCPs, validateTokens } from "../core/mcp/tokens.js";
@@ -216,6 +220,19 @@ export async function buildSyncPlan(
         commandsMap.set(entry.namespace, [commandsDir]);
         agentsMap.set(entry.namespace, [agentsDir]);
       } catch (error) {
+        if (
+          error instanceof AgentSyncError &&
+          error.code === "PRESET_REF_NOT_FOUND"
+        ) {
+          presetErrors.push({
+            code: "PRESET_REF_NOT_FOUND",
+            message: error.message,
+            suggestion: error.suggestion,
+            retryable: false,
+            context: { source: entry.source },
+          });
+          continue;
+        }
         const msg = getErrorMessage(error);
         presetErrors.push({
           code: "PRESET_UNREACHABLE",

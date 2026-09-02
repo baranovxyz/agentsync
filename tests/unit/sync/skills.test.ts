@@ -451,7 +451,90 @@ describe("Skills Sync", () => {
     expect(results[0].warnings.find((w) => w.includes("flat"))).toBeUndefined();
   });
 
+  it("warns about a flat file only once across a multi-tool run", async () => {
+    // Each generated-output tool independently scans .agents/skills, so
+    // without dedup this warning would repeat once per tool.
+    const skillsDir = path.join(tmpDir, ".agents", "skills");
+    await ensureDir(skillsDir);
+    await outputFile(path.join(skillsDir, "stray-flat.md"), "# wrong layout");
+    await outputFile(
+      path.join(skillsDir, "valid", "SKILL.md"),
+      "---\ndescription: valid skill\n---\n# valid",
+    );
+
+    const providers = ["claude", "copilot", "cline"].map(getToolProvider);
+    const results = await syncSkills(providers, tmpDir);
+
+    const flatWarnings = results.flatMap((result) =>
+      result.warnings.filter((w) => w.includes("stray-flat.md")),
+    );
+    expect(flatWarnings).toHaveLength(1);
+  });
+
+  it("warns when a project skill's frontmatter has no description", async () => {
+    await outputFile(
+      path.join(tmpDir, ".agents", "skills", "no-desc", "SKILL.md"),
+      "---\nname: no-desc\n---\n# No Description",
+    );
+
+    const providers = [getToolProvider("claude")];
+    const results = await syncSkills(providers, tmpDir);
+
+    expect(results[0].skills).toEqual(["no-desc"]);
+    const warning = results[0].warnings.find((w) => w.includes("no-desc"));
+    expect(warning).toBeDefined();
+    expect(warning).toContain("description");
+    expect(
+      await pathExists(
+        path.join(tmpDir, ".claude", "skills", "no-desc", "SKILL.md"),
+      ),
+    ).toBe(true);
+  });
+
+  it("does not warn when a project skill's description is present", async () => {
+    await outputFile(
+      path.join(tmpDir, ".agents", "skills", "has-desc", "SKILL.md"),
+      "---\ndescription: has a description\n---\n# Has Description",
+    );
+
+    const providers = [getToolProvider("claude")];
+    const results = await syncSkills(providers, tmpDir);
+
+    expect(results[0].warnings).toEqual([]);
+  });
+
   describe("Global skills", () => {
+    it("dedupes a skill shared between global and project sources, keeping the project copy", async () => {
+      const globalSkillsDir = path.join(tmpDir, "global-skills");
+      await outputFile(
+        path.join(globalSkillsDir, "shared", "SKILL.md"),
+        "---\ndescription: global version\n---\n# Global",
+      );
+      await outputFile(
+        path.join(tmpDir, ".agents", "skills", "shared", "SKILL.md"),
+        "---\ndescription: project version\n---\n# Project",
+      );
+
+      const providers = [getToolProvider("claude")];
+      const results = await syncSkills(providers, tmpDir, undefined, {
+        globalDirs: [globalSkillsDir],
+      });
+
+      expect(results[0].skillCount).toBe(1);
+      expect(results[0].skills).toEqual(["shared"]);
+      const shadowWarning = results[0].warnings.find((w) =>
+        w.includes("shared"),
+      );
+      expect(shadowWarning).toBeDefined();
+      expect(shadowWarning).toContain("global-skills");
+
+      const content = await readFile(
+        path.join(tmpDir, ".claude", "skills", "shared", "SKILL.md"),
+        "utf-8",
+      );
+      expect(content).toContain("# Project");
+    });
+
     it("writes nothing for native readers that cover ~/.agents/skills", async () => {
       const globalSkillsDir = path.join(tmpDir, "global-skills");
       await ensureDir(path.join(globalSkillsDir, "onboarding"));

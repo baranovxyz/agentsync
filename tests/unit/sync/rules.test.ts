@@ -4,21 +4,33 @@
  * The load condition (`paths:` present or absent) is the property under test
  * throughout: a rule may be reformatted for a tool, but never re-scoped.
  */
-import { mkdtemp, readFile, rm, stat, symlink } from "node:fs/promises";
+import {
+  lstat,
+  mkdtemp,
+  readFile,
+  readlink,
+  rm,
+  stat,
+  symlink,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   readManifest,
+  removeHashOwnedFile,
+  validatedOwnedFiles,
   writeOwnedManifest,
 } from "../../../src/sync/manifest.js";
 import {
   loadCanonicalRules,
   previewRules as previewRuleArtifacts,
+  type RuleSyncResult,
   syncRules as syncRuleArtifacts,
 } from "../../../src/sync/rules.js";
 import { applyStructuredLifecyclePlan } from "../../../src/sync/structured-lifecycle.js";
 import { planToolStructuredLifecycle } from "../../../src/sync/structured-providers.js";
+import type { SyncMode } from "../../../src/sync/write-file.js";
 import { claudeProvider } from "../../../src/tools/claude.js";
 import { codexProvider } from "../../../src/tools/codex.js";
 import { cursorProvider, toCursorMdc } from "../../../src/tools/cursor.js";
@@ -52,7 +64,11 @@ async function previewRules(providers: ToolProvider[], cwd: string) {
   return previewRuleArtifacts(providers, cwd);
 }
 
-async function syncRules(providers: ToolProvider[], cwd: string) {
+async function syncRules(
+  providers: ToolProvider[],
+  cwd: string,
+  options?: { mode?: SyncMode },
+) {
   const { rules } = await loadCanonicalRules(cwd);
   const lifecycle = await planToolStructuredLifecycle({
     cwd,
@@ -61,12 +77,46 @@ async function syncRules(providers: ToolProvider[], cwd: string) {
     desired: { extensions: {}, rules },
     preserveUnselected: true,
   });
-  const results = await syncRuleArtifacts(providers, cwd);
+  const results = await syncRuleArtifacts(providers, cwd, options);
   const applied = await applyStructuredLifecyclePlan(lifecycle);
   await writeOwnedManifest(cwd, new Map(), {
     preserveUnselected: true,
     replaceTools: providers.map((provider) => provider.name),
     structuredOwners: applied.plan.nextReceipts,
+  });
+  return results;
+}
+
+/**
+ * Mirrors `collectWrittenFiles`' rule-file mapping (`src/sync/shared-output-
+ * lifecycle.ts`) so the manifest records the real output paths — the plain
+ * `syncRules` helper above always publishes an empty file map, which is fine
+ * for content assertions but cannot exercise symlink bookkeeping or `clean`.
+ */
+async function syncRulesWithManifest(
+  providers: ToolProvider[],
+  cwd: string,
+  mode: SyncMode,
+): Promise<RuleSyncResult[]> {
+  const results = await syncRules(providers, cwd, { mode });
+  const filesByTool = new Map<string, string[]>(
+    results.flatMap((result) => {
+      const provider = providers.find((p) => p.name === result.tool);
+      const output = provider?.rulesFormat?.fileOutput;
+      if (!output) return [];
+      return [
+        [
+          result.tool,
+          result.rules.map((name) =>
+            path.join(cwd, output.root, `${name}${output.extension}`),
+          ),
+        ],
+      ];
+    }),
+  );
+  await writeOwnedManifest(cwd, filesByTool, {
+    preserveUnselected: true,
+    replaceTools: providers.map((provider) => provider.name),
   });
   return results;
 }
@@ -198,6 +248,68 @@ describe("rules sync", () => {
       expect(results[0].rules).toEqual(["api"]);
       expect(await readFile(source, "utf-8")).toBe(SCOPED);
     });
+  });
+
+  describe("link mode", () => {
+    it.runIf(process.platform !== "win32")(
+      "symlinks the byte-identical Claude output but keeps Cursor's translated output a real file",
+      async () => {
+        await writeRule(tmpDir, "api.md", SCOPED);
+
+        await syncRules([claudeProvider, cursorProvider], tmpDir, {
+          mode: "link",
+        });
+
+        const claudePath = path.join(tmpDir, ".claude", "rules", "api.md");
+        const cursorPath = path.join(tmpDir, ".cursor", "rules", "api.mdc");
+        expect((await lstat(claudePath)).isSymbolicLink()).toBe(true);
+        expect(
+          path.resolve(path.dirname(claudePath), await readlink(claudePath)),
+        ).toBe(path.join(tmpDir, ".agents", "rules", "api.md"));
+        expect(await readFile(claudePath, "utf-8")).toBe(SCOPED);
+        expect((await lstat(cursorPath)).isSymbolicLink()).toBe(false);
+      },
+    );
+
+    it.runIf(process.platform !== "win32")(
+      "replaces the symlink with a real file when syncing --copy after --link",
+      async () => {
+        await writeRule(tmpDir, "api.md", SCOPED);
+        await syncRules([claudeProvider], tmpDir, { mode: "link" });
+
+        await syncRules([claudeProvider], tmpDir, { mode: "copy" });
+
+        const claudePath = path.join(tmpDir, ".claude", "rules", "api.md");
+        expect((await lstat(claudePath)).isSymbolicLink()).toBe(false);
+        expect(await readFile(claudePath, "utf-8")).toBe(SCOPED);
+      },
+    );
+
+    it.runIf(process.platform !== "win32")(
+      "clean removes the symlink and leaves the canonical source untouched",
+      async () => {
+        await writeRule(tmpDir, "api.md", SCOPED);
+        await syncRulesWithManifest([claudeProvider], tmpDir, "link");
+        const claudePath = path.join(tmpDir, ".claude", "rules", "api.md");
+        const canonicalPath = path.join(tmpDir, ".agents", "rules", "api.md");
+        expect((await lstat(claudePath)).isSymbolicLink()).toBe(true);
+
+        const manifest = await readManifest(tmpDir);
+        const { files } = validatedOwnedFiles(tmpDir, claudeProvider, manifest);
+        const owned = files.find((file) =>
+          file.relativePath.endsWith("api.md"),
+        );
+        if (!owned) throw new Error("expected an owned claude rule entry");
+        expect(owned.expectedSymlinkTarget).toBe(canonicalPath);
+
+        const state = await removeHashOwnedFile(tmpDir, owned, false);
+
+        expect(state).toBe("removed");
+        expect(await pathExists(claudePath)).toBe(false);
+        expect(await pathExists(canonicalPath)).toBe(true);
+        expect(await readFile(canonicalPath, "utf-8")).toBe(SCOPED);
+      },
+    );
   });
 
   describe("cursor", () => {

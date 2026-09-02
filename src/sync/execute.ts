@@ -135,7 +135,7 @@ async function syncPrimarySurfaces(
       mode,
       globalDirs: plan.hierarchyAgentDirs,
     }),
-    syncRules(plan.providers, cwd),
+    syncRules(plan.providers, cwd, { mode }),
   ]);
 }
 
