@@ -90,7 +90,7 @@ version bump, and the `.agents/agentsync.toml` config schema is frozen for v1. G
   Filesystem sources now always use ordinary preset-directory loading; provider-directory
   auto-detection and Reference Mode are not part of the current CLI
 - `init` now creates the complete current authored `.agents/` directories, including `rules/`;
-  the unused `.agents/backups/` directory and gitignore entry are removed. Codex lossy-projection
+  the unused backup directory under `.agents/` and its gitignore entry are removed. Codex lossy-projection
   warnings describe only supported current behavior and no longer advertise planned override
   syntax
 - Cursor is now a maintainer-validated beta target after pinned Docker validation and transcript-
